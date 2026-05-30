@@ -1,0 +1,52 @@
+<div
+  #wrapper
+  class="ag-wrapper"
+  tabindex="0"
+  (keydown)="onKeyDown($event)"
+>
+  <div
+    class="ag-header"
+    [style.grid-template-columns]="gridTemplateColumns()"
+    [style.min-width.px]="totalWidth()"
+  >
+    @for (col of colDefs(); track col.field) {
+      <div class="ag-header-cell">{{ col.header }}</div>
+    }
+  </div>
+
+  <cdk-virtual-scroll-viewport
+    class="ag-body"
+    [itemSize]="rowHeight()"
+    [style.min-width.px]="totalWidth()"
+  >
+    <div
+      *cdkVirtualFor="let row of displayRows(); let i = index; trackBy: trackByIndex"
+      class="ag-row"
+      [class.ag-add-row]="row === null"
+      [class.ag-add-row--selected]="row === null && isAddRowSelected(i)"
+      [style.height.px]="rowHeight()"
+      [style.grid-template-columns]="row !== null ? gridTemplateColumns() : null"
+    >
+      @if (row !== null) {
+        @for (col of colDefs(); track col.field; let ci = $index) {
+          <agrid-cell
+            [col]="col"
+            [rowIndex]="i"
+            [colIndex]="ci"
+            [value]="row[col.field]"
+            [selected]="isSelected(i, ci)"
+            [editing]="isEditing(i, ci)"
+            [seedChar]="getSeedChar(i, ci)"
+            (activate)="onActivate(i, ci)"
+            (startEdit)="onStartEdit(i, ci)"
+            (draftChange)="onDraftChange($event)"
+          />
+        }
+      } @else {
+        <div class="ag-add-row-label" (click)="onActivateAddRow(i)">
+          <span class="ag-add-row-icon">+</span> Add row
+        </div>
+      }
+    </div>
+  </cdk-virtual-scroll-viewport>
+</div>
