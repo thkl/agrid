@@ -16,6 +16,41 @@ import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { CellPosition, ColDef, GridEditEvent, NewRecord } from './agrid.types';
 
+/** Internal row item used in the virtual scroll list. `null` represents the add-row placeholder. */
+export type GridItem = { row: Record<string, unknown>; originalIndex: number } | null;
+
+/**
+ * Excel-like data grid for Angular 21.
+ *
+ * ## Minimal setup
+ * ```html
+ * <agrid [colDefs]="columns" [dataSource]="ds" />
+ * ```
+ *
+ * ## Full example
+ * ```html
+ * <agrid
+ *   [colDefs]="columns"
+ *   [dataSource]="ds"
+ *   [control]="ctrl"
+ *   [allowAddRows]="true"
+ *   [autoAddRows]="true"
+ *   [showControlColumn]="true"
+ *   (cellEdit)="onEdit($event)"
+ *   (prepareAddRecord)="onAdd($event)"
+ * />
+ * ```
+ *
+ * ### Keyboard shortcuts
+ * | Key | Action |
+ * |-----|--------|
+ * | Arrow keys | Move selection |
+ * | Tab / Shift+Tab | Move right / left (wraps rows) |
+ * | Enter / F2 | Enter edit mode |
+ * | Printable key | Enter edit mode and seed input with typed character |
+ * | Escape | Cancel edit |
+ * | Tab / Enter (while editing) | Commit and move right / down |
+ */
 @Component({
   selector: 'agrid',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -24,31 +59,92 @@ import { CellPosition, ColDef, GridEditEvent, NewRecord } from './agrid.types';
   styleUrl: './agrid.component.css',
 })
 export class AgridComponent {
+  /** Column definitions — order determines left-to-right display order. */
   colDefs = input.required<ColDef[]>();
+
+  /**
+   * Row height in pixels.
+   * Must be a fixed value because CDK virtual scroll requires a constant item size.
+   * @default 32
+   */
   rowHeight = input<number>(32);
-  dataSource = input.required<AgridDataSource>();
+
+  /**
+   * Signal-based data container. Shared with the host so both sides can read and write rows.
+   * Semantically required — always provide a value.
+   * Uses an empty default internally so computed signals that depend on it are safe
+   * to read before Angular has finished setting inputs (e.g. via viewChild queries).
+   */
+  dataSource = input<AgridDataSource>(new AgridDataSource());
+
+  /**
+   * Optional grid UI state container (column widths, filters, sort).
+   * When provided, column width changes and filter/sort state are stored here
+   * and can be persisted via `control.toJSON()` / `AgridControl.fromJSON()`.
+   * Without it, resize state is ephemeral and filtering/sorting is unavailable.
+   */
   control = input<AgridControl | null>(null);
+
+  /**
+   * Show a `+ Add row` placeholder at the bottom of the grid.
+   * Clicking or navigating to it triggers {@link prepareAddRecord}.
+   */
   allowAddRows = input<boolean>(false);
+
+  /**
+   * Automatically add a blank row when the user navigates past the last real row.
+   * The row is inserted before {@link prepareAddRecord} fires, so the grid can
+   * scroll to it immediately. When `true`, the explicit placeholder is hidden.
+   */
   autoAddRows = input<boolean>(false);
+
+  /**
+   * Show a 24 px control column as the first column.
+   * Right-clicking a control cell opens a context menu with row-level actions (Delete row, etc.).
+   */
   showControlColumn = input<boolean>(false);
+
+  /**
+   * Emitted after the user commits a cell edit.
+   * The data source is already updated at this point.
+   */
   cellEdit = output<GridEditEvent>();
+
+  /**
+   * Emitted when the grid has inserted a blank row into the data source.
+   * Use the `index` in the event to call `dataSource.patchRow(index, realData)`.
+   */
   prepareAddRecord = output<NewRecord>();
 
+  /** Currently selected cell (original index), or `null` when nothing is selected. */
   readonly selectedCell = signal<CellPosition | null>(null);
+
+  /** Position of the cell currently in edit mode (original index), or `null`. */
   readonly editingCell = signal<CellPosition | null>(null);
+
+  /** Draft value of the editing cell — committed on Tab/Enter, discarded on Escape. */
   readonly currentDraft = signal<unknown>(null);
+
+  /** Seed character typed by the user to enter edit mode instantly (e.g. pressing 'A'). */
   readonly editSeedChar = signal<string>('');
 
-  // Ephemeral widths used when no AgridControl is provided
+  // Ephemeral widths used when no AgridControl is provided.
   private readonly _localWidths = signal<Record<string, number>>({});
 
-  private colWidth(field: string, defaultWidth: number): number {
-    const ctrl = this.control();
-    return ctrl
-      ? ctrl.columnWidths()[field] ?? defaultWidth
-      : this._localWidths()[field] ?? defaultWidth;
-  }
+  /** `true` when at least one column has `filterable: true`. Controls filter-row visibility. */
+  readonly hasFilterableColumns = computed(() => this.colDefs().some(c => c.filterable));
 
+  /**
+   * Number of data rows currently visible after all active filters are applied.
+   * Read this via a template reference (`<agrid #grid>`→`grid.filteredRowCount()`) to
+   * show a "3 of 10 rows" indicator in the host component.
+   * Always equals `dataSource.length` when no filters are active.
+   */
+  readonly filteredRowCount = computed(() =>
+    this.filteredItems().filter(item => item !== null).length
+  );
+
+  /** CSS `grid-template-columns` string derived from effective column widths. */
   readonly gridTemplateColumns = computed(() => {
     const ctrl = this.control();
     const ctrlWidths = ctrl ? ctrl.columnWidths() : {};
@@ -59,6 +155,7 @@ export class AgridComponent {
     return this.showControlColumn() ? `24px ${cols}` : cols;
   });
 
+  /** Sum of all effective column widths (plus the control column when enabled). */
   readonly totalWidth = computed(() => {
     const ctrl = this.control();
     const ctrlWidths = ctrl ? ctrl.columnWidths() : {};
@@ -70,73 +167,218 @@ export class AgridComponent {
     return this.showControlColumn() ? w + 24 : w;
   });
 
+  /**
+   * Filtered and sorted row list passed to `*cdkVirtualFor`.
+   * Each item carries the original data-source index so all cell operations target
+   * the correct row even when filters change the display order.
+   * Appends a `null` sentinel when the explicit add-row placeholder is active.
+   */
+  readonly filteredItems = computed<GridItem[]>(() => {
+    const rows = this.dataSource().rows();
+    const ctrl = this.control();
+
+    // Build index array: start with all rows, then filter, then sort.
+    let indices = rows.map((_, i) => i);
+
+    if (ctrl) {
+      const filters = ctrl.filters();
+
+      for (const [field, filter] of Object.entries(filters)) {
+        if (filter.text) {
+          const lc = filter.text.toLowerCase();
+          indices = indices.filter(i => String(rows[i][field] ?? '').toLowerCase().includes(lc));
+        }
+        if (filter.selectedValues !== null) {
+          const allowed = new Set(filter.selectedValues);
+          indices = indices.filter(i => allowed.has(String(rows[i][field] ?? '')));
+        }
+      }
+
+      // Apply sort (only one column sorted at a time)
+      const sortEntry = Object.entries(filters).find(([, f]) => f.sort);
+      if (sortEntry) {
+        const [sortField, sortFilter] = sortEntry;
+        indices = [...indices].sort((a, b) => {
+          const av = String(rows[a][sortField] ?? '');
+          const bv = String(rows[b][sortField] ?? '');
+          const cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+          return sortFilter.sort === 'asc' ? cmp : -cmp;
+        });
+      }
+    }
+
+    const items: GridItem[] = indices.map(i => ({ row: rows[i], originalIndex: i }));
+
+    if (this.allowAddRows() && !this.autoAddRows()) {
+      items.push(null);
+    }
+
+    return items;
+  });
+
+  /** Active context menu state, or `null` when no menu is open. */
   readonly contextMenu = signal<{ x: number; y: number; rowIndex: number } | null>(null);
 
-  // Column resize state
+  /** Active filter dropdown state, or `null` when closed. */
+  readonly filterMenu = signal<{ field: string; x: number; y: number } | null>(null);
+
+  /** Search text typed inside the filter dropdown's value list. */
+  readonly filterMenuSearch = signal<string>('');
+
+  /**
+   * All unique values for the open filter menu's field (from the full unfiltered dataset).
+   * Sorted alphabetically.
+   */
+  readonly filterMenuAllValues = computed(() => {
+    const menu = this.filterMenu();
+    if (!menu) return [];
+    const rows = this.dataSource().rows();
+    return [...new Set(rows.map(r => String(r[menu.field] ?? '')))].sort(
+      (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+    );
+  });
+
+  /**
+   * Subset of {@link filterMenuAllValues} matching the current search string.
+   */
+  readonly filterMenuVisibleValues = computed(() => {
+    const search = this.filterMenuSearch().toLowerCase();
+    return this.filterMenuAllValues().filter(v => !search || v.toLowerCase().includes(search));
+  });
+
+  /**
+   * Set of values that still exist in the dataset when ALL OTHER column filters are applied
+   * (excluding the currently open menu's own filter).
+   * Values absent from this set are grayed and disabled in the dropdown — they exist in the
+   * full dataset but are already excluded by other active filters.
+   */
+  readonly filterMenuActiveValues = computed(() => {
+    const menu = this.filterMenu();
+    if (!menu) return new Set<string>();
+
+    const rows = this.dataSource().rows();
+    const ctrl = this.control();
+    const openField = menu.field;
+
+    let indices = rows.map((_, i) => i);
+
+    if (ctrl) {
+      const filters = ctrl.filters();
+      for (const [field, filter] of Object.entries(filters)) {
+        if (field === openField) continue; // exclude this column's own filter
+        if (filter.text) {
+          const lc = filter.text.toLowerCase();
+          indices = indices.filter(i => String(rows[i][field] ?? '').toLowerCase().includes(lc));
+        }
+        if (filter.selectedValues !== null) {
+          const allowed = new Set(filter.selectedValues);
+          indices = indices.filter(i => allowed.has(String(rows[i][field] ?? '')));
+        }
+      }
+    }
+
+    return new Set(indices.map(i => String(rows[i][openField] ?? '')));
+  });
+
+  // Column resize drag state — captured on mousedown, cleared on mouseup.
   private resizeState: { field: string; startX: number; startWidth: number } | null = null;
   private readonly resizeMouseMove = (e: MouseEvent) => this.onResizeMove(e);
   private readonly resizeMouseUp = () => this.onResizeEnd();
-
-  // null sentinel at the end represents the "+ Add row" placeholder.
-  // Hidden when autoAddRows is on (implicit mode, no button needed).
-  readonly displayRows = computed<(Record<string, unknown> | null)[]>(() =>
-    this.allowAddRows() && !this.autoAddRows()
-      ? [...this.dataSource().rows(), null]
-      : this.dataSource().rows()
-  );
 
   private readonly viewport = viewChild.required(CdkVirtualScrollViewport);
   private readonly wrapperEl = viewChild.required<ElementRef<HTMLDivElement>>('wrapper');
   private readonly destroyRef = inject(DestroyRef);
 
-  isSelected(ri: number, ci: number): boolean {
+  // ── Template helpers ───────────────────────────────────────────────────────
+
+  /** @internal Is the cell at (originalIndex, ci) currently selected? */
+  isSelected(originalIndex: number, ci: number): boolean {
     const sel = this.selectedCell();
-    return sel?.rowIndex === ri && sel?.colIndex === ci;
+    return sel?.rowIndex === originalIndex && sel?.colIndex === ci;
   }
 
-  isEditing(ri: number, ci: number): boolean {
+  /** @internal Is the cell at (originalIndex, ci) currently in edit mode? */
+  isEditing(originalIndex: number, ci: number): boolean {
     const ed = this.editingCell();
-    return ed?.rowIndex === ri && ed?.colIndex === ci;
+    return ed?.rowIndex === originalIndex && ed?.colIndex === ci;
   }
 
-  getSeedChar(ri: number, ci: number): string {
-    return this.isEditing(ri, ci) ? this.editSeedChar() : '';
+  /** @internal Seed char for the currently editing cell; empty for all others. */
+  getSeedChar(originalIndex: number, ci: number): string {
+    return this.isEditing(originalIndex, ci) ? this.editSeedChar() : '';
   }
 
-  isAddRowSelected(ri: number): boolean {
-    return this.allowAddRows() && this.selectedCell()?.rowIndex === ri;
+  /** @internal Is the add-row placeholder currently selected? */
+  isAddRowSelected(): boolean {
+    const sel = this.selectedCell();
+    return this.allowAddRows() && sel?.rowIndex === this.dataSource().length;
   }
 
-  onActivate(ri: number, ci: number): void {
-    // Clicking inside the currently-editing cell (e.g. on the select/input) must not cancel it
-    if (this.isEditing(ri, ci)) return;
+  /** @internal Current text filter value for a column (for binding to the filter input). */
+  getTextFilter(field: string): string {
+    return this.control()?.getFilter(field).text ?? '';
+  }
 
+  /** @internal Current sort direction for a column (for visual indicator in the dropdown). */
+  getSort(field: string): 'asc' | 'desc' | null {
+    return this.control()?.getFilter(field).sort ?? null;
+  }
+
+  /** @internal Whether all values are selected (or no value filter is active) for the open menu's field. */
+  isMenuAllSelected(field: string): boolean {
+    return this.control()?.getFilter(field).selectedValues === null;
+  }
+
+  /** @internal Whether a value is present in the dataset after all OTHER filters are applied. */
+  isMenuValueActive(value: string): boolean {
+    return this.filterMenuActiveValues().has(value);
+  }
+
+  /** @internal Whether a specific value is checked in the open filter menu. */
+  isMenuValueSelected(field: string, value: string): boolean {
+    const selected = this.control()?.getFilter(field).selectedValues;
+    if (selected == null) return true;  // null or undefined → all values shown
+    return selected.includes(value);
+  }
+
+  /** @internal Whether the given field has any active filter or sort. */
+  hasActiveFilter(field: string): boolean {
+    return this.control()?.hasActiveFilter(field) ?? false;
+  }
+
+  // ── Cell interaction ───────────────────────────────────────────────────────
+
+  /** @internal Called when a data cell is clicked. */
+  onActivate(originalIndex: number, ci: number): void {
+    if (this.isEditing(originalIndex, ci)) return;
     this.cancelCurrent();
-    this.selectedCell.set({ rowIndex: ri, colIndex: ci });
-
-    // Values columns open immediately on single click — no need to double-click
+    this.selectedCell.set({ rowIndex: originalIndex, colIndex: ci });
     const col = this.colDefs()[ci];
     if (col.values?.length) {
-      this.enterEdit(ri, ci, '');
+      this.enterEdit(originalIndex, ci, '');
     } else {
       this.wrapperEl().nativeElement.focus();
     }
   }
 
-  onActivateAddRow(_ri: number): void {
+  /** @internal Called when the add-row placeholder is clicked. */
+  onActivateAddRow(): void {
     this.cancelCurrent();
     this.activateAddRow();
   }
 
-  onStartEdit(ri: number, ci: number): void {
-    if (this.isEditing(ri, ci)) return;  // dblclick on already-editing cell → ignore
-    this.enterEdit(ri, ci, '');
+  /** @internal Called on double-click of a data cell. */
+  onStartEdit(originalIndex: number, ci: number): void {
+    if (this.isEditing(originalIndex, ci)) return;
+    this.enterEdit(originalIndex, ci, '');
   }
 
+  /** @internal Called by AgridCellComponent on every draft change. */
   onDraftChange(value: unknown): void {
     this.currentDraft.set(value);
   }
 
+  /** @internal Main keyboard handler — delegated from the wrapper div. */
   onKeyDown(event: KeyboardEvent): void {
     if (this.editingCell()) {
       switch (event.key) {
@@ -160,8 +402,8 @@ export class AgridComponent {
     }
 
     const sel = this.selectedCell();
-    const ds = this.dataSource();
-    const onAddRow = this.allowAddRows() && !this.autoAddRows() && sel?.rowIndex === ds.length;
+    const isOnAddRow = this.allowAddRows() && !this.autoAddRows()
+      && sel?.rowIndex === this.dataSource().length;
 
     switch (event.key) {
       case 'ArrowUp':
@@ -188,26 +430,34 @@ export class AgridComponent {
       case 'F2':
         event.preventDefault();
         if (sel) {
-          if (onAddRow) this.activateAddRow();
+          if (isOnAddRow) this.activateAddRow();
           else this.enterEdit(sel.rowIndex, sel.colIndex, '');
         }
         break;
       default:
         if (sel && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
-          if (onAddRow) this.activateAddRow();
+          if (isOnAddRow) this.activateAddRow();
           else this.enterEdit(sel.rowIndex, sel.colIndex, event.key);
         }
     }
   }
 
-  trackByIndex(index: number): number {
-    return index;
+  /** @internal CDK virtual scroll `trackBy` function. */
+  trackByItem(_di: number, item: GridItem): number {
+    return item?.originalIndex ?? -1;
   }
 
+  // ── Column resize ──────────────────────────────────────────────────────────
+
+  /** @internal Start a column resize drag. */
   onResizeStart(event: MouseEvent, col: ColDef): void {
     event.preventDefault();
     event.stopPropagation();
-    const currentWidth = this.colWidth(col.field, col.width);
+    const ctrl = this.control();
+    const localWidths = this._localWidths();
+    const currentWidth = ctrl
+      ? ctrl.columnWidths()[col.field] ?? col.width
+      : localWidths[col.field] ?? col.width;
     this.resizeState = { field: col.field, startX: event.clientX, startWidth: currentWidth };
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
@@ -235,30 +485,126 @@ export class AgridComponent {
     document.removeEventListener('mouseup', this.resizeMouseUp);
   }
 
-  onControlContextMenu(event: MouseEvent, rowIndex: number): void {
+  // ── Row context menu ───────────────────────────────────────────────────────
+
+  /** @internal Right-click on the control column cell. */
+  onControlContextMenu(event: MouseEvent, originalIndex: number): void {
     event.preventDefault();
     event.stopPropagation();
-    this.contextMenu.set({ x: event.clientX, y: event.clientY, rowIndex });
+    this.contextMenu.set({ x: event.clientX, y: event.clientY, rowIndex: originalIndex });
   }
 
+  /** @internal Close the row context menu. */
   closeContextMenu(): void {
     this.contextMenu.set(null);
   }
 
-  deleteRow(rowIndex: number): void {
-    this.dataSource().removeRow(rowIndex);
+  /**
+   * Delete the row at `originalIndex`.
+   * Adjusts `selectedCell` and `editingCell` to avoid stale indices.
+   */
+  deleteRow(originalIndex: number): void {
+    this.dataSource().removeRow(originalIndex);
 
     const sel = this.selectedCell();
-    if (sel?.rowIndex === rowIndex) this.selectedCell.set(null);
-    else if (sel && sel.rowIndex > rowIndex)
+    if (sel?.rowIndex === originalIndex) this.selectedCell.set(null);
+    else if (sel && sel.rowIndex > originalIndex)
       this.selectedCell.update(s => s ? { ...s, rowIndex: s.rowIndex - 1 } : null);
 
     const ed = this.editingCell();
-    if (ed?.rowIndex === rowIndex) { this.editingCell.set(null); this.editSeedChar.set(''); }
-    else if (ed && ed.rowIndex > rowIndex)
+    if (ed?.rowIndex === originalIndex) { this.editingCell.set(null); this.editSeedChar.set(''); }
+    else if (ed && ed.rowIndex > originalIndex)
       this.editingCell.update(p => p ? { ...p, rowIndex: p.rowIndex - 1 } : null);
 
     this.contextMenu.set(null);
+  }
+
+  // ── Filter row & menu ──────────────────────────────────────────────────────
+
+  /** @internal Text filter input changed. */
+  onTextFilterChange(event: Event, field: string): void {
+    const text = (event.target as HTMLInputElement).value;
+    this.control()?.setTextFilter(field, text);
+  }
+
+  /** @internal Open the value-picker dropdown for a column. */
+  openFilterMenu(event: MouseEvent, field: string): void {
+    event.stopPropagation();
+    this.filterMenuSearch.set('');
+    this.filterMenu.set({ field, x: event.clientX, y: event.clientY });
+  }
+
+  /** @internal Close the filter dropdown. */
+  closeFilterMenu(): void {
+    this.filterMenu.set(null);
+  }
+
+  /** @internal Search input inside the filter dropdown changed. */
+  onFilterMenuSearch(event: Event): void {
+    this.filterMenuSearch.set((event.target as HTMLInputElement).value);
+  }
+
+  /** @internal Sort button clicked inside the filter dropdown. */
+  onMenuSort(field: string, dir: 'asc' | 'desc'): void {
+    const current = this.control()?.getFilter(field).sort;
+    this.control()?.setSort(field, current === dir ? null : dir);
+  }
+
+  /** @internal Clear filter for the open dropdown's column. */
+  onMenuClearFilter(field: string): void {
+    this.control()?.clearFilter(field);
+    this.closeFilterMenu();
+  }
+
+  /** @internal Clear all filters and sorts. */
+  onMenuClearAll(): void {
+    this.control()?.clearAllFilters();
+    this.closeFilterMenu();
+  }
+
+  /** @internal Toggle "Select All" in the value-picker. */
+  onMenuToggleAll(field: string): void {
+    const ctrl = this.control();
+    if (!ctrl) return;
+    const current = ctrl.getFilter(field).selectedValues;
+    ctrl.setSelectedValues(field, current === null ? [] : null);
+  }
+
+  /** @internal Toggle a single value in the value-picker. */
+  onMenuToggleValue(field: string, value: string): void {
+    const ctrl = this.control();
+    if (!ctrl) return;
+    const allValues = this.filterMenuAllValues();
+    const current = ctrl.getFilter(field).selectedValues ?? allValues;
+    const next = current.includes(value)
+      ? current.filter(v => v !== value)
+      : [...current, value];
+    ctrl.setSelectedValues(field, next.length === allValues.length ? null : next);
+  }
+
+  // ── Private helpers ────────────────────────────────────────────────────────
+
+  /**
+   * Find the display index of the currently selected cell in `filteredItems`.
+   * Returns -1 when nothing is selected or the selected row is filtered out.
+   */
+  private selectedDisplayIndex(): number {
+    const sel = this.selectedCell();
+    if (!sel) return -1;
+    const items = this.filteredItems();
+    // Add-row placeholder is always last
+    if (sel.rowIndex >= this.dataSource().length) return items.length - 1;
+    return items.findIndex(item => item !== null && item.originalIndex === sel.rowIndex);
+  }
+
+  /**
+   * Find the display index of `originalIndex` in `filteredItems`.
+   * Returns -1 if the row is currently filtered out.
+   */
+  private findDisplayIndex(originalIndex: number): number {
+    return this.filteredItems().findIndex(
+      item => item !== null && item.originalIndex === originalIndex
+    );
   }
 
   private buildEmptyRow(): Record<string, unknown> {
@@ -274,19 +620,21 @@ export class AgridComponent {
     const insertedIndex = this.dataSource().addRow(emptyRow);
     this.selectedCell.set({ rowIndex: insertedIndex, colIndex: 0 });
     this.wrapperEl().nativeElement.focus();
-    this.scrollToKeepVisible(insertedIndex);
+    const displayIdx = this.findDisplayIndex(insertedIndex);
+    if (displayIdx >= 0) this.scrollToKeepVisible(displayIdx);
     this.prepareAddRecord.emit({ index: insertedIndex, data: emptyRow });
   }
 
-  private enterEdit(ri: number, ci: number, seedChar: string): void {
+  private enterEdit(originalIndex: number, ci: number, seedChar: string): void {
     const col = this.colDefs()[ci];
     if (col.editable === false) return;
-    const currentValue = this.dataSource().getRow(ri)[col.field];
-    this.selectedCell.set({ rowIndex: ri, colIndex: ci });
+    const currentValue = this.dataSource().getRow(originalIndex)[col.field];
+    this.selectedCell.set({ rowIndex: originalIndex, colIndex: ci });
     this.currentDraft.set(seedChar !== '' ? seedChar : currentValue);
     this.editSeedChar.set(seedChar);
-    this.editingCell.set({ rowIndex: ri, colIndex: ci });
-    this.scrollToKeepVisible(ri);
+    this.editingCell.set({ rowIndex: originalIndex, colIndex: ci });
+    const displayIdx = this.findDisplayIndex(originalIndex);
+    if (displayIdx >= 0) this.scrollToKeepVisible(displayIdx);
   }
 
   private commitCurrent(): void {
@@ -295,12 +643,10 @@ export class AgridComponent {
     const col = this.colDefs()[pos.colIndex];
     const oldValue = this.dataSource().getRow(pos.rowIndex)[col.field];
     const newValue = this.currentDraft();
-
     if (oldValue !== newValue) {
       this.dataSource().patchRow(pos.rowIndex, { [col.field]: newValue });
       this.cellEdit.emit({ position: pos, field: col.field, oldValue, newValue });
     }
-
     this.editingCell.set(null);
     this.editSeedChar.set('');
     this.wrapperEl().nativeElement.focus();
@@ -311,58 +657,77 @@ export class AgridComponent {
     this.editSeedChar.set('');
   }
 
+  /**
+   * Move selection by `(dRow, dCol)` in display space.
+   * Translates display indices back to original indices for `selectedCell`.
+   */
   private moveSelection(dRow: number, dCol: number): void {
-    const dataLen = this.dataSource().length;
-    const hasAddPlaceholder = this.allowAddRows() && !this.autoAddRows();
-    if (dataLen === 0 && !hasAddPlaceholder && !this.autoAddRows()) return;
+    const items = this.filteredItems();
+    if (items.length === 0) return;
 
-    const sel = this.selectedCell() ?? { rowIndex: 0, colIndex: 0 };
     const cols = this.colDefs().length;
-    const maxRow = dataLen - 1 + (hasAddPlaceholder ? 1 : 0);
+    let di = this.selectedDisplayIndex();
+    let ci = this.selectedCell()?.colIndex ?? 0;
 
-    let newRow = sel.rowIndex + dRow;
-    let newCol = sel.colIndex + dCol;
+    // Default to first item when nothing is selected
+    if (di === -1) { di = 0; ci = 0; }
 
-    // Column wrap — but not for the add row placeholder
-    const onAddRow = hasAddPlaceholder && newRow === dataLen;
+    let newDi = di + dRow;
+    let newCi = ci + dCol;
+
+    const onAddRow = items[newDi] === null;
+
+    // Column wrap (skip for add-row placeholder which spans full width)
     if (!onAddRow) {
-      if (newCol < 0) { newRow--; newCol = cols - 1; }
-      if (newCol >= cols) { newRow++; newCol = 0; }
+      if (newCi < 0) { newDi--; newCi = cols - 1; }
+      if (newCi >= cols) { newDi++; newCi = 0; }
     }
 
-    // autoAddRows: navigating past the last real row adds a blank row immediately
-    if (this.autoAddRows() && newRow >= dataLen) {
+    // autoAddRows: going past the last displayed row inserts a blank row
+    if (this.autoAddRows() && newDi >= items.length) {
       const emptyRow = this.buildEmptyRow();
       const insertedIndex = this.dataSource().addRow(emptyRow);
-      this.selectedCell.set({ rowIndex: insertedIndex, colIndex: Math.min(newCol, cols - 1) });
-      this.scrollToKeepVisible(insertedIndex);
+      // filteredItems will update; find the new row's display position
+      const newDisplayIdx = this.filteredItems().findIndex(
+        item => item !== null && item.originalIndex === insertedIndex
+      );
+      const clampedCi = Math.min(newCi, cols - 1);
+      this.selectedCell.set({ rowIndex: insertedIndex, colIndex: clampedCi });
+      if (newDisplayIdx >= 0) this.scrollToKeepVisible(newDisplayIdx);
       this.wrapperEl().nativeElement.focus();
       this.prepareAddRecord.emit({ index: insertedIndex, data: emptyRow });
       return;
     }
 
-    newRow = Math.max(0, Math.min(maxRow, newRow));
-    newCol = Math.max(0, Math.min(cols - 1, newCol));
+    newDi = Math.max(0, Math.min(items.length - 1, newDi));
+    newCi = Math.max(0, Math.min(cols - 1, newCi));
 
-    // Add row placeholder has no columns — keep colIndex 0
-    if (hasAddPlaceholder && newRow === dataLen) {
-      newCol = 0;
+    const newItem = items[newDi];
+
+    if (newItem === null) {
+      // Add-row placeholder: track via dataSource.length (out-of-range sentinel)
+      this.selectedCell.set({ rowIndex: this.dataSource().length, colIndex: 0 });
+    } else {
+      this.selectedCell.set({ rowIndex: newItem.originalIndex, colIndex: newCi });
     }
 
-    this.selectedCell.set({ rowIndex: newRow, colIndex: newCol });
-    this.scrollToKeepVisible(newRow);
+    this.scrollToKeepVisible(newDi);
   }
 
-  private scrollToKeepVisible(rowIndex: number): void {
+  /**
+   * Scroll the CDK viewport the minimum distance needed to keep `displayIndex` visible.
+   * Takes a display index (position in the filtered list), not an original index.
+   */
+  private scrollToKeepVisible(displayIndex: number): void {
     const viewport = this.viewport();
     const itemSize = this.rowHeight();
     const scrollOffset = viewport.measureScrollOffset();
     const viewportSize = viewport.getViewportSize();
 
-    if (rowIndex * itemSize < scrollOffset) {
-      viewport.scrollToOffset(rowIndex * itemSize);
-    } else if ((rowIndex + 1) * itemSize > scrollOffset + viewportSize) {
-      viewport.scrollToOffset((rowIndex + 1) * itemSize - viewportSize);
+    if (displayIndex * itemSize < scrollOffset) {
+      viewport.scrollToOffset(displayIndex * itemSize);
+    } else if ((displayIndex + 1) * itemSize > scrollOffset + viewportSize) {
+      viewport.scrollToOffset((displayIndex + 1) * itemSize - viewportSize);
     }
   }
 }

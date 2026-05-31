@@ -3,8 +3,9 @@
   class="ag-wrapper"
   tabindex="0"
   (keydown)="onKeyDown($event)"
-  (click)="closeContextMenu()"
+  (click)="closeContextMenu(); closeFilterMenu()"
 >
+  <!-- Header row -->
   <div
     class="ag-header"
     [style.grid-template-columns]="gridTemplateColumns()"
@@ -14,56 +15,92 @@
       <div class="ag-header-cell ag-control-header"></div>
     }
     @for (col of colDefs(); track col.field) {
-      <div class="ag-header-cell">
+      <div class="ag-header-cell" [class.ag-header-cell--filtered]="hasActiveFilter(col.field)">
         <span class="ag-header-cell-label">{{ col.header }}</span>
         <div class="ag-resize-handle" (mousedown)="onResizeStart($event, col)"></div>
       </div>
     }
   </div>
 
+  <!-- Filter row (shown when at least one column is filterable) -->
+  @if (hasFilterableColumns()) {
+    <div
+      class="ag-filter-row"
+      [style.grid-template-columns]="gridTemplateColumns()"
+      [style.min-width.px]="totalWidth()"
+    >
+      @if (showControlColumn()) {
+        <div class="ag-filter-cell ag-filter-cell--control"></div>
+      }
+      @for (col of colDefs(); track col.field) {
+        @if (col.filterable) {
+          <div class="ag-filter-cell">
+            <input
+              class="ag-filter-input"
+              [value]="getTextFilter(col.field)"
+              (input)="onTextFilterChange($event, col.field)"
+              (click)="$event.stopPropagation()"
+              placeholder="Filter…"
+            />
+            <button
+              class="ag-filter-btn"
+              [class.ag-filter-btn--active]="hasActiveFilter(col.field)"
+              (click)="openFilterMenu($event, col.field)"
+              title="Filter options"
+            >▾</button>
+          </div>
+        } @else {
+          <div class="ag-filter-cell ag-filter-cell--empty"></div>
+        }
+      }
+    </div>
+  }
+
+  <!-- Virtual scroll body -->
   <cdk-virtual-scroll-viewport
     class="ag-body"
     [itemSize]="rowHeight()"
     [style.min-width.px]="totalWidth()"
   >
     <div
-      *cdkVirtualFor="let row of displayRows(); let i = index; trackBy: trackByIndex"
+      *cdkVirtualFor="let item of filteredItems(); let di = index; trackBy: trackByItem"
       class="ag-row"
-      [class.ag-add-row]="row === null"
-      [class.ag-add-row--selected]="row === null && isAddRowSelected(i)"
+      [class.ag-add-row]="item === null"
+      [class.ag-add-row--selected]="item === null && isAddRowSelected()"
       [style.height.px]="rowHeight()"
-      [style.grid-template-columns]="row !== null ? gridTemplateColumns() : null"
+      [style.grid-template-columns]="item !== null ? gridTemplateColumns() : null"
     >
-      @if (row !== null) {
+      @if (item !== null) {
         @if (showControlColumn()) {
           <div
             class="ag-control-cell"
-            (contextmenu)="onControlContextMenu($event, i)"
+            (contextmenu)="onControlContextMenu($event, item.originalIndex)"
             (click)="$event.stopPropagation()"
           ></div>
         }
         @for (col of colDefs(); track col.field; let ci = $index) {
           <agrid-cell
             [col]="col"
-            [rowIndex]="i"
+            [rowIndex]="item.originalIndex"
             [colIndex]="ci"
-            [value]="row[col.field]"
-            [selected]="isSelected(i, ci)"
-            [editing]="isEditing(i, ci)"
-            [seedChar]="getSeedChar(i, ci)"
-            (activate)="onActivate(i, ci)"
-            (startEdit)="onStartEdit(i, ci)"
+            [value]="item.row[col.field]"
+            [selected]="isSelected(item.originalIndex, ci)"
+            [editing]="isEditing(item.originalIndex, ci)"
+            [seedChar]="getSeedChar(item.originalIndex, ci)"
+            (activate)="onActivate(item.originalIndex, ci)"
+            (startEdit)="onStartEdit(item.originalIndex, ci)"
             (draftChange)="onDraftChange($event)"
           />
         }
       } @else {
-        <div class="ag-add-row-label" (click)="onActivateAddRow(i)">
+        <div class="ag-add-row-label" (click)="onActivateAddRow()">
           <span class="ag-add-row-icon">+</span> Add row
         </div>
       }
     </div>
   </cdk-virtual-scroll-viewport>
 
+  <!-- Row context menu -->
   @if (contextMenu(); as menu) {
     <div
       class="ag-context-menu"
@@ -74,6 +111,77 @@
       <button class="ag-context-item ag-context-item--danger" (click)="deleteRow(menu.rowIndex)">
         Delete row
       </button>
+    </div>
+  }
+
+  <!-- Filter dropdown -->
+  @if (filterMenu(); as menu) {
+    <div
+      class="ag-filter-menu"
+      [style.left.px]="menu.x"
+      [style.top.px]="menu.y"
+      (click)="$event.stopPropagation()"
+    >
+      <!-- Sort actions -->
+      <div class="ag-filter-menu-section">
+        <button
+          class="ag-filter-menu-item"
+          [class.ag-filter-menu-item--active]="getSort(menu.field) === 'asc'"
+          (click)="onMenuSort(menu.field, 'asc')"
+        >↑ Sort A → Z</button>
+        <button
+          class="ag-filter-menu-item"
+          [class.ag-filter-menu-item--active]="getSort(menu.field) === 'desc'"
+          (click)="onMenuSort(menu.field, 'desc')"
+        >↓ Sort Z → A</button>
+      </div>
+
+      <!-- Clear actions -->
+      <div class="ag-filter-menu-section ag-filter-menu-section--border">
+        <button class="ag-filter-menu-item ag-filter-menu-item--muted" (click)="onMenuClearFilter(menu.field)">
+          ✕ Clear filter
+        </button>
+        <button class="ag-filter-menu-item ag-filter-menu-item--muted" (click)="onMenuClearAll()">
+          ✕ Clear all filters
+        </button>
+      </div>
+
+      <!-- Value search -->
+      <div class="ag-filter-menu-section ag-filter-menu-section--border">
+        <input
+          class="ag-filter-menu-search"
+          [value]="filterMenuSearch()"
+          (input)="onFilterMenuSearch($event)"
+          placeholder="Search values…"
+          (click)="$event.stopPropagation()"
+        />
+      </div>
+
+      <!-- Value checkboxes -->
+      <div class="ag-filter-menu-values">
+        <label class="ag-filter-menu-value">
+          <input
+            type="checkbox"
+            [checked]="isMenuAllSelected(menu.field)"
+            (change)="onMenuToggleAll(menu.field)"
+          />
+          <span class="ag-filter-menu-value-label">(Select All)</span>
+        </label>
+        @for (val of filterMenuVisibleValues(); track val) {
+          <label
+            class="ag-filter-menu-value"
+            [class.ag-filter-menu-value--inactive]="!isMenuValueActive(val)"
+          >
+            <input
+              type="checkbox"
+              [checked]="isMenuValueSelected(menu.field, val)"
+              [disabled]="!isMenuValueActive(val)"
+              (change)="onMenuToggleValue(menu.field, val)"
+            />
+            <span class="ag-filter-menu-value-label">{{ val || '(blank)' }}</span>
+          </label>
+        }
+      </div>
     </div>
   }
 </div>

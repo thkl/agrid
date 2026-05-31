@@ -10,6 +10,14 @@ import {
 } from '@angular/core';
 import { ColDef } from './agrid.types';
 
+/**
+ * Individual cell component used inside `AgridComponent`.
+ *
+ * Renders a read-only span when not editing, and an `<input>` or `<select>`
+ * (for columns with `ColDef.values`) when in edit mode.
+ *
+ * Not intended for direct use — `AgridComponent` manages all inputs and outputs.
+ */
 @Component({
   selector: 'agrid-cell',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -47,18 +55,46 @@ import { ColDef } from './agrid.types';
   styleUrl: './agrid-cell.component.css',
 })
 export class AgridCellComponent {
+  /** Column definition for this cell. */
   col = input.required<ColDef>();
+
+  /** Absolute row index within the data source. */
   rowIndex = input.required<number>();
+
+  /** Column index within `colDefs`. */
   colIndex = input.required<number>();
+
+  /** Current field value from the data source (displayed when not editing). */
   value = input.required<unknown>();
+
+  /** Whether this cell has the active selection outline. */
   selected = input<boolean>(false);
+
+  /** Whether this cell is currently in edit mode. */
   editing = input<boolean>(false);
+
+  /**
+   * Optional character to pre-fill the edit input when the user presses a printable key
+   * while the cell is selected (type-to-start-editing behavior).
+   */
   seedChar = input<string>('');
 
+  /**
+   * Emitted on single click — the grid selects this cell.
+   * For `values` columns the grid also enters edit mode immediately.
+   */
   activate = output<void>();
+
+  /** Emitted on double-click — the grid enters edit mode. */
   startEdit = output<void>();
+
+  /**
+   * Emitted on every keystroke inside the edit input or on every select change.
+   * The grid stores the latest value in `currentDraft` so it can commit on Tab / Enter.
+   */
   draftChange = output<unknown>();
 
+  /** Live draft value managed by the cell during an active edit. */
   readonly draft = signal('');
 
   private readonly inputEl = viewChild<ElementRef<HTMLInputElement>>('editInput');
@@ -69,6 +105,7 @@ export class AgridCellComponent {
       if (this.editing()) {
         const seed = this.seedChar();
         this.draft.set(seed !== '' ? seed : String(this.value() ?? ''));
+
         setTimeout(() => {
           const input = this.inputEl()?.nativeElement;
           if (input) {
@@ -80,9 +117,12 @@ export class AgridCellComponent {
             }
             return;
           }
+
           const sel = this.selectEl()?.nativeElement;
           if (sel) {
-            sel.value = this.draft();  // set after options are in the DOM
+            // Set value after options are in the DOM — [value] binding on <select> runs before
+            // @for renders the options, so the browser would fall back to the first item.
+            sel.value = this.draft();
             sel.focus();
             try {
               (sel as HTMLSelectElement & { showPicker?: () => void }).showPicker?.();
@@ -95,12 +135,14 @@ export class AgridCellComponent {
     });
   }
 
+  /** Forward `<input>` changes to the grid. */
   onInput(event: Event): void {
     const val = (event.target as HTMLInputElement).value;
     this.draft.set(val);
     this.draftChange.emit(val);
   }
 
+  /** Forward `<select>` changes to the grid. */
   onSelectChange(event: Event): void {
     const val = (event.target as HTMLSelectElement).value;
     this.draft.set(val);

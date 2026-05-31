@@ -22,6 +22,11 @@ export interface ColDef {
    * When provided, the cell editor renders a `<select>` dropdown instead of a free-text `<input>`.
    */
   values?: string[];
+  /**
+   * Set to `true` to show a filter input and value-picker in the filter row for this column.
+   * At least one filterable column must exist for the filter row to appear.
+   */
+  filterable?: boolean;
 }
 
 /** Zero-based position of a cell inside the grid. */

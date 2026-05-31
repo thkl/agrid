@@ -1,13 +1,13 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, signal, viewChild } from '@angular/core';
 import { AgridComponent, AgridControl, AgridDataSource, ColDef, GridEditEvent, NewRecord } from '../agrid';
 
 const COLUMNS: ColDef[] = [
   { field: 'id', header: 'ID', width: 70, editable: false },
-  { field: 'firstName', header: 'First Name', width: 140 },
-  { field: 'lastName', header: 'Last Name', width: 140 },
+  { field: 'firstName', header: 'First Name', width: 140, filterable: true },
+  { field: 'lastName', header: 'Last Name', width: 140, filterable: true },
   { field: 'email', header: 'Email', width: 240 },
-  { field: 'department', header: 'Department', width: 130, values: ['Engineering', 'Sales', 'Marketing', 'HR', 'Finance', 'Design', 'Operations'] },
-  { field: 'salary', header: 'Salary', width: 100, type: 'number' },
+  { field: 'department', header: 'Department', width: 130, filterable: true, values: ['Engineering', 'Sales', 'Marketing', 'HR', 'Finance', 'Design', 'Operations'] },
+  { field: 'salary', header: 'Salary', width: 100, type: 'number', filterable: true },
 ];
 
 const FIRST_NAMES = ['Alice', 'Bob', 'Carol', 'David', 'Emma', 'Frank', 'Grace', 'Henry', 'Iris', 'Jack'];
@@ -33,7 +33,12 @@ function generateRows(count: number): Record<string, unknown>[] {
     <div class="demo-wrapper">
       <div class="demo-header">
         <h2>agrid</h2>
-        <span class="demo-meta">{{ ds.rows().length.toLocaleString() }} rows · 6 columns</span>
+        <span class="demo-meta">
+          @if (filteredRowCount() !== ds.rows().length) {
+            {{ filteredRowCount().toLocaleString() }} of
+          }
+          {{ ds.rows().length.toLocaleString() }} rows · 6 columns
+        </span>
         <label class="demo-toggle">
           <input type="checkbox" [checked]="autoAdd()" (change)="autoAdd.set(!autoAdd())" />
           autoAddRows
@@ -123,6 +128,10 @@ export class AgridDemoComponent {
   readonly gridControl = new AgridControl();
   readonly lastEdit = signal('');
   readonly autoAdd = signal(false);
+
+  // Safe: returns undefined before view init, then reacts once the grid is live
+  private readonly _grid = viewChild(AgridComponent);
+  readonly filteredRowCount = computed(() => this._grid()?.filteredRowCount() ?? this.ds.length);
 
   onEdit(event: GridEditEvent): void {
     this.lastEdit.set(
