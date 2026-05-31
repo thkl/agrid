@@ -67,23 +67,19 @@
       class="ag-row"
       [class.ag-add-row]="item === null"
       [class.ag-add-row--selected]="item === null && isAddRowSelected()"
-      [class.ag-row--dragging]="isRowDragging(item)"
       [class.ag-ghost-row]="item === 'ghost'"
+      [attr.data-original-index]="item !== null && item !== 'ghost' ? item.originalIndex : null"
       [style.height.px]="rowHeight()"
       [style.grid-template-columns]="item !== null ? gridTemplateColumns() : null"
-      (dragover)="onRowDragOver($event, item)"
-      (drop)="onRowDrop($event, item)"
     >
       @if (item !== null && item !== 'ghost') {
         @if (showControlColumn()) {
           <div
             class="ag-control-cell"
             [class.ag-control-cell--reorder]="allowRowReorder()"
-            [attr.draggable]="allowRowReorder() ? true : null"
             (contextmenu)="onControlContextMenu($event, item.originalIndex)"
             (click)="$event.stopPropagation()"
-            (dragstart)="onDragStart($event, item.originalIndex)"
-            (dragend)="onDragEnd()"
+            (pointerdown)="onHandlePointerDown($event, item.originalIndex)"
           ></div>
         }
         @for (col of colDefs(); track col.field; let ci = $index) {

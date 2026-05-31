@@ -539,13 +539,7 @@ export class AgridComponent {
     return item?.originalIndex ?? -1;
   }
 
-  // ── Row reorder drag ───────────────────────────────────────────────────────
-
-  /** @internal True when the given item is the data row currently being dragged. */
-  isRowDragging(item: GridItem): boolean {
-    if (item === null || item === 'ghost') return false;
-    return this._dragOriginalIndex() === item.originalIndex;
-  }
+  // ── Row reorder drag (pointer-events based — no HTML5 drag snap-back) ──────
 
   /** @internal Display value for a ghost cell — reads from the dragged row. */
   getGhostCellDisplay(col: ColDef): string {
@@ -554,71 +548,109 @@ export class AgridComponent {
     return this.getDisplayForField(col, this.dataSource().rows()[idx]?.[col.field]);
   }
 
-  /** @internal Initiated by mousedown on the drag handle in the control cell. */
-  onDragStart(event: DragEvent, originalIndex: number): void {
-    this._dragOriginalIndex.set(originalIndex);
-    event.dataTransfer!.effectAllowed = 'move';
+  /** @internal Pointerdown on the drag handle starts the drag. */
+  onHandlePointerDown(event: PointerEvent, originalIndex: number): void {
+    if (!this.allowRowReorder()) return;
+    event.preventDefault();
 
-    // Build a full-row drag image so the browser ghost looks like the entire row.
     const handle = event.currentTarget as HTMLElement;
     const rowEl = handle.closest<HTMLElement>('.ag-row');
-    if (rowEl && event.dataTransfer) {
-      const rect = rowEl.getBoundingClientRect();
-      const img = rowEl.cloneNode(true) as HTMLElement;
-      Object.assign(img.style, {
-        position: 'fixed',
-        top: '-9999px',
-        left: '0',
-        width: `${rect.width}px`,
-        height: `${rect.height}px`,
-        background: '#ffffff',
-        borderRadius: '4px',
-        border: '1px solid #1a73e8',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-        overflow: 'hidden',
-        pointerEvents: 'none',
-      });
-      document.body.appendChild(img);
-      event.dataTransfer.setDragImage(img, event.clientX - rect.left, event.clientY - rect.top);
-      requestAnimationFrame(() => img.remove());
+    if (!rowEl) return;
+
+    const rect = rowEl.getBoundingClientRect();
+    this._dragOriginalIndex.set(originalIndex);
+    this._dragOffsetX = event.clientX - rect.left;
+    this._dragOffsetY = event.clientY - rect.top;
+
+    // Build a floating full-row overlay that follows the cursor.
+    const overlay = rowEl.cloneNode(true) as HTMLElement;
+    overlay.removeAttribute('data-original-index'); // don't confuse _getHoveredRow
+    Object.assign(overlay.style, {
+      position: 'fixed',
+      top: `${rect.top}px`,
+      left: `${rect.left}px`,
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
+      pointerEvents: 'none',
+      zIndex: '9999',
+      background: '#fff',
+      border: '1px solid #1a73e8',
+      borderRadius: '4px',
+      boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+      overflow: 'hidden',
+      opacity: '0.95',
+      cursor: 'grabbing',
+    });
+    document.body.appendChild(overlay);
+    this._dragOverlayEl = overlay;
+
+    document.addEventListener('pointermove', this._ptrMoveHandler);
+    document.addEventListener('pointerup', this._ptrUpHandler);
+    this.destroyRef.onDestroy(() => this._cleanupPointerDrag());
+  }
+
+  private readonly _ptrMoveHandler = (e: PointerEvent): void => {
+    // Move overlay: direct DOM, no Angular involved.
+    if (this._dragOverlayEl) {
+      this._dragOverlayEl.style.top = `${e.clientY - this._dragOffsetY}px`;
+      this._dragOverlayEl.style.left = `${e.clientX - this._dragOffsetX}px`;
     }
-  }
+    // Update hover target only when it changes (avoids unnecessary CD cycles).
+    const hovered = this._getHoveredRow(e.clientX, e.clientY);
+    if (hovered) {
+      if (this._dragOverIndex() !== hovered.originalIndex) this._dragOverIndex.set(hovered.originalIndex);
+      if (this._dragInsertBefore() !== hovered.insertBefore) this._dragInsertBefore.set(hovered.insertBefore);
+    }
+  };
 
-  /** @internal Fired as the dragged row passes over any row. */
-  onRowDragOver(event: DragEvent, item: GridItem): void {
-    if (this._dragOriginalIndex() === null) return;
-    // Always preventDefault — without it the browser cancels the drop entirely.
-    event.preventDefault();
-    event.dataTransfer!.dropEffect = 'move';
-    // Ghost and null rows don't update the target state — keep the last real row's values.
-    if (!item || item === 'ghost') return;
-    const el = event.currentTarget as HTMLElement;
-    const rect = el.getBoundingClientRect();
-    this._dragInsertBefore.set(event.clientY < rect.top + rect.height / 2);
-    this._dragOverIndex.set(item.originalIndex);
-  }
+  private readonly _ptrUpHandler = (_e: PointerEvent): void => {
+    document.removeEventListener('pointermove', this._ptrMoveHandler);
+    document.removeEventListener('pointerup', this._ptrUpHandler);
 
-  /** @internal Drop completes the reorder — data change is delegated to the host. */
-  onRowDrop(event: DragEvent, item: GridItem): void {
-    event.preventDefault();
+    // Fade out the overlay before committing so the user never sees it snap anywhere.
+    const overlay = this._dragOverlayEl;
+    this._dragOverlayEl = null;
+    if (overlay) {
+      overlay.style.transition = 'opacity 80ms ease';
+      overlay.style.opacity = '0';
+      setTimeout(() => overlay.remove(), 90);
+    }
+
     const oldIndex = this._dragOriginalIndex();
-    if (oldIndex === null) { this._clearDrag(); return; }
-    // Drop may land on a real row or on the ghost itself; always use stored target state.
-    const targetIdx = (item !== null && item !== 'ghost')
-      ? item.originalIndex
-      : this._dragOverIndex();
-    if (targetIdx === null) { this._clearDrag(); return; }
-    const newIndex = this._dragInsertBefore() ? targetIdx : targetIdx + 1;
-    if (oldIndex !== newIndex) {
-      this.rowReorder.emit({ row: { ...this.dataSource().rows()[oldIndex] }, oldIndex, newIndex });
+    const overIdx = this._dragOverIndex();
+    if (oldIndex !== null && overIdx !== null) {
+      const newIndex = this._dragInsertBefore() ? overIdx : overIdx + 1;
+      const shouldEmit = oldIndex !== newIndex;
+      this._clearDrag();
+      if (shouldEmit) {
+        this.rowReorder.emit({ row: { ...this.dataSource().rows()[oldIndex] }, oldIndex, newIndex });
+      }
+    } else {
+      this._clearDrag();
     }
+  };
+
+  private _getHoveredRow(x: number, y: number): { originalIndex: number; insertBefore: boolean } | null {
+    for (const el of document.elementsFromPoint(x, y)) {
+      const rowEl = (el as HTMLElement).closest<HTMLElement>('.ag-row[data-original-index]');
+      if (!rowEl) continue;
+      const rect = rowEl.getBoundingClientRect();
+      return { originalIndex: Number(rowEl.dataset['originalIndex']), insertBefore: y < rect.top + rect.height / 2 };
+    }
+    return null;
+  }
+
+  private _cleanupPointerDrag(): void {
+    document.removeEventListener('pointermove', this._ptrMoveHandler);
+    document.removeEventListener('pointerup', this._ptrUpHandler);
+    this._dragOverlayEl?.remove();
+    this._dragOverlayEl = null;
     this._clearDrag();
   }
 
-  /** @internal Drag cancelled (e.g. Escape key or drop outside grid). */
-  onDragEnd(): void {
-    this._clearDrag();
-  }
+  private _dragOverlayEl: HTMLElement | null = null;
+  private _dragOffsetX = 0;
+  private _dragOffsetY = 0;
 
   private _clearDrag(): void {
     this._dragOriginalIndex.set(null);
