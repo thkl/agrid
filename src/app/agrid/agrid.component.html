@@ -63,19 +63,27 @@
     [style.min-width.px]="totalWidth()"
   >
     <div
-      *cdkVirtualFor="let item of filteredItems(); let di = index; trackBy: trackByItem"
+      *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem"
       class="ag-row"
       [class.ag-add-row]="item === null"
       [class.ag-add-row--selected]="item === null && isAddRowSelected()"
+      [class.ag-row--dragging]="isRowDragging(item)"
+      [class.ag-ghost-row]="item === 'ghost'"
       [style.height.px]="rowHeight()"
       [style.grid-template-columns]="item !== null ? gridTemplateColumns() : null"
+      (dragover)="onRowDragOver($event, item)"
+      (drop)="onRowDrop($event, item)"
     >
-      @if (item !== null) {
+      @if (item !== null && item !== 'ghost') {
         @if (showControlColumn()) {
           <div
             class="ag-control-cell"
+            [class.ag-control-cell--reorder]="allowRowReorder()"
+            [attr.draggable]="allowRowReorder() ? true : null"
             (contextmenu)="onControlContextMenu($event, item.originalIndex)"
             (click)="$event.stopPropagation()"
+            (dragstart)="onDragStart($event, item.originalIndex)"
+            (dragend)="onDragEnd()"
           ></div>
         }
         @for (col of colDefs(); track col.field; let ci = $index) {
@@ -92,10 +100,17 @@
             (draftChange)="onDraftChange($event)"
           />
         }
-      } @else {
+      } @else if (item === null) {
         <div class="ag-add-row-label" (click)="onActivateAddRow()">
           <span class="ag-add-row-icon">+</span> Add row
         </div>
+      } @else {
+        @if (showControlColumn()) {
+          <div class="ag-control-cell ag-control-cell--reorder ag-ghost-handle"></div>
+        }
+        @for (col of colDefs(); track col.field) {
+          <div class="ag-ghost-cell">{{ getGhostCellDisplay(col) }}</div>
+        }
       }
     </div>
   </cdk-virtual-scroll-viewport>
@@ -167,18 +182,18 @@
           />
           <span class="ag-filter-menu-value-label">(Select All)</span>
         </label>
-        @for (val of filterMenuVisibleValues(); track val) {
+        @for (item of filterMenuVisibleItems(); track item.rawStr) {
           <label
             class="ag-filter-menu-value"
-            [class.ag-filter-menu-value--inactive]="!isMenuValueActive(val)"
+            [class.ag-filter-menu-value--inactive]="!isMenuValueActive(item.rawStr)"
           >
             <input
               type="checkbox"
-              [checked]="isMenuValueSelected(menu.field, val)"
-              [disabled]="!isMenuValueActive(val)"
-              (change)="onMenuToggleValue(menu.field, val)"
+              [checked]="isMenuValueSelected(menu.field, item.rawStr)"
+              [disabled]="!isMenuValueActive(item.rawStr)"
+              (change)="onMenuToggleValue(menu.field, item.rawStr)"
             />
-            <span class="ag-filter-menu-value-label">{{ val || '(blank)' }}</span>
+            <span class="ag-filter-menu-value-label">{{ item.label || '(blank)' }}</span>
           </label>
         }
       </div>

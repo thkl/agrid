@@ -1,12 +1,22 @@
 import { ChangeDetectionStrategy, Component, computed, signal, viewChild } from '@angular/core';
-import { AgridComponent, AgridControl, AgridDataSource, ColDef, GridEditEvent, NewRecord } from '../agrid';
+import { AgridComponent, AgridControl, AgridDataSource, ColDef, GridEditEvent, NewRecord, RowReorderEvent } from '../agrid';
 
 const COLUMNS: ColDef[] = [
   { field: 'id', header: 'ID', width: 70, editable: false },
   { field: 'firstName', header: 'First Name', width: 140, filterable: true },
   { field: 'lastName', header: 'Last Name', width: 140, filterable: true },
   { field: 'email', header: 'Email', width: 240 },
-  { field: 'department', header: 'Department', width: 130, filterable: true, values: ['Engineering', 'Sales', 'Marketing', 'HR', 'Finance', 'Design', 'Operations'] },
+  { field: 'departmentId', header: 'Department', width: 130, filterable: true,
+    values: [
+      { value: 1, label: 'Engineering' },
+      { value: 2, label: 'Sales' },
+      { value: 3, label: 'Marketing' },
+      { value: 4, label: 'HR' },
+      { value: 5, label: 'Finance' },
+      { value: 6, label: 'Design' },
+      { value: 7, label: 'Operations' },
+    ]
+  },
   { field: 'salary', header: 'Salary', width: 100, type: 'number', filterable: true },
 ];
 
@@ -20,7 +30,7 @@ function generateRows(count: number): Record<string, unknown>[] {
     firstName: FIRST_NAMES[i % FIRST_NAMES.length],
     lastName: LAST_NAMES[i % LAST_NAMES.length],
     email: `user${i + 1}@example.com`,
-    department: DEPARTMENTS[i % DEPARTMENTS.length],
+    departmentId: (i % DEPARTMENTS.length) + 1,  // numeric ID, displayed as label via ValueOption
     salary: 50000 + ((i * 137) % 100000),
   }));
 }
@@ -54,6 +64,7 @@ function generateRows(count: number): Record<string, unknown>[] {
         [control]="gridControl"
         (cellEdit)="onEdit($event)"
         (prepareAddRecord)="onPrepareAdd($event)"
+        (rowReorder)="onRowReorder($event)"
       />
       <div class="demo-footer">
         @if (lastEdit()) {
@@ -125,7 +136,7 @@ function generateRows(count: number): Record<string, unknown>[] {
 export class AgridDemoComponent {
   readonly columns = COLUMNS;
   readonly ds = new AgridDataSource(generateRows(10));
-  readonly gridControl = new AgridControl();
+  readonly gridControl = new AgridControl({ allowRowReorder: true });
   readonly lastEdit = signal('');
   readonly autoAdd = signal(false);
 
@@ -143,7 +154,12 @@ export class AgridDemoComponent {
     // Grid already inserted the blank row — optionally fill it with defaults here.
     // Example: assign the next id based on current length.
     const next = this.ds.length;
-    this.ds.patchRow(event.index, { id: next });
+    this.ds.patchRow(event.index, { id: next, departmentId: 1 });
     this.lastEdit.set(`Row ${next} added at index ${event.index} — navigate to it and edit`);
+  }
+
+  onRowReorder(event: RowReorderEvent): void {
+    this.ds.moveRow(event.oldIndex, event.newIndex);
+    this.lastEdit.set(`Row moved from position ${event.oldIndex + 1} to ${event.newIndex + 1}`);
   }
 }

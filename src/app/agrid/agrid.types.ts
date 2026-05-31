@@ -1,3 +1,22 @@
+/**
+ * A structured value option used when the data field stores a raw value (e.g. a numeric ID)
+ * but the cell should display a human-readable label.
+ *
+ * @example
+ * ```ts
+ * values: [
+ *   { value: 1, label: 'Engineering' },
+ *   { value: 2, label: 'Sales' },
+ * ]
+ * ```
+ */
+export interface ValueOption {
+  /** Raw value stored in the data source (e.g. `1`, `'ENG'`). */
+  value: unknown;
+  /** Human-readable label shown in the cell, dropdown, and filter menu. */
+  label: string;
+}
+
 /** Defines a single column in the grid. */
 export interface ColDef {
   /** Data field name — must match a key in the row object. */
@@ -18,10 +37,23 @@ export interface ColDef {
    */
   editable?: boolean;
   /**
-   * Fixed list of allowed values.
-   * When provided, the cell editor renders a `<select>` dropdown instead of a free-text `<input>`.
+   * Fixed list of allowed values shown in a `<select>` dropdown when editing.
+   *
+   * - `string[]` — simple list; the stored value equals the displayed label.
+   * - `ValueOption[]` — structured list; the stored value (`value`) differs from the
+   *   displayed label (`label`). Useful when the dataset stores IDs but should show names.
    */
-  values?: string[];
+  values?: string[] | ValueOption[];
+  /**
+   * Optional display formatter applied when the column has no `values` list.
+   * Receives the raw cell value and returns the string to display in the cell.
+   *
+   * @example
+   * ```ts
+   * { field: 'salary', formatter: v => `$${Number(v).toLocaleString()}` }
+   * ```
+   */
+  formatter?: (value: unknown) => string;
   /**
    * Set to `true` to show a filter input and value-picker in the filter row for this column.
    * At least one filterable column must exist for the filter row to appear.
@@ -47,6 +79,23 @@ export interface GridEditEvent {
   oldValue: unknown;
   /** New field value after the edit. */
   newValue: unknown;
+}
+
+/**
+ * Emitted by `(rowReorder)` when the user finishes dragging a row to a new position.
+ * The grid does **not** reorder data itself — call `dataSource.moveRow(oldIndex, newIndex)`
+ * (or your own equivalent) inside the handler.
+ */
+export interface RowReorderEvent {
+  /** Snapshot of the row data at drag time. */
+  row: Record<string, unknown>;
+  /** Index of the row in the data source before the move. */
+  oldIndex: number;
+  /**
+   * Target position in the data source (insert-before semantics).
+   * Pass both `oldIndex` and `newIndex` to {@link AgridDataSource.moveRow}.
+   */
+  newIndex: number;
 }
 
 /**

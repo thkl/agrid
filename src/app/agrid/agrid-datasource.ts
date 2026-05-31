@@ -96,6 +96,23 @@ export class AgridDataSource<T extends Record<string, unknown> = Record<string, 
     this._rows.update(rows => rows.filter((_, i) => i !== index));
   }
 
+  /**
+   * Move the row at `from` to position `to` (insert-before semantics).
+   * Designed to be called directly from a `(rowReorder)` handler:
+   * ```ts
+   * onReorder(e: RowReorderEvent) { this.ds.moveRow(e.oldIndex, e.newIndex); }
+   * ```
+   */
+  moveRow(from: number, to: number): void {
+    if (from === to) return;
+    this._rows.update(rows => {
+      const arr = [...rows];
+      const [item] = arr.splice(from, 1);
+      arr.splice(to > from ? to - 1 : to, 0, item);
+      return arr;
+    });
+  }
+
   /** Return the current row at `index` (non-reactive snapshot). */
   getRow(index: number): T {
     return this._rows()[index];

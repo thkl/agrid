@@ -14,10 +14,15 @@ import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrollin
 import { AgridCellComponent } from './agrid-cell.component';
 import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
-import { CellPosition, ColDef, GridEditEvent, NewRecord } from './agrid.types';
+import { CellPosition, ColDef, GridEditEvent, NewRecord, RowReorderEvent, ValueOption } from './agrid.types';
 
-/** Internal row item used in the virtual scroll list. `null` represents the add-row placeholder. */
-export type GridItem = { row: Record<string, unknown>; originalIndex: number } | null;
+/**
+ * Internal row item used in the virtual scroll list.
+ * - `{ row, originalIndex }` — a real data row
+ * - `null` — the add-row placeholder
+ * - `'ghost'` — the drop-target ghost inserted while dragging
+ */
+export type GridItem = { row: Record<string, unknown>; originalIndex: number } | null | 'ghost';
 
 /**
  * Excel-like data grid for Angular 21.
@@ -59,8 +64,12 @@ export type GridItem = { row: Record<string, unknown>; originalIndex: number } |
   styleUrl: './agrid.component.css',
 })
 export class AgridComponent {
-  /** Column definitions — order determines left-to-right display order. */
-  colDefs = input.required<ColDef[]>();
+  /**
+   * Column definitions — order determines left-to-right display order.
+   * Uses an empty default so computed signals that depend on it are safe
+   * to read before Angular has finished setting inputs (e.g. via viewChild queries).
+   */
+  colDefs = input<ColDef[]>([]);
 
   /**
    * Row height in pixels.
@@ -116,6 +125,14 @@ export class AgridComponent {
    */
   prepareAddRecord = output<NewRecord>();
 
+  /**
+   * Emitted when the user finishes dragging a row to a new position.
+   * The grid does **not** reorder data automatically — call
+   * `dataSource.moveRow(event.oldIndex, event.newIndex)` inside the handler.
+   * Requires `AgridControl.allowRowReorder = true` and `showControlColumn = true`.
+   */
+  rowReorder = output<RowReorderEvent>();
+
   /** Currently selected cell (original index), or `null` when nothing is selected. */
   readonly selectedCell = signal<CellPosition | null>(null);
 
@@ -130,6 +147,9 @@ export class AgridComponent {
 
   // Ephemeral widths used when no AgridControl is provided.
   private readonly _localWidths = signal<Record<string, number>>({});
+
+  /** `true` when row reordering is enabled via the attached `AgridControl`. */
+  readonly allowRowReorder = computed(() => this.control()?.allowRowReorder() ?? false);
 
   /** `true` when at least one column has `filterable: true`. Controls filter-row visibility. */
   readonly hasFilterableColumns = computed(() => this.colDefs().some(c => c.filterable));
@@ -172,10 +192,15 @@ export class AgridComponent {
    * Each item carries the original data-source index so all cell operations target
    * the correct row even when filters change the display order.
    * Appends a `null` sentinel when the explicit add-row placeholder is active.
+   *
+   * Text filter matches against the DISPLAY value (label / formatted string),
+   * not the raw stored value, so typing "Engineering" works even when the field stores an ID.
    */
   readonly filteredItems = computed<GridItem[]>(() => {
     const rows = this.dataSource().rows();
     const ctrl = this.control();
+    const colDefs = this.colDefs();
+    const colMap = new Map(colDefs.map(c => [c.field, c]));
 
     // Build index array: start with all rows, then filter, then sort.
     let indices = rows.map((_, i) => i);
@@ -184,23 +209,29 @@ export class AgridComponent {
       const filters = ctrl.filters();
 
       for (const [field, filter] of Object.entries(filters)) {
+        const col = colMap.get(field);
         if (filter.text) {
           const lc = filter.text.toLowerCase();
-          indices = indices.filter(i => String(rows[i][field] ?? '').toLowerCase().includes(lc));
+          // Match against the display label/formatted string, not the raw value
+          indices = indices.filter(i =>
+            this.getDisplayForField(col, rows[i][field]).toLowerCase().includes(lc)
+          );
         }
         if (filter.selectedValues !== null) {
+          // selectedValues stores stringified raw values for type-safe comparison
           const allowed = new Set(filter.selectedValues);
           indices = indices.filter(i => allowed.has(String(rows[i][field] ?? '')));
         }
       }
 
-      // Apply sort (only one column sorted at a time)
+      // Apply sort — sort by display label so "Engineering" sorts correctly even if stored as 2
       const sortEntry = Object.entries(filters).find(([, f]) => f.sort);
       if (sortEntry) {
         const [sortField, sortFilter] = sortEntry;
+        const sortCol = colMap.get(sortField);
         indices = [...indices].sort((a, b) => {
-          const av = String(rows[a][sortField] ?? '');
-          const bv = String(rows[b][sortField] ?? '');
+          const av = this.getDisplayForField(sortCol, rows[a][sortField]);
+          const bv = this.getDisplayForField(sortCol, rows[b][sortField]);
           const cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
           return sortFilter.sort === 'asc' ? cmp : -cmp;
         });
@@ -216,6 +247,39 @@ export class AgridComponent {
     return items;
   });
 
+  /**
+   * Virtual scroll source during a drag.
+   * - Removes the dragged row so its space immediately collapses.
+   * - Inserts a `'ghost'` placeholder at the cursor position so CDK makes room.
+   * - When no drag is active, returns `filteredItems()` unchanged.
+   */
+  readonly displayItems = computed<GridItem[]>(() => {
+    const items = this.filteredItems();
+    const dragIdx = this._dragOriginalIndex();
+    if (dragIdx === null) return items;
+
+    // Drop source row from the list so its space closes up immediately.
+    const sourcePos = items.findIndex(
+      item => item !== null && item !== 'ghost' && (item as { originalIndex: number }).originalIndex === dragIdx
+    );
+    const withoutSource: GridItem[] = sourcePos === -1
+      ? [...items]
+      : [...items.slice(0, sourcePos), ...items.slice(sourcePos + 1)];
+
+    const overIdx = this._dragOverIndex();
+    if (overIdx === null) return withoutSource;
+
+    const targetPos = withoutSource.findIndex(
+      item => item !== null && item !== 'ghost' && (item as { originalIndex: number }).originalIndex === overIdx
+    );
+    if (targetPos === -1) return withoutSource;
+
+    const insertAt = this._dragInsertBefore() ? targetPos : targetPos + 1;
+    const result = [...withoutSource];
+    result.splice(insertAt, 0, 'ghost');
+    return result;
+  });
+
   /** Active context menu state, or `null` when no menu is open. */
   readonly contextMenu = signal<{ x: number; y: number; rowIndex: number } | null>(null);
 
@@ -226,24 +290,46 @@ export class AgridComponent {
   readonly filterMenuSearch = signal<string>('');
 
   /**
-   * All unique values for the open filter menu's field (from the full unfiltered dataset).
-   * Sorted alphabetically.
+   * All items for the open filter menu's value list, sorted by label.
+   * - For `ValueOption` columns: derived from `ColDef.values` (label + stringified raw value).
+   * - For plain string or untyped columns: unique values extracted from the full dataset.
+   * `rawStr` is what gets stored in `ColumnFilter.selectedValues`.
    */
-  readonly filterMenuAllValues = computed(() => {
+  readonly filterMenuItems = computed<{ label: string; rawStr: string }[]>(() => {
     const menu = this.filterMenu();
     if (!menu) return [];
+    const col = this.colDefs().find(c => c.field === menu.field);
+    const vals = col?.values;
+
+    if (vals?.length) {
+      return vals
+        .map(v =>
+          typeof v === 'string'
+            ? { label: v, rawStr: v }
+            : { label: (v as ValueOption).label, rawStr: String((v as ValueOption).value) }
+        )
+        .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+    }
+
+    // Extract from dataset; apply formatter if present
     const rows = this.dataSource().rows();
-    return [...new Set(rows.map(r => String(r[menu.field] ?? '')))].sort(
-      (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
-    );
+    const rawStrs = [...new Set(rows.map(r => String(r[menu.field] ?? '')))];
+    return rawStrs
+      .map(rawStr => ({
+        label: col?.formatter ? col.formatter(rawStr) : rawStr,
+        rawStr,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
   });
 
   /**
-   * Subset of {@link filterMenuAllValues} matching the current search string.
+   * Subset of {@link filterMenuItems} matching the current search string (by label).
    */
-  readonly filterMenuVisibleValues = computed(() => {
+  readonly filterMenuVisibleItems = computed(() => {
     const search = this.filterMenuSearch().toLowerCase();
-    return this.filterMenuAllValues().filter(v => !search || v.toLowerCase().includes(search));
+    return this.filterMenuItems().filter(item =>
+      !search || item.label.toLowerCase().includes(search)
+    );
   });
 
   /**
@@ -279,6 +365,11 @@ export class AgridComponent {
 
     return new Set(indices.map(i => String(rows[i][openField] ?? '')));
   });
+
+  // Row reorder drag state
+  private readonly _dragOriginalIndex = signal<number | null>(null);
+  private readonly _dragOverIndex = signal<number | null>(null);
+  private readonly _dragInsertBefore = signal<boolean>(true);
 
   // Column resize drag state — captured on mousedown, cleared on mouseup.
   private resizeState: { field: string; startX: number; startWidth: number } | null = null;
@@ -329,9 +420,9 @@ export class AgridComponent {
     return this.control()?.getFilter(field).selectedValues === null;
   }
 
-  /** @internal Whether a value is present in the dataset after all OTHER filters are applied. */
-  isMenuValueActive(value: string): boolean {
-    return this.filterMenuActiveValues().has(value);
+  /** @internal Whether a rawStr value is present in the dataset after all OTHER filters are applied. */
+  isMenuValueActive(rawStr: string): boolean {
+    return this.filterMenuActiveValues().has(rawStr);
   }
 
   /** @internal Whether a specific value is checked in the open filter menu. */
@@ -443,8 +534,95 @@ export class AgridComponent {
   }
 
   /** @internal CDK virtual scroll `trackBy` function. */
-  trackByItem(_di: number, item: GridItem): number {
+  trackByItem(_di: number, item: GridItem): string | number {
+    if (item === 'ghost') return '__ghost__';
     return item?.originalIndex ?? -1;
+  }
+
+  // ── Row reorder drag ───────────────────────────────────────────────────────
+
+  /** @internal True when the given item is the data row currently being dragged. */
+  isRowDragging(item: GridItem): boolean {
+    if (item === null || item === 'ghost') return false;
+    return this._dragOriginalIndex() === item.originalIndex;
+  }
+
+  /** @internal Display value for a ghost cell — reads from the dragged row. */
+  getGhostCellDisplay(col: ColDef): string {
+    const idx = this._dragOriginalIndex();
+    if (idx === null) return '';
+    return this.getDisplayForField(col, this.dataSource().rows()[idx]?.[col.field]);
+  }
+
+  /** @internal Initiated by mousedown on the drag handle in the control cell. */
+  onDragStart(event: DragEvent, originalIndex: number): void {
+    this._dragOriginalIndex.set(originalIndex);
+    event.dataTransfer!.effectAllowed = 'move';
+
+    // Build a full-row drag image so the browser ghost looks like the entire row.
+    const handle = event.currentTarget as HTMLElement;
+    const rowEl = handle.closest<HTMLElement>('.ag-row');
+    if (rowEl && event.dataTransfer) {
+      const rect = rowEl.getBoundingClientRect();
+      const img = rowEl.cloneNode(true) as HTMLElement;
+      Object.assign(img.style, {
+        position: 'fixed',
+        top: '-9999px',
+        left: '0',
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+        background: '#ffffff',
+        borderRadius: '4px',
+        border: '1px solid #1a73e8',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+        overflow: 'hidden',
+        pointerEvents: 'none',
+      });
+      document.body.appendChild(img);
+      event.dataTransfer.setDragImage(img, event.clientX - rect.left, event.clientY - rect.top);
+      requestAnimationFrame(() => img.remove());
+    }
+  }
+
+  /** @internal Fired as the dragged row passes over any row. */
+  onRowDragOver(event: DragEvent, item: GridItem): void {
+    if (this._dragOriginalIndex() === null) return;
+    // Always preventDefault — without it the browser cancels the drop entirely.
+    event.preventDefault();
+    event.dataTransfer!.dropEffect = 'move';
+    // Ghost and null rows don't update the target state — keep the last real row's values.
+    if (!item || item === 'ghost') return;
+    const el = event.currentTarget as HTMLElement;
+    const rect = el.getBoundingClientRect();
+    this._dragInsertBefore.set(event.clientY < rect.top + rect.height / 2);
+    this._dragOverIndex.set(item.originalIndex);
+  }
+
+  /** @internal Drop completes the reorder — data change is delegated to the host. */
+  onRowDrop(event: DragEvent, item: GridItem): void {
+    event.preventDefault();
+    const oldIndex = this._dragOriginalIndex();
+    if (oldIndex === null) { this._clearDrag(); return; }
+    // Drop may land on a real row or on the ghost itself; always use stored target state.
+    const targetIdx = (item !== null && item !== 'ghost')
+      ? item.originalIndex
+      : this._dragOverIndex();
+    if (targetIdx === null) { this._clearDrag(); return; }
+    const newIndex = this._dragInsertBefore() ? targetIdx : targetIdx + 1;
+    if (oldIndex !== newIndex) {
+      this.rowReorder.emit({ row: { ...this.dataSource().rows()[oldIndex] }, oldIndex, newIndex });
+    }
+    this._clearDrag();
+  }
+
+  /** @internal Drag cancelled (e.g. Escape key or drop outside grid). */
+  onDragEnd(): void {
+    this._clearDrag();
+  }
+
+  private _clearDrag(): void {
+    this._dragOriginalIndex.set(null);
+    this._dragOverIndex.set(null);
   }
 
   // ── Column resize ──────────────────────────────────────────────────────────
@@ -570,16 +748,16 @@ export class AgridComponent {
     ctrl.setSelectedValues(field, current === null ? [] : null);
   }
 
-  /** @internal Toggle a single value in the value-picker. */
-  onMenuToggleValue(field: string, value: string): void {
+  /** @internal Toggle a single value (by rawStr) in the value-picker. */
+  onMenuToggleValue(field: string, rawStr: string): void {
     const ctrl = this.control();
     if (!ctrl) return;
-    const allValues = this.filterMenuAllValues();
-    const current = ctrl.getFilter(field).selectedValues ?? allValues;
-    const next = current.includes(value)
-      ? current.filter(v => v !== value)
-      : [...current, value];
-    ctrl.setSelectedValues(field, next.length === allValues.length ? null : next);
+    const allRawStrs = this.filterMenuItems().map(i => i.rawStr);
+    const current = ctrl.getFilter(field).selectedValues ?? allRawStrs;
+    const next = current.includes(rawStr)
+      ? current.filter(v => v !== rawStr)
+      : [...current, rawStr];
+    ctrl.setSelectedValues(field, next.length === allRawStrs.length ? null : next);
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
@@ -594,7 +772,7 @@ export class AgridComponent {
     const items = this.filteredItems();
     // Add-row placeholder is always last
     if (sel.rowIndex >= this.dataSource().length) return items.length - 1;
-    return items.findIndex(item => item !== null && item.originalIndex === sel.rowIndex);
+    return items.findIndex(item => item !== null && item !== 'ghost' && item.originalIndex === sel.rowIndex);
   }
 
   /**
@@ -603,8 +781,24 @@ export class AgridComponent {
    */
   private findDisplayIndex(originalIndex: number): number {
     return this.filteredItems().findIndex(
-      item => item !== null && item.originalIndex === originalIndex
+      item => item !== null && item !== 'ghost' && item.originalIndex === originalIndex
     );
+  }
+
+  /**
+   * Return the display string for a raw field value.
+   * Priority: ValueOption label → `ColDef.formatter` → raw string coercion.
+   */
+  private getDisplayForField(col: ColDef | undefined, raw: unknown): string {
+    if (!col) return String(raw ?? '');
+    if (col.values?.length) {
+      const opt = col.values.find(v =>
+        typeof v === 'string' ? v === raw : (v as ValueOption).value === raw
+      );
+      if (opt !== undefined) return typeof opt === 'string' ? opt : (opt as ValueOption).label;
+    }
+    if (col.formatter) return col.formatter(raw);
+    return String(raw ?? '');
   }
 
   private buildEmptyRow(): Record<string, unknown> {
@@ -689,7 +883,7 @@ export class AgridComponent {
       const insertedIndex = this.dataSource().addRow(emptyRow);
       // filteredItems will update; find the new row's display position
       const newDisplayIdx = this.filteredItems().findIndex(
-        item => item !== null && item.originalIndex === insertedIndex
+        item => item !== null && item !== 'ghost' && item.originalIndex === insertedIndex
       );
       const clampedCi = Math.min(newCi, cols - 1);
       this.selectedCell.set({ rowIndex: insertedIndex, colIndex: clampedCi });
@@ -707,7 +901,7 @@ export class AgridComponent {
     if (newItem === null) {
       // Add-row placeholder: track via dataSource.length (out-of-range sentinel)
       this.selectedCell.set({ rowIndex: this.dataSource().length, colIndex: 0 });
-    } else {
+    } else if (newItem !== 'ghost') {
       this.selectedCell.set({ rowIndex: newItem.originalIndex, colIndex: newCi });
     }
 

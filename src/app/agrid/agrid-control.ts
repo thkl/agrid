@@ -25,6 +25,8 @@ export interface AgridControlState {
   columnWidths: Record<string, number>;
   /** Per-field filter and sort state. Fields with default state may be omitted. */
   filters: Record<string, ColumnFilter>;
+  /** When `true`, rows can be reordered by dragging the control-column handle. */
+  allowRowReorder?: boolean;
 }
 
 /**
@@ -47,11 +49,24 @@ export interface AgridControlState {
 export class AgridControl {
   private readonly _columnWidths = signal<Record<string, number>>({});
   private readonly _filters = signal<Record<string, ColumnFilter>>({});
+  private readonly _allowRowReorder = signal<boolean>(false);
 
   /** @param state Optional initial state, e.g. deserialized from storage. */
   constructor(state?: Partial<AgridControlState>) {
     if (state?.columnWidths) this._columnWidths.set({ ...state.columnWidths });
     if (state?.filters) this._filters.set({ ...state.filters });
+    if (state?.allowRowReorder) this._allowRowReorder.set(state.allowRowReorder);
+  }
+
+  /**
+   * When `true`, the control column shows a drag handle and rows can be
+   * reordered by dragging. Requires `showControlColumn` to be enabled on the grid.
+   */
+  readonly allowRowReorder: Signal<boolean> = this._allowRowReorder.asReadonly();
+
+  /** Enable or disable row reordering at runtime. */
+  setAllowRowReorder(value: boolean): void {
+    this._allowRowReorder.set(value);
   }
 
   /**
@@ -172,6 +187,7 @@ export class AgridControl {
     return {
       columnWidths: { ...this._columnWidths() },
       filters: { ...this._filters() },
+      allowRowReorder: this._allowRowReorder(),
     };
   }
 

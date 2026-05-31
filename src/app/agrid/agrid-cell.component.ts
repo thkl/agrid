@@ -2,13 +2,14 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  computed,
   effect,
   input,
   output,
   signal,
   viewChild,
 } from '@angular/core';
-import { ColDef } from './agrid.types';
+import { ColDef, ValueOption } from './agrid.types';
 
 /**
  * Individual cell component used inside `AgridComponent`.
@@ -36,8 +37,8 @@ import { ColDef } from './agrid.types';
           class="ag-cell-select"
           (change)="onSelectChange($event)"
         >
-          @for (val of col().values!; track val) {
-            <option [value]="val" [selected]="val === draft()">{{ val }}</option>
+          @for (opt of valueOptions(); track opt.label; let idx = $index) {
+            <option [value]="idx" [selected]="idx === selectedOptionIndex()">{{ opt.label }}</option>
           }
         </select>
       } @else {
@@ -49,7 +50,7 @@ import { ColDef } from './agrid.types';
         />
       }
     } @else {
-      <span class="ag-cell-value">{{ value() }}</span>
+      <span class="ag-cell-value">{{ displayValue() }}</span>
     }
   `,
   styleUrl: './agrid-cell.component.css',
@@ -95,7 +96,49 @@ export class AgridCellComponent {
   draftChange = output<unknown>();
 
   /** Live draft value managed by the cell during an active edit. */
-  readonly draft = signal('');
+  readonly draft = signal<unknown>('');
+
+  /**
+   * Normalized list of value options (always `{ label, rawValue }` regardless of whether
+   * `ColDef.values` is `string[]` or `ValueOption[]`).
+   */
+  readonly valueOptions = computed(() => {
+    const vals = this.col().values ?? [];
+    return vals.map(v =>
+      typeof v === 'string'
+        ? { label: v, rawValue: v as unknown }
+        : { label: (v as ValueOption).label, rawValue: (v as ValueOption).value }
+    );
+  });
+
+  /**
+   * The string shown in the cell when not editing.
+   * Priority: ValueOption label → `ColDef.formatter` → raw string.
+   */
+  readonly displayValue = computed((): string => {
+    const raw = this.value();
+    const col = this.col();
+
+    if (col.values?.length) {
+      const opt = col.values.find(v =>
+        typeof v === 'string' ? v === raw : (v as ValueOption).value === raw
+      );
+      if (opt !== undefined) return typeof opt === 'string' ? opt : (opt as ValueOption).label;
+    }
+
+    if (col.formatter) return col.formatter(raw);
+    return String(raw ?? '');
+  });
+
+  /**
+   * Index of the currently selected option in `valueOptions`.
+   * Used to drive `<option [value]="idx" [selected]="idx === selectedOptionIndex()">`.
+   * Index-based approach avoids string/type coercion for non-string raw values.
+   */
+  readonly selectedOptionIndex = computed((): number => {
+    const raw = this.draft();
+    return this.valueOptions().findIndex(o => o.rawValue === raw);
+  });
 
   private readonly inputEl = viewChild<ElementRef<HTMLInputElement>>('editInput');
   private readonly selectEl = viewChild<ElementRef<HTMLSelectElement>>('editSelect');
@@ -104,15 +147,18 @@ export class AgridCellComponent {
     effect(() => {
       if (this.editing()) {
         const seed = this.seedChar();
-        this.draft.set(seed !== '' ? seed : String(this.value() ?? ''));
+        this.draft.set(seed !== '' ? seed : this.value());
 
         setTimeout(() => {
           const input = this.inputEl()?.nativeElement;
           if (input) {
+            // For text inputs, show the string representation as the editable text
+            const displaySeed = seed !== '' ? seed : String(this.value() ?? '');
+            input.value = displaySeed;
             input.focus();
             if (!seed) input.select();
             else {
-              const len = input.value.length;
+              const len = displaySeed.length;
               input.setSelectionRange(len, len);
             }
             return;
@@ -120,9 +166,8 @@ export class AgridCellComponent {
 
           const sel = this.selectEl()?.nativeElement;
           if (sel) {
-            // Set value after options are in the DOM — [value] binding on <select> runs before
-            // @for renders the options, so the browser would fall back to the first item.
-            sel.value = this.draft();
+            const idx = this.selectedOptionIndex();
+            if (idx >= 0) sel.value = String(idx);
             sel.focus();
             try {
               (sel as HTMLSelectElement & { showPicker?: () => void }).showPicker?.();
@@ -142,10 +187,15 @@ export class AgridCellComponent {
     this.draftChange.emit(val);
   }
 
-  /** Forward `<select>` changes to the grid. */
+  /**
+   * Forward `<select>` changes to the grid.
+   * Maps the option index back to the raw value (preserves original type — number, object, etc.).
+   */
   onSelectChange(event: Event): void {
-    const val = (event.target as HTMLSelectElement).value;
-    this.draft.set(val);
-    this.draftChange.emit(val);
+    const idx = Number((event.target as HTMLSelectElement).value);
+    const opts = this.valueOptions();
+    const rawValue = opts[idx]?.rawValue ?? '';
+    this.draft.set(rawValue);
+    this.draftChange.emit(rawValue);
   }
 }
