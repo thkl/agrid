@@ -38,3 +38,15 @@
   box-sizing: border-box;
   background: transparent;
 }
+
+.ag-cell-select {
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  font: inherit;
+  padding: 0 2px;
+  box-sizing: border-box;
+  background: transparent;
+  cursor: pointer;
+}

@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
-import { AgridComponent, AgridDataSource, ColDef, GridEditEvent, NewRecord } from '../agrid';
+import { AgridComponent, AgridControl, AgridDataSource, ColDef, GridEditEvent, NewRecord } from '../agrid';
 
 const COLUMNS: ColDef[] = [
   { field: 'id', header: 'ID', width: 70, editable: false },
   { field: 'firstName', header: 'First Name', width: 140 },
   { field: 'lastName', header: 'Last Name', width: 140 },
   { field: 'email', header: 'Email', width: 240 },
-  { field: 'department', header: 'Department', width: 130 },
+  { field: 'department', header: 'Department', width: 130, values: ['Engineering', 'Sales', 'Marketing', 'HR', 'Finance', 'Design', 'Operations'] },
   { field: 'salary', header: 'Salary', width: 100, type: 'number' },
 ];
 
@@ -45,6 +45,8 @@ function generateRows(count: number): Record<string, unknown>[] {
         [dataSource]="ds"
         [allowAddRows]="true"
         [autoAddRows]="autoAdd()"
+        [showControlColumn]="true"
+        [control]="gridControl"
         (cellEdit)="onEdit($event)"
         (prepareAddRecord)="onPrepareAdd($event)"
       />
@@ -118,6 +120,7 @@ function generateRows(count: number): Record<string, unknown>[] {
 export class AgridDemoComponent {
   readonly columns = COLUMNS;
   readonly ds = new AgridDataSource(generateRows(10));
+  readonly gridControl = new AgridControl();
   readonly lastEdit = signal('');
   readonly autoAdd = signal(false);
 

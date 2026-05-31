@@ -3,14 +3,21 @@
   class="ag-wrapper"
   tabindex="0"
   (keydown)="onKeyDown($event)"
+  (click)="closeContextMenu()"
 >
   <div
     class="ag-header"
     [style.grid-template-columns]="gridTemplateColumns()"
     [style.min-width.px]="totalWidth()"
   >
+    @if (showControlColumn()) {
+      <div class="ag-header-cell ag-control-header"></div>
+    }
     @for (col of colDefs(); track col.field) {
-      <div class="ag-header-cell">{{ col.header }}</div>
+      <div class="ag-header-cell">
+        <span class="ag-header-cell-label">{{ col.header }}</span>
+        <div class="ag-resize-handle" (mousedown)="onResizeStart($event, col)"></div>
+      </div>
     }
   </div>
 
@@ -28,6 +35,13 @@
       [style.grid-template-columns]="row !== null ? gridTemplateColumns() : null"
     >
       @if (row !== null) {
+        @if (showControlColumn()) {
+          <div
+            class="ag-control-cell"
+            (contextmenu)="onControlContextMenu($event, i)"
+            (click)="$event.stopPropagation()"
+          ></div>
+        }
         @for (col of colDefs(); track col.field; let ci = $index) {
           <agrid-cell
             [col]="col"
@@ -49,4 +63,17 @@
       }
     </div>
   </cdk-virtual-scroll-viewport>
+
+  @if (contextMenu(); as menu) {
+    <div
+      class="ag-context-menu"
+      [style.left.px]="menu.x"
+      [style.top.px]="menu.y"
+      (click)="$event.stopPropagation()"
+    >
+      <button class="ag-context-item ag-context-item--danger" (click)="deleteRow(menu.rowIndex)">
+        Delete row
+      </button>
+    </div>
+  }
 </div>

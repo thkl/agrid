@@ -22,12 +22,24 @@ import { ColDef } from './agrid.types';
   },
   template: `
     @if (editing()) {
-      <input
-        #editInput
-        class="ag-cell-input"
-        [value]="draft()"
-        (input)="onInput($event)"
-      />
+      @if (col().values?.length) {
+        <select
+          #editSelect
+          class="ag-cell-select"
+          (change)="onSelectChange($event)"
+        >
+          @for (val of col().values!; track val) {
+            <option [value]="val" [selected]="val === draft()">{{ val }}</option>
+          }
+        </select>
+      } @else {
+        <input
+          #editInput
+          class="ag-cell-input"
+          [value]="draft()"
+          (input)="onInput($event)"
+        />
+      }
     } @else {
       <span class="ag-cell-value">{{ value() }}</span>
     }
@@ -42,7 +54,7 @@ export class AgridCellComponent {
   selected = input<boolean>(false);
   editing = input<boolean>(false);
   seedChar = input<string>('');
-  
+
   activate = output<void>();
   startEdit = output<void>();
   draftChange = output<unknown>();
@@ -50,6 +62,7 @@ export class AgridCellComponent {
   readonly draft = signal('');
 
   private readonly inputEl = viewChild<ElementRef<HTMLInputElement>>('editInput');
+  private readonly selectEl = viewChild<ElementRef<HTMLSelectElement>>('editSelect');
 
   constructor() {
     effect(() => {
@@ -57,13 +70,25 @@ export class AgridCellComponent {
         const seed = this.seedChar();
         this.draft.set(seed !== '' ? seed : String(this.value() ?? ''));
         setTimeout(() => {
-          const el = this.inputEl()?.nativeElement;
-          if (!el) return;
-          el.focus();
-          if (!seed) el.select();
-          else {
-            const len = el.value.length;
-            el.setSelectionRange(len, len);
+          const input = this.inputEl()?.nativeElement;
+          if (input) {
+            input.focus();
+            if (!seed) input.select();
+            else {
+              const len = input.value.length;
+              input.setSelectionRange(len, len);
+            }
+            return;
+          }
+          const sel = this.selectEl()?.nativeElement;
+          if (sel) {
+            sel.value = this.draft();  // set after options are in the DOM
+            sel.focus();
+            try {
+              (sel as HTMLSelectElement & { showPicker?: () => void }).showPicker?.();
+            } catch {
+              sel.click();
+            }
           }
         });
       }
@@ -72,6 +97,12 @@ export class AgridCellComponent {
 
   onInput(event: Event): void {
     const val = (event.target as HTMLInputElement).value;
+    this.draft.set(val);
+    this.draftChange.emit(val);
+  }
+
+  onSelectChange(event: Event): void {
+    const val = (event.target as HTMLSelectElement).value;
     this.draft.set(val);
     this.draftChange.emit(val);
   }

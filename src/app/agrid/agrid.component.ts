@@ -1,8 +1,10 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   computed,
+  inject,
   input,
   output,
   signal,
@@ -10,6 +12,7 @@ import {
 } from '@angular/core';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { AgridCellComponent } from './agrid-cell.component';
+import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { CellPosition, ColDef, GridEditEvent, NewRecord } from './agrid.types';
 
@@ -24,8 +27,10 @@ export class AgridComponent {
   colDefs = input.required<ColDef[]>();
   rowHeight = input<number>(32);
   dataSource = input.required<AgridDataSource>();
+  control = input<AgridControl | null>(null);
   allowAddRows = input<boolean>(false);
   autoAddRows = input<boolean>(false);
+  showControlColumn = input<boolean>(false);
   cellEdit = output<GridEditEvent>();
   prepareAddRecord = output<NewRecord>();
 
@@ -34,13 +39,43 @@ export class AgridComponent {
   readonly currentDraft = signal<unknown>(null);
   readonly editSeedChar = signal<string>('');
 
-  readonly gridTemplateColumns = computed(() =>
-    this.colDefs().map(c => `${c.width}px`).join(' ')
-  );
+  // Ephemeral widths used when no AgridControl is provided
+  private readonly _localWidths = signal<Record<string, number>>({});
 
-  readonly totalWidth = computed(() =>
-    this.colDefs().reduce((sum, c) => sum + c.width, 0)
-  );
+  private colWidth(field: string, defaultWidth: number): number {
+    const ctrl = this.control();
+    return ctrl
+      ? ctrl.columnWidths()[field] ?? defaultWidth
+      : this._localWidths()[field] ?? defaultWidth;
+  }
+
+  readonly gridTemplateColumns = computed(() => {
+    const ctrl = this.control();
+    const ctrlWidths = ctrl ? ctrl.columnWidths() : {};
+    const localWidths = this._localWidths();
+    const cols = this.colDefs()
+      .map(c => `${ctrlWidths[c.field] ?? localWidths[c.field] ?? c.width}px`)
+      .join(' ');
+    return this.showControlColumn() ? `24px ${cols}` : cols;
+  });
+
+  readonly totalWidth = computed(() => {
+    const ctrl = this.control();
+    const ctrlWidths = ctrl ? ctrl.columnWidths() : {};
+    const localWidths = this._localWidths();
+    const w = this.colDefs().reduce(
+      (sum, c) => sum + (ctrlWidths[c.field] ?? localWidths[c.field] ?? c.width),
+      0
+    );
+    return this.showControlColumn() ? w + 24 : w;
+  });
+
+  readonly contextMenu = signal<{ x: number; y: number; rowIndex: number } | null>(null);
+
+  // Column resize state
+  private resizeState: { field: string; startX: number; startWidth: number } | null = null;
+  private readonly resizeMouseMove = (e: MouseEvent) => this.onResizeMove(e);
+  private readonly resizeMouseUp = () => this.onResizeEnd();
 
   // null sentinel at the end represents the "+ Add row" placeholder.
   // Hidden when autoAddRows is on (implicit mode, no button needed).
@@ -52,6 +87,7 @@ export class AgridComponent {
 
   private readonly viewport = viewChild.required(CdkVirtualScrollViewport);
   private readonly wrapperEl = viewChild.required<ElementRef<HTMLDivElement>>('wrapper');
+  private readonly destroyRef = inject(DestroyRef);
 
   isSelected(ri: number, ci: number): boolean {
     const sel = this.selectedCell();
@@ -72,9 +108,19 @@ export class AgridComponent {
   }
 
   onActivate(ri: number, ci: number): void {
+    // Clicking inside the currently-editing cell (e.g. on the select/input) must not cancel it
+    if (this.isEditing(ri, ci)) return;
+
     this.cancelCurrent();
     this.selectedCell.set({ rowIndex: ri, colIndex: ci });
-    this.wrapperEl().nativeElement.focus();
+
+    // Values columns open immediately on single click — no need to double-click
+    const col = this.colDefs()[ci];
+    if (col.values?.length) {
+      this.enterEdit(ri, ci, '');
+    } else {
+      this.wrapperEl().nativeElement.focus();
+    }
   }
 
   onActivateAddRow(_ri: number): void {
@@ -83,6 +129,7 @@ export class AgridComponent {
   }
 
   onStartEdit(ri: number, ci: number): void {
+    if (this.isEditing(ri, ci)) return;  // dblclick on already-editing cell → ignore
     this.enterEdit(ri, ci, '');
   }
 
@@ -155,6 +202,63 @@ export class AgridComponent {
 
   trackByIndex(index: number): number {
     return index;
+  }
+
+  onResizeStart(event: MouseEvent, col: ColDef): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const currentWidth = this.colWidth(col.field, col.width);
+    this.resizeState = { field: col.field, startX: event.clientX, startWidth: currentWidth };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', this.resizeMouseMove);
+    document.addEventListener('mouseup', this.resizeMouseUp);
+    this.destroyRef.onDestroy(() => this.onResizeEnd());
+  }
+
+  private onResizeMove(event: MouseEvent): void {
+    if (!this.resizeState) return;
+    const newWidth = Math.max(40, this.resizeState.startWidth + (event.clientX - this.resizeState.startX));
+    const ctrl = this.control();
+    if (ctrl) {
+      ctrl.setColumnWidth(this.resizeState.field, newWidth);
+    } else {
+      this._localWidths.update(w => ({ ...w, [this.resizeState!.field]: newWidth }));
+    }
+  }
+
+  private onResizeEnd(): void {
+    this.resizeState = null;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.removeEventListener('mousemove', this.resizeMouseMove);
+    document.removeEventListener('mouseup', this.resizeMouseUp);
+  }
+
+  onControlContextMenu(event: MouseEvent, rowIndex: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.contextMenu.set({ x: event.clientX, y: event.clientY, rowIndex });
+  }
+
+  closeContextMenu(): void {
+    this.contextMenu.set(null);
+  }
+
+  deleteRow(rowIndex: number): void {
+    this.dataSource().removeRow(rowIndex);
+
+    const sel = this.selectedCell();
+    if (sel?.rowIndex === rowIndex) this.selectedCell.set(null);
+    else if (sel && sel.rowIndex > rowIndex)
+      this.selectedCell.update(s => s ? { ...s, rowIndex: s.rowIndex - 1 } : null);
+
+    const ed = this.editingCell();
+    if (ed?.rowIndex === rowIndex) { this.editingCell.set(null); this.editSeedChar.set(''); }
+    else if (ed && ed.rowIndex > rowIndex)
+      this.editingCell.update(p => p ? { ...p, rowIndex: p.rowIndex - 1 } : null);
+
+    this.contextMenu.set(null);
   }
 
   private buildEmptyRow(): Record<string, unknown> {
