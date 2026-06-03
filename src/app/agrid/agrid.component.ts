@@ -14,15 +14,20 @@ import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrollin
 import { AgridCellComponent } from './agrid-cell.component';
 import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
-import { CellPosition, ColDef, GridEditEvent, NewRecord, RowReorderEvent, ValueOption } from './agrid.types';
+import { CellPosition, ColDef, GridEditEvent, GroupAction, NewRecord, RowRemovedEvent, RowReorderEvent, ValueOption } from './agrid.types';
 
 /**
  * Internal row item used in the virtual scroll list.
  * - `{ row, originalIndex }` — a real data row
  * - `null` — the add-row placeholder
  * - `'ghost'` — the drop-target ghost inserted while dragging
+ * - `{ groupLabel, count }` — group header row inserted when grouping is active
  */
-export type GridItem = { row: Record<string, unknown>; originalIndex: number } | null | 'ghost';
+export type GridItem =
+  | { row: Record<string, unknown>; originalIndex: number }
+  | null
+  | 'ghost'
+  | { groupLabel: string; count: number; collapsed: boolean };
 
 /**
  * Excel-like data grid for Angular 21.
@@ -79,6 +84,18 @@ export class AgridComponent {
   rowHeight = input<number>(32);
 
   /**
+   * Minimum height of the grid host element (e.g. `'200px'`, `'50vh'`).
+   * When set, the grid does not shrink below this size regardless of the container.
+   */
+  minHeight = input<string | undefined>(undefined);
+
+  /**
+   * Maximum height of the grid host element (e.g. `'500px'`, `'80vh'`).
+   * When set, the grid scrolls internally once it reaches this height.
+   */
+  maxHeight = input<string | undefined>(undefined);
+
+  /**
    * Signal-based data container. Shared with the host so both sides can read and write rows.
    * Semantically required — always provide a value.
    * Uses an empty default internally so computed signals that depend on it are safe
@@ -114,10 +131,29 @@ export class AgridComponent {
   showControlColumn = input<boolean>(false);
 
   /**
+   * Optional function that returns a short description shown next to the group label.
+   * Receives the group's display value (e.g. `"Sales"`) and returns a string.
+   *
+   * @example
+   * ```ts
+   * [groupDescription]="label => counts[label] + ' employees'"
+   * ```
+   */
+  groupDescription = input<((label: string) => string) | null>(null);
+
+  /**
+   * Optional list of actions shown in the group header's `⋮` action menu.
+   * Each action receives the group's display label when the user clicks it.
+   */
+  groupActions = input<GroupAction[]>([]);
+
+  /**
    * Emitted after the user commits a cell edit.
    * The data source is already updated at this point.
    */
   cellEdit = output<GridEditEvent>();
+
+  rowRemoved = output<RowRemovedEvent>();
 
   /**
    * Emitted when the grid has inserted a blank row into the data source.
@@ -148,8 +184,20 @@ export class AgridComponent {
   // Ephemeral widths used when no AgridControl is provided.
   private readonly _localWidths = signal<Record<string, number>>({});
 
+  /**
+   * Tracks which group labels are expanded, keyed by the active group field so
+   * switching fields resets the state automatically.
+   * An empty label set means all groups are collapsed (the default when grouping is first enabled).
+   */
+  private readonly _expandedGroups = signal<{ field: string | null; labels: Set<string> }>({
+    field: null,
+    labels: new Set(),
+  });
+
   /** `true` when row reordering is enabled via the attached `AgridControl`. */
-  readonly allowRowReorder = computed(() => this.control()?.allowRowReorder() ?? false);
+  readonly allowRowReorder = computed(() =>
+    (this.control()?.allowRowReorder() ?? false) && !this.control()?.groupByField()
+  );
 
   /** `true` when at least one column has `filterable: true`. Controls filter-row visibility. */
   readonly hasFilterableColumns = computed(() => this.colDefs().some(c => c.filterable));
@@ -160,9 +208,16 @@ export class AgridComponent {
    * show a "3 of 10 rows" indicator in the host component.
    * Always equals `dataSource.length` when no filters are active.
    */
-  readonly filteredRowCount = computed(() =>
-    this.filteredItems().filter(item => item !== null).length
-  );
+  readonly filteredRowCount = computed(() => {
+    let groupTotal = 0;
+    let dataTotal = 0;
+    for (const item of this.filteredItems()) {
+      if (this.isGroupHeaderItem(item)) groupTotal += item.count;
+      else if (this.isDataRowItem(item)) dataTotal++;
+    }
+    // When grouping is active, sum group counts so collapsed rows are still counted.
+    return groupTotal > 0 ? groupTotal : dataTotal;
+  });
 
   /** CSS `grid-template-columns` string derived from effective column widths. */
   readonly gridTemplateColumns = computed(() => {
@@ -191,6 +246,8 @@ export class AgridComponent {
    * Filtered and sorted row list passed to `*cdkVirtualFor`.
    * Each item carries the original data-source index so all cell operations target
    * the correct row even when filters change the display order.
+   * When grouping is active, `{ groupLabel, count }` header items are interleaved
+   * before each group. Secondary sorts still apply within groups.
    * Appends a `null` sentinel when the explicit add-row placeholder is active.
    *
    * Text filter matches against the DISPLAY value (label / formatted string),
@@ -222,6 +279,58 @@ export class AgridComponent {
           const allowed = new Set(filter.selectedValues);
           indices = indices.filter(i => allowed.has(String(rows[i][field] ?? '')));
         }
+      }
+
+      // Grouping: bucket rows, sort group keys, sort within groups, interleave headers.
+      const groupField = ctrl.groupByField();
+      if (groupField) {
+        const groupCol = colMap.get(groupField);
+        const sortEntry = Object.entries(filters).find(([, f]) => f.sort);
+
+        const groups = new Map<string, number[]>();
+        for (const i of indices) {
+          const key = this.getDisplayForField(groupCol, rows[i][groupField]);
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key)!.push(i);
+        }
+
+        const sortedKeys = [...groups.keys()].sort((a, b) =>
+          a.localeCompare(b, undefined, { sensitivity: 'base' })
+        );
+
+        // Apply secondary sort within each group (only when it targets a different field).
+        if (sortEntry && sortEntry[0] !== groupField) {
+          const [sortFieldName, sortFilter] = sortEntry;
+          const sortCol = colMap.get(sortFieldName);
+          for (const groupRows of groups.values()) {
+            groupRows.sort((a, b) => {
+              const av = this.getDisplayForField(sortCol, rows[a][sortFieldName]);
+              const bv = this.getDisplayForField(sortCol, rows[b][sortFieldName]);
+              const cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+              return sortFilter.sort === 'asc' ? cmp : -cmp;
+            });
+          }
+        }
+
+        // Expanded labels — reset to empty (all collapsed) when the group field changed.
+        const expandState = this._expandedGroups();
+        const expandedLabels = expandState.field === groupField
+          ? expandState.labels
+          : new Set<string>();
+
+        const groupedItems: GridItem[] = [];
+        for (const key of sortedKeys) {
+          const groupRows = groups.get(key)!;
+          const isExpanded = expandedLabels.has(key);
+          groupedItems.push({ groupLabel: key, count: groupRows.length, collapsed: !isExpanded });
+          if (isExpanded) {
+            for (const i of groupRows) {
+              groupedItems.push({ row: rows[i], originalIndex: i });
+            }
+          }
+        }
+        if (this.allowAddRows() && !this.autoAddRows()) groupedItems.push(null);
+        return groupedItems;
       }
 
       // Apply sort — sort by display label so "Engineering" sorts correctly even if stored as 2
@@ -260,7 +369,7 @@ export class AgridComponent {
 
     // Drop source row from the list so its space closes up immediately.
     const sourcePos = items.findIndex(
-      item => item !== null && item !== 'ghost' && (item as { originalIndex: number }).originalIndex === dragIdx
+      item => this.isDataRowItem(item) && item.originalIndex === dragIdx
     );
     const withoutSource: GridItem[] = sourcePos === -1
       ? [...items]
@@ -270,7 +379,7 @@ export class AgridComponent {
     if (overIdx === null) return withoutSource;
 
     const targetPos = withoutSource.findIndex(
-      item => item !== null && item !== 'ghost' && (item as { originalIndex: number }).originalIndex === overIdx
+      item => this.isDataRowItem(item) && item.originalIndex === overIdx
     );
     if (targetPos === -1) return withoutSource;
 
@@ -285,6 +394,9 @@ export class AgridComponent {
 
   /** Active filter dropdown state, or `null` when closed. */
   readonly filterMenu = signal<{ field: string; x: number; y: number } | null>(null);
+
+  /** Active group-header action menu state, or `null` when closed. */
+  readonly groupActionsMenu = signal<{ x: number; y: number; label: string } | null>(null);
 
   /** Search text typed inside the filter dropdown's value list. */
   readonly filterMenuSearch = signal<string>('');
@@ -533,11 +645,28 @@ export class AgridComponent {
     }
   }
 
-  /** @internal CDK virtual scroll `trackBy` function. */
-  trackByItem(_di: number, item: GridItem): string | number {
-    if (item === 'ghost') return '__ghost__';
-    return item?.originalIndex ?? -1;
+  /** @internal Type guard — true for real data row items. */
+  isDataRowItem(item: GridItem): item is { row: Record<string, unknown>; originalIndex: number } {
+    return item !== null && item !== 'ghost' && 'row' in (item as object);
   }
+
+  /** @internal Type guard — true for group header items. */
+  isGroupHeaderItem(item: GridItem): item is { groupLabel: string; count: number; collapsed: boolean } {
+    return item !== null && item !== 'ghost' && 'groupLabel' in (item as object);
+  }
+
+  /** @internal Returns `originalIndex` for data rows, `null` for everything else. */
+  getItemOriginalIndex(item: GridItem): number | null {
+    return this.isDataRowItem(item) ? item.originalIndex : null;
+  }
+
+  /** @internal CDK virtual scroll `trackBy` function — arrow to preserve `this`. */
+  readonly trackByItem = (_di: number, item: GridItem): string | number => {
+    if (item === 'ghost') return '__ghost__';
+    if (item === null) return -1;
+    if (this.isGroupHeaderItem(item)) return `__group__${item.groupLabel}`;
+    return item.originalIndex;
+  };
 
   // ── Row reorder drag (pointer-events based — no HTML5 drag snap-back) ──────
 
@@ -727,6 +856,59 @@ export class AgridComponent {
       this.editingCell.update(p => p ? { ...p, rowIndex: p.rowIndex - 1 } : null);
 
     this.contextMenu.set(null);
+    this.rowRemoved.emit({oldIndex:originalIndex});
+  }
+
+  // ── Group expand / collapse ────────────────────────────────────────────────
+
+  /** @internal Toggle expand/collapse for a single group header. */
+  onGroupHeaderClick(label: string): void {
+    const groupField = this.control()?.groupByField() ?? null;
+    this._expandedGroups.update(state => {
+      const labels = state.field === groupField ? new Set(state.labels) : new Set<string>();
+      if (labels.has(label)) labels.delete(label);
+      else labels.add(label);
+      return { field: groupField, labels };
+    });
+  }
+
+  /** Expand all groups. No-op when grouping is not active. */
+  expandGroups(): void {
+    const groupField = this.control()?.groupByField() ?? null;
+    if (!groupField) return;
+    const labels = new Set<string>();
+    for (const item of this.filteredItems()) {
+      if (this.isGroupHeaderItem(item)) labels.add(item.groupLabel);
+    }
+    this._expandedGroups.set({ field: groupField, labels });
+  }
+
+  /** Collapse all groups. No-op when grouping is not active. */
+  collapseGroups(): void {
+    const groupField = this.control()?.groupByField() ?? null;
+    this._expandedGroups.set({ field: groupField, labels: new Set() });
+  }
+
+  /** @internal Returns the description string for a group label, or `''` when none is set. */
+  getGroupDescription(label: string): string {
+    return this.groupDescription()?.(label) ?? '';
+  }
+
+  /** @internal Open the group-header action menu. */
+  openGroupActionsMenu(event: MouseEvent, label: string): void {
+    event.stopPropagation();
+    this.groupActionsMenu.set({ x: event.clientX, y: event.clientY, label });
+  }
+
+  /** @internal Close the group-header action menu. */
+  closeGroupActionsMenu(): void {
+    this.groupActionsMenu.set(null);
+  }
+
+  /** @internal Execute a group action and close the menu. */
+  onGroupAction(action: GroupAction, label: string): void {
+    action.action(label);
+    this.closeGroupActionsMenu();
   }
 
   // ── Filter row & menu ──────────────────────────────────────────────────────
@@ -763,6 +945,24 @@ export class AgridComponent {
   /** @internal Clear filter for the open dropdown's column. */
   onMenuClearFilter(field: string): void {
     this.control()?.clearFilter(field);
+    this.closeFilterMenu();
+  }
+
+  /** @internal Returns the ColDef for a field (for template access). */
+  getColDef(field: string): ColDef | undefined {
+    return this.colDefs().find(c => c.field === field);
+  }
+
+  /** @internal Whether the grid is currently grouped by this field. */
+  isGroupedByField(field: string): boolean {
+    return this.control()?.groupByField() === field;
+  }
+
+  /** @internal Toggle "Group by" for a column from the filter menu. */
+  onMenuToggleGroupBy(field: string): void {
+    const ctrl = this.control();
+    if (!ctrl) return;
+    ctrl.setGroupBy(ctrl.groupByField() === field ? null : field);
     this.closeFilterMenu();
   }
 
@@ -804,7 +1004,7 @@ export class AgridComponent {
     const items = this.filteredItems();
     // Add-row placeholder is always last
     if (sel.rowIndex >= this.dataSource().length) return items.length - 1;
-    return items.findIndex(item => item !== null && item !== 'ghost' && item.originalIndex === sel.rowIndex);
+    return items.findIndex(item => this.isDataRowItem(item) && item.originalIndex === sel.rowIndex);
   }
 
   /**
@@ -813,7 +1013,7 @@ export class AgridComponent {
    */
   private findDisplayIndex(originalIndex: number): number {
     return this.filteredItems().findIndex(
-      item => item !== null && item !== 'ghost' && item.originalIndex === originalIndex
+      item => this.isDataRowItem(item) && item.originalIndex === originalIndex
     );
   }
 
@@ -909,13 +1109,26 @@ export class AgridComponent {
       if (newCi >= cols) { newDi++; newCi = 0; }
     }
 
+    // Skip over group header rows in the direction of travel.
+    {
+      const skipDir = dRow < 0 ? -1 : 1;
+      let skipDi = newDi;
+      while (skipDi >= 0 && skipDi < items.length && this.isGroupHeaderItem(items[skipDi])) {
+        skipDi += skipDir;
+      }
+      if (skipDi >= 0 && skipDi < items.length) {
+        newDi = skipDi;
+      }
+      // else: at boundary, leave newDi as-is (will be clamped below)
+    }
+
     // autoAddRows: going past the last displayed row inserts a blank row
     if (this.autoAddRows() && newDi >= items.length) {
       const emptyRow = this.buildEmptyRow();
       const insertedIndex = this.dataSource().addRow(emptyRow);
       // filteredItems will update; find the new row's display position
       const newDisplayIdx = this.filteredItems().findIndex(
-        item => item !== null && item !== 'ghost' && item.originalIndex === insertedIndex
+        item => this.isDataRowItem(item) && item.originalIndex === insertedIndex
       );
       const clampedCi = Math.min(newCi, cols - 1);
       this.selectedCell.set({ rowIndex: insertedIndex, colIndex: clampedCi });
@@ -933,7 +1146,7 @@ export class AgridComponent {
     if (newItem === null) {
       // Add-row placeholder: track via dataSource.length (out-of-range sentinel)
       this.selectedCell.set({ rowIndex: this.dataSource().length, colIndex: 0 });
-    } else if (newItem !== 'ghost') {
+    } else if (this.isDataRowItem(newItem)) {
       this.selectedCell.set({ rowIndex: newItem.originalIndex, colIndex: newCi });
     }
 

@@ -3,7 +3,7 @@
   class="ag-wrapper"
   tabindex="0"
   (keydown)="onKeyDown($event)"
-  (click)="closeContextMenu(); closeFilterMenu()"
+  (click)="closeContextMenu(); closeFilterMenu(); closeGroupActionsMenu()"
 >
   <!-- Header row -->
   <div
@@ -61,18 +61,21 @@
     class="ag-body"
     [itemSize]="rowHeight()"
     [style.min-width.px]="totalWidth()"
+    [style.min-height]="minHeight()"
+    [style.max-height]="maxHeight()"
   >
     <div
       *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem"
-      class="ag-row"
+      [class.ag-row]="!isGroupHeaderItem(item)"
       [class.ag-add-row]="item === null"
       [class.ag-add-row--selected]="item === null && isAddRowSelected()"
       [class.ag-ghost-row]="item === 'ghost'"
-      [attr.data-original-index]="item !== null && item !== 'ghost' ? item.originalIndex : null"
+      [class.ag-group-header-row]="isGroupHeaderItem(item)"
+      [attr.data-original-index]="getItemOriginalIndex(item)"
       [style.height.px]="rowHeight()"
-      [style.grid-template-columns]="item !== null ? gridTemplateColumns() : null"
+      [style.grid-template-columns]="isDataRowItem(item) ? gridTemplateColumns() : null"
     >
-      @if (item !== null && item !== 'ghost') {
+      @if (isDataRowItem(item)) {
         @if (showControlColumn()) {
           <div
             class="ag-control-cell"
@@ -100,13 +103,34 @@
         <div class="ag-add-row-label" (click)="onActivateAddRow()">
           <span class="ag-add-row-icon">+</span> Add row
         </div>
-      } @else {
+      } @else if (item === 'ghost') {
         @if (showControlColumn()) {
           <div class="ag-control-cell ag-control-cell--reorder ag-ghost-handle"></div>
         }
         @for (col of colDefs(); track col.field) {
           <div class="ag-ghost-cell">{{ getGhostCellDisplay(col) }}</div>
         }
+      } @else {
+        <div class="ag-group-header-content" [style.min-width.px]="totalWidth()">
+          <div
+            class="ag-group-header-main"
+            (click)="onGroupHeaderClick(item.groupLabel); $event.stopPropagation()"
+          >
+            <span class="ag-group-icon" [class.ag-group-icon--expanded]="!item.collapsed">▶</span>
+            <span class="ag-group-label">{{ item.groupLabel }}</span>
+            @if (groupActions().length > 0) {
+              <button
+                class="ag-group-actions-btn"
+                title="Actions"
+                (click)="openGroupActionsMenu($event, item.groupLabel)"
+              >⋮</button>
+            }
+            <span class="ag-group-count">{{ item.count }}</span>
+            @if (getGroupDescription(item.groupLabel); as desc) {
+              <span class="ag-group-description">{{ desc }}</span>
+            }
+          </div>
+        </div>
       }
     </div>
   </cdk-virtual-scroll-viewport>
@@ -122,6 +146,22 @@
       <button class="ag-context-item ag-context-item--danger" (click)="deleteRow(menu.rowIndex)">
         Delete row
       </button>
+    </div>
+  }
+
+  <!-- Group actions menu -->
+  @if (groupActionsMenu(); as menu) {
+    <div
+      class="ag-context-menu"
+      [style.left.px]="menu.x"
+      [style.top.px]="menu.y"
+      (click)="$event.stopPropagation()"
+    >
+      @for (action of groupActions(); track action.label) {
+        <button class="ag-context-item" (click)="onGroupAction(action, menu.label)">
+          {{ action.label }}
+        </button>
+      }
     </div>
   }
 
@@ -146,6 +186,17 @@
           (click)="onMenuSort(menu.field, 'desc')"
         >↓ Sort Z → A</button>
       </div>
+
+      <!-- Group by (shown only for groupable columns) -->
+      @if (getColDef(menu.field)?.groupable) {
+        <div class="ag-filter-menu-section ag-filter-menu-section--border">
+          <button
+            class="ag-filter-menu-item"
+            [class.ag-filter-menu-item--active]="isGroupedByField(menu.field)"
+            (click)="onMenuToggleGroupBy(menu.field)"
+          >{{ isGroupedByField(menu.field) ? '⊟ Ungroup' : '⊞ Group by ' + getColDef(menu.field)?.header }}</button>
+        </div>
+      }
 
       <!-- Clear actions -->
       <div class="ag-filter-menu-section ag-filter-menu-section--border">

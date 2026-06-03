@@ -59,6 +59,22 @@ export interface ColDef {
    * At least one filterable column must exist for the filter row to appear.
    */
   filterable?: boolean;
+  /**
+   * Set to `true` to allow grouping the grid by this column.
+   * When set, the filter dropdown shows a "Group by" toggle for this column.
+   */
+  groupable?: boolean;
+}
+
+/**
+ * Defines a single action shown in the group header's action menu.
+ * Pass an array of these to `<agrid [groupActions]="...">`.
+ */
+export interface GroupAction {
+  /** Label shown in the dropdown. */
+  label: string;
+  /** Called with the group's display label when the item is clicked. */
+  action: (groupLabel: string) => void;
 }
 
 /** Zero-based position of a cell inside the grid. */
@@ -79,6 +95,11 @@ export interface GridEditEvent {
   oldValue: unknown;
   /** New field value after the edit. */
   newValue: unknown;
+}
+
+
+export interface RowRemovedEvent {
+  oldIndex: number;
 }
 
 /**

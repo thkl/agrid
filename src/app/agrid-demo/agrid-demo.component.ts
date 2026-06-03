@@ -1,12 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, signal, viewChild } from '@angular/core';
-import { AgridComponent, AgridControl, AgridDataSource, ColDef, GridEditEvent, NewRecord, RowReorderEvent } from '../agrid';
+import { AgridComponent, AgridControl, AgridDataSource, ColDef, GridEditEvent, GroupAction, NewRecord, RowReorderEvent } from '../agrid';
 
 const COLUMNS: ColDef[] = [
-  { field: 'id', header: 'ID', width: 70, editable: false },
+  { field: 'id', header: 'ID', width: 70, editable: false},
   { field: 'firstName', header: 'First Name', width: 140, filterable: true },
-  { field: 'lastName', header: 'Last Name', width: 140, filterable: true },
+  { field: 'lastName', header: 'Last Name', width: 140, filterable: true  ,groupable: true},
   { field: 'email', header: 'Email', width: 240 },
-  { field: 'departmentId', header: 'Department', width: 130, filterable: true,
+  { field: 'departmentId', header: 'Department', width: 130, filterable: true, groupable: true,
     values: [
       { value: 1, label: 'Engineering' },
       { value: 2, label: 'Sales' },
@@ -53,6 +53,14 @@ function generateRows(count: number): Record<string, unknown>[] {
           <input type="checkbox" [checked]="autoAdd()" (change)="autoAdd.set(!autoAdd())" />
           autoAddRows
         </label>
+        <label class="demo-toggle">
+          <input type="checkbox" [checked]="isGrouped()" (change)="toggleGroup($any($event.target).checked)" />
+          groupByDept
+        </label>
+        @if (isGrouped()) {
+          <button class="demo-btn" (click)="_grid()?.expandGroups()">Expand All</button>
+          <button class="demo-btn" (click)="_grid()?.collapseGroups()">Collapse All</button>
+        }
       </div>
       <agrid
         class="demo-grid"
@@ -62,6 +70,8 @@ function generateRows(count: number): Record<string, unknown>[] {
         [autoAddRows]="autoAdd()"
         [showControlColumn]="true"
         [control]="gridControl"
+        [groupDescription]="groupDescriptionFn"
+        [groupActions]="groupActionsList"
         (cellEdit)="onEdit($event)"
         (prepareAddRecord)="onPrepareAdd($event)"
         (rowReorder)="onRowReorder($event)"
@@ -113,6 +123,22 @@ function generateRows(count: number): Record<string, unknown>[] {
       user-select: none;
     }
 
+    .demo-btn {
+      font-size: 12px;
+      color: #57606a;
+      background: none;
+      border: 1px solid #d0d7de;
+      border-radius: 4px;
+      padding: 2px 8px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .demo-btn:hover {
+      background: #f6f8fa;
+      border-color: #57606a;
+    }
+
     .demo-grid {
       flex: 1;
       min-height: 0;
@@ -139,9 +165,39 @@ export class AgridDemoComponent {
   readonly gridControl = new AgridControl({ allowRowReorder: true });
   readonly lastEdit = signal('');
   readonly autoAdd = signal(false);
+  readonly isGrouped = computed(() => this.gridControl.groupByField() === 'departmentId');
+
+  readonly groupDescriptionFn = (label: string): string => {
+    const count = this.ds.rows().filter(r => {
+      const dept = DEPARTMENTS[Number(r['departmentId']) - 1];
+      return dept === label;
+    }).length;
+    return `${count} ${count === 1 ? 'employee' : 'employees'}`;
+  };
+
+  readonly groupActionsList: GroupAction[] = [
+    {
+      label: 'Filter to this group',
+      action: (label: string) => {
+        this.gridControl.setSelectedValues('departmentId',
+          COLUMNS.find(c => c.field === 'departmentId')?.values
+            ?.filter(v => (typeof v === 'string' ? v : v.label) === label)
+            .map(v => String(typeof v === 'string' ? v : v.value)) ?? null
+        );
+        this.lastEdit.set(`Filtered to department: ${label}`);
+      },
+    },
+    {
+      label: 'Clear group filter',
+      action: (_label: string) => {
+        this.gridControl.clearFilter('departmentId');
+        this.lastEdit.set('Department filter cleared');
+      },
+    },
+  ];
 
   // Safe: returns undefined before view init, then reacts once the grid is live
-  private readonly _grid = viewChild(AgridComponent);
+  readonly _grid = viewChild(AgridComponent);
   readonly filteredRowCount = computed(() => this._grid()?.filteredRowCount() ?? this.ds.length);
 
   onEdit(event: GridEditEvent): void {
@@ -161,5 +217,9 @@ export class AgridDemoComponent {
   onRowReorder(event: RowReorderEvent): void {
     this.ds.moveRow(event.oldIndex, event.newIndex);
     this.lastEdit.set(`Row moved from position ${event.oldIndex + 1} to ${event.newIndex + 1}`);
+  }
+
+  toggleGroup(checked: boolean): void {
+    this.gridControl.setGroupBy(checked ? 'departmentId' : null);
   }
 }

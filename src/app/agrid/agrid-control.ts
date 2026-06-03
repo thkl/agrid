@@ -27,6 +27,8 @@ export interface AgridControlState {
   filters: Record<string, ColumnFilter>;
   /** When `true`, rows can be reordered by dragging the control-column handle. */
   allowRowReorder?: boolean;
+  /** Field to group rows by, or `null` / omitted for no grouping. */
+  groupByField?: string | null;
 }
 
 /**
@@ -50,12 +52,14 @@ export class AgridControl {
   private readonly _columnWidths = signal<Record<string, number>>({});
   private readonly _filters = signal<Record<string, ColumnFilter>>({});
   private readonly _allowRowReorder = signal<boolean>(false);
+  private readonly _groupByField = signal<string | null>(null);
 
   /** @param state Optional initial state, e.g. deserialized from storage. */
   constructor(state?: Partial<AgridControlState>) {
     if (state?.columnWidths) this._columnWidths.set({ ...state.columnWidths });
     if (state?.filters) this._filters.set({ ...state.filters });
     if (state?.allowRowReorder) this._allowRowReorder.set(state.allowRowReorder);
+    if (state?.groupByField !== undefined) this._groupByField.set(state.groupByField ?? null);
   }
 
   /**
@@ -67,6 +71,20 @@ export class AgridControl {
   /** Enable or disable row reordering at runtime. */
   setAllowRowReorder(value: boolean): void {
     this._allowRowReorder.set(value);
+  }
+
+  /**
+   * The field currently used to group rows, or `null` when grouping is off.
+   * When set, rows are bucketed by the display value of this field and a header
+   * row is inserted before each group. Secondary sorts still apply within groups.
+   */
+  readonly groupByField: Signal<string | null> = this._groupByField.asReadonly();
+
+  /**
+   * Enable grouping by `field`, or pass `null` to turn grouping off.
+   */
+  setGroupBy(field: string | null): void {
+    this._groupByField.set(field);
   }
 
   /**
@@ -188,6 +206,7 @@ export class AgridControl {
       columnWidths: { ...this._columnWidths() },
       filters: { ...this._filters() },
       allowRowReorder: this._allowRowReorder(),
+      groupByField: this._groupByField() ?? undefined,
     };
   }
 
