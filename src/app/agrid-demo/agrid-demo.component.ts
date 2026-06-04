@@ -61,6 +61,7 @@ function generateRows(count: number): Record<string, unknown>[] {
           <button class="demo-btn" (click)="_grid()?.expandGroups()">Expand All</button>
           <button class="demo-btn" (click)="_grid()?.collapseGroups()">Collapse All</button>
         }
+        <button class="demo-btn" (click)="_grid()?.exportCsv()">Export CSV</button>
       </div>
       <agrid
         class="demo-grid"
@@ -164,7 +165,7 @@ function generateRows(count: number): Record<string, unknown>[] {
 })
 export class AgridDemoComponent {
   readonly columns = COLUMNS;
-  readonly ds = new AgridDataSource(generateRows(10));
+  readonly ds = new AgridDataSource(generateRows(50));
   readonly gridControl = new AgridControl({ allowRowReorder: true });
   readonly lastEdit = signal('');
   readonly autoAdd = signal(false);

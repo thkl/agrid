@@ -42,6 +42,10 @@ export interface AgridControlState {
   groupByField?: string | null;
   /** Fields that are currently hidden from the grid view. */
   hiddenColumns?: string[];
+  /** Ordered list of field names defining the column display order. */
+  columnOrder?: string[];
+  /** Fields that are pinned to the left edge. */
+  pinnedColumns?: string[];
 }
 
 /**
@@ -66,7 +70,9 @@ export class AgridControl {
   private readonly _filters = signal<Record<string, ColumnFilter>>({});
   private readonly _allowRowReorder = signal<boolean>(false);
   private readonly _groupByField = signal<string | null>(null);
-  private readonly _hiddenColumns = signal<Set<string>>(new Set());
+  private readonly _hiddenColumns  = signal<Set<string>>(new Set());
+  private readonly _columnOrder    = signal<string[]>([]);
+  private readonly _pinnedColumns  = signal<Set<string>>(new Set());
 
   /** @param state Optional initial state, e.g. deserialized from storage. */
   constructor(state?: Partial<AgridControlState>) {
@@ -75,6 +81,8 @@ export class AgridControl {
     if (state?.allowRowReorder) this._allowRowReorder.set(state.allowRowReorder);
     if (state?.groupByField !== undefined) this._groupByField.set(state.groupByField ?? null);
     if (state?.hiddenColumns?.length) this._hiddenColumns.set(new Set(state.hiddenColumns));
+    if (state?.columnOrder?.length)   this._columnOrder.set([...state.columnOrder]);
+    if (state?.pinnedColumns?.length) this._pinnedColumns.set(new Set(state.pinnedColumns));
   }
 
   /**
@@ -129,6 +137,59 @@ export class AgridControl {
   /** Toggle the visibility of a column. */
   toggleColumnVisibility(field: string): void {
     this.setColumnVisibility(field, this.isColumnHidden(field));
+  }
+
+  // ── Column order ──────────────────────────────────────────────────────────
+
+  /**
+   * Ordered list of field names that defines the left-to-right column display order.
+   * An empty array means "use the original `colDefs` order".
+   */
+  readonly columnOrder: Signal<string[]> = this._columnOrder.asReadonly();
+
+  /** Replace the entire column order with a new list of field names. */
+  setColumnOrder(fields: string[]): void {
+    this._columnOrder.set([...fields]);
+  }
+
+  /**
+   * Move `fromField` to a new position relative to `toField`.
+   * `currentVisibleOrder` should be the current `visibleColDefs` field array so the
+   * operation works correctly whether or not an order has been set before.
+   */
+  moveColumn(currentVisibleOrder: string[], fromField: string, toField: string, insertBefore: boolean): void {
+    const order = [...currentVisibleOrder];
+    const fromIdx = order.indexOf(fromField);
+    if (fromIdx === -1) return;
+    order.splice(fromIdx, 1);
+    const toIdx = order.indexOf(toField);
+    if (toIdx === -1) { this._columnOrder.set(order); return; }
+    order.splice(insertBefore ? toIdx : toIdx + 1, 0, fromField);
+    this._columnOrder.set(order);
+  }
+
+  // ── Pinned columns ────────────────────────────────────────────────────────
+
+  /** Reactive set of field names currently pinned to the left edge. */
+  readonly pinnedColumns: Signal<Set<string>> = this._pinnedColumns.asReadonly();
+
+  /** Return `true` when the given field is pinned. */
+  isPinned(field: string): boolean {
+    return this._pinnedColumns().has(field);
+  }
+
+  /** Pin or unpin a column by field name. */
+  setPinned(field: string, pinned: boolean): void {
+    this._pinnedColumns.update(set => {
+      const next = new Set(set);
+      if (pinned) next.add(field); else next.delete(field);
+      return next;
+    });
+  }
+
+  /** Toggle the pinned state of a column. */
+  togglePinned(field: string): void {
+    this.setPinned(field, !this.isPinned(field));
   }
 
   // ── Undo / redo history ────────────────────────────────────────────────────
@@ -311,6 +372,8 @@ export class AgridControl {
       allowRowReorder: this._allowRowReorder(),
       groupByField: this._groupByField() ?? undefined,
       hiddenColumns: [...this._hiddenColumns()],
+      columnOrder:   [...this._columnOrder()],
+      pinnedColumns: [...this._pinnedColumns()],
     };
   }
 

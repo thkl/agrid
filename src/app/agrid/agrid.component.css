@@ -60,6 +60,23 @@
   flex: 1;
 }
 
+.ag-header-cell {
+  cursor: grab;
+}
+
+.ag-header-cell--dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+.ag-header-cell--drop-before {
+  box-shadow: inset 2px 0 0 var(--agrid-color-accent);
+}
+
+.ag-header-cell--drop-after {
+  box-shadow: inset -2px 0 0 var(--agrid-color-accent);
+}
+
 .ag-resize-handle {
   position: absolute;
   top: 0;
@@ -259,17 +276,27 @@
   white-space: nowrap;
 }
 
-.ag-content-row {
+.ag-main-area {
   display: flex;
   flex: 1;
   min-height: 0;
   overflow: hidden;
 }
 
+.ag-horizontal-scroll {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .ag-body {
   flex: 1;
-  overflow: auto;
-  min-width: 0;
+  overflow-x: clip;
+  overflow-y: auto;
 }
 
 .ag-sidebar-tab {
@@ -375,11 +402,18 @@
 }
 
 .ag-control-header {
+  position: sticky;
+  left: 0;
+  z-index: 3;
   border-right: 1px solid var(--agrid-color-border);
   background: var(--agrid-color-bg-muted);
 }
 
 .ag-control-cell {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  transform: translateX(var(--ag-hscroll-left, 0px));
   border-right: 1px solid var(--agrid-color-border);
   border-bottom: 1px solid var(--agrid-color-border);
   background: var(--agrid-color-bg-subtle);
@@ -604,4 +638,77 @@
   font-size: 16px;
   line-height: 1;
   color: var(--agrid-color-text-muted);
+}
+
+/* ── Pinned columns ─────────────────────────────────────────────────────── */
+
+.ag-header-cell--pinned {
+  background: var(--agrid-color-bg-muted);
+}
+
+.ag-header-cell--pinned-last {
+  box-shadow: inset -1px 0 0 var(--agrid-color-border), 3px 0 6px -2px var(--agrid-color-shadow);
+}
+
+.ag-filter-cell--pinned {
+  background: var(--agrid-color-bg);
+}
+
+.ag-filter-cell--pinned-last {
+  box-shadow: inset -1px 0 0 var(--agrid-color-border), 3px 0 6px -2px var(--agrid-color-shadow);
+}
+
+.ag-cell--pinned {
+  background: var(--agrid-color-bg);
+  transform: translateX(var(--ag-hscroll-left, 0px));
+}
+
+.ag-cell--pinned-last {
+  box-shadow: inset -1px 0 0 var(--agrid-color-border), 3px 0 6px -2px var(--agrid-color-shadow);
+}
+
+.ag-row:hover .ag-cell--pinned {
+  background: var(--agrid-color-bg-muted);
+}
+
+.ag-row--selected .ag-cell--pinned {
+  background: var(--agrid-color-accent-subtle);
+}
+
+/* ── Pin button in column header ─────────────────────────────────────────── */
+
+.ag-pin-btn {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin-right: 2px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--agrid-color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 120ms;
+  line-height: 1;
+}
+
+.ag-header-cell:hover .ag-pin-btn {
+  opacity: 1;
+}
+
+.ag-pin-btn--active {
+  opacity: 1;
+  color: var(--agrid-color-accent);
+  border-color: var(--agrid-color-accent-border);
+  background: var(--agrid-color-accent-subtle);
+}
+
+.ag-pin-btn:hover {
+  background: var(--agrid-color-bg);
+  border-color: var(--agrid-color-border);
 }

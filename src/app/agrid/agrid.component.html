@@ -5,163 +5,220 @@
   (keydown)="onKeyDown($event)"
   (click)="closeContextMenu(); closeFilterMenu(); closeGroupActionsMenu()"
 >
-  <!-- Header row -->
-  <div
-    class="ag-header"
-    [style.grid-template-columns]="gridTemplateColumns()"
-    [style.min-width.px]="totalWidth()"
-  >
-    @if (showControlColumn()) {
-      <div class="ag-header-cell ag-control-header"></div>
-    }
-    @for (col of visibleColDefs(); track col.field) {
-      <div class="ag-header-cell" [class.ag-header-cell--filtered]="hasActiveFilter(col.field)">
-        <span class="ag-header-cell-label">{{ col.header }}</span>
-        <div class="ag-resize-handle" (mousedown)="onResizeStart($event, col)"></div>
-      </div>
-    }
-  </div>
+  <!-- Main area: horizontal-scroll pane + sidebar -->
+  <div class="ag-main-area">
+    <div class="ag-horizontal-scroll" (scroll)="onHorizontalScroll($event)">
 
-  <!-- Filter row (shown when at least one column is filterable) -->
-  @if (hasFilterableColumns()) {
-    <div
-      class="ag-filter-row"
-      [style.grid-template-columns]="gridTemplateColumns()"
-      [style.min-width.px]="totalWidth()"
-    >
-      @if (showControlColumn()) {
-        <div class="ag-filter-cell ag-filter-cell--control"></div>
-      }
-      @for (col of visibleColDefs(); track col.field) {
-        @if (col.filterable) {
-          <div class="ag-filter-cell">
-            <input
-              class="ag-filter-input"
-              [value]="getTextFilter(col.field)"
-              (input)="onTextFilterChange($event, col.field)"
-              (click)="$event.stopPropagation()"
-              placeholder="Filter…"
-            />
-            <button
-              class="ag-filter-btn"
-              [class.ag-filter-btn--active]="hasActiveFilter(col.field)"
-              (click)="openFilterMenu($event, col.field)"
-              title="Filter options"
-            >▾</button>
-          </div>
-        } @else {
-          <div class="ag-filter-cell ag-filter-cell--empty"></div>
-        }
-      }
-    </div>
-  }
-
-  <!-- Virtual scroll body + optional sidebar -->
-  <div class="ag-content-row">
-  <cdk-virtual-scroll-viewport
-    class="ag-body"
-    [itemSize]="rowHeight()"
-    [style.min-width.px]="totalWidth()"
-    [style.min-height]="minHeight()"
-    [style.max-height]="maxHeight()"
-  >
-    <div
-      *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem"
-      [class.ag-row]="!isGroupHeaderItem(item)"
-      [class.ag-add-row]="item === null"
-      [class.ag-add-row--selected]="item === null && isAddRowSelected()"
-      [class.ag-ghost-row]="item === 'ghost'"
-      [class.ag-group-header-row]="isGroupHeaderItem(item)"
-      [class.ag-row--selected]="isDataRowItem(item) && isRowSelected(item.originalIndex)"
-      [attr.data-original-index]="getItemOriginalIndex(item)"
-      [style.height.px]="rowHeight()"
-      [style.grid-template-columns]="isDataRowItem(item) ? gridTemplateColumns() : null"
-      (pointerdown)="isDataRowItem(item) && onRowPointerDown($event, item.originalIndex)"
-    >
-      @if (isDataRowItem(item)) {
+      <!-- Header row -->
+      <div
+        class="ag-header"
+        [style.grid-template-columns]="gridTemplateColumns()"
+        [style.min-width.px]="totalWidth()"
+      >
         @if (showControlColumn()) {
-          <div
-            class="ag-control-cell"
-            [class.ag-control-cell--reorder]="allowRowReorder()"
-            (contextmenu)="onControlContextMenu($event, item.originalIndex)"
-            (click)="$event.stopPropagation()"
-            (pointerdown)="onHandlePointerDown($event, item.originalIndex)"
-          ></div>
-        }
-        @for (col of visibleColDefs(); track col.field; let ci = $index) {
-          <agrid-cell
-            [col]="col"
-            [rowIndex]="item.originalIndex"
-            [colIndex]="ci"
-            [value]="item.row[col.field]"
-            [selected]="isSelected(item.originalIndex, ci)"
-            [editing]="isEditing(item.originalIndex, ci)"
-            [seedChar]="getSeedChar(item.originalIndex, ci)"
-            (activate)="onActivate(item.originalIndex, ci)"
-            (startEdit)="onStartEdit(item.originalIndex, ci)"
-            (draftChange)="onDraftChange($event)"
-          />
-        }
-      } @else if (item === null) {
-        <div class="ag-add-row-label" (click)="onActivateAddRow()">
-          <span class="ag-add-row-icon">+</span> Add row
-        </div>
-      } @else if (item === 'ghost') {
-        @if (showControlColumn()) {
-          <div class="ag-control-cell ag-control-cell--reorder ag-ghost-handle"></div>
+          <div class="ag-header-cell ag-control-header"></div>
         }
         @for (col of visibleColDefs(); track col.field) {
-          <div class="ag-ghost-cell">{{ getGhostCellDisplay(col) }}</div>
-        }
-      } @else {
-        <div class="ag-group-header-content" [style.min-width.px]="totalWidth()">
           <div
-            class="ag-group-header-main"
-            (click)="onGroupHeaderClick(item.groupLabel); $event.stopPropagation()"
+            class="ag-header-cell"
+            [class.ag-header-cell--filtered]="hasActiveFilter(col.field)"
+            [class.ag-header-cell--dragging]="isColDragging(col.field)"
+            [class.ag-header-cell--drop-before]="getColDropSide(col.field) === 'before'"
+            [class.ag-header-cell--drop-after]="getColDropSide(col.field) === 'after'"
+            [class.ag-header-cell--pinned]="isColumnPinned(col.field)"
+            [class.ag-header-cell--pinned-last]="isLastPinnedColumn(col.field)"
+            [style.position]="isColumnPinned(col.field) ? 'sticky' : null"
+            [style.left.px]="isColumnPinned(col.field) ? getPinnedStickyLeft(col.field) : null"
+            [style.z-index]="isColumnPinned(col.field) ? 3 : null"
+            [attr.data-col-field]="col.field"
+            (pointerdown)="onColHeaderPointerDown($event, col.field)"
           >
-            <span class="ag-group-icon" [class.ag-group-icon--expanded]="!item.collapsed">▶</span>
-            <span class="ag-group-label">{{ item.groupLabel }}</span>
-            @if (groupActions().length > 0) {
+            <span class="ag-header-cell-label">{{ col.header }}</span>
+            @if (control()) {
               <button
-                class="ag-group-actions-btn"
-                title="Actions"
-                (click)="openGroupActionsMenu($event, item.groupLabel)"
-              >⋮</button>
+                class="ag-pin-btn"
+                [class.ag-pin-btn--active]="isColumnPinned(col.field)"
+                [title]="isColumnPinned(col.field) ? 'Unpin column' : 'Pin column'"
+                (click)="control()!.togglePinned(col.field); $event.stopPropagation()"
+                (pointerdown)="$event.stopPropagation()"
+              >⊣</button>
             }
-            <span class="ag-group-count">{{ item.count }}</span>
-            @if (getGroupDescription(item.groupLabel); as desc) {
-              <span class="ag-group-description">{{ desc }}</span>
-            }
+            <div class="ag-resize-handle"
+              (mousedown)="onResizeStart($event, col)"
+              (pointerdown)="$event.stopPropagation()"
+            ></div>
           </div>
-        </div>
-      }
-    </div>
-  </cdk-virtual-scroll-viewport>
-
-  <!-- Sidebar -->
-  @if (showSidebar()) {
-    @if (sidebarOpen()) {
-      <div class="ag-sidebar">
-        <div class="ag-sidebar-header">
-          <span>Columns</span>
-          <button class="ag-sidebar-close" (click)="toggleSidebar()" title="Close">✕</button>
-        </div>
-        @for (col of colDefs(); track col.field) {
-          <label class="ag-sidebar-item" (click)="$event.stopPropagation()">
-            <input
-              type="checkbox"
-              [checked]="!isColumnHidden(col.field)"
-              (change)="onSidebarToggleColumn(col.field)"
-            />
-            {{ col.header }}
-          </label>
         }
       </div>
-    } @else {
-      <div class="ag-sidebar-tab" (click)="toggleSidebar()">☰</div>
+
+      <!-- Filter row (shown when at least one column is filterable) -->
+      @if (hasFilterableColumns()) {
+        <div
+          class="ag-filter-row"
+          [style.grid-template-columns]="gridTemplateColumns()"
+          [style.min-width.px]="totalWidth()"
+        >
+          @if (showControlColumn()) {
+            <div class="ag-filter-cell ag-filter-cell--control"></div>
+          }
+          @for (col of visibleColDefs(); track col.field) {
+            @if (col.filterable) {
+              <div
+                class="ag-filter-cell"
+                [class.ag-filter-cell--pinned]="isColumnPinned(col.field)"
+                [class.ag-filter-cell--pinned-last]="isLastPinnedColumn(col.field)"
+                [style.position]="isColumnPinned(col.field) ? 'sticky' : null"
+                [style.left.px]="isColumnPinned(col.field) ? getPinnedStickyLeft(col.field) : null"
+                [style.z-index]="isColumnPinned(col.field) ? 3 : null"
+              >
+                <input
+                  class="ag-filter-input"
+                  [value]="getTextFilter(col.field)"
+                  (input)="onTextFilterChange($event, col.field)"
+                  (click)="$event.stopPropagation()"
+                  placeholder="Filter…"
+                />
+                <button
+                  class="ag-filter-btn"
+                  [class.ag-filter-btn--active]="hasActiveFilter(col.field)"
+                  (click)="openFilterMenu($event, col.field)"
+                  title="Filter options"
+                >▾</button>
+              </div>
+            } @else {
+              <div
+                class="ag-filter-cell ag-filter-cell--empty"
+                [class.ag-filter-cell--pinned]="isColumnPinned(col.field)"
+                [class.ag-filter-cell--pinned-last]="isLastPinnedColumn(col.field)"
+                [style.position]="isColumnPinned(col.field) ? 'sticky' : null"
+                [style.left.px]="isColumnPinned(col.field) ? getPinnedStickyLeft(col.field) : null"
+                [style.z-index]="isColumnPinned(col.field) ? 3 : null"
+              ></div>
+            }
+          }
+        </div>
+      }
+
+      <!-- Virtual scroll body -->
+      <cdk-virtual-scroll-viewport
+        class="ag-body"
+        [itemSize]="rowHeight()"
+        [style.min-width.px]="totalWidth()"
+        [style.min-height]="minHeight()"
+        [style.max-height]="maxHeight()"
+      >
+        <div
+          *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem"
+          [class.ag-row]="!isGroupHeaderItem(item)"
+          [class.ag-add-row]="item === null"
+          [class.ag-add-row--selected]="item === null && isAddRowSelected()"
+          [class.ag-ghost-row]="item === 'ghost'"
+          [class.ag-group-header-row]="isGroupHeaderItem(item)"
+          [class.ag-row--selected]="isDataRowItem(item) && isRowSelected(item.originalIndex)"
+          [attr.data-original-index]="getItemOriginalIndex(item)"
+          [style.height.px]="rowHeight()"
+          [style.grid-template-columns]="isDataRowItem(item) ? gridTemplateColumns() : null"
+          (pointerdown)="isDataRowItem(item) && onRowPointerDown($event, item.originalIndex)"
+        >
+          @if (isDataRowItem(item)) {
+            @if (showControlColumn()) {
+              <div
+                class="ag-control-cell"
+                [class.ag-control-cell--reorder]="allowRowReorder()"
+                (contextmenu)="onControlContextMenu($event, item.originalIndex)"
+                (click)="$event.stopPropagation()"
+                (pointerdown)="onHandlePointerDown($event, item.originalIndex)"
+              ></div>
+            }
+            @for (col of visibleColDefs(); track col.field; let ci = $index) {
+              <agrid-cell
+                [col]="col"
+                [rowIndex]="item.originalIndex"
+                [colIndex]="ci"
+                [value]="item.row[col.field]"
+                [attr.title]="getCellTitle(col, item.row[col.field])"
+                [selected]="isSelected(item.originalIndex, ci)"
+                [editing]="isEditing(item.originalIndex, ci)"
+                [seedChar]="getSeedChar(item.originalIndex, ci)"
+                [class.ag-cell--pinned]="isColumnPinned(col.field)"
+                [class.ag-cell--pinned-last]="isLastPinnedColumn(col.field)"
+                [style.position]="isColumnPinned(col.field) ? 'sticky' : null"
+                [style.left.px]="isColumnPinned(col.field) ? getPinnedStickyLeft(col.field) : null"
+                [style.z-index]="isColumnPinned(col.field) ? 2 : null"
+                (activate)="onActivate(item.originalIndex, ci)"
+                (startEdit)="onStartEdit(item.originalIndex, ci)"
+                (draftChange)="onDraftChange($event)"
+              />
+            }
+          } @else if (item === null) {
+            <div class="ag-add-row-label" (click)="onActivateAddRow()">
+              <span class="ag-add-row-icon">+</span> Add row
+            </div>
+          } @else if (item === 'ghost') {
+            @if (showControlColumn()) {
+              <div class="ag-control-cell ag-control-cell--reorder ag-ghost-handle"></div>
+            }
+            @for (col of visibleColDefs(); track col.field) {
+              <div
+                class="ag-ghost-cell"
+                [class.ag-cell--pinned]="isColumnPinned(col.field)"
+                [class.ag-cell--pinned-last]="isLastPinnedColumn(col.field)"
+                [style.position]="isColumnPinned(col.field) ? 'sticky' : null"
+                [style.left.px]="isColumnPinned(col.field) ? getPinnedStickyLeft(col.field) : null"
+                [style.z-index]="isColumnPinned(col.field) ? 2 : null"
+              >{{ getGhostCellDisplay(col) }}</div>
+            }
+          } @else {
+            <div class="ag-group-header-content" [style.min-width.px]="totalWidth()">
+              <div
+                class="ag-group-header-main"
+                (click)="onGroupHeaderClick(item.groupLabel); $event.stopPropagation()"
+              >
+                <span class="ag-group-icon" [class.ag-group-icon--expanded]="!item.collapsed">▶</span>
+                <span class="ag-group-label">{{ item.groupLabel }}</span>
+                @if (groupActions().length > 0) {
+                  <button
+                    class="ag-group-actions-btn"
+                    title="Actions"
+                    (click)="openGroupActionsMenu($event, item.groupLabel)"
+                  >⋮</button>
+                }
+                <span class="ag-group-count">{{ item.count }}</span>
+                @if (getGroupDescription(item.groupLabel); as desc) {
+                  <span class="ag-group-description">{{ desc }}</span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </cdk-virtual-scroll-viewport>
+
+    </div><!-- /.ag-horizontal-scroll -->
+
+    <!-- Sidebar (outside horizontal scroll so it doesn't move) -->
+    @if (showSidebar()) {
+      @if (sidebarOpen()) {
+        <div class="ag-sidebar">
+          <div class="ag-sidebar-header">
+            <span>Columns</span>
+            <button class="ag-sidebar-close" (click)="toggleSidebar()" title="Close">✕</button>
+          </div>
+          @for (col of colDefs(); track col.field) {
+            <label class="ag-sidebar-item" (click)="$event.stopPropagation()">
+              <input
+                type="checkbox"
+                [checked]="!isColumnHidden(col.field)"
+                (change)="onSidebarToggleColumn(col.field)"
+              />
+              {{ col.header }}
+            </label>
+          }
+        </div>
+      } @else {
+        <div class="ag-sidebar-tab" (click)="toggleSidebar()">☰</div>
+      }
     }
-  }
-  </div>
+  </div><!-- /.ag-main-area -->
 
   <!-- Row context menu -->
   @if (contextMenu(); as menu) {
@@ -214,6 +271,17 @@
           (click)="onMenuSort(menu.field, 'desc')"
         >↓ Sort Z → A</button>
       </div>
+
+      <!-- Pin column -->
+      @if (control()) {
+        <div class="ag-filter-menu-section ag-filter-menu-section--border">
+          <button
+            class="ag-filter-menu-item"
+            [class.ag-filter-menu-item--active]="isColumnPinned(menu.field)"
+            (click)="onMenuTogglePin(menu.field)"
+          >{{ isColumnPinned(menu.field) ? '⊣ Unpin column' : '⊣ Pin column' }}</button>
+        </div>
+      }
 
       <!-- Group by (shown only for groupable columns) -->
       @if (getColDef(menu.field)?.groupable) {

@@ -70,6 +70,11 @@ export interface ColDef {
    * or programmatically via `AgridControl.setColumnVisibility()`.
    */
   hidden?: boolean;
+  /**
+   * Pin this column to the left edge of the grid so it stays visible during horizontal scroll.
+   * Can also be toggled at runtime via `AgridControl.setPinned()`.
+   */
+  pinned?: 'left';
 }
 
 /**

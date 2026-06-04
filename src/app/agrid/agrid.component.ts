@@ -23,6 +23,7 @@ import {
   applySortToIndices,
   buildGroupedItems,
   buildSelectionRange,
+  getDisplayForField,
   isDataRowItem as isDataRowItemFn,
   isGroupHeaderItem as isGroupHeaderItemFn,
 } from './agrid.utils';
@@ -160,6 +161,38 @@ export class AgridComponent {
   /** Toggle the sidebar open/closed. */
   toggleSidebar(): void { this.sidebarOpen.update(v => !v); }
 
+  /**
+   * Download the currently visible, filtered rows as a CSV file.
+   * Uses display values (ValueOption labels, formatters) and respects column visibility.
+   * Group header rows are excluded — only data rows are exported.
+   *
+   * @param filename  Output filename, defaults to `'export.csv'`.
+   */
+  exportCsv(filename = 'export.csv'): void {
+    const cols = this.visibleColDefs();
+    const dataRows = this.filteredItems()
+      .filter((item): item is { row: Record<string, unknown>; originalIndex: number } => isDataRowItemFn(item))
+      .map(item => item.row);
+
+    const esc = (v: string): string => /[,"\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    const header = cols.map(c => esc(c.header)).join(',');
+    const body   = dataRows.map(row => cols.map(c => esc(getDisplayForField(c, row[c.field]))).join(',')).join('\n');
+
+    const blob = new Blob([header + '\n' + body], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = filename; a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  /** @internal Full display value for a cell — used as the `title` tooltip attribute. */
+  getCellTitle(col: ColDef, value: unknown): string {
+    return getDisplayForField(col, value);
+  }
+
   // ── Internal signals ─────────────────────────────────────────────────────────
 
   private readonly _localWidths = signal<Record<string, number>>({});
@@ -186,9 +219,53 @@ export class AgridComponent {
    */
   readonly visibleColDefs = computed(() => {
     const ctrl = this.control();
-    if (!ctrl) return this.colDefs().filter(c => !c.hidden);
-    const hidden = ctrl.hiddenColumns();
-    return hidden.size === 0 ? this.colDefs() : this.colDefs().filter(c => !hidden.has(c.field));
+    let cols = ctrl
+      ? this.colDefs().filter(c => !ctrl.hiddenColumns().has(c.field))
+      : this.colDefs().filter(c => !c.hidden);
+
+    if (ctrl) {
+      const order = ctrl.columnOrder();
+      if (order.length > 0) {
+        const orderMap = new Map(order.map((f, i) => [f, i]));
+        cols = [...cols].sort((a, b) =>
+          (orderMap.get(a.field) ?? Infinity) - (orderMap.get(b.field) ?? Infinity)
+        );
+      }
+      const pinned = ctrl.pinnedColumns();
+      if (pinned.size > 0) {
+        cols = [...cols.filter(c => pinned.has(c.field)), ...cols.filter(c => !pinned.has(c.field))];
+      }
+    } else {
+      const pinnedCols = cols.filter(c => c.pinned === 'left');
+      if (pinnedCols.length > 0) {
+        cols = [...pinnedCols, ...cols.filter(c => c.pinned !== 'left')];
+      }
+    }
+    return cols;
+  });
+
+  /** Columns currently pinned to the left (in display order). */
+  readonly pinnedColDefs = computed(() => {
+    const ctrl = this.control();
+    if (ctrl) {
+      const pinned = ctrl.pinnedColumns();
+      return pinned.size > 0 ? this.visibleColDefs().filter(c => pinned.has(c.field)) : [];
+    }
+    return this.visibleColDefs().filter(c => c.pinned === 'left');
+  });
+
+  /** Map from field → sticky left offset (px) for each pinned column. */
+  private readonly _pinnedLeftMap = computed(() => {
+    const ctrl = this.control();
+    const ctrlWidths = ctrl ? ctrl.columnWidths() : {};
+    const localWidths = this._localWidths();
+    const map = new Map<string, number>();
+    let left = this.showControlColumn() ? 24 : 0;
+    for (const col of this.pinnedColDefs()) {
+      map.set(col.field, left);
+      left += ctrlWidths[col.field] ?? localWidths[col.field] ?? col.width;
+    }
+    return map;
   });
 
   readonly hasFilterableColumns = computed(() => this.visibleColDefs().some(c => c.filterable));
@@ -353,6 +430,74 @@ export class AgridComponent {
     onSelectionChange: () => this._emitRowSelect(),
   }, this.destroyRef);
 
+  // ── Column reorder drag ───────────────────────────────────────────────────────
+
+  private readonly _colDragField        = signal<string | null>(null);
+  private readonly _colDragOverField    = signal<string | null>(null);
+  private readonly _colDragInsertBefore = signal<boolean>(true);
+  private _colDragStartField: string | null = null;
+  private _colDragStartX = 0;
+
+  /** @internal Start a column header drag. */
+  onColHeaderPointerDown(event: PointerEvent, field: string): void {
+    if (!this.control() || event.button !== 0) return;
+    this._colDragStartField = field;
+    this._colDragStartX = event.clientX;
+    document.addEventListener('pointermove', this._colDragMove);
+    document.addEventListener('pointerup',   this._colDragUp);
+  }
+
+  private readonly _colDragMove = (e: PointerEvent): void => {
+    if (!this._colDragStartField) return;
+    if (this._colDragField() === null) {
+      if (Math.abs(e.clientX - this._colDragStartX) < 5) return;
+      this._colDragField.set(this._colDragStartField);
+    }
+    const hovered = this._getHoveredHeaderCell(e.clientX, e.clientY);
+    if (hovered && hovered.field !== this._colDragField()) {
+      this._colDragOverField.set(hovered.field);
+      this._colDragInsertBefore.set(hovered.insertBefore);
+    } else {
+      this._colDragOverField.set(null);
+    }
+  };
+
+  private readonly _colDragUp = (): void => {
+    document.removeEventListener('pointermove', this._colDragMove);
+    document.removeEventListener('pointerup',   this._colDragUp);
+    const from = this._colDragField();
+    const to   = this._colDragOverField();
+    if (from && to) {
+      this.control()?.moveColumn(
+        this.visibleColDefs().map(c => c.field), from, to, this._colDragInsertBefore()
+      );
+    }
+    this._colDragField.set(null);
+    this._colDragOverField.set(null);
+    this._colDragStartField = null;
+  };
+
+  private _getHoveredHeaderCell(x: number, y: number): { field: string; insertBefore: boolean } | null {
+    for (const el of document.elementsFromPoint(x, y)) {
+      const headerEl = (el as HTMLElement).closest<HTMLElement>('.ag-header-cell[data-col-field]');
+      if (!headerEl?.dataset['colField']) continue;
+      const rect = headerEl.getBoundingClientRect();
+      return { field: headerEl.dataset['colField'], insertBefore: x < rect.left + rect.width / 2 };
+    }
+    return null;
+  }
+
+  /** @internal Whether the given column header is being dragged. */
+  isColDragging(field: string): boolean {
+    return this._colDragField() === field;
+  }
+
+  /** @internal Template helper for drop-indicator class. */
+  getColDropSide(field: string): 'before' | 'after' | null {
+    if (this._colDragOverField() !== field || this._colDragField() === field) return null;
+    return this._colDragInsertBefore() ? 'before' : 'after';
+  }
+
   // ── Setup ─────────────────────────────────────────────────────────────────────
 
   private readonly _seededControls = new WeakSet<AgridControl>();
@@ -367,11 +512,13 @@ export class AgridComponent {
       this.rowSelect.emit(null);
     };
     document.addEventListener('pointerdown', onOutsidePointerDown);
-    this.destroyRef.onDestroy(() =>
-      document.removeEventListener('pointerdown', onOutsidePointerDown)
-    );
+    this.destroyRef.onDestroy(() => {
+      document.removeEventListener('pointerdown', onOutsidePointerDown);
+      document.removeEventListener('pointermove', this._colDragMove);
+      document.removeEventListener('pointerup',   this._colDragUp);
+    });
 
-    // Seed ColDef.hidden into the control once per control instance.
+    // Seed ColDef.hidden and ColDef.pinned into the control once per control instance.
     effect(() => {
       const ctrl = this.control();
       const cols = this.colDefs();
@@ -379,6 +526,7 @@ export class AgridComponent {
       this._seededControls.add(ctrl);
       for (const col of cols) {
         if (col.hidden) ctrl.setColumnVisibility(col.field, false);
+        if (col.pinned === 'left') ctrl.setPinned(col.field, true);
       }
     });
   }
@@ -472,6 +620,22 @@ export class AgridComponent {
 
   /** @internal */
   isGroupedByField(field: string): boolean { return this.control()?.groupByField() === field; }
+
+  /** @internal */
+  isColumnPinned(field: string): boolean {
+    return this.pinnedColDefs().some(c => c.field === field);
+  }
+
+  /** @internal Returns `true` for the rightmost pinned column (used to draw the separator shadow). */
+  isLastPinnedColumn(field: string): boolean {
+    const cols = this.pinnedColDefs();
+    return cols.length > 0 && cols[cols.length - 1].field === field;
+  }
+
+  /** @internal Sticky left offset in px for a pinned column. */
+  getPinnedStickyLeft(field: string): number {
+    return this._pinnedLeftMap().get(field) ?? 0;
+  }
 
   // ── Row selection ─────────────────────────────────────────────────────────────
 
@@ -747,6 +911,18 @@ export class AgridComponent {
 
   /** @internal */
   onSidebarToggleColumn(field: string): void { this.control()?.toggleColumnVisibility(field); }
+
+  /** @internal Syncs pinned-column transform with horizontal scroll position. */
+  onHorizontalScroll(event: Event): void {
+    const scrollLeft = (event.target as HTMLElement).scrollLeft;
+    this._hostEl.nativeElement.style.setProperty('--ag-hscroll-left', scrollLeft + 'px');
+  }
+
+  /** @internal */
+  onMenuTogglePin(field: string): void {
+    this.control()?.togglePinned(field);
+    this.closeFilterMenu();
+  }
 
   // ── Private helpers ───────────────────────────────────────────────────────────
 
