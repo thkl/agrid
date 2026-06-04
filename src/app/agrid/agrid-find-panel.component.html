@@ -1,0 +1,14 @@
+<div class="ag-find-panel" (click)="$event.stopPropagation()">
+  <input
+    #findInput
+    class="ag-find-input"
+    [value]="query()"
+    (input)="queryChange.emit($any($event.target).value)"
+    (keydown)="onKeyDown($event)"
+    placeholder="Find"
+  />
+  <span class="ag-find-count">{{ countLabel() }}</span>
+  <button class="ag-find-btn" title="Previous" (click)="previous.emit()">↑</button>
+  <button class="ag-find-btn" title="Next" (click)="next.emit()">↓</button>
+  <button class="ag-find-btn" title="Close" (click)="close.emit()">✕</button>
+</div>

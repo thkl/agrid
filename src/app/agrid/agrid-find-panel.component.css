@@ -1,0 +1,57 @@
+.ag-find-panel {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  background: var(--agrid-color-bg);
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px var(--agrid-color-shadow);
+}
+
+.ag-find-input {
+  width: 160px;
+  height: 24px;
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 3px;
+  outline: none;
+  font: inherit;
+  font-size: 12px;
+  padding: 0 6px;
+  box-sizing: border-box;
+}
+
+.ag-find-input:focus {
+  border-color: var(--agrid-color-accent);
+}
+
+.ag-find-count {
+  min-width: 46px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--agrid-color-text-muted);
+}
+
+.ag-find-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  color: var(--agrid-color-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0;
+}
+
+.ag-find-btn:hover {
+  background: var(--agrid-color-bg-muted);
+  border-color: var(--agrid-color-border);
+  color: var(--agrid-color-text);
+}

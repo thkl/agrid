@@ -1,0 +1,107 @@
+.ag-filter-menu {
+  position: fixed;
+  z-index: 1001;
+  background: var(--agrid-color-bg);
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px var(--agrid-color-shadow);
+  min-width: 200px;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+.ag-filter-menu-section {
+  padding: 4px 0;
+}
+
+.ag-filter-menu-section--border {
+  border-top: 1px solid var(--agrid-color-border);
+}
+
+.ag-filter-menu-item {
+  display: block;
+  width: 100%;
+  padding: 5px 14px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--agrid-color-text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.ag-filter-menu-item:hover {
+  background: var(--agrid-color-bg-muted);
+}
+
+.ag-filter-menu-item--active {
+  color: var(--agrid-color-accent);
+  font-weight: 600;
+}
+
+.ag-filter-menu-item--muted {
+  color: var(--agrid-color-text-muted);
+}
+
+.ag-filter-menu-item--muted:hover {
+  background: var(--agrid-color-danger-subtle);
+  color: var(--agrid-color-danger);
+}
+
+.ag-filter-menu-search {
+  display: block;
+  width: calc(100% - 16px);
+  margin: 0 8px;
+  height: 24px;
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 3px;
+  outline: none;
+  font: inherit;
+  font-size: 12px;
+  padding: 0 6px;
+}
+
+.ag-filter-menu-search:focus {
+  border-color: var(--agrid-color-accent);
+}
+
+.ag-filter-menu-values {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 4px 0;
+  border-top: 1px solid var(--agrid-color-border);
+}
+
+.ag-filter-menu-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 14px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.ag-filter-menu-value:hover {
+  background: var(--agrid-color-bg-muted);
+}
+
+.ag-filter-menu-value input[type="checkbox"] {
+  cursor: pointer;
+  margin: 0;
+}
+
+.ag-filter-menu-value--inactive {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.ag-filter-menu-value--inactive input[type="checkbox"] {
+  cursor: not-allowed;
+}
+
+.ag-filter-menu-value-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

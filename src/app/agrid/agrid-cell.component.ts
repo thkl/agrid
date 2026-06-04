@@ -25,7 +25,7 @@ import { ColDef, ValueOption } from './agrid.types';
   host: {
     '[class.selected]': 'selected()',
     '[class.editing]': 'editing()',
-    '(click)': 'activate.emit()',
+    '(click)': 'activate.emit($event)',
     '(dblclick)': 'startEdit.emit()',
     tabindex: '-1',
   },
@@ -84,7 +84,7 @@ export class AgridCellComponent {
    * Emitted on single click — the grid selects this cell.
    * For `values` columns the grid also enters edit mode immediately.
    */
-  activate = output<void>();
+  activate = output<MouseEvent>();
 
   /** Emitted on double-click — the grid enters edit mode. */
   startEdit = output<void>();

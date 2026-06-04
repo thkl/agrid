@@ -1,0 +1,90 @@
+<div
+  class="ag-filter-menu"
+  [style.left.px]="x()"
+  [style.top.px]="y()"
+  (click)="$event.stopPropagation()"
+>
+  <div class="ag-filter-menu-section">
+    <button
+      class="ag-filter-menu-item"
+      [class.ag-filter-menu-item--active]="sortDir() === 'asc'"
+      (click)="sort.emit('asc')"
+    >↑ Sort ascending</button>
+    <button
+      class="ag-filter-menu-item"
+      [class.ag-filter-menu-item--active]="sortDir() === 'desc'"
+      (click)="sort.emit('desc')"
+    >↓ Sort descending</button>
+    @if (sortDir()) {
+      <button class="ag-filter-menu-item" (click)="sort.emit(sortDir()!)">Clear sort</button>
+    }
+  </div>
+
+  @if (showColumnActions()) {
+    <div class="ag-filter-menu-section ag-filter-menu-section--border">
+      <button class="ag-filter-menu-item" (click)="autosize.emit()">↔ Autosize column</button>
+      <button
+        class="ag-filter-menu-item"
+        [class.ag-filter-menu-item--active]="pinned()"
+        (click)="togglePin.emit()"
+      >{{ pinned() ? '⊣ Unpin column' : '⊣ Pin column' }}</button>
+      <button class="ag-filter-menu-item" (click)="hide.emit()">Hide column</button>
+    </div>
+  }
+
+  @if (groupable()) {
+    <div class="ag-filter-menu-section ag-filter-menu-section--border">
+      <button
+        class="ag-filter-menu-item"
+        [class.ag-filter-menu-item--active]="grouped()"
+        (click)="toggleGroup.emit()"
+      >{{ grouped() ? '⊟ Ungroup' : '⊞ Group by ' + header() }}</button>
+    </div>
+  }
+
+  @if (filterable()) {
+    <div class="ag-filter-menu-section ag-filter-menu-section--border">
+      <button class="ag-filter-menu-item ag-filter-menu-item--muted" (click)="clearFilter.emit()">
+        ✕ Clear filter
+      </button>
+      <button class="ag-filter-menu-item ag-filter-menu-item--muted" (click)="clearAll.emit()">
+        ✕ Clear all filters
+      </button>
+    </div>
+
+    <div class="ag-filter-menu-section ag-filter-menu-section--border">
+      <input
+        class="ag-filter-menu-search"
+        [value]="search()"
+        (input)="searchChange.emit($any($event.target).value)"
+        placeholder="Search values…"
+        (click)="$event.stopPropagation()"
+      />
+    </div>
+
+    <div class="ag-filter-menu-values">
+      <label class="ag-filter-menu-value">
+        <input
+          type="checkbox"
+          [checked]="allSelected()"
+          (change)="toggleAll.emit()"
+        />
+        <span class="ag-filter-menu-value-label">(Select All)</span>
+      </label>
+      @for (item of valueItems(); track item.rawStr) {
+        <label
+          class="ag-filter-menu-value"
+          [class.ag-filter-menu-value--inactive]="!item.active"
+        >
+          <input
+            type="checkbox"
+            [checked]="item.selected"
+            [disabled]="!item.active"
+            (change)="toggleValue.emit(item.rawStr)"
+          />
+          <span class="ag-filter-menu-value-label">{{ item.label || '(blank)' }}</span>
+        </label>
+      }
+    </div>
+  }
+</div>

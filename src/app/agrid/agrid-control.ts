@@ -11,6 +11,9 @@ export interface HistoryEntry {
   newValue: unknown;
 }
 
+/** A single undo/redo history item. Multi-cell operations are stored as one batch. */
+export type HistoryItem = HistoryEntry | HistoryEntry[];
+
 /**
  * Per-column filter state stored inside {@link AgridControl}.
  *
@@ -194,7 +197,7 @@ export class AgridControl {
 
   // ── Undo / redo history ────────────────────────────────────────────────────
 
-  private readonly _history = signal<HistoryEntry[]>([]);
+  private readonly _history = signal<HistoryItem[]>([]);
   private readonly _historyPointer = signal<number>(-1);
   private static readonly MAX_HISTORY = 100;
 
@@ -210,9 +213,19 @@ export class AgridControl {
    * Called automatically by the grid after every cell commit.
    */
   pushEdit(entry: HistoryEntry): void {
+    this.pushHistoryItem(entry);
+  }
+
+  /** Record a multi-cell edit as one undo/redo step. */
+  pushEditBatch(entries: HistoryEntry[]): void {
+    if (entries.length === 0) return;
+    this.pushHistoryItem(entries.length === 1 ? entries[0] : [...entries]);
+  }
+
+  private pushHistoryItem(item: HistoryItem): void {
     const pointer = this._historyPointer();
     const base = this._history().slice(0, pointer + 1);
-    base.push(entry);
+    base.push(item);
     const trimmed = base.length > AgridControl.MAX_HISTORY
       ? base.slice(base.length - AgridControl.MAX_HISTORY)
       : base;
@@ -225,7 +238,7 @@ export class AgridControl {
    * already at the beginning. The caller is responsible for applying `oldValue`
    * back to the data source.
    */
-  undo(): HistoryEntry | null {
+  undo(): HistoryItem | null {
     const p = this._historyPointer();
     if (p < 0) return null;
     this._historyPointer.set(p - 1);
@@ -237,7 +250,7 @@ export class AgridControl {
    * if already at the end. The caller is responsible for applying `newValue` back
    * to the data source.
    */
-  redo(): HistoryEntry | null {
+  redo(): HistoryItem | null {
     const p = this._historyPointer();
     const h = this._history();
     if (p >= h.length - 1) return null;
