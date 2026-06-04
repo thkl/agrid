@@ -64,6 +64,12 @@ export interface ColDef {
    * When set, the filter dropdown shows a "Group by" toggle for this column.
    */
   groupable?: boolean;
+  /**
+   * Set to `true` to hide this column when the grid first renders.
+   * The column remains in the dataset and can be re-shown via the sidebar column picker
+   * or programmatically via `AgridControl.setColumnVisibility()`.
+   */
+  hidden?: boolean;
 }
 
 /**
@@ -76,6 +82,19 @@ export interface GroupAction {
   /** Called with the group's display label when the item is clicked. */
   action: (groupLabel: string) => void;
 }
+
+/**
+ * Internal row item used in the virtual scroll list.
+ * - `{ row, originalIndex }` — a real data row
+ * - `null` — the add-row placeholder
+ * - `'ghost'` — the drop-target ghost inserted while dragging
+ * - `{ groupLabel, count, collapsed }` — group header row when grouping is active
+ */
+export type GridItem =
+  | { row: Record<string, unknown>; originalIndex: number }
+  | null
+  | 'ghost'
+  | { groupLabel: string; count: number; collapsed: boolean };
 
 /** Zero-based position of a cell inside the grid. */
 export interface CellPosition {
@@ -100,6 +119,14 @@ export interface GridEditEvent {
 
 export interface RowRemovedEvent {
   oldIndex: number;
+}
+
+/**
+ * Emitted by `(rowSelect)` when the selection changes. `null` means all rows were deselected.
+ * In `'single'` mode `rows` always has at most one entry.
+ */
+export interface RowSelectEvent {
+  rows: { row: Record<string, unknown>; originalIndex: number }[];
 }
 
 /**

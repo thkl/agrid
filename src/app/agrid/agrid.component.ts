@@ -3,7 +3,9 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  Signal,
   computed,
+  effect,
   inject,
   input,
   output,
@@ -14,20 +16,24 @@ import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrollin
 import { AgridCellComponent } from './agrid-cell.component';
 import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
-import { CellPosition, ColDef, GridEditEvent, GroupAction, NewRecord, RowRemovedEvent, RowReorderEvent, ValueOption } from './agrid.types';
+import { AgridDragHandler } from './agrid-drag.handler';
+import { AgridResizeHandler } from './agrid-resize.handler';
+import {
+  applyTextAndValueFilters,
+  applySortToIndices,
+  buildGroupedItems,
+  buildSelectionRange,
+  isDataRowItem as isDataRowItemFn,
+  isGroupHeaderItem as isGroupHeaderItemFn,
+} from './agrid.utils';
+import { HistoryEntry } from './agrid-control';
+import {
+  CellPosition, ColDef, GridEditEvent, GridItem, GroupAction,
+  NewRecord, RowRemovedEvent, RowReorderEvent, RowSelectEvent, ValueOption,
+} from './agrid.types';
 
-/**
- * Internal row item used in the virtual scroll list.
- * - `{ row, originalIndex }` — a real data row
- * - `null` — the add-row placeholder
- * - `'ghost'` — the drop-target ghost inserted while dragging
- * - `{ groupLabel, count }` — group header row inserted when grouping is active
- */
-export type GridItem =
-  | { row: Record<string, unknown>; originalIndex: number }
-  | null
-  | 'ghost'
-  | { groupLabel: string; count: number; collapsed: boolean };
+// Re-export for backward compatibility with existing imports of GridItem from this file.
+export type { GridItem };
 
 /**
  * Excel-like data grid for Angular 21.
@@ -37,27 +43,13 @@ export type GridItem =
  * <agrid [colDefs]="columns" [dataSource]="ds" />
  * ```
  *
- * ## Full example
- * ```html
- * <agrid
- *   [colDefs]="columns"
- *   [dataSource]="ds"
- *   [control]="ctrl"
- *   [allowAddRows]="true"
- *   [autoAddRows]="true"
- *   [showControlColumn]="true"
- *   (cellEdit)="onEdit($event)"
- *   (prepareAddRecord)="onAdd($event)"
- * />
- * ```
- *
  * ### Keyboard shortcuts
  * | Key | Action |
  * |-----|--------|
  * | Arrow keys | Move selection |
  * | Tab / Shift+Tab | Move right / left (wraps rows) |
  * | Enter / F2 | Enter edit mode |
- * | Printable key | Enter edit mode and seed input with typed character |
+ * | Printable key | Enter edit mode with seeded character |
  * | Escape | Cancel edit |
  * | Tab / Enter (while editing) | Commit and move right / down |
  */
@@ -69,401 +61,268 @@ export type GridItem =
   styleUrl: './agrid.component.css',
 })
 export class AgridComponent {
-  /**
-   * Column definitions — order determines left-to-right display order.
-   * Uses an empty default so computed signals that depend on it are safe
-   * to read before Angular has finished setting inputs (e.g. via viewChild queries).
-   */
+
+  // ── Inputs ───────────────────────────────────────────────────────────────────
+
+  /** Column definitions — order determines left-to-right display order. */
   colDefs = input<ColDef[]>([]);
 
-  /**
-   * Row height in pixels.
-   * Must be a fixed value because CDK virtual scroll requires a constant item size.
-   * @default 32
-   */
+  /** Row height in pixels. Must be fixed for CDK virtual scroll. @default 32 */
   rowHeight = input<number>(32);
 
-  /**
-   * Minimum height of the grid host element (e.g. `'200px'`, `'50vh'`).
-   * When set, the grid does not shrink below this size regardless of the container.
-   */
+  /** Minimum height of the grid host element (e.g. `'200px'`). */
   minHeight = input<string | undefined>(undefined);
 
-  /**
-   * Maximum height of the grid host element (e.g. `'500px'`, `'80vh'`).
-   * When set, the grid scrolls internally once it reaches this height.
-   */
+  /** Maximum height of the grid host element (e.g. `'500px'`). */
   maxHeight = input<string | undefined>(undefined);
 
-  /**
-   * Signal-based data container. Shared with the host so both sides can read and write rows.
-   * Semantically required — always provide a value.
-   * Uses an empty default internally so computed signals that depend on it are safe
-   * to read before Angular has finished setting inputs (e.g. via viewChild queries).
-   */
+  /** Signal-based data container shared with the host. */
   dataSource = input<AgridDataSource>(new AgridDataSource());
 
   /**
-   * Optional grid UI state container (column widths, filters, sort).
-   * When provided, column width changes and filter/sort state are stored here
-   * and can be persisted via `control.toJSON()` / `AgridControl.fromJSON()`.
-   * Without it, resize state is ephemeral and filtering/sorting is unavailable.
+   * Optional grid UI state container (column widths, filters, sort, grouping, visibility).
+   * Required for filtering, sorting, grouping, column hide/show, and state persistence.
    */
   control = input<AgridControl | null>(null);
 
-  /**
-   * Show a `+ Add row` placeholder at the bottom of the grid.
-   * Clicking or navigating to it triggers {@link prepareAddRecord}.
-   */
+  /** Show a `+ Add row` placeholder at the bottom. */
   allowAddRows = input<boolean>(false);
 
-  /**
-   * Automatically add a blank row when the user navigates past the last real row.
-   * The row is inserted before {@link prepareAddRecord} fires, so the grid can
-   * scroll to it immediately. When `true`, the explicit placeholder is hidden.
-   */
+  /** Automatically insert a blank row when navigating past the last real row. */
   autoAddRows = input<boolean>(false);
 
-  /**
-   * Show a 24 px control column as the first column.
-   * Right-clicking a control cell opens a context menu with row-level actions (Delete row, etc.).
-   */
+  /** Show a 24 px control column with a drag handle and right-click context menu. */
   showControlColumn = input<boolean>(false);
 
+  /** Show a collapsible sidebar with a column visibility selector. Requires `[control]`. */
+  showSidebar = input<boolean>(false);
+
   /**
-   * Optional function that returns a short description shown next to the group label.
-   * Receives the group's display value (e.g. `"Sales"`) and returns a string.
-   *
-   * @example
-   * ```ts
-   * [groupDescription]="label => counts[label] + ' employees'"
-   * ```
+   * Row selection mode.
+   * - `'none'` — no selection (default)
+   * - `'single'` — click to select/deselect
+   * - `'multi'` — Ctrl+click toggles, Shift+click extends range, click+drag sweeps
    */
+  rowSelection = input<'single' | 'multi' | 'none'>('none');
+
+  /** Returns a short description string shown next to the group label. */
   groupDescription = input<((label: string) => string) | null>(null);
 
-  /**
-   * Optional list of actions shown in the group header's `⋮` action menu.
-   * Each action receives the group's display label when the user clicks it.
-   */
+  /** Actions shown in the group header's `⋮` menu. */
   groupActions = input<GroupAction[]>([]);
 
-  /**
-   * Emitted after the user commits a cell edit.
-   * The data source is already updated at this point.
-   */
+  // ── Outputs ──────────────────────────────────────────────────────────────────
+
+  /** Emitted after the user commits a cell edit. */
   cellEdit = output<GridEditEvent>();
 
   rowRemoved = output<RowRemovedEvent>();
 
-  /**
-   * Emitted when the grid has inserted a blank row into the data source.
-   * Use the `index` in the event to call `dataSource.patchRow(index, realData)`.
-   */
+  /** Emitted when the grid inserts a blank row. Use `dataSource.patchRow()` to populate it. */
   prepareAddRecord = output<NewRecord>();
 
-  /**
-   * Emitted when the user finishes dragging a row to a new position.
-   * The grid does **not** reorder data automatically — call
-   * `dataSource.moveRow(event.oldIndex, event.newIndex)` inside the handler.
-   * Requires `AgridControl.allowRowReorder = true` and `showControlColumn = true`.
-   */
+  /** Emitted when the user finishes dragging a row. Call `dataSource.moveRow()` to apply. */
   rowReorder = output<RowReorderEvent>();
 
-  /** Currently selected cell (original index), or `null` when nothing is selected. */
+  /** Emitted when the row selection changes. `null` = selection cleared. */
+  rowSelect = output<RowSelectEvent | null>();
+
+  // ── Public state ─────────────────────────────────────────────────────────────
+
+  /** Currently focused cell, or `null`. */
   readonly selectedCell = signal<CellPosition | null>(null);
 
-  /** Position of the cell currently in edit mode (original index), or `null`. */
+  /** Position of the cell in edit mode, or `null`. */
   readonly editingCell = signal<CellPosition | null>(null);
 
-  /** Draft value of the editing cell — committed on Tab/Enter, discarded on Escape. */
+  /** Draft value while editing — committed on Tab/Enter, discarded on Escape. */
   readonly currentDraft = signal<unknown>(null);
 
-  /** Seed character typed by the user to enter edit mode instantly (e.g. pressing 'A'). */
+  /** Seed character typed to enter edit mode (e.g. pressing 'A'). */
   readonly editSeedChar = signal<string>('');
 
-  // Ephemeral widths used when no AgridControl is provided.
-  private readonly _localWidths = signal<Record<string, number>>({});
+  /** Set of currently selected original row indices. */
+  private readonly _selectedIndices = signal<Set<number>>(new Set());
 
-  /**
-   * Tracks which group labels are expanded, keyed by the active group field so
-   * switching fields resets the state automatically.
-   * An empty label set means all groups are collapsed (the default when grouping is first enabled).
-   */
-  private readonly _expandedGroups = signal<{ field: string | null; labels: Set<string> }>({
-    field: null,
-    labels: new Set(),
+  /** Reactive read-only view of selected indices. */
+  readonly selectedRowIndices: Signal<ReadonlySet<number>> =
+    this._selectedIndices.asReadonly() as Signal<ReadonlySet<number>>;
+
+  /** First selected index, or `null` (convenience for `'single'` mode). */
+  readonly selectedRowIndex = computed<number | null>(() => {
+    const s = this._selectedIndices();
+    return s.size > 0 ? [...s][0] : null;
   });
 
-  /** `true` when row reordering is enabled via the attached `AgridControl`. */
+  /** Whether the sidebar panel is currently open. */
+  readonly sidebarOpen = signal<boolean>(false);
+
+  /** Toggle the sidebar open/closed. */
+  toggleSidebar(): void { this.sidebarOpen.update(v => !v); }
+
+  // ── Internal signals ─────────────────────────────────────────────────────────
+
+  private readonly _localWidths = signal<Record<string, number>>({});
+
+  private readonly _expandedGroups = signal<{ field: string | null; labels: Set<string> }>({
+    field: null, labels: new Set(),
+  });
+
+  // ── Derived state ─────────────────────────────────────────────────────────────
+
   readonly allowRowReorder = computed(() =>
     (this.control()?.allowRowReorder() ?? false) && !this.control()?.groupByField()
   );
 
-  /** `true` when at least one column has `filterable: true`. Controls filter-row visibility. */
-  readonly hasFilterableColumns = computed(() => this.colDefs().some(c => c.filterable));
+  /** `true` when there is a committed edit that can be undone (Ctrl+Z). */
+  readonly canUndo = computed(() => this.control()?.canUndo() ?? false);
+
+  /** `true` when there is a previously undone edit that can be re-applied (Ctrl+Y / Ctrl+Shift+Z). */
+  readonly canRedo = computed(() => this.control()?.canRedo() ?? false);
 
   /**
-   * Number of data rows currently visible after all active filters are applied.
-   * Read this via a template reference (`<agrid #grid>`→`grid.filteredRowCount()`) to
-   * show a "3 of 10 rows" indicator in the host component.
-   * Always equals `dataSource.length` when no filters are active.
+   * Columns currently visible (hidden ones still participate in filter/sort/group logic).
+   * Seeded from `ColDef.hidden` on first render via the constructor effect.
    */
+  readonly visibleColDefs = computed(() => {
+    const ctrl = this.control();
+    if (!ctrl) return this.colDefs().filter(c => !c.hidden);
+    const hidden = ctrl.hiddenColumns();
+    return hidden.size === 0 ? this.colDefs() : this.colDefs().filter(c => !hidden.has(c.field));
+  });
+
+  readonly hasFilterableColumns = computed(() => this.visibleColDefs().some(c => c.filterable));
+
   readonly filteredRowCount = computed(() => {
-    let groupTotal = 0;
-    let dataTotal = 0;
+    let groupTotal = 0, dataTotal = 0;
     for (const item of this.filteredItems()) {
-      if (this.isGroupHeaderItem(item)) groupTotal += item.count;
-      else if (this.isDataRowItem(item)) dataTotal++;
+      if (isGroupHeaderItemFn(item)) groupTotal += item.count;
+      else if (isDataRowItemFn(item)) dataTotal++;
     }
-    // When grouping is active, sum group counts so collapsed rows are still counted.
     return groupTotal > 0 ? groupTotal : dataTotal;
   });
 
-  /** CSS `grid-template-columns` string derived from effective column widths. */
   readonly gridTemplateColumns = computed(() => {
     const ctrl = this.control();
     const ctrlWidths = ctrl ? ctrl.columnWidths() : {};
     const localWidths = this._localWidths();
-    const cols = this.colDefs()
-      .map(c => `${ctrlWidths[c.field] ?? localWidths[c.field] ?? c.width}px`)
-      .join(' ');
+    const cols = this.visibleColDefs()
+      .map(c => `${ctrlWidths[c.field] ?? localWidths[c.field] ?? c.width}px`).join(' ');
     return this.showControlColumn() ? `24px ${cols}` : cols;
   });
 
-  /** Sum of all effective column widths (plus the control column when enabled). */
   readonly totalWidth = computed(() => {
     const ctrl = this.control();
     const ctrlWidths = ctrl ? ctrl.columnWidths() : {};
     const localWidths = this._localWidths();
-    const w = this.colDefs().reduce(
-      (sum, c) => sum + (ctrlWidths[c.field] ?? localWidths[c.field] ?? c.width),
-      0
+    const w = this.visibleColDefs().reduce(
+      (sum, c) => sum + (ctrlWidths[c.field] ?? localWidths[c.field] ?? c.width), 0
     );
     return this.showControlColumn() ? w + 24 : w;
   });
 
   /**
-   * Filtered and sorted row list passed to `*cdkVirtualFor`.
-   * Each item carries the original data-source index so all cell operations target
-   * the correct row even when filters change the display order.
-   * When grouping is active, `{ groupLabel, count }` header items are interleaved
-   * before each group. Secondary sorts still apply within groups.
-   * Appends a `null` sentinel when the explicit add-row placeholder is active.
-   *
-   * Text filter matches against the DISPLAY value (label / formatted string),
-   * not the raw stored value, so typing "Engineering" works even when the field stores an ID.
+   * Filtered, sorted, and optionally grouped row list for `*cdkVirtualFor`.
+   * Appends `null` when the explicit add-row placeholder is active.
    */
   readonly filteredItems = computed<GridItem[]>(() => {
     const rows = this.dataSource().rows();
     const ctrl = this.control();
     const colDefs = this.colDefs();
     const colMap = new Map(colDefs.map(c => [c.field, c]));
-
-    // Build index array: start with all rows, then filter, then sort.
     let indices = rows.map((_, i) => i);
 
     if (ctrl) {
       const filters = ctrl.filters();
+      indices = applyTextAndValueFilters(rows, indices, filters, colMap);
 
-      for (const [field, filter] of Object.entries(filters)) {
-        const col = colMap.get(field);
-        if (filter.text) {
-          const lc = filter.text.toLowerCase();
-          // Match against the display label/formatted string, not the raw value
-          indices = indices.filter(i =>
-            this.getDisplayForField(col, rows[i][field]).toLowerCase().includes(lc)
-          );
-        }
-        if (filter.selectedValues !== null) {
-          // selectedValues stores stringified raw values for type-safe comparison
-          const allowed = new Set(filter.selectedValues);
-          indices = indices.filter(i => allowed.has(String(rows[i][field] ?? '')));
-        }
-      }
-
-      // Grouping: bucket rows, sort group keys, sort within groups, interleave headers.
       const groupField = ctrl.groupByField();
       if (groupField) {
-        const groupCol = colMap.get(groupField);
-        const sortEntry = Object.entries(filters).find(([, f]) => f.sort);
-
-        const groups = new Map<string, number[]>();
-        for (const i of indices) {
-          const key = this.getDisplayForField(groupCol, rows[i][groupField]);
-          if (!groups.has(key)) groups.set(key, []);
-          groups.get(key)!.push(i);
-        }
-
-        const sortedKeys = [...groups.keys()].sort((a, b) =>
-          a.localeCompare(b, undefined, { sensitivity: 'base' })
-        );
-
-        // Apply secondary sort within each group (only when it targets a different field).
-        if (sortEntry && sortEntry[0] !== groupField) {
-          const [sortFieldName, sortFilter] = sortEntry;
-          const sortCol = colMap.get(sortFieldName);
-          for (const groupRows of groups.values()) {
-            groupRows.sort((a, b) => {
-              const av = this.getDisplayForField(sortCol, rows[a][sortFieldName]);
-              const bv = this.getDisplayForField(sortCol, rows[b][sortFieldName]);
-              const cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
-              return sortFilter.sort === 'asc' ? cmp : -cmp;
-            });
-          }
-        }
-
-        // Expanded labels — reset to empty (all collapsed) when the group field changed.
         const expandState = this._expandedGroups();
         const expandedLabels = expandState.field === groupField
-          ? expandState.labels
-          : new Set<string>();
-
-        const groupedItems: GridItem[] = [];
-        for (const key of sortedKeys) {
-          const groupRows = groups.get(key)!;
-          const isExpanded = expandedLabels.has(key);
-          groupedItems.push({ groupLabel: key, count: groupRows.length, collapsed: !isExpanded });
-          if (isExpanded) {
-            for (const i of groupRows) {
-              groupedItems.push({ row: rows[i], originalIndex: i });
-            }
-          }
-        }
-        if (this.allowAddRows() && !this.autoAddRows()) groupedItems.push(null);
-        return groupedItems;
+          ? expandState.labels : new Set<string>();
+        const sortEntry = (Object.entries(filters).find(([, f]) => f.sort) ?? null) as [string, import('./agrid-control').ColumnFilter] | null;
+        const items = buildGroupedItems(rows, indices, groupField, colMap, sortEntry, expandedLabels);
+        if (this.allowAddRows() && !this.autoAddRows()) items.push(null);
+        return items;
       }
 
-      // Apply sort — sort by display label so "Engineering" sorts correctly even if stored as 2
       const sortEntry = Object.entries(filters).find(([, f]) => f.sort);
       if (sortEntry) {
-        const [sortField, sortFilter] = sortEntry;
-        const sortCol = colMap.get(sortField);
-        indices = [...indices].sort((a, b) => {
-          const av = this.getDisplayForField(sortCol, rows[a][sortField]);
-          const bv = this.getDisplayForField(sortCol, rows[b][sortField]);
-          const cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
-          return sortFilter.sort === 'asc' ? cmp : -cmp;
-        });
+        indices = applySortToIndices(rows, indices, sortEntry[0], sortEntry[1], colMap);
       }
     }
 
     const items: GridItem[] = indices.map(i => ({ row: rows[i], originalIndex: i }));
-
-    if (this.allowAddRows() && !this.autoAddRows()) {
-      items.push(null);
-    }
-
+    if (this.allowAddRows() && !this.autoAddRows()) items.push(null);
     return items;
   });
 
-  /**
-   * Virtual scroll source during a drag.
-   * - Removes the dragged row so its space immediately collapses.
-   * - Inserts a `'ghost'` placeholder at the cursor position so CDK makes room.
-   * - When no drag is active, returns `filteredItems()` unchanged.
-   */
+  /** Virtual scroll source — injects ghost row during a reorder drag. */
   readonly displayItems = computed<GridItem[]>(() => {
     const items = this.filteredItems();
-    const dragIdx = this._dragOriginalIndex();
+    const dragIdx = this.dragHandler.reorderOriginalIndex();
     if (dragIdx === null) return items;
 
-    // Drop source row from the list so its space closes up immediately.
-    const sourcePos = items.findIndex(
-      item => this.isDataRowItem(item) && item.originalIndex === dragIdx
-    );
+    const sourcePos = items.findIndex(item => isDataRowItemFn(item) && item.originalIndex === dragIdx);
     const withoutSource: GridItem[] = sourcePos === -1
       ? [...items]
       : [...items.slice(0, sourcePos), ...items.slice(sourcePos + 1)];
 
-    const overIdx = this._dragOverIndex();
+    const overIdx = this.dragHandler.reorderOverIndex();
     if (overIdx === null) return withoutSource;
 
-    const targetPos = withoutSource.findIndex(
-      item => this.isDataRowItem(item) && item.originalIndex === overIdx
-    );
+    const targetPos = withoutSource.findIndex(item => isDataRowItemFn(item) && item.originalIndex === overIdx);
     if (targetPos === -1) return withoutSource;
 
-    const insertAt = this._dragInsertBefore() ? targetPos : targetPos + 1;
+    const insertAt = this.dragHandler.reorderInsertBefore() ? targetPos : targetPos + 1;
     const result = [...withoutSource];
     result.splice(insertAt, 0, 'ghost');
     return result;
   });
 
-  /** Active context menu state, or `null` when no menu is open. */
-  readonly contextMenu = signal<{ x: number; y: number; rowIndex: number } | null>(null);
+  // ── Menu signals ─────────────────────────────────────────────────────────────
 
-  /** Active filter dropdown state, or `null` when closed. */
-  readonly filterMenu = signal<{ field: string; x: number; y: number } | null>(null);
-
-  /** Active group-header action menu state, or `null` when closed. */
+  readonly contextMenu    = signal<{ x: number; y: number; rowIndex: number } | null>(null);
+  readonly filterMenu     = signal<{ field: string; x: number; y: number } | null>(null);
   readonly groupActionsMenu = signal<{ x: number; y: number; label: string } | null>(null);
-
-  /** Search text typed inside the filter dropdown's value list. */
   readonly filterMenuSearch = signal<string>('');
 
-  /**
-   * All items for the open filter menu's value list, sorted by label.
-   * - For `ValueOption` columns: derived from `ColDef.values` (label + stringified raw value).
-   * - For plain string or untyped columns: unique values extracted from the full dataset.
-   * `rawStr` is what gets stored in `ColumnFilter.selectedValues`.
-   */
   readonly filterMenuItems = computed<{ label: string; rawStr: string }[]>(() => {
     const menu = this.filterMenu();
     if (!menu) return [];
     const col = this.colDefs().find(c => c.field === menu.field);
     const vals = col?.values;
-
     if (vals?.length) {
       return vals
-        .map(v =>
-          typeof v === 'string'
-            ? { label: v, rawStr: v }
-            : { label: (v as ValueOption).label, rawStr: String((v as ValueOption).value) }
-        )
+        .map(v => typeof v === 'string'
+          ? { label: v, rawStr: v }
+          : { label: (v as ValueOption).label, rawStr: String((v as ValueOption).value) })
         .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
     }
-
-    // Extract from dataset; apply formatter if present
     const rows = this.dataSource().rows();
     const rawStrs = [...new Set(rows.map(r => String(r[menu.field] ?? '')))];
     return rawStrs
-      .map(rawStr => ({
-        label: col?.formatter ? col.formatter(rawStr) : rawStr,
-        rawStr,
-      }))
+      .map(rawStr => ({ label: col?.formatter ? col.formatter(rawStr) : rawStr, rawStr }))
       .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
   });
 
-  /**
-   * Subset of {@link filterMenuItems} matching the current search string (by label).
-   */
   readonly filterMenuVisibleItems = computed(() => {
     const search = this.filterMenuSearch().toLowerCase();
-    return this.filterMenuItems().filter(item =>
-      !search || item.label.toLowerCase().includes(search)
-    );
+    return this.filterMenuItems().filter(item => !search || item.label.toLowerCase().includes(search));
   });
 
-  /**
-   * Set of values that still exist in the dataset when ALL OTHER column filters are applied
-   * (excluding the currently open menu's own filter).
-   * Values absent from this set are grayed and disabled in the dropdown — they exist in the
-   * full dataset but are already excluded by other active filters.
-   */
   readonly filterMenuActiveValues = computed(() => {
     const menu = this.filterMenu();
     if (!menu) return new Set<string>();
-
     const rows = this.dataSource().rows();
     const ctrl = this.control();
     const openField = menu.field;
-
     let indices = rows.map((_, i) => i);
-
     if (ctrl) {
       const filters = ctrl.filters();
       for (const [field, filter] of Object.entries(filters)) {
-        if (field === openField) continue; // exclude this column's own filter
+        if (field === openField) continue;
         if (filter.text) {
           const lc = filter.text.toLowerCase();
           indices = indices.filter(i => String(rows[i][field] ?? '').toLowerCase().includes(lc));
@@ -474,374 +333,285 @@ export class AgridComponent {
         }
       }
     }
-
     return new Set(indices.map(i => String(rows[i][openField] ?? '')));
   });
 
-  // Row reorder drag state
-  private readonly _dragOriginalIndex = signal<number | null>(null);
-  private readonly _dragOverIndex = signal<number | null>(null);
-  private readonly _dragInsertBefore = signal<boolean>(true);
+  // ── Infrastructure ────────────────────────────────────────────────────────────
 
-  // Column resize drag state — captured on mousedown, cleared on mouseup.
-  private resizeState: { field: string; startX: number; startWidth: number } | null = null;
-  private readonly resizeMouseMove = (e: MouseEvent) => this.onResizeMove(e);
-  private readonly resizeMouseUp = () => this.onResizeEnd();
+  private readonly viewport    = viewChild.required(CdkVirtualScrollViewport);
+  private readonly wrapperEl   = viewChild.required<ElementRef<HTMLDivElement>>('wrapper');
+  private readonly destroyRef  = inject(DestroyRef);
+  private readonly _hostEl     = inject(ElementRef<HTMLElement>);
 
-  private readonly viewport = viewChild.required(CdkVirtualScrollViewport);
-  private readonly wrapperEl = viewChild.required<ElementRef<HTMLDivElement>>('wrapper');
-  private readonly destroyRef = inject(DestroyRef);
+  private readonly resizeHandler = new AgridResizeHandler(this.control, this._localWidths, this.destroyRef);
 
-  // ── Template helpers ───────────────────────────────────────────────────────
+  readonly dragHandler = new AgridDragHandler({
+    dataSource: this.dataSource,
+    filteredItems: () => this.filteredItems(),
+    selectedIndices: this._selectedIndices,
+    onReorder: e => this.rowReorder.emit(e),
+    onSelectionChange: () => this._emitRowSelect(),
+  }, this.destroyRef);
 
-  /** @internal Is the cell at (originalIndex, ci) currently selected? */
+  // ── Setup ─────────────────────────────────────────────────────────────────────
+
+  private readonly _seededControls = new WeakSet<AgridControl>();
+
+  constructor() {
+    // Deselect when clicking outside the grid.
+    const onOutsidePointerDown = (e: PointerEvent) => {
+      if (this.rowSelection() === 'none') return;
+      if (this._selectedIndices().size === 0) return;
+      if (this._hostEl.nativeElement.contains(e.target as Node)) return;
+      this._selectedIndices.set(new Set());
+      this.rowSelect.emit(null);
+    };
+    document.addEventListener('pointerdown', onOutsidePointerDown);
+    this.destroyRef.onDestroy(() =>
+      document.removeEventListener('pointerdown', onOutsidePointerDown)
+    );
+
+    // Seed ColDef.hidden into the control once per control instance.
+    effect(() => {
+      const ctrl = this.control();
+      const cols = this.colDefs();
+      if (!ctrl || this._seededControls.has(ctrl)) return;
+      this._seededControls.add(ctrl);
+      for (const col of cols) {
+        if (col.hidden) ctrl.setColumnVisibility(col.field, false);
+      }
+    });
+  }
+
+  // ── Template helpers — type guards ────────────────────────────────────────────
+
+  /** @internal */
+  isDataRowItem(item: GridItem): item is { row: Record<string, unknown>; originalIndex: number } {
+    return isDataRowItemFn(item);
+  }
+
+  /** @internal */
+  isGroupHeaderItem(item: GridItem): item is { groupLabel: string; count: number; collapsed: boolean } {
+    return isGroupHeaderItemFn(item);
+  }
+
+  /** @internal */
+  getItemOriginalIndex(item: GridItem): number | null {
+    return isDataRowItemFn(item) ? item.originalIndex : null;
+  }
+
+  /** @internal CDK trackBy — arrow to preserve `this`. */
+  readonly trackByItem = (_di: number, item: GridItem): string | number => {
+    if (item === 'ghost') return '__ghost__';
+    if (item === null) return -1;
+    if (isGroupHeaderItemFn(item)) return `__group__${item.groupLabel}`;
+    return item.originalIndex;
+  };
+
+  // ── Template helpers — cell/selection state ───────────────────────────────────
+
+  /** @internal */
   isSelected(originalIndex: number, ci: number): boolean {
     const sel = this.selectedCell();
     return sel?.rowIndex === originalIndex && sel?.colIndex === ci;
   }
 
-  /** @internal Is the cell at (originalIndex, ci) currently in edit mode? */
+  /** @internal */
   isEditing(originalIndex: number, ci: number): boolean {
     const ed = this.editingCell();
     return ed?.rowIndex === originalIndex && ed?.colIndex === ci;
   }
 
-  /** @internal Seed char for the currently editing cell; empty for all others. */
+  /** @internal */
   getSeedChar(originalIndex: number, ci: number): string {
     return this.isEditing(originalIndex, ci) ? this.editSeedChar() : '';
   }
 
-  /** @internal Is the add-row placeholder currently selected? */
+  /** @internal */
   isAddRowSelected(): boolean {
     const sel = this.selectedCell();
     return this.allowAddRows() && sel?.rowIndex === this.dataSource().length;
   }
 
-  /** @internal Current text filter value for a column (for binding to the filter input). */
-  getTextFilter(field: string): string {
-    return this.control()?.getFilter(field).text ?? '';
+  /** @internal */
+  isRowSelected(originalIndex: number): boolean {
+    return this._selectedIndices().has(originalIndex);
   }
 
-  /** @internal Current sort direction for a column (for visual indicator in the dropdown). */
-  getSort(field: string): 'asc' | 'desc' | null {
-    return this.control()?.getFilter(field).sort ?? null;
-  }
+  // ── Template helpers — filter menu ────────────────────────────────────────────
 
-  /** @internal Whether all values are selected (or no value filter is active) for the open menu's field. */
+  /** @internal */
+  getTextFilter(field: string): string { return this.control()?.getFilter(field).text ?? ''; }
+
+  /** @internal */
+  getSort(field: string): 'asc' | 'desc' | null { return this.control()?.getFilter(field).sort ?? null; }
+
+  /** @internal */
   isMenuAllSelected(field: string): boolean {
     return this.control()?.getFilter(field).selectedValues === null;
   }
 
-  /** @internal Whether a rawStr value is present in the dataset after all OTHER filters are applied. */
-  isMenuValueActive(rawStr: string): boolean {
-    return this.filterMenuActiveValues().has(rawStr);
-  }
+  /** @internal */
+  isMenuValueActive(rawStr: string): boolean { return this.filterMenuActiveValues().has(rawStr); }
 
-  /** @internal Whether a specific value is checked in the open filter menu. */
+  /** @internal */
   isMenuValueSelected(field: string, value: string): boolean {
     const selected = this.control()?.getFilter(field).selectedValues;
-    if (selected == null) return true;  // null or undefined → all values shown
+    if (selected == null) return true;
     return selected.includes(value);
   }
 
-  /** @internal Whether the given field has any active filter or sort. */
-  hasActiveFilter(field: string): boolean {
-    return this.control()?.hasActiveFilter(field) ?? false;
+  /** @internal */
+  hasActiveFilter(field: string): boolean { return this.control()?.hasActiveFilter(field) ?? false; }
+
+  /** @internal */
+  getColDef(field: string): ColDef | undefined { return this.colDefs().find(c => c.field === field); }
+
+  /** @internal */
+  isColumnHidden(field: string): boolean { return this.control()?.isColumnHidden(field) ?? false; }
+
+  /** @internal */
+  isGroupedByField(field: string): boolean { return this.control()?.groupByField() === field; }
+
+  // ── Row selection ─────────────────────────────────────────────────────────────
+
+  private _selectionPivot: number | null = null;
+
+  /** @internal */
+  onRowPointerDown(event: PointerEvent, originalIndex: number): void {
+    const mode = this.rowSelection();
+    if (mode === 'none' || event.button !== 0) return;
+
+    if (mode === 'single') {
+      const already = this._selectedIndices().has(originalIndex);
+      this._selectedIndices.set(already ? new Set() : new Set([originalIndex]));
+      this._emitRowSelect();
+      return;
+    }
+
+    const ctrl  = event.ctrlKey || event.metaKey;
+    const shift = event.shiftKey;
+
+    if (ctrl) {
+      const next = new Set(this._selectedIndices());
+      if (next.has(originalIndex)) next.delete(originalIndex); else next.add(originalIndex);
+      this._selectedIndices.set(next);
+      this._selectionPivot = originalIndex;
+      this._emitRowSelect();
+    } else if (shift && this._selectionPivot !== null) {
+      this._selectedIndices.set(
+        buildSelectionRange(this._selectionPivot, originalIndex, this.filteredItems())
+      );
+      this._emitRowSelect();
+    } else {
+      event.preventDefault();
+      this._selectedIndices.set(new Set([originalIndex]));
+      this._selectionPivot = originalIndex;
+      this.dragHandler.startDragSelect(originalIndex);
+    }
   }
 
-  // ── Cell interaction ───────────────────────────────────────────────────────
+  private _emitRowSelect(): void {
+    const indices = this._selectedIndices();
+    if (indices.size === 0) { this.rowSelect.emit(null); return; }
+    const rows = this.dataSource().rows();
+    this.rowSelect.emit({ rows: [...indices].map(i => ({ row: rows[i], originalIndex: i })) });
+  }
 
-  /** @internal Called when a data cell is clicked. */
+  // ── Cell interaction ──────────────────────────────────────────────────────────
+
+  /** @internal */
   onActivate(originalIndex: number, ci: number): void {
     if (this.isEditing(originalIndex, ci)) return;
     this.cancelCurrent();
     this.selectedCell.set({ rowIndex: originalIndex, colIndex: ci });
-    const col = this.colDefs()[ci];
-    if (col.values?.length) {
-      this.enterEdit(originalIndex, ci, '');
-    } else {
-      this.wrapperEl().nativeElement.focus();
-    }
+    const col = this.visibleColDefs()[ci];
+    if (col.values?.length) this.enterEdit(originalIndex, ci, '');
+    else this.wrapperEl().nativeElement.focus();
   }
 
-  /** @internal Called when the add-row placeholder is clicked. */
+  /** @internal */
   onActivateAddRow(): void {
     this.cancelCurrent();
     this.activateAddRow();
   }
 
-  /** @internal Called on double-click of a data cell. */
+  /** @internal */
   onStartEdit(originalIndex: number, ci: number): void {
     if (this.isEditing(originalIndex, ci)) return;
     this.enterEdit(originalIndex, ci, '');
   }
 
-  /** @internal Called by AgridCellComponent on every draft change. */
-  onDraftChange(value: unknown): void {
-    this.currentDraft.set(value);
-  }
+  /** @internal */
+  onDraftChange(value: unknown): void { this.currentDraft.set(value); }
 
-  /** @internal Main keyboard handler — delegated from the wrapper div. */
+  /** @internal Main keyboard handler delegated from the wrapper div. */
   onKeyDown(event: KeyboardEvent): void {
+    // Undo / redo — checked before everything else so they work in any state.
+    if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+      if (event.key === 'z') { event.preventDefault(); event.shiftKey ? this.applyRedo() : this.applyUndo(); return; }
+      if (event.key === 'y') { event.preventDefault(); this.applyRedo(); return; }
+    }
+
     if (this.editingCell()) {
       switch (event.key) {
-        case 'Tab':
-          event.preventDefault();
-          this.commitCurrent();
-          this.moveSelection(0, event.shiftKey ? -1 : 1);
-          break;
-        case 'Enter':
-          event.preventDefault();
-          this.commitCurrent();
-          this.moveSelection(1, 0);
-          break;
-        case 'Escape':
-          event.preventDefault();
-          this.cancelCurrent();
-          this.wrapperEl().nativeElement.focus();
-          break;
+        case 'Tab':    event.preventDefault(); this.commitCurrent(); this.moveSelection(0, event.shiftKey ? -1 : 1); break;
+        case 'Enter':  event.preventDefault(); this.commitCurrent(); this.moveSelection(1, 0); break;
+        case 'Escape': event.preventDefault(); this.cancelCurrent(); this.wrapperEl().nativeElement.focus(); break;
       }
       return;
     }
-
     const sel = this.selectedCell();
-    const isOnAddRow = this.allowAddRows() && !this.autoAddRows()
-      && sel?.rowIndex === this.dataSource().length;
-
+    const isOnAddRow = this.allowAddRows() && !this.autoAddRows() && sel?.rowIndex === this.dataSource().length;
     switch (event.key) {
-      case 'ArrowUp':
-        event.preventDefault();
-        this.moveSelection(-1, 0);
-        break;
-      case 'ArrowDown':
-        event.preventDefault();
-        this.moveSelection(1, 0);
-        break;
-      case 'ArrowLeft':
-        event.preventDefault();
-        this.moveSelection(0, -1);
-        break;
-      case 'ArrowRight':
-        event.preventDefault();
-        this.moveSelection(0, 1);
-        break;
-      case 'Tab':
-        event.preventDefault();
-        this.moveSelection(0, event.shiftKey ? -1 : 1);
-        break;
+      case 'ArrowUp':    event.preventDefault(); this.moveSelection(-1,  0); break;
+      case 'ArrowDown':  event.preventDefault(); this.moveSelection( 1,  0); break;
+      case 'ArrowLeft':  event.preventDefault(); this.moveSelection( 0, -1); break;
+      case 'ArrowRight': event.preventDefault(); this.moveSelection( 0,  1); break;
+      case 'Tab':        event.preventDefault(); this.moveSelection(0, event.shiftKey ? -1 : 1); break;
       case 'Enter':
       case 'F2':
         event.preventDefault();
-        if (sel) {
-          if (isOnAddRow) this.activateAddRow();
-          else this.enterEdit(sel.rowIndex, sel.colIndex, '');
-        }
+        if (sel) { if (isOnAddRow) this.activateAddRow(); else this.enterEdit(sel.rowIndex, sel.colIndex, ''); }
         break;
       default:
         if (sel && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
-          if (isOnAddRow) this.activateAddRow();
-          else this.enterEdit(sel.rowIndex, sel.colIndex, event.key);
+          if (isOnAddRow) this.activateAddRow(); else this.enterEdit(sel.rowIndex, sel.colIndex, event.key);
         }
     }
   }
 
-  /** @internal Type guard — true for real data row items. */
-  isDataRowItem(item: GridItem): item is { row: Record<string, unknown>; originalIndex: number } {
-    return item !== null && item !== 'ghost' && 'row' in (item as object);
-  }
+  // ── Row reorder ───────────────────────────────────────────────────────────────
 
-  /** @internal Type guard — true for group header items. */
-  isGroupHeaderItem(item: GridItem): item is { groupLabel: string; count: number; collapsed: boolean } {
-    return item !== null && item !== 'ghost' && 'groupLabel' in (item as object);
-  }
+  /** @internal Ghost cell display during a reorder drag. */
+  getGhostCellDisplay(col: ColDef): string { return this.dragHandler.getGhostDisplay(col); }
 
-  /** @internal Returns `originalIndex` for data rows, `null` for everything else. */
-  getItemOriginalIndex(item: GridItem): number | null {
-    return this.isDataRowItem(item) ? item.originalIndex : null;
-  }
-
-  /** @internal CDK virtual scroll `trackBy` function — arrow to preserve `this`. */
-  readonly trackByItem = (_di: number, item: GridItem): string | number => {
-    if (item === 'ghost') return '__ghost__';
-    if (item === null) return -1;
-    if (this.isGroupHeaderItem(item)) return `__group__${item.groupLabel}`;
-    return item.originalIndex;
-  };
-
-  // ── Row reorder drag (pointer-events based — no HTML5 drag snap-back) ──────
-
-  /** @internal Display value for a ghost cell — reads from the dragged row. */
-  getGhostCellDisplay(col: ColDef): string {
-    const idx = this._dragOriginalIndex();
-    if (idx === null) return '';
-    return this.getDisplayForField(col, this.dataSource().rows()[idx]?.[col.field]);
-  }
-
-  /** @internal Pointerdown on the drag handle starts the drag. */
+  /** @internal Delegates to AgridDragHandler. */
   onHandlePointerDown(event: PointerEvent, originalIndex: number): void {
     if (!this.allowRowReorder()) return;
-    event.preventDefault();
-
-    const handle = event.currentTarget as HTMLElement;
-    const rowEl = handle.closest<HTMLElement>('.ag-row');
-    if (!rowEl) return;
-
-    const rect = rowEl.getBoundingClientRect();
-    this._dragOriginalIndex.set(originalIndex);
-    this._dragOffsetX = event.clientX - rect.left;
-    this._dragOffsetY = event.clientY - rect.top;
-
-    // Build a floating full-row overlay that follows the cursor.
-    const overlay = rowEl.cloneNode(true) as HTMLElement;
-    overlay.removeAttribute('data-original-index'); // don't confuse _getHoveredRow
-    Object.assign(overlay.style, {
-      position: 'fixed',
-      top: `${rect.top}px`,
-      left: `${rect.left}px`,
-      width: `${rect.width}px`,
-      height: `${rect.height}px`,
-      pointerEvents: 'none',
-      zIndex: '9999',
-      background: '#fff',
-      border: '1px solid #1a73e8',
-      borderRadius: '4px',
-      boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-      overflow: 'hidden',
-      opacity: '0.95',
-      cursor: 'grabbing',
-    });
-    document.body.appendChild(overlay);
-    this._dragOverlayEl = overlay;
-
-    document.addEventListener('pointermove', this._ptrMoveHandler);
-    document.addEventListener('pointerup', this._ptrUpHandler);
-    this.destroyRef.onDestroy(() => this._cleanupPointerDrag());
+    this.dragHandler.startReorder(event, originalIndex);
   }
 
-  private readonly _ptrMoveHandler = (e: PointerEvent): void => {
-    // Move overlay: direct DOM, no Angular involved.
-    if (this._dragOverlayEl) {
-      this._dragOverlayEl.style.top = `${e.clientY - this._dragOffsetY}px`;
-      this._dragOverlayEl.style.left = `${e.clientX - this._dragOffsetX}px`;
-    }
-    // Update hover target only when it changes (avoids unnecessary CD cycles).
-    const hovered = this._getHoveredRow(e.clientX, e.clientY);
-    if (hovered) {
-      if (this._dragOverIndex() !== hovered.originalIndex) this._dragOverIndex.set(hovered.originalIndex);
-      if (this._dragInsertBefore() !== hovered.insertBefore) this._dragInsertBefore.set(hovered.insertBefore);
-    }
-  };
+  // ── Column resize ─────────────────────────────────────────────────────────────
 
-  private readonly _ptrUpHandler = (_e: PointerEvent): void => {
-    document.removeEventListener('pointermove', this._ptrMoveHandler);
-    document.removeEventListener('pointerup', this._ptrUpHandler);
-
-    // Fade out the overlay before committing so the user never sees it snap anywhere.
-    const overlay = this._dragOverlayEl;
-    this._dragOverlayEl = null;
-    if (overlay) {
-      overlay.style.transition = 'opacity 80ms ease';
-      overlay.style.opacity = '0';
-      setTimeout(() => overlay.remove(), 90);
-    }
-
-    const oldIndex = this._dragOriginalIndex();
-    const overIdx = this._dragOverIndex();
-    if (oldIndex !== null && overIdx !== null) {
-      const newIndex = this._dragInsertBefore() ? overIdx : overIdx + 1;
-      const shouldEmit = oldIndex !== newIndex;
-      this._clearDrag();
-      if (shouldEmit) {
-        this.rowReorder.emit({ row: { ...this.dataSource().rows()[oldIndex] }, oldIndex, newIndex });
-      }
-    } else {
-      this._clearDrag();
-    }
-  };
-
-  private _getHoveredRow(x: number, y: number): { originalIndex: number; insertBefore: boolean } | null {
-    for (const el of document.elementsFromPoint(x, y)) {
-      const rowEl = (el as HTMLElement).closest<HTMLElement>('.ag-row[data-original-index]');
-      if (!rowEl) continue;
-      const rect = rowEl.getBoundingClientRect();
-      return { originalIndex: Number(rowEl.dataset['originalIndex']), insertBefore: y < rect.top + rect.height / 2 };
-    }
-    return null;
-  }
-
-  private _cleanupPointerDrag(): void {
-    document.removeEventListener('pointermove', this._ptrMoveHandler);
-    document.removeEventListener('pointerup', this._ptrUpHandler);
-    this._dragOverlayEl?.remove();
-    this._dragOverlayEl = null;
-    this._clearDrag();
-  }
-
-  private _dragOverlayEl: HTMLElement | null = null;
-  private _dragOffsetX = 0;
-  private _dragOffsetY = 0;
-
-  private _clearDrag(): void {
-    this._dragOriginalIndex.set(null);
-    this._dragOverIndex.set(null);
-  }
-
-  // ── Column resize ──────────────────────────────────────────────────────────
-
-  /** @internal Start a column resize drag. */
+  /** @internal Delegates to AgridResizeHandler. */
   onResizeStart(event: MouseEvent, col: ColDef): void {
-    event.preventDefault();
-    event.stopPropagation();
-    const ctrl = this.control();
-    const localWidths = this._localWidths();
-    const currentWidth = ctrl
-      ? ctrl.columnWidths()[col.field] ?? col.width
-      : localWidths[col.field] ?? col.width;
-    this.resizeState = { field: col.field, startX: event.clientX, startWidth: currentWidth };
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', this.resizeMouseMove);
-    document.addEventListener('mouseup', this.resizeMouseUp);
-    this.destroyRef.onDestroy(() => this.onResizeEnd());
+    this.resizeHandler.start(event, col);
   }
 
-  private onResizeMove(event: MouseEvent): void {
-    if (!this.resizeState) return;
-    const newWidth = Math.max(40, this.resizeState.startWidth + (event.clientX - this.resizeState.startX));
-    const ctrl = this.control();
-    if (ctrl) {
-      ctrl.setColumnWidth(this.resizeState.field, newWidth);
-    } else {
-      this._localWidths.update(w => ({ ...w, [this.resizeState!.field]: newWidth }));
-    }
-  }
+  // ── Row context menu ──────────────────────────────────────────────────────────
 
-  private onResizeEnd(): void {
-    this.resizeState = null;
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-    document.removeEventListener('mousemove', this.resizeMouseMove);
-    document.removeEventListener('mouseup', this.resizeMouseUp);
-  }
-
-  // ── Row context menu ───────────────────────────────────────────────────────
-
-  /** @internal Right-click on the control column cell. */
+  /** @internal */
   onControlContextMenu(event: MouseEvent, originalIndex: number): void {
     event.preventDefault();
     event.stopPropagation();
     this.contextMenu.set({ x: event.clientX, y: event.clientY, rowIndex: originalIndex });
   }
 
-  /** @internal Close the row context menu. */
-  closeContextMenu(): void {
-    this.contextMenu.set(null);
-  }
+  /** @internal */
+  closeContextMenu(): void { this.contextMenu.set(null); }
 
-  /**
-   * Delete the row at `originalIndex`.
-   * Adjusts `selectedCell` and `editingCell` to avoid stale indices.
-   */
+  /** Delete the row at `originalIndex`, adjusting stale cell/edit pointers. */
   deleteRow(originalIndex: number): void {
     this.dataSource().removeRow(originalIndex);
 
@@ -855,19 +625,22 @@ export class AgridComponent {
     else if (ed && ed.rowIndex > originalIndex)
       this.editingCell.update(p => p ? { ...p, rowIndex: p.rowIndex - 1 } : null);
 
+    if (this._selectedIndices().has(originalIndex)) {
+      this._selectedIndices.update(s => { const n = new Set(s); n.delete(originalIndex); return n; });
+      this._emitRowSelect();
+    }
     this.contextMenu.set(null);
-    this.rowRemoved.emit({oldIndex:originalIndex});
+    this.rowRemoved.emit({ oldIndex: originalIndex });
   }
 
-  // ── Group expand / collapse ────────────────────────────────────────────────
+  // ── Group expand / collapse ───────────────────────────────────────────────────
 
-  /** @internal Toggle expand/collapse for a single group header. */
+  /** @internal */
   onGroupHeaderClick(label: string): void {
     const groupField = this.control()?.groupByField() ?? null;
     this._expandedGroups.update(state => {
       const labels = state.field === groupField ? new Set(state.labels) : new Set<string>();
-      if (labels.has(label)) labels.delete(label);
-      else labels.add(label);
+      if (labels.has(label)) labels.delete(label); else labels.add(label);
       return { field: groupField, labels };
     });
   }
@@ -878,7 +651,7 @@ export class AgridComponent {
     if (!groupField) return;
     const labels = new Set<string>();
     for (const item of this.filteredItems()) {
-      if (this.isGroupHeaderItem(item)) labels.add(item.groupLabel);
+      if (isGroupHeaderItemFn(item)) labels.add(item.groupLabel);
     }
     this._expandedGroups.set({ field: groupField, labels });
   }
@@ -889,76 +662,59 @@ export class AgridComponent {
     this._expandedGroups.set({ field: groupField, labels: new Set() });
   }
 
-  /** @internal Returns the description string for a group label, or `''` when none is set. */
-  getGroupDescription(label: string): string {
-    return this.groupDescription()?.(label) ?? '';
-  }
+  /** @internal */
+  getGroupDescription(label: string): string { return this.groupDescription()?.(label) ?? ''; }
 
-  /** @internal Open the group-header action menu. */
+  /** @internal */
   openGroupActionsMenu(event: MouseEvent, label: string): void {
     event.stopPropagation();
     this.groupActionsMenu.set({ x: event.clientX, y: event.clientY, label });
   }
 
-  /** @internal Close the group-header action menu. */
-  closeGroupActionsMenu(): void {
-    this.groupActionsMenu.set(null);
-  }
+  /** @internal */
+  closeGroupActionsMenu(): void { this.groupActionsMenu.set(null); }
 
-  /** @internal Execute a group action and close the menu. */
+  /** @internal */
   onGroupAction(action: GroupAction, label: string): void {
     action.action(label);
     this.closeGroupActionsMenu();
   }
 
-  // ── Filter row & menu ──────────────────────────────────────────────────────
+  // ── Filter row & menu ─────────────────────────────────────────────────────────
 
-  /** @internal Text filter input changed. */
+  /** @internal */
   onTextFilterChange(event: Event, field: string): void {
-    const text = (event.target as HTMLInputElement).value;
-    this.control()?.setTextFilter(field, text);
+    this.control()?.setTextFilter(field, (event.target as HTMLInputElement).value);
   }
 
-  /** @internal Open the value-picker dropdown for a column. */
+  /** @internal */
   openFilterMenu(event: MouseEvent, field: string): void {
     event.stopPropagation();
     this.filterMenuSearch.set('');
     this.filterMenu.set({ field, x: event.clientX, y: event.clientY });
   }
 
-  /** @internal Close the filter dropdown. */
-  closeFilterMenu(): void {
-    this.filterMenu.set(null);
-  }
+  /** @internal */
+  closeFilterMenu(): void { this.filterMenu.set(null); }
 
-  /** @internal Search input inside the filter dropdown changed. */
+  /** @internal */
   onFilterMenuSearch(event: Event): void {
     this.filterMenuSearch.set((event.target as HTMLInputElement).value);
   }
 
-  /** @internal Sort button clicked inside the filter dropdown. */
+  /** @internal */
   onMenuSort(field: string, dir: 'asc' | 'desc'): void {
     const current = this.control()?.getFilter(field).sort;
     this.control()?.setSort(field, current === dir ? null : dir);
   }
 
-  /** @internal Clear filter for the open dropdown's column. */
+  /** @internal */
   onMenuClearFilter(field: string): void {
     this.control()?.clearFilter(field);
     this.closeFilterMenu();
   }
 
-  /** @internal Returns the ColDef for a field (for template access). */
-  getColDef(field: string): ColDef | undefined {
-    return this.colDefs().find(c => c.field === field);
-  }
-
-  /** @internal Whether the grid is currently grouped by this field. */
-  isGroupedByField(field: string): boolean {
-    return this.control()?.groupByField() === field;
-  }
-
-  /** @internal Toggle "Group by" for a column from the filter menu. */
+  /** @internal */
   onMenuToggleGroupBy(field: string): void {
     const ctrl = this.control();
     if (!ctrl) return;
@@ -966,78 +722,51 @@ export class AgridComponent {
     this.closeFilterMenu();
   }
 
-  /** @internal Clear all filters and sorts. */
+  /** @internal */
   onMenuClearAll(): void {
     this.control()?.clearAllFilters();
     this.closeFilterMenu();
   }
 
-  /** @internal Toggle "Select All" in the value-picker. */
+  /** @internal */
   onMenuToggleAll(field: string): void {
     const ctrl = this.control();
     if (!ctrl) return;
-    const current = ctrl.getFilter(field).selectedValues;
-    ctrl.setSelectedValues(field, current === null ? [] : null);
+    ctrl.setSelectedValues(field, ctrl.getFilter(field).selectedValues === null ? [] : null);
   }
 
-  /** @internal Toggle a single value (by rawStr) in the value-picker. */
+  /** @internal */
   onMenuToggleValue(field: string, rawStr: string): void {
     const ctrl = this.control();
     if (!ctrl) return;
     const allRawStrs = this.filterMenuItems().map(i => i.rawStr);
     const current = ctrl.getFilter(field).selectedValues ?? allRawStrs;
-    const next = current.includes(rawStr)
-      ? current.filter(v => v !== rawStr)
-      : [...current, rawStr];
+    const next = current.includes(rawStr) ? current.filter(v => v !== rawStr) : [...current, rawStr];
     ctrl.setSelectedValues(field, next.length === allRawStrs.length ? null : next);
   }
 
-  // ── Private helpers ────────────────────────────────────────────────────────
+  /** @internal */
+  onSidebarToggleColumn(field: string): void { this.control()?.toggleColumnVisibility(field); }
 
-  /**
-   * Find the display index of the currently selected cell in `filteredItems`.
-   * Returns -1 when nothing is selected or the selected row is filtered out.
-   */
+  // ── Private helpers ───────────────────────────────────────────────────────────
+
   private selectedDisplayIndex(): number {
     const sel = this.selectedCell();
     if (!sel) return -1;
     const items = this.filteredItems();
-    // Add-row placeholder is always last
     if (sel.rowIndex >= this.dataSource().length) return items.length - 1;
-    return items.findIndex(item => this.isDataRowItem(item) && item.originalIndex === sel.rowIndex);
+    return items.findIndex(item => isDataRowItemFn(item) && item.originalIndex === sel.rowIndex);
   }
 
-  /**
-   * Find the display index of `originalIndex` in `filteredItems`.
-   * Returns -1 if the row is currently filtered out.
-   */
   private findDisplayIndex(originalIndex: number): number {
     return this.filteredItems().findIndex(
-      item => this.isDataRowItem(item) && item.originalIndex === originalIndex
+      item => isDataRowItemFn(item) && item.originalIndex === originalIndex
     );
-  }
-
-  /**
-   * Return the display string for a raw field value.
-   * Priority: ValueOption label → `ColDef.formatter` → raw string coercion.
-   */
-  private getDisplayForField(col: ColDef | undefined, raw: unknown): string {
-    if (!col) return String(raw ?? '');
-    if (col.values?.length) {
-      const opt = col.values.find(v =>
-        typeof v === 'string' ? v === raw : (v as ValueOption).value === raw
-      );
-      if (opt !== undefined) return typeof opt === 'string' ? opt : (opt as ValueOption).label;
-    }
-    if (col.formatter) return col.formatter(raw);
-    return String(raw ?? '');
   }
 
   private buildEmptyRow(): Record<string, unknown> {
     const row: Record<string, unknown> = {};
-    for (const col of this.colDefs()) {
-      row[col.field] = col.type === 'number' ? 0 : '';
-    }
+    for (const col of this.colDefs()) row[col.field] = col.type === 'number' ? 0 : '';
     return row;
   }
 
@@ -1052,7 +781,7 @@ export class AgridComponent {
   }
 
   private enterEdit(originalIndex: number, ci: number, seedChar: string): void {
-    const col = this.colDefs()[ci];
+    const col = this.visibleColDefs()[ci];
     if (col.editable === false) return;
     const currentValue = this.dataSource().getRow(originalIndex)[col.field];
     this.selectedCell.set({ rowIndex: originalIndex, colIndex: ci });
@@ -1063,14 +792,43 @@ export class AgridComponent {
     if (displayIdx >= 0) this.scrollToKeepVisible(displayIdx);
   }
 
+  private applyUndo(): void {
+    const ctrl = this.control();
+    if (!ctrl) return;
+    const entry = ctrl.undo();
+    if (!entry) return;
+    this._applyHistoryEntry(entry, entry.oldValue);
+  }
+
+  private applyRedo(): void {
+    const ctrl = this.control();
+    if (!ctrl) return;
+    const entry = ctrl.redo();
+    if (!entry) return;
+    this._applyHistoryEntry(entry, entry.newValue);
+  }
+
+  private _applyHistoryEntry(entry: HistoryEntry, value: unknown): void {
+    const prevValue = this.dataSource().getRow(entry.rowIndex)[entry.field];
+    this.dataSource().patchRow(entry.rowIndex, { [entry.field]: value });
+    const ci = this.visibleColDefs().findIndex(c => c.field === entry.field);
+    this.cellEdit.emit({
+      position: { rowIndex: entry.rowIndex, colIndex: ci },
+      field: entry.field,
+      oldValue: prevValue,
+      newValue: value,
+    });
+  }
+
   private commitCurrent(): void {
     const pos = this.editingCell();
     if (!pos) return;
-    const col = this.colDefs()[pos.colIndex];
+    const col = this.visibleColDefs()[pos.colIndex];
     const oldValue = this.dataSource().getRow(pos.rowIndex)[col.field];
     const newValue = this.currentDraft();
     if (oldValue !== newValue) {
       this.dataSource().patchRow(pos.rowIndex, { [col.field]: newValue });
+      this.control()?.pushEdit({ rowIndex: pos.rowIndex, field: col.field, oldValue, newValue });
       this.cellEdit.emit({ position: pos, field: col.field, oldValue, newValue });
     }
     this.editingCell.set(null);
@@ -1083,90 +841,58 @@ export class AgridComponent {
     this.editSeedChar.set('');
   }
 
-  /**
-   * Move selection by `(dRow, dCol)` in display space.
-   * Translates display indices back to original indices for `selectedCell`.
-   */
   private moveSelection(dRow: number, dCol: number): void {
     const items = this.filteredItems();
     if (items.length === 0) return;
-
-    const cols = this.colDefs().length;
+    const cols = this.visibleColDefs().length;
     let di = this.selectedDisplayIndex();
     let ci = this.selectedCell()?.colIndex ?? 0;
-
-    // Default to first item when nothing is selected
     if (di === -1) { di = 0; ci = 0; }
-
     let newDi = di + dRow;
     let newCi = ci + dCol;
-
     const onAddRow = items[newDi] === null;
-
-    // Column wrap (skip for add-row placeholder which spans full width)
     if (!onAddRow) {
-      if (newCi < 0) { newDi--; newCi = cols - 1; }
+      if (newCi < 0)     { newDi--; newCi = cols - 1; }
       if (newCi >= cols) { newDi++; newCi = 0; }
     }
-
-    // Skip over group header rows in the direction of travel.
+    // Skip group header rows.
     {
       const skipDir = dRow < 0 ? -1 : 1;
       let skipDi = newDi;
-      while (skipDi >= 0 && skipDi < items.length && this.isGroupHeaderItem(items[skipDi])) {
-        skipDi += skipDir;
-      }
-      if (skipDi >= 0 && skipDi < items.length) {
-        newDi = skipDi;
-      }
-      // else: at boundary, leave newDi as-is (will be clamped below)
+      while (skipDi >= 0 && skipDi < items.length && isGroupHeaderItemFn(items[skipDi])) skipDi += skipDir;
+      if (skipDi >= 0 && skipDi < items.length) newDi = skipDi;
     }
-
-    // autoAddRows: going past the last displayed row inserts a blank row
     if (this.autoAddRows() && newDi >= items.length) {
       const emptyRow = this.buildEmptyRow();
       const insertedIndex = this.dataSource().addRow(emptyRow);
-      // filteredItems will update; find the new row's display position
       const newDisplayIdx = this.filteredItems().findIndex(
-        item => this.isDataRowItem(item) && item.originalIndex === insertedIndex
+        item => isDataRowItemFn(item) && item.originalIndex === insertedIndex
       );
-      const clampedCi = Math.min(newCi, cols - 1);
-      this.selectedCell.set({ rowIndex: insertedIndex, colIndex: clampedCi });
+      this.selectedCell.set({ rowIndex: insertedIndex, colIndex: Math.min(newCi, cols - 1) });
       if (newDisplayIdx >= 0) this.scrollToKeepVisible(newDisplayIdx);
       this.wrapperEl().nativeElement.focus();
       this.prepareAddRecord.emit({ index: insertedIndex, data: emptyRow });
       return;
     }
-
     newDi = Math.max(0, Math.min(items.length - 1, newDi));
     newCi = Math.max(0, Math.min(cols - 1, newCi));
-
     const newItem = items[newDi];
-
     if (newItem === null) {
-      // Add-row placeholder: track via dataSource.length (out-of-range sentinel)
       this.selectedCell.set({ rowIndex: this.dataSource().length, colIndex: 0 });
-    } else if (this.isDataRowItem(newItem)) {
+    } else if (isDataRowItemFn(newItem)) {
       this.selectedCell.set({ rowIndex: newItem.originalIndex, colIndex: newCi });
     }
-
     this.scrollToKeepVisible(newDi);
   }
 
-  /**
-   * Scroll the CDK viewport the minimum distance needed to keep `displayIndex` visible.
-   * Takes a display index (position in the filtered list), not an original index.
-   */
   private scrollToKeepVisible(displayIndex: number): void {
-    const viewport = this.viewport();
-    const itemSize = this.rowHeight();
-    const scrollOffset = viewport.measureScrollOffset();
-    const viewportSize = viewport.getViewportSize();
-
-    if (displayIndex * itemSize < scrollOffset) {
+    const viewport   = this.viewport();
+    const itemSize   = this.rowHeight();
+    const scrollOffset   = viewport.measureScrollOffset();
+    const viewportSize   = viewport.getViewportSize();
+    if (displayIndex * itemSize < scrollOffset)
       viewport.scrollToOffset(displayIndex * itemSize);
-    } else if ((displayIndex + 1) * itemSize > scrollOffset + viewportSize) {
+    else if ((displayIndex + 1) * itemSize > scrollOffset + viewportSize)
       viewport.scrollToOffset((displayIndex + 1) * itemSize - viewportSize);
-    }
   }
 }

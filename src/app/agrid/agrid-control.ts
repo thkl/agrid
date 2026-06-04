@@ -1,4 +1,15 @@
-import { Signal, signal } from '@angular/core';
+import { Signal, computed, signal } from '@angular/core';
+
+/**
+ * A single reversible cell edit stored in the undo/redo history.
+ * Both `oldValue` and `newValue` are the raw values as stored in the data source.
+ */
+export interface HistoryEntry {
+  rowIndex: number;
+  field: string;
+  oldValue: unknown;
+  newValue: unknown;
+}
 
 /**
  * Per-column filter state stored inside {@link AgridControl}.
@@ -29,6 +40,8 @@ export interface AgridControlState {
   allowRowReorder?: boolean;
   /** Field to group rows by, or `null` / omitted for no grouping. */
   groupByField?: string | null;
+  /** Fields that are currently hidden from the grid view. */
+  hiddenColumns?: string[];
 }
 
 /**
@@ -53,6 +66,7 @@ export class AgridControl {
   private readonly _filters = signal<Record<string, ColumnFilter>>({});
   private readonly _allowRowReorder = signal<boolean>(false);
   private readonly _groupByField = signal<string | null>(null);
+  private readonly _hiddenColumns = signal<Set<string>>(new Set());
 
   /** @param state Optional initial state, e.g. deserialized from storage. */
   constructor(state?: Partial<AgridControlState>) {
@@ -60,6 +74,7 @@ export class AgridControl {
     if (state?.filters) this._filters.set({ ...state.filters });
     if (state?.allowRowReorder) this._allowRowReorder.set(state.allowRowReorder);
     if (state?.groupByField !== undefined) this._groupByField.set(state.groupByField ?? null);
+    if (state?.hiddenColumns?.length) this._hiddenColumns.set(new Set(state.hiddenColumns));
   }
 
   /**
@@ -85,6 +100,94 @@ export class AgridControl {
    */
   setGroupBy(field: string | null): void {
     this._groupByField.set(field);
+  }
+
+  /**
+   * Reactive set of field names that are currently hidden.
+   * An empty set means all columns are visible.
+   */
+  readonly hiddenColumns: Signal<Set<string>> = this._hiddenColumns.asReadonly();
+
+  /** Return `true` when the given field is currently hidden. */
+  isColumnHidden(field: string): boolean {
+    return this._hiddenColumns().has(field);
+  }
+
+  /**
+   * Show or hide a column by field name.
+   * Hiding a column does not clear its filter or sort — they resume when it is shown again.
+   */
+  setColumnVisibility(field: string, visible: boolean): void {
+    this._hiddenColumns.update(set => {
+      const next = new Set(set);
+      if (visible) next.delete(field);
+      else next.add(field);
+      return next;
+    });
+  }
+
+  /** Toggle the visibility of a column. */
+  toggleColumnVisibility(field: string): void {
+    this.setColumnVisibility(field, this.isColumnHidden(field));
+  }
+
+  // ── Undo / redo history ────────────────────────────────────────────────────
+
+  private readonly _history = signal<HistoryEntry[]>([]);
+  private readonly _historyPointer = signal<number>(-1);
+  private static readonly MAX_HISTORY = 100;
+
+  /** `true` when there is at least one edit that can be undone. */
+  readonly canUndo = computed(() => this._historyPointer() >= 0);
+
+  /** `true` when there is at least one edit that can be re-applied. */
+  readonly canRedo = computed(() => this._historyPointer() < this._history().length - 1);
+
+  /**
+   * Record a committed cell edit in the history.
+   * Calling this discards any redo entries that came after the current pointer.
+   * Called automatically by the grid after every cell commit.
+   */
+  pushEdit(entry: HistoryEntry): void {
+    const pointer = this._historyPointer();
+    const base = this._history().slice(0, pointer + 1);
+    base.push(entry);
+    const trimmed = base.length > AgridControl.MAX_HISTORY
+      ? base.slice(base.length - AgridControl.MAX_HISTORY)
+      : base;
+    this._history.set(trimmed);
+    this._historyPointer.set(trimmed.length - 1);
+  }
+
+  /**
+   * Move one step back in history and return the entry to reverse, or `null` if
+   * already at the beginning. The caller is responsible for applying `oldValue`
+   * back to the data source.
+   */
+  undo(): HistoryEntry | null {
+    const p = this._historyPointer();
+    if (p < 0) return null;
+    this._historyPointer.set(p - 1);
+    return this._history()[p];
+  }
+
+  /**
+   * Move one step forward in history and return the entry to re-apply, or `null`
+   * if already at the end. The caller is responsible for applying `newValue` back
+   * to the data source.
+   */
+  redo(): HistoryEntry | null {
+    const p = this._historyPointer();
+    const h = this._history();
+    if (p >= h.length - 1) return null;
+    this._historyPointer.set(p + 1);
+    return h[p + 1];
+  }
+
+  /** Clear the entire undo/redo history. */
+  clearHistory(): void {
+    this._history.set([]);
+    this._historyPointer.set(-1);
   }
 
   /**
@@ -207,6 +310,7 @@ export class AgridControl {
       filters: { ...this._filters() },
       allowRowReorder: this._allowRowReorder(),
       groupByField: this._groupByField() ?? undefined,
+      hiddenColumns: [...this._hiddenColumns()],
     };
   }
 

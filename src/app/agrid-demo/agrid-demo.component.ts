@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, signal, viewChild } from '@angular/core';
-import { AgridComponent, AgridControl, AgridDataSource, ColDef, GridEditEvent, GroupAction, NewRecord, RowReorderEvent } from '../agrid';
+import { AgridComponent, AgridControl, AgridDataSource, ColDef, GridEditEvent, GroupAction, NewRecord, RowReorderEvent, RowSelectEvent } from '../agrid';
 
 const COLUMNS: ColDef[] = [
   { field: 'id', header: 'ID', width: 70, editable: false},
@@ -17,7 +17,7 @@ const COLUMNS: ColDef[] = [
       { value: 7, label: 'Operations' },
     ]
   },
-  { field: 'salary', header: 'Salary', width: 100, type: 'number', filterable: true },
+  { field: 'salary', header: 'Salary', width: 100, type: 'number', filterable: true, hidden:true },
 ];
 
 const FIRST_NAMES = ['Alice', 'Bob', 'Carol', 'David', 'Emma', 'Frank', 'Grace', 'Henry', 'Iris', 'Jack'];
@@ -69,12 +69,15 @@ function generateRows(count: number): Record<string, unknown>[] {
         [allowAddRows]="true"
         [autoAddRows]="autoAdd()"
         [showControlColumn]="true"
+        [showSidebar]="true"
+        [rowSelection]="'multi'"
         [control]="gridControl"
         [groupDescription]="groupDescriptionFn"
         [groupActions]="groupActionsList"
         (cellEdit)="onEdit($event)"
         (prepareAddRecord)="onPrepareAdd($event)"
         (rowReorder)="onRowReorder($event)"
+        (rowSelect)="onRowSelect($event)"
       />
       <div class="demo-footer">
         @if (lastEdit()) {
@@ -217,6 +220,16 @@ export class AgridDemoComponent {
   onRowReorder(event: RowReorderEvent): void {
     this.ds.moveRow(event.oldIndex, event.newIndex);
     this.lastEdit.set(`Row moved from position ${event.oldIndex + 1} to ${event.newIndex + 1}`);
+  }
+
+  onRowSelect(event: RowSelectEvent | null): void {
+    if (!event || event.rows.length === 0) {
+      this.lastEdit.set('Selection cleared');
+    } else if (event.rows.length === 1) {
+      this.lastEdit.set(`Row ${event.rows[0].originalIndex + 1} selected`);
+    } else {
+      this.lastEdit.set(`${event.rows.length} rows selected`);
+    }
   }
 
   toggleGroup(checked: boolean): void {
