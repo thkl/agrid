@@ -18,6 +18,7 @@ const COLUMNS: ColDef[] = [
     ]
   },
   { field: 'salary', header: 'Salary', width: 100, type: 'number', filterable: true, hidden:true },
+  { field: 'hiredAt', header: 'Hire Date', width: 130, editable: false },
 ];
 
 const FIRST_NAMES = ['Alice', 'Bob', 'Carol', 'David', 'Emma', 'Frank', 'Grace', 'Henry', 'Iris', 'Jack'];
@@ -32,6 +33,7 @@ function generateRows(count: number): Record<string, unknown>[] {
     email: `user${i + 1}@example.com`,
     departmentId: (i % DEPARTMENTS.length) + 1,  // numeric ID, displayed as label via ValueOption
     salary: 50000 + ((i * 137) % 100000),
+    hiredAt: new Date(2018 + (i % 7), (i * 3) % 12, (i * 7) % 28 + 1).toISOString(),
   }));
 }
 
@@ -47,7 +49,7 @@ function generateRows(count: number): Record<string, unknown>[] {
           @if (filteredRowCount() !== ds.rows().length) {
             {{ filteredRowCount().toLocaleString() }} of
           }
-          {{ ds.rows().length.toLocaleString() }} rows · 6 columns
+          {{ ds.rows().length.toLocaleString() }} rows · 7 columns
         </span>
         <label class="demo-toggle">
           <input type="checkbox" [checked]="autoAdd()" (change)="autoAdd.set(!autoAdd())" />
@@ -71,6 +73,7 @@ function generateRows(count: number): Record<string, unknown>[] {
         [autoAddRows]="autoAdd()"
         [showControlColumn]="true"
         [showSidebar]="true"
+        [zebraStripes]="true"
         [rowSelection]="'multi'"
         [control]="gridControl"
         [groupDescription]="groupDescriptionFn"

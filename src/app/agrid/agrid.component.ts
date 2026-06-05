@@ -66,6 +66,7 @@ type FindMatch = { rowIndex: number; displayIndex: number; colIndex: number };
   imports: [ScrollingModule, AgridCellComponent, AgridColumnMenuComponent, AgridFindPanelComponent],
   templateUrl: './agrid.component.html',
   styleUrl: './agrid.component.css',
+  host: { '[class.ag-zebra]': 'zebraStripes()' },
 })
 export class AgridComponent {
 
@@ -117,6 +118,9 @@ export class AgridComponent {
 
   /** Actions shown in the group header's `⋮` menu. */
   groupActions = input<GroupAction[]>([]);
+
+  /** Shade every other row slightly for easier reading. @default false */
+  zebraStripes = input<boolean>(false);
 
   // ── Outputs ──────────────────────────────────────────────────────────────────
 

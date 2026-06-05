@@ -3,6 +3,28 @@ import { ColDef, GridItem, ValueOption } from './agrid.types';
 
 // ── Display resolution ─────────────────────────────────────────────────────────
 
+// Matches YYYY-MM-DD with optional time component — strict enough to avoid false positives.
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
+/** Returns true if the value is a Date object or an ISO date string. */
+export function looksLikeDate(raw: unknown): boolean {
+  if (raw instanceof Date) return true;
+  if (typeof raw === 'string') return ISO_DATE_RE.test(raw.trim());
+  return false;
+}
+
+/**
+ * Formats a raw value as a human-readable date string.
+ * Accepts Date objects and ISO strings.
+ * Returns empty string for null/undefined, raw string if unparseable.
+ */
+export function formatDateValue(raw: unknown): string {
+  if (raw == null || raw === '') return '';
+  const d = raw instanceof Date ? raw : new Date(raw as string);
+  if (isNaN(d.getTime())) return String(raw);
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
 /** Resolve the display string for a raw cell value via ValueOption label, formatter, or coercion. */
 export function getDisplayForField(col: ColDef | undefined, raw: unknown): string {
   if (!col) return String(raw ?? '');
@@ -13,6 +35,7 @@ export function getDisplayForField(col: ColDef | undefined, raw: unknown): strin
     if (opt !== undefined) return typeof opt === 'string' ? opt : (opt as ValueOption).label;
   }
   if (col.formatter) return col.formatter(raw);
+  if (col.type === 'date' || looksLikeDate(raw)) return formatDateValue(raw);
   return String(raw ?? '');
 }
 

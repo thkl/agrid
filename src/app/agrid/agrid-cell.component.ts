@@ -10,6 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { ColDef, ValueOption } from './agrid.types';
+import { formatDateValue, looksLikeDate } from './agrid.utils';
 
 /**
  * Individual cell component used inside `AgridComponent`.
@@ -127,6 +128,7 @@ export class AgridCellComponent {
     }
 
     if (col.formatter) return col.formatter(raw);
+    if (col.type === 'date' || looksLikeDate(raw)) return formatDateValue(raw);
     return String(raw ?? '');
   });
 

@@ -12,6 +12,7 @@
   --agrid-color-bg-subtle:      #fafbfc;
   --agrid-color-bg-muted:       #f6f8fa;
   --agrid-color-shadow:         rgba(140, 149, 159, 0.2);
+  --agrid-color-bg-stripe:      #f0f2f5;
 
   display: block;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -277,6 +278,32 @@
 
 .ag-row {
   display: grid;
+}
+
+/* Zebra striping — :host(.ag-zebra) is required for Angular's emulated encapsulation */
+:host(.ag-zebra) .ag-row--odd agrid-cell:not(.editing) {
+  background: var(--agrid-color-bg-stripe);
+}
+:host(.ag-zebra) .ag-row--odd .ag-cell--pinned {
+  background: var(--agrid-color-bg-stripe);
+}
+:host(.ag-zebra) .ag-row--odd .ag-control-cell {
+  background: var(--agrid-color-bg-stripe);
+}
+/* Restore hover and selection on odd rows */
+:host(.ag-zebra) .ag-row--odd:hover agrid-cell:not(.editing) {
+  background: var(--agrid-color-bg-muted);
+}
+:host(.ag-zebra) .ag-row--odd:hover .ag-cell--pinned,
+:host(.ag-zebra) .ag-row--odd:hover .ag-control-cell {
+  background: var(--agrid-color-bg-muted);
+}
+:host(.ag-zebra) .ag-row--odd.ag-row--selected agrid-cell:not(.editing) {
+  background: var(--agrid-color-accent-subtle);
+}
+:host(.ag-zebra) .ag-row--odd.ag-row--selected .ag-cell--pinned,
+:host(.ag-zebra) .ag-row--odd.ag-row--selected .ag-control-cell {
+  background: var(--agrid-color-accent-subtle);
 }
 
 .ag-row:hover agrid-cell:not(.editing) {
