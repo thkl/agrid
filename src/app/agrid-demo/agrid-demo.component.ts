@@ -82,6 +82,7 @@ function generateRows(count: number): Record<string, unknown>[] {
         (prepareAddRecord)="onPrepareAdd($event)"
         (rowReorder)="onRowReorder($event)"
         (rowSelect)="onRowSelect($event)"
+        (rowDoubleClicked)="onRowClick($event)"
       />
       <div class="demo-footer">
         @if (lastEdit()) {
@@ -169,7 +170,7 @@ function generateRows(count: number): Record<string, unknown>[] {
 export class AgridDemoComponent {
   readonly columns = COLUMNS;
   readonly ds = new AgridDataSource(generateRows(50));
-  readonly gridControl = new AgridControl({ allowRowReorder: true });
+  readonly gridControl = new AgridControl({ allowRowReorder: false });
   readonly lastEdit = signal('');
   readonly autoAdd = signal(false);
   readonly isGrouped = computed(() => this.gridControl.groupByField() === 'departmentId');
@@ -238,6 +239,10 @@ export class AgridDemoComponent {
     } else {
       this.lastEdit.set(`${event.rows.length} rows selected`);
     }
+  }
+
+  onRowClick(event:any) {
+    console.log(event);
   }
 
   toggleGroup(checked: boolean): void {

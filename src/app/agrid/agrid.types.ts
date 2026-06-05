@@ -134,6 +134,10 @@ export interface RowSelectEvent {
   rows: { row: Record<string, unknown>; originalIndex: number }[];
 }
 
+export interface RowClickEvent {
+   row: Record<string, unknown>; originalIndex: number ;
+}
+
 /**
  * Emitted by `(rowReorder)` when the user finishes dragging a row to a new position.
  * The grid does **not** reorder data itself — call `dataSource.moveRow(oldIndex, newIndex)`

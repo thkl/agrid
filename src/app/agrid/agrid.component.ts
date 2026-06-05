@@ -32,7 +32,7 @@ import {
 import { HistoryEntry, HistoryItem } from './agrid-control';
 import {
   CellPosition, ColDef, GridEditEvent, GridItem, GroupAction,
-  NewRecord, RowRemovedEvent, RowReorderEvent, RowSelectEvent, ValueOption,
+  NewRecord, RowClickEvent, RowRemovedEvent, RowReorderEvent, RowSelectEvent, ValueOption,
 } from './agrid.types';
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
@@ -140,6 +140,8 @@ export class AgridComponent {
 
   /** Emitted when the row selection changes. `null` = selection cleared. */
   rowSelect = output<RowSelectEvent | null>();
+
+  rowDoubleClicked = output<RowClickEvent>();
 
   // ── Public state ─────────────────────────────────────────────────────────────
 
@@ -793,6 +795,8 @@ export class AgridComponent {
 
   /** @internal */
   onStartEdit(originalIndex: number, ci: number): void {
+    const row = this.dataSource().rows()[originalIndex];
+    this.rowDoubleClicked.emit({row,originalIndex});
     if (this.isEditing(originalIndex, ci)) return;
     this.enterEdit(originalIndex, ci, '');
   }
