@@ -1,18 +1,18 @@
 :host {
-  --agrid-color-text:           #24292f;
-  --agrid-color-text-muted:     #57606a;
-  --agrid-color-accent:         #1a73e8;
-  --agrid-color-accent-subtle:  #e8f0fe;
-  --agrid-color-accent-fg:      #1558b0;
-  --agrid-color-accent-border:  #c8d8f8;
+  --agrid-color-text:           var(--mat-app-text-color);
+  --agrid-color-text-muted:     var(--mat-button-outlined-disabled-label-text-color);
+  --agrid-color-accent:         var(--mat-app-text-hoovercolor);
+  --agrid-color-accent-subtle:  var(--mat-badge-disabled-state-background-color);
+  --agrid-color-accent-fg:      var(--mat-app-text-hoovercolor);
+  --agrid-color-accent-border:  var(--mat-card-outlined-outline-color);
   --agrid-color-danger:         #d1242f;
   --agrid-color-danger-subtle:  #fff1f0;
-  --agrid-color-border:         #d0d7de;
-  --agrid-color-bg:             #ffffff;
-  --agrid-color-bg-subtle:      #fafbfc;
-  --agrid-color-bg-muted:       #f6f8fa;
+  --agrid-color-border:         var(--mat-card-outlined-outline-color);
+  --agrid-color-bg:             var(--mat-table-background-color);
+  --agrid-color-bg-subtle:      var(--mat-toolbar-container-background-color);
+  --agrid-color-bg-muted:       var(--mat-badge-disabled-state-background-color);
   --agrid-color-shadow:         rgba(140, 149, 159, 0.2);
-  --agrid-color-bg-stripe:      #f0f2f5;
+  --agrid-color-bg-stripe:        var(--mat-toolbar-container-background-color);
 
   display: block;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -188,6 +188,49 @@
   flex: 1;
   overflow-x: clip;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+}
+
+.ag-horizontal-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+}
+
+.ag-sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+}
+
+.ag-body::-webkit-scrollbar,
+.ag-horizontal-scroll::-webkit-scrollbar,
+.ag-sidebar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.ag-body::-webkit-scrollbar-track,
+.ag-horizontal-scroll::-webkit-scrollbar-track,
+.ag-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ag-body::-webkit-scrollbar-thumb,
+.ag-horizontal-scroll::-webkit-scrollbar-thumb,
+.ag-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.ag-body::-webkit-scrollbar-thumb:hover,
+.ag-horizontal-scroll::-webkit-scrollbar-thumb:hover,
+.ag-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.32);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 .ag-pinned-body {
@@ -280,6 +323,8 @@
   display: grid;
 }
 
+
+
 /* Zebra striping — :host(.ag-zebra) is required for Angular's emulated encapsulation */
 :host(.ag-zebra) .ag-row--odd agrid-cell:not(.editing) {
   background: var(--agrid-color-bg-stripe);
@@ -305,6 +350,7 @@
 :host(.ag-zebra) .ag-row--odd.ag-row--selected .ag-control-cell {
   background: var(--agrid-color-accent-subtle);
 }
+
 
 .ag-row:hover agrid-cell:not(.editing) {
   background: var(--agrid-color-bg-muted);
@@ -458,7 +504,7 @@
 .ag-context-menu {
   position: fixed;
   z-index: 1000;
-  background: var(--agrid-color-bg);
+  background: var(--agrid-color-bg-subtle);
   border: 1px solid var(--agrid-color-border);
   border-radius: 6px;
   box-shadow: 0 8px 24px var(--agrid-color-shadow);

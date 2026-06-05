@@ -122,6 +122,9 @@ export class AgridComponent {
   /** Shade every other row slightly for easier reading. @default false */
   zebraStripes = input<boolean>(false);
 
+  /** Make the entire grid read-only, regardless of individual column `editable` settings. @default false */
+  readonly readonlyGrid = input<boolean>(false, { alias: 'readonly' });
+
   // ── Outputs ──────────────────────────────────────────────────────────────────
 
   /** Emitted after the user commits a cell edit. */
@@ -211,6 +214,14 @@ export class AgridComponent {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+
+  /** Resize every visible column to fit its header and current row values. */
+  autosizeAllColumns(): void {
+    const ctx = this.getAutosizeContext();
+    for (const col of this.visibleColDefs()) {
+      this.setColumnWidth(col.field, this.measureAutosizeWidth(col, ctx));
+    }
   }
 
   /** @internal Full display value for a cell — used as the `title` tooltip attribute. */
@@ -1174,9 +1185,13 @@ export class AgridComponent {
     this.prepareAddRecord.emit({ index: insertedIndex, data: emptyRow });
   }
 
+  private isCellEditable(col: ColDef): boolean {
+    return !this.readonlyGrid() && col.editable !== false;
+  }
+
   private enterEdit(originalIndex: number, ci: number, seedChar: string): void {
     const col = this.visibleColDefs()[ci];
-    if (col.editable === false) return;
+    if (!this.isCellEditable(col)) return;
     const currentValue = this.dataSource().getRow(originalIndex)[col.field];
     this.selectedRange.set(null);
     this.selectedCell.set({ rowIndex: originalIndex, colIndex: ci });
@@ -1417,7 +1432,7 @@ export class AgridComponent {
           && ci >= source.colStart && ci <= source.colEnd;
         if (insideSource) continue;
         const col = cols[ci];
-        if (!col || col.editable === false) continue;
+        if (!col || !this.isCellEditable(col)) continue;
         const sourceRowIndex = targetRowOffset % sourceValues.length;
         const sourceColIndex = (ci - source.colStart) % sourceValues[sourceRowIndex].length;
         const oldValue = this.dataSource().getRow(item.originalIndex)[col.field];
@@ -1513,7 +1528,7 @@ export class AgridComponent {
       for (let c = 0; c < rows[r].length; c++) {
         const colIndex = start.colIndex + c;
         const col = cols[colIndex];
-        if (!col || col.editable === false) continue;
+        if (!col || !this.isCellEditable(col)) continue;
         const oldValue = this.dataSource().getRow(item.originalIndex)[col.field];
         const newValue = this.coercePastedValue(rows[r][c], col);
         if (oldValue === newValue) continue;
@@ -1642,8 +1657,7 @@ export class AgridComponent {
     else this._localWidths.update(w => ({ ...w, [field]: Math.max(40, width) }));
   }
 
-  private measureAutosizeWidth(col: ColDef): number {
-    const ctx = this.getAutosizeContext();
+  private measureAutosizeWidth(col: ColDef, ctx = this.getAutosizeContext()): number {
     const values = [col.header];
     for (const item of this.filteredItems()) {
       if (!isDataRowItemFn(item)) continue;

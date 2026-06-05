@@ -1,7 +1,7 @@
 .ag-filter-menu {
   position: fixed;
   z-index: 1001;
-  background: var(--agrid-color-bg);
+  background: var(--agrid-color-bg-subtle);
   border: 1px solid var(--agrid-color-border);
   border-radius: 6px;
   box-shadow: 0 8px 24px var(--agrid-color-shadow);
@@ -45,11 +45,13 @@
 }
 
 .ag-filter-menu-item--muted:hover {
-  background: var(--agrid-color-danger-subtle);
-  color: var(--agrid-color-danger);
+  background: var(--mat-toolbar-container-background-color);
+  color: var(--agrid-color-text-muted);
+  cursor:not-allowed;
 }
 
 .ag-filter-menu-search {
+  background: var(--agrid-color-bg-subtle);
   display: block;
   width: calc(100% - 16px);
   margin: 0 8px;

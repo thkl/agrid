@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, afterNextRender, computed, signal, viewChild } from '@angular/core';
 import { AgridComponent, AgridControl, AgridDataSource, ColDef, GridEditEvent, GroupAction, NewRecord, RowReorderEvent, RowSelectEvent } from '../agrid';
 
 const COLUMNS: ColDef[] = [
@@ -173,6 +173,10 @@ export class AgridDemoComponent {
   readonly lastEdit = signal('');
   readonly autoAdd = signal(false);
   readonly isGrouped = computed(() => this.gridControl.groupByField() === 'departmentId');
+
+  constructor() {
+    afterNextRender(() => this._grid()?.autosizeAllColumns());
+  }
 
   readonly groupDescriptionFn = (label: string): string => {
     const count = this.ds.rows().filter(r => {
