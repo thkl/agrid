@@ -1,18 +1,19 @@
 :host {
-  --agrid-color-text:           var(--mat-app-text-color);
-  --agrid-color-text-muted:     var(--mat-button-outlined-disabled-label-text-color);
-  --agrid-color-accent:         var(--mat-app-text-hoovercolor);
-  --agrid-color-accent-subtle:  var(--mat-badge-disabled-state-background-color);
-  --agrid-color-accent-fg:      var(--mat-app-text-hoovercolor);
-  --agrid-color-accent-border:  var(--mat-card-outlined-outline-color);
+  
+  --agrid-color-text:           #24292f;
+  --agrid-color-text-muted:     #57606a;
+  --agrid-color-accent:         #1a73e8;
+  --agrid-color-accent-subtle:  #e8f0fe;
+  --agrid-color-accent-fg:      #1558b0;
+  --agrid-color-accent-border:  #c8d8f8;
   --agrid-color-danger:         #d1242f;
   --agrid-color-danger-subtle:  #fff1f0;
-  --agrid-color-border:         var(--mat-card-outlined-outline-color);
-  --agrid-color-bg:             var(--mat-table-background-color);
-  --agrid-color-bg-subtle:      var(--mat-toolbar-container-background-color);
-  --agrid-color-bg-muted:       var(--mat-badge-disabled-state-background-color);
+  --agrid-color-border:         #d0d7de;
+  --agrid-color-bg:             #ffffff;
+  --agrid-color-bg-subtle:      #fafbfc;
+  --agrid-color-bg-muted:       #f6f8fa;
   --agrid-color-shadow:         rgba(140, 149, 159, 0.2);
-  --agrid-color-bg-stripe:        var(--mat-toolbar-container-background-color);
+  --agrid-color-bg-stripe:      #f0f2f5;
 
   display: block;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -29,6 +30,18 @@
   overflow: hidden;
   outline: none;
   border-radius: 4px;
+}
+
+.ag-state-overlay {
+  position: absolute;
+  inset: 34px 0 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--agrid-color-text-muted);
+  background: color-mix(in srgb, var(--agrid-color-bg) 78%, transparent);
+  pointer-events: none;
+  z-index: 3;
 }
 
 .ag-header {
@@ -621,6 +634,58 @@
   border-radius: 10px;
   padding: 0 7px;
   line-height: 16px;
+}
+
+.ag-pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  height: 34px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--agrid-color-border);
+  background: var(--agrid-color-bg-muted);
+  font-size: 12px;
+  color: var(--agrid-color-text-muted);
+}
+
+.ag-page-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 3px;
+  background: var(--agrid-color-bg);
+  color: var(--agrid-color-text);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.ag-page-btn:hover:not(:disabled) {
+  background: var(--agrid-color-bg-muted);
+  border-color: var(--agrid-color-text-muted);
+}
+
+.ag-page-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ag-page-info {
+  padding: 0 6px;
+  font-weight: 500;
+  color: var(--agrid-color-text);
+  min-width: 48px;
+  text-align: center;
+}
+
+.ag-page-count {
+  margin-left: auto;
+  color: var(--agrid-color-text-muted);
 }
 
 .ag-add-row {

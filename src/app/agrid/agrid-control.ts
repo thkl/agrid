@@ -49,12 +49,22 @@ export interface AgridControlState {
   columnOrder?: string[];
   /** Fields that are pinned to the left edge. */
   pinnedColumns?: string[];
+  /** Number of rows per page. `0` means no pagination (show all rows). */
+  pageSize?: number;
+  /** Current page (1-based). */
+  currentPage?: number;
+  /**
+   * Total row count supplied by the server. When greater than zero the grid enters
+   * server-side pagination mode: it no longer slices rows locally and instead emits
+   * a `(pageChange)` event so the host can fetch the correct slice.
+   */
+  totalRows?: number;
 }
 
 /**
  * Signal-based container for mutable grid UI state such as column widths and active filters.
  *
- * Pass an instance to `<agrid [control]="ctrl">` so the grid can store runtime state
+ * Assign an instance to `AgridProvider.control` so the grid can store runtime state
  * in a place the host component can persist across sessions.
  *
  * @example
@@ -76,6 +86,9 @@ export class AgridControl {
   private readonly _hiddenColumns  = signal<Set<string>>(new Set());
   private readonly _columnOrder    = signal<string[]>([]);
   private readonly _pinnedColumns  = signal<Set<string>>(new Set());
+  private readonly _pageSize = signal<number>(0);
+  private readonly _currentPage = signal<number>(1);
+  private readonly _totalRows = signal<number>(0);
 
   /** @param state Optional initial state, e.g. deserialized from storage. */
   constructor(state?: Partial<AgridControlState>) {
@@ -86,6 +99,9 @@ export class AgridControl {
     if (state?.hiddenColumns?.length) this._hiddenColumns.set(new Set(state.hiddenColumns));
     if (state?.columnOrder?.length)   this._columnOrder.set([...state.columnOrder]);
     if (state?.pinnedColumns?.length) this._pinnedColumns.set(new Set(state.pinnedColumns));
+    if (state?.pageSize) this._pageSize.set(state.pageSize);
+    if (state?.currentPage) this._currentPage.set(state.currentPage);
+    if (state?.totalRows) this._totalRows.set(state.totalRows);
   }
 
   /**
@@ -194,6 +210,43 @@ export class AgridControl {
   togglePinned(field: string): void {
     this.setPinned(field, !this.isPinned(field));
   }
+
+  // ── Pagination ────────────────────────────────────────────────────────────
+
+  /** Number of rows per page. `0` means all rows are shown (no pagination). */
+  readonly pageSize: Signal<number> = this._pageSize.asReadonly();
+
+  /** Current page number (1-based). */
+  readonly currentPage: Signal<number> = this._currentPage.asReadonly();
+
+  /** Set rows per page. Pass `0` to disable pagination. Resets to page 1. */
+  setPageSize(size: number): void {
+    this._pageSize.set(Math.max(0, size));
+    this._currentPage.set(1);
+  }
+
+  /** Navigate to a specific page (1-based). Clamped to valid range by the grid. */
+  setPage(page: number): void {
+    this._currentPage.set(Math.max(1, page));
+  }
+
+  /**
+   * Set the total number of rows available on the server.
+   * When greater than zero the grid switches to **server-side pagination mode**:
+   * - Rows in the data source are shown as-is (no local slicing).
+   * - `totalPages` is derived from this value instead of the local row count.
+   * - A `(pageChange)` event is emitted whenever the user navigates to a new page.
+   *
+   * Pass `0` to return to client-side pagination.
+   */
+  setTotalRows(count: number): void {
+    this._totalRows.set(Math.max(0, count));
+  }
+
+  /**
+   * Total server-side row count. `0` means client-side mode (grid slices locally).
+   */
+  readonly totalRows: Signal<number> = this._totalRows.asReadonly();
 
   // ── Undo / redo history ────────────────────────────────────────────────────
 
@@ -387,6 +440,9 @@ export class AgridControl {
       hiddenColumns: [...this._hiddenColumns()],
       columnOrder:   [...this._columnOrder()],
       pinnedColumns: [...this._pinnedColumns()],
+      pageSize: this._pageSize(),
+      currentPage: this._currentPage(),
+      totalRows: this._totalRows(),
     };
   }
 

@@ -34,7 +34,7 @@
                 <button
                   class="ag-header-menu-btn"
                   [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
-                  title="Column menu"
+                  [title]="localeText().columnMenu"
                   (click)="openFilterMenu($event, col.field)"
                   (pointerdown)="$event.stopPropagation()"
                 >▾</button>
@@ -67,7 +67,7 @@
                       [value]="getTextFilter(col.field)"
                       (input)="onTextFilterChange($event, col.field)"
                       (click)="$event.stopPropagation()"
-                      placeholder="Filter…"
+                      [placeholder]="localeText().filterPlaceholder"
                     />
                   </div>
                 } @else {
@@ -96,7 +96,7 @@
               [class.ag-ghost-row]="item === 'ghost'"
               [class.ag-group-header-row]="isGroupHeaderItem(item)"
               [class.ag-row--odd]="isDataRowItem(item) && di % 2 !== 0"
-              [class.ag-row--selected]="isDataRowItem(item) && isRowSelected(item.originalIndex)"
+              [class.ag-row--selected]="isPinnedPaneRowSelected(item)"
               [attr.data-original-index]="getItemOriginalIndex(item)"
               [style.height.px]="rowHeight()"
               [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? pinnedGridTemplateColumns() : null"
@@ -109,7 +109,7 @@
                     [class.ag-control-cell--reorder]="allowRowReorder()"
                     (contextmenu)="onControlContextMenu($event, item.originalIndex)"
                     (click)="$event.stopPropagation()"
-                    (pointerdown)="onHandlePointerDown($event, item.originalIndex)"
+                    (pointerdown)="onControlPointerDown($event, item.originalIndex)"
                   ></div>
                 }
                 @for (col of pinnedColDefs(); track col.field) {
@@ -119,6 +119,8 @@
                     [rowIndex]="item.originalIndex"
                     [colIndex]="ci"
                     [value]="item.row[col.field]"
+                    [row]="item.row"
+                    [locale]="locale()"
                     [attr.title]="getCellTitle(col, item.row[col.field])"
                     [attr.data-cell-row]="item.originalIndex"
                     [attr.data-cell-col]="ci"
@@ -179,7 +181,7 @@
                 <button
                   class="ag-header-menu-btn"
                   [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
-                  title="Column menu"
+                  [title]="localeText().columnMenu"
                   (click)="openFilterMenu($event, col.field)"
                   (pointerdown)="$event.stopPropagation()"
                 >▾</button>
@@ -206,7 +208,7 @@
                       [value]="getTextFilter(col.field)"
                       (input)="onTextFilterChange($event, col.field)"
                       (click)="$event.stopPropagation()"
-                      placeholder="Filter…"
+                      [placeholder]="localeText().filterPlaceholder"
                     />
                   </div>
                 } @else {
@@ -232,7 +234,7 @@
               [class.ag-add-row--selected]="item === null && isAddRowSelected()"
               [class.ag-ghost-row]="item === 'ghost'"
               [class.ag-group-header-row]="isGroupHeaderItem(item)"
-              [class.ag-row--odd]="isDataRowItem(item) && di % 2 !== 0"
+              [class.ag-row--odd]="isDataRowItem(item) && di % 2 !== 1"
               [class.ag-row--selected]="isDataRowItem(item) && isRowSelected(item.originalIndex)"
               [attr.data-original-index]="getItemOriginalIndex(item)"
               [style.height.px]="rowHeight()"
@@ -247,6 +249,8 @@
                     [rowIndex]="item.originalIndex"
                     [colIndex]="ci"
                     [value]="item.row[col.field]"
+                    [row]="item.row"
+                    [locale]="locale()"
                     [attr.title]="getCellTitle(col, item.row[col.field])"
                     [attr.data-cell-row]="item.originalIndex"
                     [attr.data-cell-col]="ci"
@@ -266,7 +270,7 @@
                 }
               } @else if (item === null) {
                 <div class="ag-add-row-label" (click)="onActivateAddRow()">
-                  <span class="ag-add-row-icon">+</span> Add row
+                  <span class="ag-add-row-icon">+</span> {{ localeText().addRow }}
                 </div>
               } @else if (item === 'ghost') {
                 @for (col of scrollableColDefs(); track col.field) {
@@ -283,7 +287,7 @@
                     @if (groupActions().length > 0) {
                       <button
                         class="ag-group-actions-btn"
-                        title="Actions"
+                        [title]="localeText().actions"
                         (click)="openGroupActionsMenu($event, item.groupLabel)"
                       >⋮</button>
                     }
@@ -300,12 +304,18 @@
       </div>
     </div>
 
+    @if (loading()) {
+      <div class="ag-state-overlay">{{ localeText().loading }}</div>
+    } @else if (isEmpty()) {
+      <div class="ag-state-overlay">{{ emptyTextLabel() }}</div>
+    }
+
     @if (showSidebar()) {
       @if (sidebarOpen()) {
         <div class="ag-sidebar">
           <div class="ag-sidebar-header">
-            <span>Columns</span>
-            <button class="ag-sidebar-close" (click)="toggleSidebar()" title="Close">✕</button>
+            <span>{{ localeText().columns }}</span>
+            <button class="ag-sidebar-close" (click)="toggleSidebar()" [title]="localeText().close">✕</button>
           </div>
           @for (col of colDefs(); track col.field) {
             <label class="ag-sidebar-item" (click)="$event.stopPropagation()">
@@ -324,11 +334,23 @@
     }
   </div><!-- /.ag-main-area -->
 
+  @if (showPagination()) {
+    <div class="ag-pagination">
+      <button class="ag-page-btn" [disabled]="control()!.currentPage() <= 1" (click)="goToFirstPage()">«</button>
+      <button class="ag-page-btn" [disabled]="control()!.currentPage() <= 1" (click)="goToPrevPage()">‹</button>
+      <span class="ag-page-info">{{ control()!.currentPage() }} / {{ totalPages() }}</span>
+      <button class="ag-page-btn" [disabled]="control()!.currentPage() >= totalPages()" (click)="goToNextPage()">›</button>
+      <button class="ag-page-btn" [disabled]="control()!.currentPage() >= totalPages()" (click)="goToLastPage()">»</button>
+      <span class="ag-page-count">{{ localeText().rows(filteredRowCount()) }}</span>
+    </div>
+  }
+
   @if (findOpen()) {
     <agrid-find-panel
       [query]="findQuery()"
       [matchCount]="findMatches().length"
       [activeIndex]="findActiveIndex()"
+      [localeText]="localeText()"
       (queryChange)="onFindInput($event)"
       (previous)="goToFindMatch(-1)"
       (next)="goToFindMatch(1)"
@@ -345,7 +367,7 @@
       (click)="$event.stopPropagation()"
     >
       <button class="ag-context-item ag-context-item--danger" (click)="deleteRow(menu.rowIndex)">
-        Delete row
+        {{ localeText().deleteRow }}
       </button>
     </div>
   }
@@ -381,6 +403,7 @@
       [search]="filterMenuSearch()"
       [allSelected]="isMenuAllSelected(menu.field)"
       [valueItems]="columnMenuValueItems()"
+      [localeText]="localeText()"
       (sort)="onMenuSort(menu.field, $event)"
       (autosize)="onMenuAutosizeColumn(menu.field)"
       (togglePin)="onMenuTogglePin(menu.field)"

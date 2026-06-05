@@ -9,26 +9,26 @@
       class="ag-filter-menu-item"
       [class.ag-filter-menu-item--active]="sortDir() === 'asc'"
       (click)="sort.emit('asc')"
-    >↑ Sort ascending</button>
+    >↑ {{ localeText().sortAscending }}</button>
     <button
       class="ag-filter-menu-item"
       [class.ag-filter-menu-item--active]="sortDir() === 'desc'"
       (click)="sort.emit('desc')"
-    >↓ Sort descending</button>
+    >↓ {{ localeText().sortDescending }}</button>
     @if (sortDir()) {
-      <button class="ag-filter-menu-item" (click)="sort.emit(sortDir()!)">Clear sort</button>
+      <button class="ag-filter-menu-item" (click)="sort.emit(sortDir()!)">{{ localeText().clearSort }}</button>
     }
   </div>
 
   @if (showColumnActions()) {
     <div class="ag-filter-menu-section ag-filter-menu-section--border">
-      <button class="ag-filter-menu-item" (click)="autosize.emit()">↔ Autosize column</button>
+      <button class="ag-filter-menu-item" (click)="autosize.emit()">↔ {{ localeText().autosizeColumn }}</button>
       <button
         class="ag-filter-menu-item"
         [class.ag-filter-menu-item--active]="pinned()"
         (click)="togglePin.emit()"
-      >{{ pinned() ? '⊣ Unpin column' : '⊣ Pin column' }}</button>
-      <button class="ag-filter-menu-item" (click)="hide.emit()">Hide column</button>
+      >⊣ {{ pinned() ? localeText().unpinColumn : localeText().pinColumn }}</button>
+      <button class="ag-filter-menu-item" (click)="hide.emit()">{{ localeText().hideColumn }}</button>
     </div>
   }
 
@@ -38,17 +38,17 @@
         class="ag-filter-menu-item"
         [class.ag-filter-menu-item--active]="grouped()"
         (click)="toggleGroup.emit()"
-      >{{ grouped() ? '⊟ Ungroup' : '⊞ Group by ' + header() }}</button>
+      >{{ grouped() ? '⊟ ' + localeText().ungroup : '⊞ ' + localeText().groupBy(header()) }}</button>
     </div>
   }
 
   @if (filterable()) {
     <div class="ag-filter-menu-section ag-filter-menu-section--border">
       <button class="ag-filter-menu-item ag-filter-menu-item--muted" (click)="clearFilter.emit()">
-        ✕ Clear filter
+        ✕ {{ localeText().clearFilter }}
       </button>
       <button class="ag-filter-menu-item ag-filter-menu-item--muted" (click)="clearAll.emit()">
-        ✕ Clear all filters
+        ✕ {{ localeText().clearAllFilters }}
       </button>
     </div>
 
@@ -57,7 +57,7 @@
         class="ag-filter-menu-search"
         [value]="search()"
         (input)="searchChange.emit($any($event.target).value)"
-        placeholder="Search values…"
+        [placeholder]="localeText().searchValuesPlaceholder"
         (click)="$event.stopPropagation()"
       />
     </div>
@@ -69,7 +69,7 @@
           [checked]="allSelected()"
           (change)="toggleAll.emit()"
         />
-        <span class="ag-filter-menu-value-label">(Select All)</span>
+        <span class="ag-filter-menu-value-label">{{ localeText().selectAll }}</span>
       </label>
       @for (item of valueItems(); track item.rawStr) {
         <label
@@ -82,7 +82,7 @@
             [disabled]="!item.active"
             (change)="toggleValue.emit(item.rawStr)"
           />
-          <span class="ag-filter-menu-value-label">{{ item.label || '(blank)' }}</span>
+          <span class="ag-filter-menu-value-label">{{ item.label || localeText().blank }}</span>
         </label>
       }
     </div>

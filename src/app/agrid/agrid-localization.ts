@@ -1,0 +1,103 @@
+export type AgridLocaleKey = 'en' | 'de';
+
+export interface AgridLocaleText {
+  actions: string;
+  addRow: string;
+  autosizeColumn: string;
+  blank: string;
+  clearAllFilters: string;
+  clearFilter: string;
+  clearSort: string;
+  close: string;
+  columnMenu: string;
+  columns: string;
+  deleteRow: string;
+  filterPlaceholder: string;
+  findPlaceholder: string;
+  groupBy: (header: string) => string;
+  hideColumn: string;
+  loading: string;
+  next: string;
+  noRows: string;
+  pinColumn: string;
+  previous: string;
+  rows: (count: number) => string;
+  searchValuesPlaceholder: string;
+  selectAll: string;
+  sortAscending: string;
+  sortDescending: string;
+  ungroup: string;
+  unpinColumn: string;
+}
+
+export type AgridLocaleTextOverrides = Partial<AgridLocaleText>;
+
+export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
+  en: {
+    actions: 'Actions',
+    addRow: 'Add row',
+    autosizeColumn: 'Autosize column',
+    blank: '(blank)',
+    clearAllFilters: 'Clear all filters',
+    clearFilter: 'Clear filter',
+    clearSort: 'Clear sort',
+    close: 'Close',
+    columnMenu: 'Column menu',
+    columns: 'Columns',
+    deleteRow: 'Delete row',
+    filterPlaceholder: 'Filter...',
+    findPlaceholder: 'Find',
+    groupBy: header => `Group by ${header}`,
+    hideColumn: 'Hide column',
+    loading: 'Loading...',
+    next: 'Next',
+    noRows: 'No rows to display',
+    pinColumn: 'Pin column',
+    previous: 'Previous',
+    rows: count => `${count} ${count === 1 ? 'row' : 'rows'}`,
+    searchValuesPlaceholder: 'Search values...',
+    selectAll: '(Select All)',
+    sortAscending: 'Sort ascending',
+    sortDescending: 'Sort descending',
+    ungroup: 'Ungroup',
+    unpinColumn: 'Unpin column',
+  },
+  de: {
+    actions: 'Aktionen',
+    addRow: 'Zeile hinzufügen',
+    autosizeColumn: 'Spaltenbreite anpassen',
+    blank: '(leer)',
+    clearAllFilters: 'Alle Filter löschen',
+    clearFilter: 'Filter löschen',
+    clearSort: 'Sortierung löschen',
+    close: 'Schließen',
+    columnMenu: 'Spaltenmenü',
+    columns: 'Spalten',
+    deleteRow: 'Zeile löschen',
+    filterPlaceholder: 'Filtern...',
+    findPlaceholder: 'Suchen',
+    groupBy: header => `Nach ${header} gruppieren`,
+    hideColumn: 'Spalte ausblenden',
+    loading: 'Wird geladen...',
+    next: 'Weiter',
+    noRows: 'Keine Zeilen vorhanden',
+    pinColumn: 'Spalte fixieren',
+    previous: 'Zurück',
+    rows: count => `${count} ${count === 1 ? 'Zeile' : 'Zeilen'}`,
+    searchValuesPlaceholder: 'Werte suchen...',
+    selectAll: '(Alle auswählen)',
+    sortAscending: 'Aufsteigend sortieren',
+    sortDescending: 'Absteigend sortieren',
+    ungroup: 'Gruppierung aufheben',
+    unpinColumn: 'Fixierung lösen',
+  },
+};
+
+export function resolveAgridLocaleText(
+  locale: string | undefined,
+  overrides: AgridLocaleTextOverrides | undefined,
+): AgridLocaleText {
+  const normalized = locale?.toLowerCase() ?? '';
+  const base = normalized.startsWith('de') ? AGRID_LOCALE_TEXT.de : AGRID_LOCALE_TEXT.en;
+  return { ...base, ...overrides };
+}

@@ -6,6 +6,7 @@ import { buildSelectionRange, getDisplayForField } from './agrid.utils';
 export interface AgridDragHandlerOptions {
   dataSource: Signal<AgridDataSource>;
   filteredItems: () => GridItem[];
+  locale: () => string | undefined;
   selectedIndices: WritableSignal<Set<number>>;
   onReorder: (event: RowReorderEvent) => void;
   onSelectionChange: () => void;
@@ -67,7 +68,7 @@ export class AgridDragHandler {
   getGhostDisplay(col: ColDef): string {
     const idx = this.reorderOriginalIndex();
     if (idx === null) return '';
-    return getDisplayForField(col, this.opts.dataSource().rows()[idx]?.[col.field]);
+    return getDisplayForField(col, this.opts.dataSource().rows()[idx]?.[col.field], this.opts.locale());
   }
 
   private readonly _reorderMove = (e: PointerEvent): void => {

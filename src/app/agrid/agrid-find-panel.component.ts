@@ -7,6 +7,7 @@ import {
   output,
   viewChild,
 } from '@angular/core';
+import { AgridLocaleText, AGRID_LOCALE_TEXT } from './agrid-localization';
 
 /** Floating find panel used by `AgridComponent` for in-grid search navigation. */
 @Component({
@@ -16,6 +17,9 @@ import {
   styleUrl: './agrid-find-panel.component.css',
 })
 export class AgridFindPanelComponent implements AfterViewInit {
+  /** Localized labels used in the find panel. */
+  localeText = input<AgridLocaleText>(AGRID_LOCALE_TEXT.en);
+
   /** Current find query shown in the input. */
   query = input<string>('');
 

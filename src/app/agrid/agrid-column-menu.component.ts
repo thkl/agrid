@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { AgridLocaleText, AGRID_LOCALE_TEXT } from './agrid-localization';
 
 /** Display model for one value-filter option in the column menu. */
 export interface AgridColumnMenuValueItem {
@@ -20,6 +21,9 @@ export interface AgridColumnMenuValueItem {
   styleUrl: './agrid-column-menu.component.css',
 })
 export class AgridColumnMenuComponent {
+  /** Localized labels used in the menu. */
+  localeText = input<AgridLocaleText>(AGRID_LOCALE_TEXT.en);
+
   /** Fixed viewport x-position for the menu. */
   x = input.required<number>();
 

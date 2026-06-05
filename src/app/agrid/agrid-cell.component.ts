@@ -50,6 +50,8 @@ import { formatDateValue, looksLikeDate } from './agrid.utils';
           (input)="onInput($event)"
         />
       }
+    } @else if (col().cellRenderer) {
+      <span class="ag-cell-value" [innerHTML]="renderedHtml()"></span>
     } @else {
       <span class="ag-cell-value">{{ displayValue() }}</span>
     }
@@ -68,6 +70,12 @@ export class AgridCellComponent {
 
   /** Current field value from the data source (displayed when not editing). */
   value = input.required<unknown>();
+
+  /** Full row data — passed to `cellRenderer` when set. */
+  row = input<Record<string, unknown>>({});
+
+  /** Locale used for built-in date formatting. */
+  locale = input<string | undefined>(undefined);
 
   /** Whether this cell has the active selection outline. */
   selected = input<boolean>(false);
@@ -99,6 +107,12 @@ export class AgridCellComponent {
   /** Live draft value managed by the cell during an active edit. */
   readonly draft = signal<unknown>('');
 
+  readonly renderedHtml = computed((): string => {
+    const renderer = this.col().cellRenderer;
+    if (!renderer) return '';
+    return renderer({ value: this.value(), row: this.row() });
+  });
+
   /**
    * Normalized list of value options (always `{ label, rawValue }` regardless of whether
    * `ColDef.values` is `string[]` or `ValueOption[]`).
@@ -128,7 +142,7 @@ export class AgridCellComponent {
     }
 
     if (col.formatter) return col.formatter(raw);
-    if (col.type === 'date' || looksLikeDate(raw)) return formatDateValue(raw);
+    if (col.type === 'date' || looksLikeDate(raw)) return formatDateValue(raw, this.locale());
     return String(raw ?? '');
   });
 

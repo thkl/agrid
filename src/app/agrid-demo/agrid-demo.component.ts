@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, signal, viewChild } from '@angular/core';
-import { AgridComponent, AgridControl, AgridDataSource, ColDef, GridEditEvent, GroupAction, NewRecord, RowReorderEvent, RowSelectEvent } from '../agrid';
+import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef, GridEditEvent, GroupAction, NewRecord, RowReorderEvent, RowSelectEvent } from '../agrid';
 
 const COLUMNS: ColDef[] = [
   { field: 'id', header: 'ID', width: 70, editable: false},
@@ -67,15 +67,13 @@ function generateRows(count: number): Record<string, unknown>[] {
       </div>
       <agrid
         class="demo-grid"
-        [colDefs]="columns"
-        [dataSource]="ds"
+        [provider]="gridProvider"
         [allowAddRows]="true"
         [autoAddRows]="autoAdd()"
         [showControlColumn]="true"
         [showSidebar]="true"
         [zebraStripes]="true"
         [rowSelection]="'multi'"
-        [control]="gridControl"
         [groupDescription]="groupDescriptionFn"
         [groupActions]="groupActionsList"
         (cellEdit)="onEdit($event)"
@@ -170,7 +168,13 @@ function generateRows(count: number): Record<string, unknown>[] {
 export class AgridDemoComponent {
   readonly columns = COLUMNS;
   readonly ds = new AgridDataSource(generateRows(50));
-  readonly gridControl = new AgridControl({ allowRowReorder: false });
+  readonly gridControl = new AgridControl({ allowRowReorder: true , pageSize:20 });
+  readonly gridProvider = new AgridProvider({
+    locale: 'de-DE',
+    columns: this.columns,
+    datasource: this.ds,
+    control: this.gridControl,
+  });
   readonly lastEdit = signal('');
   readonly autoAdd = signal(false);
   readonly isGrouped = computed(() => this.gridControl.groupByField() === 'departmentId');

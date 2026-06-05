@@ -1,16 +1,17 @@
 # agrid
 
-`agrid` is an Angular data grid with spreadsheet-like editing, virtual scrolling, filtering, sorting, grouping, column state, pinned columns, selection, clipboard workflows, and row operations.
+`agrid` is an Angular data grid with spreadsheet-like editing, virtual scrolling, filtering, sorting, grouping, column state, pinned columns, selection, clipboard workflows, row operations, pagination, and custom cell renderers.
 
 ## Quick Start
 
 ```ts
 import { Component } from '@angular/core';
-import { AgridComponent, AgridControl, AgridDataSource, ColDef, GridEditEvent } from './agrid';
+import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef, GridEditEvent } from './agrid';
 
 const columns: ColDef[] = [
   { field: 'id', header: 'ID', width: 70, editable: false, pinned: 'left' },
   { field: 'name', header: 'Name', width: 160, filterable: true },
+  { field: 'hiredAt', header: 'Hire Date', width: 130 }, // auto-formatted as a date
   { field: 'departmentId', header: 'Department', width: 140, filterable: true, groupable: true,
     values: [
       { value: 1, label: 'Engineering' },
@@ -24,11 +25,10 @@ const columns: ColDef[] = [
   imports: [AgridComponent],
   template: `
     <agrid
-      [colDefs]="columns"
-      [dataSource]="ds"
-      [control]="gridControl"
+      [provider]="gridProvider"
       [showControlColumn]="true"
       [showSidebar]="true"
+      [zebraStripes]="true"
       [rowSelection]="'multi'"
       (cellEdit)="onCellEdit($event)"
     />
@@ -37,10 +37,16 @@ const columns: ColDef[] = [
 export class PageComponent {
   readonly columns = columns;
   readonly ds = new AgridDataSource([
-    { id: 1, name: 'Alice', departmentId: 1 },
-    { id: 2, name: 'Bob', departmentId: 2 },
+    { id: 1, name: 'Alice', hiredAt: '2021-03-15', departmentId: 1 },
+    { id: 2, name: 'Bob',   hiredAt: '2022-07-01', departmentId: 2 },
   ]);
   readonly gridControl = new AgridControl({ allowRowReorder: true });
+  readonly gridProvider = new AgridProvider({
+    locale: 'en-US',
+    columns: this.columns,
+    datasource: this.ds,
+    control: this.gridControl,
+  });
 
   onCellEdit(event: GridEditEvent): void {
     console.log(event);
@@ -72,16 +78,18 @@ export class PageComponent {
 - Sidebar column visibility picker.
 - Add-row placeholder and automatic row insertion.
 - CSV export of visible filtered data rows.
+- **Date auto-formatting** — ISO strings and `Date` objects are detected and displayed as locale-formatted dates automatically.
+- **Zebra stripes** — alternating row shading for easier reading.
+- **Readonly mode** — disable all editing with a single input.
+- **Pagination** — built-in page controls driven by `AgridControl`.
+- **Custom cell renderers** — return HTML strings per column for rich cell content.
+- **Column autosize all** — fit every visible column to its content in one call.
 
 ## Component API
 
-Use the component as:
-
 ```html
 <agrid
-  [colDefs]="columns"
-  [dataSource]="ds"
-  [control]="gridControl"
+  [provider]="gridProvider"
 />
 ```
 
@@ -89,19 +97,50 @@ Use the component as:
 
 | Input | Type | Default | Description |
 | --- | --- | --- | --- |
-| `colDefs` | `ColDef[]` | `[]` | Column definitions. Order controls display order unless `AgridControl.columnOrder` is set. |
+| `provider` | `AgridProvider` | New empty provider | Supplies column definitions, data source, control, and grid options. |
 | `rowHeight` | `number` | `32` | Fixed row height in pixels. Required by CDK virtual scroll. |
 | `minHeight` | `string \| undefined` | `undefined` | CSS min-height for the virtual body. Example: `'200px'`. |
 | `maxHeight` | `string \| undefined` | `undefined` | CSS max-height for the virtual body. Example: `'500px'`. |
-| `dataSource` | `AgridDataSource` | `new AgridDataSource()` | Signal-based row container. |
-| `control` | `AgridControl \| null` | `null` | Optional UI state controller for widths, filters, sort, grouping, visibility, pinning, row reorder, and undo/redo. |
 | `allowAddRows` | `boolean` | `false` | Shows a `+ Add row` placeholder at the bottom when `autoAddRows` is false. |
 | `autoAddRows` | `boolean` | `false` | Automatically inserts a blank row when navigation moves past the last real row. |
 | `showControlColumn` | `boolean` | `false` | Shows a 24 px control column for row actions and row drag handles. |
-| `showSidebar` | `boolean` | `false` | Shows a collapsible column visibility sidebar. Requires `control`. |
+| `showSidebar` | `boolean` | `false` | Shows a collapsible column visibility sidebar. Requires `provider.control`. |
 | `rowSelection` | `'single' \| 'multi' \| 'none'` | `'none'` | Enables row selection behavior. |
 | `groupDescription` | `((label: string) => string) \| null` | `null` | Optional description text shown next to each group label. |
 | `groupActions` | `GroupAction[]` | `[]` | Actions shown in each group header menu. |
+| `zebraStripes` | `boolean` | `false` | Shades every other row slightly for easier reading. Override `--agrid-color-bg-stripe` to change the shade. |
+| `readonly` | `boolean` | `false` | Makes all cells read-only regardless of individual `ColDef.editable` settings. |
+
+## Localization
+
+Set `locale` on `AgridProvider` to select built-in grid text and date formatting. Built-in text currently supports English (`en-*`) and German (`de-*`).
+
+```ts
+readonly gridProvider = new AgridProvider({
+  locale: 'de-DE',
+  columns: this.columns,
+  datasource: this.ds,
+  control: this.gridControl,
+});
+```
+
+Override any label with `localization`:
+
+```ts
+readonly gridProvider = new AgridProvider({
+  locale: 'en-US',
+  columns: this.columns,
+  datasource: this.ds,
+  control: this.gridControl,
+  localization: {
+    addRow: 'New employee',
+    rows: count => `${count} records`,
+    groupBy: header => `Group by ${header}`,
+  },
+});
+```
+
+The exported `AgridLocaleTextOverrides` type can be used to type shared localization objects.
 
 ### Outputs
 
@@ -115,11 +154,12 @@ Use the component as:
 
 ### Public Component Methods
 
-These can be called through `viewChild(AgridComponent)`.
+Call these through `viewChild(AgridComponent)`.
 
 | Method | Description |
 | --- | --- |
-| `exportCsv(filename = 'export.csv')` | Downloads visible, filtered data rows as CSV using display values. Group headers are excluded. |
+| `exportCsv(filename?)` | Downloads visible, filtered data rows as CSV using display values. Group headers are excluded. |
+| `autosizeAllColumns()` | Resizes every visible column to fit its header text and current row values. Call after setting data. |
 | `expandGroups()` | Expands every group when grouping is active. |
 | `collapseGroups()` | Collapses every group when grouping is active. |
 | `toggleSidebar()` | Opens or closes the column sidebar. |
@@ -137,9 +177,11 @@ These can be called through `viewChild(AgridComponent)`.
 | `selectedRowIndices` | `Signal<ReadonlySet<number>>` | Selected original row indices. |
 | `selectedRowIndex` | `Signal<number \| null>` | First selected row index, useful for single selection. |
 | `sidebarOpen` | `Signal<boolean>` | Current sidebar visibility. |
-| `canUndo` | `Signal<boolean>` | Whether Ctrl/Cmd+Z can undo an edit. Requires `control`. |
-| `canRedo` | `Signal<boolean>` | Whether redo is available. Requires `control`. |
-| `filteredRowCount` | `Signal<number>` | Count of currently visible data rows, or grouped row total. |
+| `canUndo` | `Signal<boolean>` | Whether Ctrl/Cmd+Z can undo an edit. Requires `provider.control`. |
+| `canRedo` | `Signal<boolean>` | Whether redo is available. Requires `provider.control`. |
+| `filteredRowCount` | `Signal<number>` | Total filtered data row count, unaffected by current page. |
+| `totalPages` | `Signal<number>` | Total page count given the current filter and page size. `1` when pagination is off. |
+| `showPagination` | `Signal<boolean>` | Whether the pagination bar is visible (`pageSize > 0`). |
 
 ## Column Definitions
 
@@ -158,6 +200,7 @@ interface ColDef {
   groupable?: boolean;
   hidden?: boolean;
   pinned?: 'left';
+  cellRenderer?: (params: { value: unknown; row: Record<string, unknown> }) => string;
 }
 ```
 
@@ -166,14 +209,15 @@ interface ColDef {
 | `field` | Yes | Key in each row object. |
 | `header` | Yes | Header label shown in the grid. |
 | `width` | Yes | Default width in pixels. Runtime widths can override it. |
-| `type` | No | Semantic type. `number` initializes blank rows with `0`; `date` is reserved for future typed editors. |
+| `type` | No | Semantic type. `number` initializes blank rows with `0`. `date` forces date formatting even for values that don't match the auto-detect pattern. |
 | `editable` | No | Set to `false` for read-only cells. Defaults to editable. |
 | `values` | No | Fixed editor/filter values. Use `string[]` or `{ value, label }[]`. |
-| `formatter` | No | Display formatter for cells without `values`. |
+| `formatter` | No | Custom display formatter. Takes precedence over date auto-formatting. |
 | `filterable` | No | Enables text filter and value picker for the column. |
 | `groupable` | No | Enables "group by" in the column menu. |
-| `hidden` | No | Hides the column on first render. Seeded into `AgridControl` when provided. |
-| `pinned` | No | Use `'left'` to pin the column initially. Seeded into `AgridControl` when provided. |
+| `hidden` | No | Hides the column on first render. |
+| `pinned` | No | Use `'left'` to pin the column initially. |
+| `cellRenderer` | No | Custom HTML renderer. Return an HTML string; Angular sanitizes it automatically. See [Custom Cell Renderers](#custom-cell-renderers). |
 
 ### Value Options
 
@@ -202,6 +246,120 @@ Example:
 
 The grid displays labels, but committed edits store `value`.
 
+## Date Auto-Formatting
+
+The grid automatically detects and formats date values without any configuration. Both display and sorting use the native date value.
+
+**Auto-detected formats:**
+- `Date` objects
+- ISO 8601 strings: `"2024-01-15"`, `"2024-01-15T10:30:00Z"`, `"2024-01-15T10:30:00+02:00"`
+
+**Display:** Values are formatted using the browser's locale — e.g. `Jan 15, 2024`.
+
+**Sorting:** Date columns sort chronologically by raw timestamp, not alphabetically by display string.
+
+**Priority:** `values` list → `formatter` → date auto-format → raw string.
+
+To force date formatting on a column regardless of value shape, set `type: 'date'`.
+
+To use a custom date format, set `formatter`:
+
+```ts
+{ field: 'hiredAt', header: 'Hired', width: 120,
+  formatter: v => new Date(v as string).toLocaleDateString('de-DE') }
+```
+
+## Zebra Stripes
+
+Alternating row shading is opt-in:
+
+```html
+<agrid [zebraStripes]="true" ... />
+```
+
+Override the stripe color with a CSS custom property on the host:
+
+```css
+agrid {
+  --agrid-color-bg-stripe: #f0f4ff;
+}
+```
+
+Hover and selection colors always override the stripe.
+
+## Readonly Mode
+
+Make the entire grid non-editable regardless of individual column settings:
+
+```html
+<agrid [readonly]="true" ... />
+```
+
+Individual `ColDef.editable: false` still works when `readonly` is `false`.
+
+## Pagination
+
+Pagination is controlled through `AgridControl`. When a page size is set the grid renders a page bar at the bottom showing `« ‹ page / total › »` and the total filtered row count.
+
+```ts
+readonly gridControl = new AgridControl({ pageSize: 25 });
+```
+
+Or change it at runtime:
+
+```ts
+this.gridControl.setPageSize(10);  // 0 = show all rows
+this.gridControl.setPage(2);
+```
+
+Pagination applies to data rows after filtering and sorting, before grouping. Each page therefore always contains at most `pageSize` data rows.
+
+## Custom Cell Renderers
+
+Return an HTML string from `cellRenderer` to render rich content in a cell. Angular's built-in sanitization runs automatically — scripts and event handlers are stripped, safe markup is preserved.
+
+```ts
+const columns: ColDef[] = [
+  {
+    field: 'status',
+    header: 'Status',
+    width: 100,
+    editable: false,
+    cellRenderer: ({ value }) =>
+      `<span style="
+        display:inline-block;
+        padding:1px 8px;
+        border-radius:10px;
+        font-size:11px;
+        background:${value === 'active' ? '#d4edda' : '#f8d7da'};
+        color:${value === 'active' ? '#155724' : '#721c24'}
+      ">${value}</span>`,
+  },
+  {
+    field: 'salary',
+    header: 'Salary',
+    width: 120,
+    editable: false,
+    cellRenderer: ({ value, row }) =>
+      `<strong>$${Number(value).toLocaleString()}</strong>`,
+  },
+];
+```
+
+The `row` parameter gives you access to the full row object, useful when the display depends on sibling fields.
+
+## Column Autosize
+
+Fit all visible columns to their content after loading data:
+
+```ts
+constructor() {
+  afterNextRender(() => this._grid()?.autosizeAllColumns());
+}
+```
+
+Or autosize a single column by double-clicking its resize handle, or through the column menu.
+
 ## AgridDataSource
 
 `AgridDataSource<T>` is a signal-based row container shared by the host and grid.
@@ -226,13 +384,14 @@ const ds = new AgridDataSource<Record<string, unknown>>([
 
 ## AgridControl
 
-`AgridControl` stores optional grid UI state and behavior. Pass it to `[control]` to enable persisted state, filters, sort, grouping, visibility, pinning, row reorder, and undo/redo.
+`AgridControl` stores optional grid UI state and behavior. Assign it to `AgridProvider.control` to enable persisted state, filters, sort, grouping, visibility, pinning, row reorder, pagination, and undo/redo.
 
 ```ts
 const control = new AgridControl({
   allowRowReorder: true,
   hiddenColumns: ['salary'],
   pinnedColumns: ['id'],
+  pageSize: 20,
 });
 ```
 
@@ -247,6 +406,8 @@ interface AgridControlState {
   hiddenColumns?: string[];
   columnOrder?: string[];
   pinnedColumns?: string[];
+  pageSize?: number;
+  currentPage?: number;
 }
 ```
 
@@ -273,6 +434,8 @@ interface ColumnFilter {
 | `pinnedColumns` | Set of pinned field names. |
 | `columnWidths` | Width overrides by field. |
 | `filters` | Active filter/sort state by field. |
+| `pageSize` | Rows per page. `0` means all rows (no pagination). |
+| `currentPage` | Current page number (1-based). |
 | `canUndo` | Whether an undo history item exists. |
 | `canRedo` | Whether a redo history item exists. |
 
@@ -300,12 +463,14 @@ interface ColumnFilter {
 | `clearAllFilters()` | Clears all filters and sorts. |
 | `hasActiveFilter(field)` | Returns whether a column has active filter/sort state. |
 | `hasAnyActiveFilter()` | Returns whether any column has active filter/sort state. |
+| `setPageSize(size)` | Sets rows per page. `0` disables pagination. Resets to page 1. |
+| `setPage(page)` | Navigates to a page (1-based). Clamped to valid range by the grid. |
 | `pushEdit(entry)` | Adds one edit to undo history. Used by the grid. |
 | `pushEditBatch(entries)` | Adds a multi-cell operation as one undo step. Used by paste/fill. |
 | `undo()` | Returns a `HistoryItem` to reverse, or `null`. The grid applies it. |
 | `redo()` | Returns a `HistoryItem` to reapply, or `null`. The grid applies it. |
 | `clearHistory()` | Clears undo/redo history. |
-| `toJSON()` | Serializes control state. |
+| `toJSON()` | Serializes control state including pagination. |
 | `AgridControl.fromJSON(state)` | Restores control state. |
 
 ## Events And Types
@@ -423,6 +588,7 @@ Paste and fill store multiple entries as one `HistoryItem`, so Ctrl/Cmd+Z revers
 - A filter row appears when at least one visible column has `filterable: true`.
 - Text filter and value picker are combined.
 - Sort is single-column. Setting sort on one field clears sort on other fields.
+- Date columns sort chronologically by raw value, not alphabetically by display string.
 - Grouping is enabled per column with `groupable: true`.
 - Group state is controlled through `AgridControl.setGroupBy(field | null)`.
 - `expandGroups()` and `collapseGroups()` can be called on the component.
@@ -462,7 +628,48 @@ const control = AgridControl.fromJSON(saved ? JSON.parse(saved) : {});
 localStorage.setItem('agrid-state', JSON.stringify(control.toJSON()));
 ```
 
-Persisted state includes widths, filters, sort, grouping, hidden columns, column order, pinned columns, and row reorder setting.
+Persisted state includes widths, filters, sort, grouping, hidden columns, column order, pinned columns, row reorder setting, page size, and current page.
+
+## Layout In A Card Or Flex Container
+
+The grid host is a flex column. Give it a defined height by participating in the parent's flex layout:
+
+```css
+/* Angular Material card example */
+mat-card {
+  height: 600px;
+  display: flex;
+  flex-direction: column;
+}
+
+mat-card-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+agrid {
+  flex: 1;
+  min-height: 0;
+}
+```
+
+## CSS Custom Properties
+
+Override these on the `agrid` host element to theme the grid.
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `--agrid-color-text` | `#24292f` | Primary text color. |
+| `--agrid-color-text-muted` | `#57606a` | Secondary / placeholder text. |
+| `--agrid-color-accent` | `#1a73e8` | Selection, focus, and active state color. |
+| `--agrid-color-border` | `#d0d7de` | Cell and header borders. |
+| `--agrid-color-bg` | `#ffffff` | Cell background. |
+| `--agrid-color-bg-subtle` | `#fafbfc` | Control column background. |
+| `--agrid-color-bg-muted` | `#f6f8fa` | Header and hover background. |
+| `--agrid-color-bg-stripe` | `#f0f2f5` | Zebra stripe background (even rows). |
 
 ## Development
 
@@ -472,7 +679,7 @@ pnpm start
 pnpm build
 ```
 
-The current Angular production build may fail if the component stylesheet exceeds the configured CSS budget. The TypeScript compile check can be run with:
+The TypeScript compile check:
 
 ```bash
 ./node_modules/.bin/tsc --noEmit -p tsconfig.app.json

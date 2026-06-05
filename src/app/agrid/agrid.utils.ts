@@ -18,15 +18,15 @@ export function looksLikeDate(raw: unknown): boolean {
  * Accepts Date objects and ISO strings.
  * Returns empty string for null/undefined, raw string if unparseable.
  */
-export function formatDateValue(raw: unknown): string {
+export function formatDateValue(raw: unknown, locale?: string): string {
   if (raw == null || raw === '') return '';
   const d = raw instanceof Date ? raw : new Date(raw as string);
   if (isNaN(d.getTime())) return String(raw);
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 /** Resolve the display string for a raw cell value via ValueOption label, formatter, or coercion. */
-export function getDisplayForField(col: ColDef | undefined, raw: unknown): string {
+export function getDisplayForField(col: ColDef | undefined, raw: unknown, locale?: string): string {
   if (!col) return String(raw ?? '');
   if (col.values?.length) {
     const opt = col.values.find(v =>
@@ -35,18 +35,18 @@ export function getDisplayForField(col: ColDef | undefined, raw: unknown): strin
     if (opt !== undefined) return typeof opt === 'string' ? opt : (opt as ValueOption).label;
   }
   if (col.formatter) return col.formatter(raw);
-  if (col.type === 'date' || looksLikeDate(raw)) return formatDateValue(raw);
+  if (col.type === 'date' || looksLikeDate(raw)) return formatDateValue(raw, locale);
   return String(raw ?? '');
 }
 
 // ── Type guards ────────────────────────────────────────────────────────────────
 
 export function isDataRowItem(item: GridItem): item is { row: Record<string, unknown>; originalIndex: number } {
-  return item !== null && item !== 'ghost' && 'row' in (item as object);
+  return typeof item === 'object' && item !== null && 'row' in item;
 }
 
 export function isGroupHeaderItem(item: GridItem): item is { groupLabel: string; count: number; collapsed: boolean } {
-  return item !== null && item !== 'ghost' && 'groupLabel' in (item as object);
+  return typeof item === 'object' && item !== null && 'groupLabel' in item;
 }
 
 // ── Filtering ──────────────────────────────────────────────────────────────────
@@ -57,13 +57,14 @@ export function applyTextAndValueFilters(
   indices: number[],
   filters: Record<string, ColumnFilter>,
   colMap: Map<string, ColDef>,
+  locale?: string,
 ): number[] {
   let result = indices;
   for (const [field, filter] of Object.entries(filters)) {
     const col = colMap.get(field);
     if (filter.text) {
       const lc = filter.text.toLowerCase();
-      result = result.filter(i => getDisplayForField(col, rows[i][field]).toLowerCase().includes(lc));
+      result = result.filter(i => getDisplayForField(col, rows[i][field], locale).toLowerCase().includes(lc));
     }
     if (filter.selectedValues !== null) {
       const allowed = new Set(filter.selectedValues);
@@ -82,12 +83,22 @@ export function applySortToIndices(
   sortField: string,
   sortFilter: ColumnFilter,
   colMap: Map<string, ColDef>,
+  locale?: string,
 ): number[] {
   const sortCol = colMap.get(sortField);
   return [...indices].sort((a, b) => {
-    const av = getDisplayForField(sortCol, rows[a][sortField]);
-    const bv = getDisplayForField(sortCol, rows[b][sortField]);
-    const cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+    const rawA = rows[a][sortField];
+    const rawB = rows[b][sortField];
+    // Sort dates by timestamp so chronological order is preserved
+    if (sortCol?.type === 'date' || looksLikeDate(rawA) || looksLikeDate(rawB)) {
+      const ta = rawA instanceof Date ? rawA.getTime() : new Date(rawA as string).getTime();
+      const tb = rawB instanceof Date ? rawB.getTime() : new Date(rawB as string).getTime();
+      const cmp = (isNaN(ta) ? -1 : ta) - (isNaN(tb) ? -1 : tb);
+      return sortFilter.sort === 'asc' ? cmp : -cmp;
+    }
+    const av = getDisplayForField(sortCol, rawA, locale);
+    const bv = getDisplayForField(sortCol, rawB, locale);
+    const cmp = av.localeCompare(bv, locale, { numeric: true, sensitivity: 'base' });
     return sortFilter.sort === 'asc' ? cmp : -cmp;
   });
 }
@@ -106,18 +117,19 @@ export function buildGroupedItems(
   colMap: Map<string, ColDef>,
   sortEntry: [string, ColumnFilter] | null,
   expandedLabels: Set<string>,
+  locale?: string,
 ): GridItem[] {
   const groupCol = colMap.get(groupField);
 
   const groups = new Map<string, number[]>();
   for (const i of indices) {
-    const key = getDisplayForField(groupCol, rows[i][groupField]);
+    const key = getDisplayForField(groupCol, rows[i][groupField], locale);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(i);
   }
 
   const sortedKeys = [...groups.keys()].sort((a, b) =>
-    a.localeCompare(b, undefined, { sensitivity: 'base' })
+    a.localeCompare(b, locale, { sensitivity: 'base' })
   );
 
   if (sortEntry && sortEntry[0] !== groupField) {
@@ -125,9 +137,9 @@ export function buildGroupedItems(
     const sortCol = colMap.get(sortFieldName);
     for (const groupRows of groups.values()) {
       groupRows.sort((a, b) => {
-        const av = getDisplayForField(sortCol, rows[a][sortFieldName]);
-        const bv = getDisplayForField(sortCol, rows[b][sortFieldName]);
-        const cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+        const av = getDisplayForField(sortCol, rows[a][sortFieldName], locale);
+        const bv = getDisplayForField(sortCol, rows[b][sortFieldName], locale);
+        const cmp = av.localeCompare(bv, locale, { numeric: true, sensitivity: 'base' });
         return sortFilter.sort === 'asc' ? cmp : -cmp;
       });
     }

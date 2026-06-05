@@ -19,6 +19,8 @@ import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridDragHandler } from './agrid-drag.handler';
 import { AgridFindPanelComponent } from './agrid-find-panel.component';
+import { AgridLocaleText, resolveAgridLocaleText } from './agrid-localization';
+import { AgridProvider } from './agrid-provider';
 import { AgridResizeHandler } from './agrid-resize.handler';
 import {
   applyTextAndValueFilters,
@@ -29,10 +31,10 @@ import {
   isDataRowItem as isDataRowItemFn,
   isGroupHeaderItem as isGroupHeaderItemFn,
 } from './agrid.utils';
-import { HistoryEntry, HistoryItem } from './agrid-control';
+import { ColumnFilter, HistoryEntry, HistoryItem } from './agrid-control';
 import {
   CellPosition, ColDef, GridEditEvent, GridItem, GroupAction,
-  NewRecord, RowClickEvent, RowRemovedEvent, RowReorderEvent, RowSelectEvent, ValueOption,
+  NewRecord, PageChangeEvent, RowClickEvent, RowRemovedEvent, RowReorderEvent, RowSelectEvent, ValueOption,
 } from './agrid.types';
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
@@ -47,7 +49,7 @@ type FindMatch = { rowIndex: number; displayIndex: number; colIndex: number };
  *
  * ## Minimal setup
  * ```html
- * <agrid [colDefs]="columns" [dataSource]="ds" />
+ * <agrid [provider]="gridProvider" />
  * ```
  *
  * ### Keyboard shortcuts
@@ -72,8 +74,8 @@ export class AgridComponent {
 
   // ── Inputs ───────────────────────────────────────────────────────────────────
 
-  /** Column definitions — order determines left-to-right display order. */
-  colDefs = input<ColDef[]>([]);
+  /** Grid provider containing columns, data source, control, and options. */
+  provider = input<AgridProvider>(new AgridProvider());
 
   /** Row height in pixels. Must be fixed for CDK virtual scroll. @default 32 */
   rowHeight = input<number>(32);
@@ -84,15 +86,6 @@ export class AgridComponent {
   /** Maximum height of the grid host element (e.g. `'500px'`). */
   maxHeight = input<string | undefined>(undefined);
 
-  /** Signal-based data container shared with the host. */
-  dataSource = input<AgridDataSource>(new AgridDataSource());
-
-  /**
-   * Optional grid UI state container (column widths, filters, sort, grouping, visibility).
-   * Required for filtering, sorting, grouping, column hide/show, and state persistence.
-   */
-  control = input<AgridControl | null>(null);
-
   /** Show a `+ Add row` placeholder at the bottom. */
   allowAddRows = input<boolean>(false);
 
@@ -102,7 +95,7 @@ export class AgridComponent {
   /** Show a 24 px control column with a drag handle and right-click context menu. */
   showControlColumn = input<boolean>(false);
 
-  /** Show a collapsible sidebar with a column visibility selector. Requires `[control]`. */
+  /** Show a collapsible sidebar with a column visibility selector. Requires `provider.control`. */
   showSidebar = input<boolean>(false);
 
   /**
@@ -125,6 +118,32 @@ export class AgridComponent {
   /** Make the entire grid read-only, regardless of individual column `editable` settings. @default false */
   readonly readonlyGrid = input<boolean>(false, { alias: 'readonly' });
 
+  /** Show a loading overlay over the grid body. @default false */
+  loading = input<boolean>(false);
+
+  /** Message shown when the grid has no rows to display. Defaults to the active localization. */
+  emptyText = input<string | undefined>(undefined);
+
+  /** Column definitions from the active provider. */
+  readonly colDefs = computed<ColDef[]>(() => this.provider().columns);
+
+  /** Signal-based data container from the active provider. */
+  readonly dataSource = computed<AgridDataSource>(() => this.provider().datasource);
+
+  /** Grid UI state container from the active provider. */
+  readonly control = computed<AgridControl | null>(() => this.provider().control);
+
+  /** Locale code used for date formatting and built-in localization lookup. */
+  readonly locale = computed<string>(() => this.provider().options.locale);
+
+  /** Resolved built-in locale text merged with provider customizations. */
+  readonly localeText = computed<AgridLocaleText>(() =>
+    resolveAgridLocaleText(this.locale(), this.provider().localization)
+  );
+
+  /** Effective empty-state label. */
+  readonly emptyTextLabel = computed<string>(() => this.emptyText() ?? this.localeText().noRows);
+
   // ── Outputs ──────────────────────────────────────────────────────────────────
 
   /** Emitted after the user commits a cell edit. */
@@ -142,6 +161,16 @@ export class AgridComponent {
   rowSelect = output<RowSelectEvent | null>();
 
   rowDoubleClicked = output<RowClickEvent>();
+
+  /** Emitted when the user single-clicks a data row. */
+  rowClick = output<RowClickEvent>();
+
+  /**
+   * Emitted when the user navigates to a new page in **server-side pagination mode**
+   * (i.e. when `AgridControl.totalRows` is greater than zero).
+   * The host should fetch the indicated row slice and update the data source.
+   */
+  pageChange = output<PageChangeEvent>();
 
   // ── Public state ─────────────────────────────────────────────────────────────
 
@@ -206,7 +235,8 @@ export class AgridComponent {
 
     const esc = (v: string): string => /[,"\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
     const header = cols.map(c => esc(c.header)).join(',');
-    const body   = dataRows.map(row => cols.map(c => esc(getDisplayForField(c, row[c.field]))).join(',')).join('\n');
+    const locale = this.locale();
+    const body   = dataRows.map(row => cols.map(c => esc(getDisplayForField(c, row[c.field], locale))).join(',')).join('\n');
 
     const blob = new Blob([header + '\n' + body], { type: 'text/csv;charset=utf-8;' });
     const url  = URL.createObjectURL(blob);
@@ -218,6 +248,11 @@ export class AgridComponent {
     URL.revokeObjectURL(url);
   }
 
+  /** @internal */ goToFirstPage(): void { this.control()?.setPage(1); }
+  /** @internal */ goToLastPage(): void  { this.control()?.setPage(this.totalPages()); }
+  /** @internal */ goToNextPage(): void  { const c = this.control(); if (c) c.setPage(Math.min(c.currentPage() + 1, this.totalPages())); }
+  /** @internal */ goToPrevPage(): void  { const c = this.control(); if (c) c.setPage(Math.max(c.currentPage() - 1, 1)); }
+
   /** Resize every visible column to fit its header and current row values. */
   autosizeAllColumns(): void {
     const ctx = this.getAutosizeContext();
@@ -228,7 +263,12 @@ export class AgridComponent {
 
   /** @internal Full display value for a cell — used as the `title` tooltip attribute. */
   getCellTitle(col: ColDef, value: unknown): string {
-    return getDisplayForField(col, value);
+    return getDisplayForField(col, value, this.locale());
+  }
+
+  /** @internal Dynamic CSS class string for a cell from `ColDef.cellClass`. */
+  getCellClass(col: ColDef, value: unknown, row: Record<string, unknown>): string {
+    return col.cellClass?.({ value, row }) ?? '';
   }
 
   // ── Internal signals ─────────────────────────────────────────────────────────
@@ -303,14 +343,45 @@ export class AgridComponent {
 
   readonly hasFilterableColumns = computed(() => this.visibleColDefs().some(c => c.filterable));
 
-  readonly filteredRowCount = computed(() => {
-    let groupTotal = 0, dataTotal = 0;
-    for (const item of this.filteredItems()) {
-      if (isGroupHeaderItemFn(item)) groupTotal += item.count;
-      else if (isDataRowItemFn(item)) dataTotal++;
+  /** Filtered + sorted indices without pagination or grouping — source of truth for counts. */
+  private readonly _filteredSortedIndices = computed<number[]>(() => {
+    const rows = this.dataSource().rows();
+    const ctrl = this.control();
+    const colDefs = this.colDefs();
+    const colMap = new Map(colDefs.map(c => [c.field, c]));
+    let indices = rows.map((_, i) => i);
+    if (ctrl) {
+      const filters = ctrl.filters();
+      indices = applyTextAndValueFilters(rows, indices, filters, colMap, this.locale());
+      if (!ctrl.groupByField()) {
+        const sortEntry = Object.entries(filters).find(([, f]) => f.sort);
+        if (sortEntry) indices = applySortToIndices(rows, indices, sortEntry[0], sortEntry[1], colMap, this.locale());
+      }
     }
-    return groupTotal > 0 ? groupTotal : dataTotal;
+    return indices;
   });
+
+  /** Total filtered row count regardless of current page. */
+  readonly filteredRowCount = computed(() => this._filteredSortedIndices().length);
+
+  /** Total number of pages given the current filter and page size. */
+  readonly totalPages = computed(() => {
+    const ctrl = this.control();
+    const pageSize = ctrl?.pageSize() ?? 0;
+    if (pageSize <= 0) return 1;
+    // Server mode: use the externally supplied total instead of the local count
+    const count = (ctrl?.totalRows() ?? 0) > 0
+      ? ctrl!.totalRows()
+      : this._filteredSortedIndices().length;
+    return Math.max(1, Math.ceil(count / pageSize));
+  });
+
+  readonly showPagination = computed(() => (this.control()?.pageSize() ?? 0) > 0);
+
+  /** True when no data rows are visible (ignores group headers, add-row, ghost). */
+  readonly isEmpty = computed(() =>
+    !this.loading() && this.filteredItems().every(item => item === null || item === 'ghost' || isGroupHeaderItemFn(item))
+  );
 
   readonly gridTemplateColumns = computed(() => {
     const ctrl = this.control();
@@ -359,26 +430,29 @@ export class AgridComponent {
     const ctrl = this.control();
     const colDefs = this.colDefs();
     const colMap = new Map(colDefs.map(c => [c.field, c]));
-    let indices = rows.map((_, i) => i);
+    let indices = this._filteredSortedIndices();
 
     if (ctrl) {
-      const filters = ctrl.filters();
-      indices = applyTextAndValueFilters(rows, indices, filters, colMap);
+      // Client-side pagination: slice locally. Skipped in server mode (totalRows > 0)
+      // because the host already loaded exactly the right rows into the data source.
+      const pageSize = ctrl.pageSize();
+      const isServerMode = ctrl.totalRows() > 0;
+      if (pageSize > 0 && !isServerMode) {
+        const maxPage = this.totalPages();
+        const page = Math.max(1, Math.min(ctrl.currentPage(), maxPage));
+        indices = indices.slice((page - 1) * pageSize, page * pageSize);
+      }
 
       const groupField = ctrl.groupByField();
       if (groupField) {
+        const filters = ctrl.filters();
         const expandState = this._expandedGroups();
         const expandedLabels = expandState.field === groupField
           ? expandState.labels : new Set<string>();
-        const sortEntry = (Object.entries(filters).find(([, f]) => f.sort) ?? null) as [string, import('./agrid-control').ColumnFilter] | null;
-        const items = buildGroupedItems(rows, indices, groupField, colMap, sortEntry, expandedLabels);
+        const sortEntry = (Object.entries(filters).find(([, f]) => f.sort) ?? null) as [string, ColumnFilter] | null;
+        const items = buildGroupedItems(rows, indices, groupField, colMap, sortEntry, expandedLabels, this.locale());
         if (this.allowAddRows() && !this.autoAddRows()) items.push(null);
         return items;
-      }
-
-      const sortEntry = Object.entries(filters).find(([, f]) => f.sort);
-      if (sortEntry) {
-        indices = applySortToIndices(rows, indices, sortEntry[0], sortEntry[1], colMap);
       }
     }
 
@@ -484,7 +558,7 @@ export class AgridComponent {
       if (!isDataRowItemFn(item)) return;
       for (let colIndex = 0; colIndex < cols.length; colIndex++) {
         const col = cols[colIndex];
-        const value = getDisplayForField(col, item.row[col.field]).toLowerCase();
+        const value = getDisplayForField(col, item.row[col.field], this.locale()).toLowerCase();
         if (value.includes(query)) {
           matches.push({ rowIndex: item.originalIndex, displayIndex, colIndex });
         }
@@ -508,6 +582,7 @@ export class AgridComponent {
   readonly dragHandler = new AgridDragHandler({
     dataSource: this.dataSource,
     filteredItems: () => this.filteredItems(),
+    locale: () => this.locale(),
     selectedIndices: this._selectedIndices,
     onReorder: e => this.rowReorder.emit(e),
     onSelectionChange: () => this._emitRowSelect(),
@@ -526,6 +601,7 @@ export class AgridComponent {
   /** @internal Start a column header drag. */
   onColHeaderPointerDown(event: PointerEvent, field: string): void {
     if (!this.control() || event.button !== 0) return;
+    if (this.getColDef(field)?.locked) return;
     this._colDragStartField = field;
     this._colDragStartX = event.clientX;
     document.addEventListener('pointermove', this._colDragMove);
@@ -588,6 +664,18 @@ export class AgridComponent {
   private readonly _seededControls = new WeakSet<AgridControl>();
 
   constructor() {
+    // Emit pageChange whenever page or pageSize changes in server-side pagination mode.
+    effect(() => {
+      const ctrl = this.control();
+      if (!ctrl || ctrl.totalRows() <= 0 || ctrl.pageSize() <= 0) return;
+      const page = ctrl.currentPage();
+      const pageSize = ctrl.pageSize();
+      const totalRows = ctrl.totalRows();
+      const startRow = (page - 1) * pageSize;
+      const endRow = Math.min(page * pageSize, totalRows) - 1;
+      this.pageChange.emit({ page, pageSize, startRow, endRow });
+    });
+
     // Deselect when clicking outside the grid.
     const onOutsidePointerDown = (e: PointerEvent) => {
       if (this.rowSelection() === 'none') return;
@@ -673,6 +761,27 @@ export class AgridComponent {
     return this._selectedIndices().has(originalIndex);
   }
 
+  /** @internal Selection class for the separate pinned/control viewport. */
+  isPinnedPaneRowSelected(item: GridItem): boolean {
+    if (!isDataRowItemFn(item)) return false;
+    const index = this.resolvePinnedPaneHighlightIndex(item.originalIndex);
+    return this.isRowSelected(index);
+  }
+
+  private resolvePinnedPaneHighlightIndex(originalIndex: number): number {
+    if (!this.showControlColumn() || this.pinnedColDefs().length > 0 || !this.hasFilterableColumns()) {
+      return originalIndex;
+    }
+    const items = this.displayItems();
+    const position = items.findIndex(item => isDataRowItemFn(item) && item.originalIndex === originalIndex);
+    if (position < 0) return originalIndex;
+    for (let i = position - 1; i >= 0; i--) {
+      const item = items[i];
+      if (isDataRowItemFn(item)) return item.originalIndex;
+    }
+    return originalIndex;
+  }
+
   // ── Template helpers — filter menu ────────────────────────────────────────────
 
   /** @internal */
@@ -730,6 +839,10 @@ export class AgridComponent {
 
   /** @internal */
   onRowPointerDown(event: PointerEvent, originalIndex: number): void {
+    this.selectRowFromPointer(event, originalIndex, true);
+  }
+
+  private selectRowFromPointer(event: PointerEvent, originalIndex: number, allowDragSelect: boolean): void {
     const mode = this.rowSelection();
     if (mode === 'none' || event.button !== 0) return;
 
@@ -758,7 +871,8 @@ export class AgridComponent {
       event.preventDefault();
       this._selectedIndices.set(new Set([originalIndex]));
       this._selectionPivot = originalIndex;
-      this.dragHandler.startDragSelect(originalIndex);
+      if (allowDragSelect) this.dragHandler.startDragSelect(originalIndex);
+      else this._emitRowSelect();
     }
   }
 
@@ -908,6 +1022,35 @@ export class AgridComponent {
     this.dragHandler.startReorder(event, originalIndex);
   }
 
+  /** @internal Handles the control column without letting the row receive a second pointer event. */
+  onControlPointerDown(event: PointerEvent, originalIndex: number): void {
+    event.stopPropagation();
+    if (this.allowRowReorder()) {
+      this.onHandlePointerDown(event, this.resolvePinnedPaneHighlightIndex(originalIndex));
+      return;
+    }
+    const rowIndex = this.resolveControlOriginalIndex(event, originalIndex);
+    this.selectRowFromPointer(event, rowIndex, false);
+  }
+
+  private resolveControlOriginalIndex(event: MouseEvent | PointerEvent, fallback: number): number {
+    return this.getScrollableOriginalIndexAtY(event.clientY) ?? fallback;
+  }
+
+  private getScrollableOriginalIndexAtY(clientY: number): number | null {
+    const hostEl = this._hostEl.nativeElement as HTMLElement;
+    const rows = hostEl.querySelectorAll<HTMLElement>('.ag-scroll-pane .ag-row[data-original-index]');
+    for (const rowEl of rows) {
+      const rect = rowEl.getBoundingClientRect();
+      if (clientY < rect.top || clientY >= rect.bottom) continue;
+      const raw = rowEl.dataset['originalIndex'];
+      if (raw === undefined) return null;
+      const index = Number(raw);
+      return Number.isFinite(index) ? index : null;
+    }
+    return null;
+  }
+
   private readonly _fillDragMove = (event: PointerEvent): void => {
     const source = this._fillDragSource;
     if (!source) return;
@@ -967,11 +1110,13 @@ export class AgridComponent {
 
   /** @internal Delegates to AgridResizeHandler. */
   onResizeStart(event: MouseEvent, col: ColDef): void {
+    if (col.locked) return;
     this.resizeHandler.start(event, col);
   }
 
   /** @internal Autosize a column to fit its header and currently visible row values. */
   onAutosizeColumn(event: MouseEvent, col: ColDef): void {
+    if (col.locked) return;
     event.preventDefault();
     event.stopPropagation();
     const width = this.measureAutosizeWidth(col);
@@ -986,7 +1131,11 @@ export class AgridComponent {
   onControlContextMenu(event: MouseEvent, originalIndex: number): void {
     event.preventDefault();
     event.stopPropagation();
-    this.contextMenu.set({ x: event.clientX, y: event.clientY, rowIndex: originalIndex });
+    this.contextMenu.set({
+      x: event.clientX,
+      y: event.clientY,
+      rowIndex: this.resolveControlOriginalIndex(event, originalIndex),
+    });
   }
 
   /** @internal */
@@ -1503,7 +1652,7 @@ export class AgridComponent {
       if (!isDataRowItemFn(item)) continue;
       const cells: string[] = [];
       for (let ci = colStart; ci <= colEnd; ci++) {
-        cells.push(this.escapeTsvValue(getDisplayForField(cols[ci], item.row[cols[ci].field])));
+        cells.push(this.escapeTsvValue(getDisplayForField(cols[ci], item.row[cols[ci].field], this.locale())));
       }
       lines.push(cells.join('\t'));
     }
@@ -1665,7 +1814,7 @@ export class AgridComponent {
     const values = [col.header];
     for (const item of this.filteredItems()) {
       if (!isDataRowItemFn(item)) continue;
-      values.push(getDisplayForField(col, item.row[col.field]));
+      values.push(getDisplayForField(col, item.row[col.field], this.locale()));
     }
     const measured = values.reduce((max, value) => Math.max(max, ctx.measureText(value).width), 0);
     const extra = 42;

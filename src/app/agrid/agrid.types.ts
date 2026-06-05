@@ -1,3 +1,8 @@
+export interface AGridOptions {
+  locale: string;
+}
+
+
 /**
  * A structured value option used when the data field stores a raw value (e.g. a numeric ID)
  * but the cell should display a human-readable label.
@@ -75,6 +80,32 @@ export interface ColDef {
    * Can also be toggled at runtime via `AgridControl.setPinned()`.
    */
   pinned?: 'left';
+  /**
+   * Return one or more CSS class names to apply to every cell in this column based on the
+   * cell's value and row data. Useful for conditional highlighting without a custom renderer.
+   *
+   * @example
+   * ```ts
+   * { field: 'score', cellClass: ({ value }) => Number(value) < 50 ? 'cell-danger' : '' }
+   * ```
+   */
+  cellClass?: (params: { value: unknown; row: Record<string, unknown> }) => string;
+  /**
+   * Set to `true` to prevent the column from being resized, reordered, or autosized.
+   * The column can still be hidden, filtered, and sorted.
+   */
+  locked?: boolean;
+  /**
+   * Custom cell renderer. Returns an HTML string displayed instead of the plain text value.
+   * Angular's built-in HTML sanitization is applied automatically.
+   *
+   * @example
+   * ```ts
+   * { field: 'status', cellRenderer: ({ value }) =>
+   *   `<span class="badge badge-${value}">${value}</span>` }
+   * ```
+   */
+  cellRenderer?: (params: { value: unknown; row: Record<string, unknown> }) => string;
 }
 
 /**
@@ -153,6 +184,23 @@ export interface RowReorderEvent {
    * Pass both `oldIndex` and `newIndex` to {@link AgridDataSource.moveRow}.
    */
   newIndex: number;
+}
+
+/**
+ * Emitted by `(pageChange)` when the user navigates to a different page in server-side
+ * pagination mode (i.e. when `AgridControl.totalRows` is set to a value greater than zero).
+ * The host should fetch the rows for `startRow..endRow` from the server and push them into
+ * the data source — the grid itself does not slice or filter the data in this mode.
+ */
+export interface PageChangeEvent {
+  /** New page number (1-based). */
+  page: number;
+  /** Rows per page as configured on `AgridControl`. */
+  pageSize: number;
+  /** Zero-based index of the first row on this page. */
+  startRow: number;
+  /** Zero-based index of the last row on this page (inclusive). */
+  endRow: number;
 }
 
 /**

@@ -5,10 +5,10 @@
     [value]="query()"
     (input)="queryChange.emit($any($event.target).value)"
     (keydown)="onKeyDown($event)"
-    placeholder="Find"
+    [placeholder]="localeText().findPlaceholder"
   />
   <span class="ag-find-count">{{ countLabel() }}</span>
-  <button class="ag-find-btn" title="Previous" (click)="previous.emit()">↑</button>
-  <button class="ag-find-btn" title="Next" (click)="next.emit()">↓</button>
-  <button class="ag-find-btn" title="Close" (click)="close.emit()">✕</button>
+  <button class="ag-find-btn" [title]="localeText().previous" (click)="previous.emit()">↑</button>
+  <button class="ag-find-btn" [title]="localeText().next" (click)="next.emit()">↓</button>
+  <button class="ag-find-btn" [title]="localeText().close" (click)="close.emit()">✕</button>
 </div>
