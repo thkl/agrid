@@ -9,12 +9,25 @@
       class="ag-filter-menu-item"
       [class.ag-filter-menu-item--active]="sortDir() === 'asc'"
       (click)="sort.emit('asc')"
-    >↑ {{ localeText().sortAscending }}</button>
+    >
+      ↑ {{ localeText().sortAscending }}
+      @if (sortPriority() > 0) {
+        <span class="ag-sort-priority-badge">{{ sortPriority() }}</span>
+      }
+    </button>
     <button
       class="ag-filter-menu-item"
       [class.ag-filter-menu-item--active]="sortDir() === 'desc'"
       (click)="sort.emit('desc')"
-    >↓ {{ localeText().sortDescending }}</button>
+    >
+      ↓ {{ localeText().sortDescending }}
+      @if (sortPriority() > 0) {
+        <span class="ag-sort-priority-badge">{{ sortPriority() }}</span>
+      }
+    </button>
+    @if (hasMultiSort() && sortPriority() > 0) {
+      <button class="ag-filter-menu-item ag-filter-menu-item--muted" (click)="resetSort.emit(sortDir()!)">{{ localeText().sortOnlyByThis }}</button>
+    }
     @if (sortDir()) {
       <button class="ag-filter-menu-item" (click)="sort.emit(sortDir()!)">{{ localeText().clearSort }}</button>
     }

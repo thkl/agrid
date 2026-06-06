@@ -93,7 +93,7 @@ export interface ColDef {
    * Pin this column to the left edge of the grid so it stays visible during horizontal scroll.
    * Can also be toggled at runtime via `AgridControl.setPinned()`.
    */
-  pinned?: 'left';
+  pinned?: 'left' | 'right';
   /**
    * Aggregate function shown in the footer row for this column.
    * Built-in: `'sum'`, `'avg'`, `'min'`, `'max'`, `'count'`.

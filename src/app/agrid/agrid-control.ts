@@ -49,6 +49,10 @@ export interface AgridControlState {
   columnOrder?: string[];
   /** Fields that are pinned to the left edge. */
   pinnedColumns?: string[];
+  /** Fields that are pinned to the right edge. */
+  pinnedRightColumns?: string[];
+  /** Ordered list of field names currently sorted, from highest to lowest priority. */
+  sortOrder?: string[];
   /** Number of rows per page. `0` means no pagination (show all rows). */
   pageSize?: number;
   /** Current page (1-based). */
@@ -87,11 +91,13 @@ export class AgridControl {
   private readonly _groupByField = signal<string | null>(null);
   private readonly _hiddenColumns  = signal<Set<string>>(new Set());
   private readonly _columnOrder    = signal<string[]>([]);
-  private readonly _pinnedColumns  = signal<Set<string>>(new Set());
+  private readonly _pinnedColumns      = signal<Set<string>>(new Set());
+  private readonly _pinnedRightColumns = signal<Set<string>>(new Set());
   private readonly _pageSize = signal<number>(0);
   private readonly _currentPage = signal<number>(1);
   private readonly _totalRows = signal<number>(0);
   private readonly _aggregates = signal<Record<string, 'sum' | 'avg' | 'min' | 'max' | 'count'>>({});
+  private readonly _sortOrder = signal<string[]>([]);
 
   /** @param state Optional initial state, e.g. deserialized from storage. */
   constructor(state?: Partial<AgridControlState>) {
@@ -101,11 +107,13 @@ export class AgridControl {
     if (state?.groupByField !== undefined) this._groupByField.set(state.groupByField ?? null);
     if (state?.hiddenColumns?.length) this._hiddenColumns.set(new Set(state.hiddenColumns));
     if (state?.columnOrder?.length)   this._columnOrder.set([...state.columnOrder]);
-    if (state?.pinnedColumns?.length) this._pinnedColumns.set(new Set(state.pinnedColumns));
+    if (state?.pinnedColumns?.length)      this._pinnedColumns.set(new Set(state.pinnedColumns));
+    if (state?.pinnedRightColumns?.length) this._pinnedRightColumns.set(new Set(state.pinnedRightColumns));
     if (state?.pageSize) this._pageSize.set(state.pageSize);
     if (state?.currentPage) this._currentPage.set(state.currentPage);
     if (state?.totalRows) this._totalRows.set(state.totalRows);
     if (state?.aggregates) this._aggregates.set({ ...state.aggregates });
+    if (state?.sortOrder?.length) this._sortOrder.set([...state.sortOrder]);
   }
 
   /**
@@ -201,18 +209,44 @@ export class AgridControl {
     return this._pinnedColumns().has(field);
   }
 
-  /** Pin or unpin a column by field name. */
+  /** Pin or unpin a column to the left edge. Pinning left auto-unpins right. */
   setPinned(field: string, pinned: boolean): void {
     this._pinnedColumns.update(set => {
       const next = new Set(set);
       if (pinned) next.add(field); else next.delete(field);
       return next;
     });
+    if (pinned) this._pinnedRightColumns.update(s => { const n = new Set(s); n.delete(field); return n; });
   }
 
-  /** Toggle the pinned state of a column. */
+  /** Toggle left-pin state of a column. */
   togglePinned(field: string): void {
     this.setPinned(field, !this.isPinned(field));
+  }
+
+  // ── Right pinning ─────────────────────────────────────────────────────────
+
+  /** Reactive set of field names currently pinned to the right edge. */
+  readonly pinnedRightColumns: Signal<Set<string>> = this._pinnedRightColumns.asReadonly();
+
+  /** Return `true` when the given field is pinned to the right edge. */
+  isPinnedRight(field: string): boolean {
+    return this._pinnedRightColumns().has(field);
+  }
+
+  /** Pin or unpin a column to the right edge. Pinning right auto-unpins left. */
+  setPinnedRight(field: string, pinned: boolean): void {
+    this._pinnedRightColumns.update(set => {
+      const next = new Set(set);
+      if (pinned) next.add(field); else next.delete(field);
+      return next;
+    });
+    if (pinned) this._pinnedColumns.update(s => { const n = new Set(s); n.delete(field); return n; });
+  }
+
+  /** Toggle right-pin state of a column. */
+  togglePinnedRight(field: string): void {
+    this.setPinnedRight(field, !this.isPinnedRight(field));
   }
 
   // ── Pagination ────────────────────────────────────────────────────────────
@@ -402,10 +436,19 @@ export class AgridControl {
     }));
   }
 
+  /** Ordered list of sorted field names, from highest to lowest priority. */
+  readonly sortOrder: Signal<string[]> = this._sortOrder.asReadonly();
+
+  /** Return the 1-based sort priority of a field, or `0` if it is not sorted. */
+  getSortPriority(field: string): number {
+    const idx = this._sortOrder().indexOf(field);
+    return idx === -1 ? 0 : idx + 1;
+  }
+
   /**
-   * Set the sort direction for a column.
-   * Passing `null` removes the sort. Only one column may be sorted at a time —
-   * activating sort on a field clears the sort from all other fields.
+   * Set the sort direction for a column, clearing all other sorts.
+   * Pass `null` to remove the sort entirely.
+   * For multi-column sort use {@link addSort}.
    */
   setSort(field: string, sort: 'asc' | 'desc' | null): void {
     this._filters.update(f => {
@@ -416,6 +459,22 @@ export class AgridControl {
       if (!next[field]) next[field] = { text: '', selectedValues: null, sort };
       return next;
     });
+    this._sortOrder.set(sort ? [field] : []);
+  }
+
+  /**
+   * Add a column to the multi-sort stack or update its direction.
+   * If the column is already sorted, only its direction is updated (priority unchanged).
+   * If not yet sorted, it is appended as the lowest-priority sort key.
+   */
+  addSort(field: string, sort: 'asc' | 'desc'): void {
+    this._filters.update(f => ({
+      ...f,
+      [field]: { ...(f[field] ?? { text: '', selectedValues: null }), sort },
+    }));
+    this._sortOrder.update(order =>
+      order.includes(field) ? order : [...order, field]
+    );
   }
 
   /**
@@ -427,11 +486,13 @@ export class AgridControl {
       delete next[field];
       return next;
     });
+    this._sortOrder.update(o => o.filter(f => f !== field));
   }
 
   /** Remove all active filters and sorts for every column. */
   clearAllFilters(): void {
     this._filters.set({});
+    this._sortOrder.set([]);
   }
 
   /**
@@ -461,11 +522,13 @@ export class AgridControl {
       groupByField: this._groupByField() ?? undefined,
       hiddenColumns: [...this._hiddenColumns()],
       columnOrder:   [...this._columnOrder()],
-      pinnedColumns: [...this._pinnedColumns()],
+      pinnedColumns:      [...this._pinnedColumns()],
+      pinnedRightColumns: [...this._pinnedRightColumns()],
       pageSize: this._pageSize(),
       currentPage: this._currentPage(),
       totalRows: this._totalRows(),
       aggregates: { ...this._aggregates() },
+      sortOrder: [...this._sortOrder()],
     };
   }
 

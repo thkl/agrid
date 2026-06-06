@@ -1,1 +1,15 @@
-<router-outlet />
+<div class="app-shell">
+  <nav class="app-nav">
+    <div class="app-nav-brand">agrid demos</div>
+    <a class="app-nav-link" routerLink="/" routerLinkActive="app-nav-link--active" [routerLinkActiveOptions]="{exact:true}">Overview</a>
+    <div class="app-nav-section">Features</div>
+    <a class="app-nav-link" routerLink="/custom-cells" routerLinkActive="app-nav-link--active">Custom cells</a>
+    <a class="app-nav-link" routerLink="/pagination" routerLinkActive="app-nav-link--active">Pagination</a>
+    <a class="app-nav-link" routerLink="/server-pagination" routerLinkActive="app-nav-link--active">Server pagination</a>
+    <a class="app-nav-link" routerLink="/aggregates" routerLinkActive="app-nav-link--active">Aggregates</a>
+    <a class="app-nav-link" routerLink="/readonly" routerLinkActive="app-nav-link--active">Readonly</a>
+  </nav>
+  <main class="app-content">
+    <router-outlet />
+  </main>
+</div>

@@ -92,6 +92,19 @@
   box-shadow: inset -2px 0 0 var(--agrid-color-accent);
 }
 
+.ag-sort-badge {
+  font-size: 11px;
+  color: var(--agrid-color-accent);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.ag-sort-priority {
+  font-size: 9px;
+  vertical-align: super;
+  opacity: 0.75;
+}
+
 .ag-resize-handle {
   position: absolute;
   top: 0;

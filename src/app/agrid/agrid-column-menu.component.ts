@@ -60,8 +60,20 @@ export class AgridColumnMenuComponent {
   /** Visible value-filter option rows. */
   valueItems = input<AgridColumnMenuValueItem[]>([]);
 
-  /** Emits a requested sort direction. Emitting the current direction clears sort upstream. */
+  /** 1-based priority of this column in the current multi-sort stack (0 = not sorted). */
+  sortPriority = input<number>(0);
+
+  /** Whether more than one column is currently sorted. */
+  hasMultiSort = input<boolean>(false);
+
+  /**
+   * Emits a sort direction — toggles this column in the multi-sort stack
+   * (adds if not sorted, clears if same direction clicked again).
+   */
   sort = output<'asc' | 'desc'>();
+
+  /** Emits to replace all sorts with only this column at the given direction. */
+  resetSort = output<'asc' | 'desc'>();
 
   /** Requests autosizing the active column. */
   autosize = output<void>();

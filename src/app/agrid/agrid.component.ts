@@ -353,9 +353,29 @@ export class AgridComponent {
     return this.visibleColDefs().filter(c => c.pinned === 'left');
   });
 
+  /** Columns pinned to the right edge. */
+  readonly rightPinnedColDefs = computed(() => {
+    const ctrl = this.control();
+    if (ctrl) {
+      const pinned = ctrl.pinnedRightColumns();
+      return pinned.size > 0 ? this.visibleColDefs().filter(c => pinned.has(c.field)) : [];
+    }
+    return this.visibleColDefs().filter(c => c.pinned === 'right');
+  });
+
+  readonly rightGridTemplateColumns = computed(() =>
+    this.rightPinnedColDefs().map(c => `${this.getColumnWidth(c)}px`).join(' ')
+  );
+
+  readonly rightPinnedPaneWidth = computed(() =>
+    this.rightPinnedColDefs().reduce((sum, c) => sum + this.getColumnWidth(c), 0)
+  );
+
+  readonly hasRightPinnedPane = computed(() => this.rightPinnedColDefs().length > 0);
+
   /** Columns rendered in the horizontally scrollable pane. */
   readonly scrollableColDefs = computed(() =>
-    this.visibleColDefs().filter(c => !this.isColumnPinned(c.field))
+    this.visibleColDefs().filter(c => !this.isColumnPinned(c.field) && !this.isColumnPinnedRight(c.field))
   );
 
   readonly hasPinnedPane = computed(() =>
@@ -375,8 +395,11 @@ export class AgridComponent {
       const filters = ctrl.filters();
       indices = applyTextAndValueFilters(rows, indices, filters, colMap, this.locale());
       if (!ctrl.groupByField()) {
-        const sortEntry = Object.entries(filters).find(([, f]) => f.sort);
-        if (sortEntry) indices = applySortToIndices(rows, indices, sortEntry[0], sortEntry[1], colMap, this.locale());
+        const order = ctrl.sortOrder();
+        const sortEntries = order
+          .map(f => [f, filters[f]] as [string, ColumnFilter])
+          .filter(([, f]) => f?.sort);
+        if (sortEntries.length) indices = applySortToIndices(rows, indices, sortEntries, colMap, this.locale());
       }
     }
     return indices;
@@ -514,8 +537,11 @@ export class AgridComponent {
         const expandState = this._expandedGroups();
         const expandedLabels = expandState.field === groupField
           ? expandState.labels : new Set<string>();
-        const sortEntry = (Object.entries(filters).find(([, f]) => f.sort) ?? null) as [string, ColumnFilter] | null;
-        const items = buildGroupedItems(rows, indices, groupField, colMap, sortEntry, expandedLabels, this.locale());
+        const order = ctrl.sortOrder();
+        const sortEntries = order
+          .map(f => [f, filters[f]] as [string, ColumnFilter])
+          .filter(([, f]) => f?.sort);
+        const items = buildGroupedItems(rows, indices, groupField, colMap, sortEntries, expandedLabels, this.locale());
         if (this.allowAddRows() && !this.autoAddRows()) items.push(null);
         return items;
       }
@@ -641,7 +667,8 @@ export class AgridComponent {
   // ── Infrastructure ────────────────────────────────────────────────────────────
 
   private readonly viewport    = viewChild.required<CdkVirtualScrollViewport>('scrollViewport');
-  private readonly pinnedViewport = viewChild<CdkVirtualScrollViewport>('pinnedViewport');
+  private readonly pinnedViewport      = viewChild<CdkVirtualScrollViewport>('pinnedViewport');
+  private readonly rightPinnedViewport = viewChild<CdkVirtualScrollViewport>('rightPinnedViewport');
   private readonly wrapperEl   = viewChild.required<ElementRef<HTMLDivElement>>('wrapper');
   private readonly horizontalScrollerEl =
     viewChild.required<ElementRef<HTMLDivElement>>('horizontalScroller');
@@ -856,6 +883,12 @@ export class AgridComponent {
   // ── Template helpers — filter menu ────────────────────────────────────────────
 
   /** @internal */
+  /** @internal 1-based sort priority for a column, 0 if not sorted. */
+  getSortPriority(field: string): number { return this.control()?.getSortPriority(field) ?? 0; }
+
+  /** @internal Whether more than one column is currently sorted. */
+  hasMultiSort(): boolean { return (this.control()?.sortOrder().length ?? 0) > 1; }
+
   getTextFilter(field: string): string { return this.control()?.getFilter(field).text ?? ''; }
 
   /** @internal */
@@ -896,6 +929,22 @@ export class AgridComponent {
   /** @internal */
   isColumnPinned(field: string): boolean {
     return this.pinnedColDefs().some(c => c.field === field);
+  }
+
+  isColumnPinnedRight(field: string): boolean {
+    return this.rightPinnedColDefs().some(c => c.field === field);
+  }
+
+  /** Returns `'left'`, `'right'`, or `false` — used by the column menu. */
+  getColumnPinState(field: string): 'left' | 'right' | false {
+    if (this.isColumnPinned(field)) return 'left';
+    if (this.isColumnPinnedRight(field)) return 'right';
+    return false;
+  }
+
+  isFirstRightPinnedColumn(field: string): boolean {
+    const cols = this.rightPinnedColDefs();
+    return cols.length > 0 && cols[0].field === field;
   }
 
   /** @internal Returns `true` for the rightmost pinned column (used to draw the separator shadow). */
@@ -1345,8 +1394,13 @@ export class AgridComponent {
 
   /** @internal */
   onMenuSort(field: string, dir: 'asc' | 'desc'): void {
-    const current = this.control()?.getFilter(field).sort;
-    this.control()?.setSort(field, current === dir ? null : dir);
+    const ctrl = this.control();
+    if (!ctrl) return;
+    if (ctrl.getFilter(field).sort === dir) {
+      ctrl.clearFilter(field);   // toggle off — remove from stack
+    } else {
+      ctrl.addSort(field, dir);  // add to stack or switch direction
+    }
   }
 
   /** @internal */
@@ -1356,6 +1410,12 @@ export class AgridComponent {
   }
 
   /** @internal */
+  /** @internal Replace the entire sort stack with a single sort on this column. */
+  onMenuResetSort(field: string, dir: 'asc' | 'desc'): void {
+    this.control()?.setSort(field, dir);
+    this.closeFilterMenu();
+  }
+
   onMenuToggleGroupBy(field: string): void {
     const ctrl = this.control();
     if (!ctrl) return;
@@ -1389,16 +1449,22 @@ export class AgridComponent {
   /** @internal */
   onSidebarToggleColumn(field: string): void { this.control()?.toggleColumnVisibility(field); }
 
-  /** @internal Mirrors vertical scrolling from the main viewport into the pinned pane. */
+  /** @internal Mirrors vertical scrolling from the main viewport into both pinned panes. */
   onBodyScroll(): void {
-    const pinned = this.pinnedViewport();
-    if (!pinned) return;
-    pinned.scrollToOffset(this.viewport().measureScrollOffset());
+    const offset = this.viewport().measureScrollOffset();
+    this.pinnedViewport()?.scrollToOffset(offset);
+    this.rightPinnedViewport()?.scrollToOffset(offset);
   }
 
   /** @internal */
   onMenuTogglePin(field: string): void {
     this.control()?.togglePinned(field);
+    this.closeFilterMenu();
+  }
+
+  /** @internal */
+  onMenuTogglePinRight(field: string): void {
+    this.control()?.togglePinnedRight(field);
     this.closeFilterMenu();
   }
 

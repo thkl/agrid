@@ -4,11 +4,13 @@ import {
   ElementRef,
   computed,
   effect,
+  inject,
   input,
   output,
   signal,
   viewChild,
 } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ColDef, ValueOption } from './agrid.types';
 import { formatDateValue, looksLikeDate } from './agrid.utils';
 
@@ -107,10 +109,14 @@ export class AgridCellComponent {
   /** Live draft value managed by the cell during an active edit. */
   readonly draft = signal<unknown>('');
 
-  readonly renderedHtml = computed((): string => {
+  private readonly sanitizer = inject(DomSanitizer);
+
+  readonly renderedHtml = computed((): SafeHtml => {
     const renderer = this.col().cellRenderer;
     if (!renderer) return '';
-    return renderer({ value: this.value(), row: this.row() });
+    return this.sanitizer.bypassSecurityTrustHtml(
+      renderer({ value: this.value(), row: this.row() })
+    );
   });
 
   /**

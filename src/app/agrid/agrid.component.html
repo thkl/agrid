@@ -31,6 +31,9 @@
                 (pointerdown)="onColHeaderPointerDown($event, col.field)"
               >
                 <span class="ag-header-cell-label">{{ col.header }}</span>
+                @if (getSort(col.field); as dir) {
+                  <span class="ag-sort-badge">{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup class="ag-sort-priority">{{ getSortPriority(col.field) }}</sup>}</span>
+                }
                 <button
                   class="ag-header-menu-btn"
                   [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
@@ -197,6 +200,9 @@
                 (pointerdown)="onColHeaderPointerDown($event, col.field)"
               >
                 <span class="ag-header-cell-label">{{ col.header }}</span>
+                @if (getSort(col.field); as dir) {
+                  <span class="ag-sort-badge">{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup class="ag-sort-priority">{{ getSortPriority(col.field) }}</sup>}</span>
+                }
                 <button
                   class="ag-header-menu-btn"
                   [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
@@ -481,7 +487,10 @@
       [allSelected]="isMenuAllSelected(menu.field)"
       [valueItems]="columnMenuValueItems()"
       [localeText]="localeText()"
+      [sortPriority]="getSortPriority(menu.field)"
+      [hasMultiSort]="hasMultiSort()"
       (sort)="onMenuSort(menu.field, $event)"
+      (resetSort)="onMenuResetSort(menu.field, $event)"
       (autosize)="onMenuAutosizeColumn(menu.field)"
       (togglePin)="onMenuTogglePin(menu.field)"
       (hide)="onMenuHideColumn(menu.field)"

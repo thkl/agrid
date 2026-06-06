@@ -76,30 +76,37 @@ export function applyTextAndValueFilters(
 
 // ── Sorting ────────────────────────────────────────────────────────────────────
 
-/** Sort indices by the display value of a single column, respecting the active sort direction. */
+/**
+ * Sort indices by one or more columns in priority order.
+ * Each entry is `[field, ColumnFilter]`; the first entry has the highest priority.
+ * Ties are broken by subsequent entries.
+ */
 export function applySortToIndices(
   rows: Record<string, unknown>[],
   indices: number[],
-  sortField: string,
-  sortFilter: ColumnFilter,
+  sortEntries: [string, ColumnFilter][],
   colMap: Map<string, ColDef>,
   locale?: string,
 ): number[] {
-  const sortCol = colMap.get(sortField);
+  if (sortEntries.length === 0) return indices;
   return [...indices].sort((a, b) => {
-    const rawA = rows[a][sortField];
-    const rawB = rows[b][sortField];
-    // Sort dates by timestamp so chronological order is preserved
-    if (sortCol?.type === 'date' || looksLikeDate(rawA) || looksLikeDate(rawB)) {
-      const ta = rawA instanceof Date ? rawA.getTime() : new Date(rawA as string).getTime();
-      const tb = rawB instanceof Date ? rawB.getTime() : new Date(rawB as string).getTime();
-      const cmp = (isNaN(ta) ? -1 : ta) - (isNaN(tb) ? -1 : tb);
-      return sortFilter.sort === 'asc' ? cmp : -cmp;
+    for (const [sortField, sortFilter] of sortEntries) {
+      const sortCol = colMap.get(sortField);
+      const rawA = rows[a][sortField];
+      const rawB = rows[b][sortField];
+      let cmp: number;
+      if (sortCol?.type === 'date' || looksLikeDate(rawA) || looksLikeDate(rawB)) {
+        const ta = rawA instanceof Date ? rawA.getTime() : new Date(rawA as string).getTime();
+        const tb = rawB instanceof Date ? rawB.getTime() : new Date(rawB as string).getTime();
+        cmp = (isNaN(ta) ? -1 : ta) - (isNaN(tb) ? -1 : tb);
+      } else {
+        const av = getDisplayForField(sortCol, rawA, locale);
+        const bv = getDisplayForField(sortCol, rawB, locale);
+        cmp = av.localeCompare(bv, locale, { numeric: true, sensitivity: 'base' });
+      }
+      if (cmp !== 0) return sortFilter.sort === 'asc' ? cmp : -cmp;
     }
-    const av = getDisplayForField(sortCol, rawA, locale);
-    const bv = getDisplayForField(sortCol, rawB, locale);
-    const cmp = av.localeCompare(bv, locale, { numeric: true, sensitivity: 'base' });
-    return sortFilter.sort === 'asc' ? cmp : -cmp;
+    return 0;
   });
 }
 
@@ -115,7 +122,7 @@ export function buildGroupedItems(
   indices: number[],
   groupField: string,
   colMap: Map<string, ColDef>,
-  sortEntry: [string, ColumnFilter] | null,
+  sortEntries: [string, ColumnFilter][],
   expandedLabels: Set<string>,
   locale?: string,
 ): GridItem[] {
@@ -132,16 +139,11 @@ export function buildGroupedItems(
     a.localeCompare(b, locale, { sensitivity: 'base' })
   );
 
-  if (sortEntry && sortEntry[0] !== groupField) {
-    const [sortFieldName, sortFilter] = sortEntry;
-    const sortCol = colMap.get(sortFieldName);
-    for (const groupRows of groups.values()) {
-      groupRows.sort((a, b) => {
-        const av = getDisplayForField(sortCol, rows[a][sortFieldName], locale);
-        const bv = getDisplayForField(sortCol, rows[b][sortFieldName], locale);
-        const cmp = av.localeCompare(bv, locale, { numeric: true, sensitivity: 'base' });
-        return sortFilter.sort === 'asc' ? cmp : -cmp;
-      });
+  const nonGroupSorts = sortEntries.filter(([f]) => f !== groupField);
+  if (nonGroupSorts.length > 0) {
+    for (const [, groupRows] of groups) {
+      const sorted = applySortToIndices(rows, groupRows, nonGroupSorts, colMap, locale);
+      groupRows.splice(0, groupRows.length, ...sorted);
     }
   }
 

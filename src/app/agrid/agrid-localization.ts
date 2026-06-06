@@ -34,6 +34,7 @@ export interface AgridLocaleText {
   rows: (count: number) => string;
   searchValuesPlaceholder: string;
   selectAll: string;
+  sortOnlyByThis: string;
   sortAscending: string;
   sortDescending: string;
   ungroup: string;
@@ -77,6 +78,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     rows: count => `${count} ${count === 1 ? 'row' : 'rows'}`,
     searchValuesPlaceholder: 'Search values...',
     selectAll: '(Select All)',
+    sortOnlyByThis: 'Sort only by this column',
     sortAscending: 'Sort ascending',
     sortDescending: 'Sort descending',
     ungroup: 'Ungroup',
@@ -116,6 +118,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     rows: count => `${count} ${count === 1 ? 'Zeile' : 'Zeilen'}`,
     searchValuesPlaceholder: 'Werte suchen...',
     selectAll: '(Alle auswählen)',
+    sortOnlyByThis: 'Nur nach dieser Spalte sortieren',
     sortAscending: 'Aufsteigend sortieren',
     sortDescending: 'Absteigend sortieren',
     ungroup: 'Gruppierung aufheben',

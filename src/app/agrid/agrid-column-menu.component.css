@@ -108,6 +108,20 @@
   white-space: nowrap;
 }
 
+.ag-sort-priority-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--agrid-color-accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  margin-left: auto;
+}
+
 .ag-filter-menu-aggregate-label {
   display: block;
   padding: 4px 14px 2px;
