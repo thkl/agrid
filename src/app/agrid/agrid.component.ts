@@ -420,11 +420,11 @@ export class AgridComponent {
     return Math.max(1, Math.ceil(count / pageSize));
   });
 
-  readonly showPagination = computed(() => (this.control()?.pageSize() ?? 0) > 0);
+  readonly showPagination = computed(() => (this.control()?.pageSize() ?? 0) > 0 && !this.control()?.groupByField());
 
-  /** True when no data rows are visible (ignores group headers, add-row, ghost). */
+  /** True when no rows or group headers are visible (ignores add-row sentinel and ghost). */
   readonly isEmpty = computed(() =>
-    !this.loading() && this.filteredItems().every(item => item === null || item === 'ghost' || isGroupHeaderItemFn(item))
+    !this.loading() && this.filteredItems().every(item => item === null || item === 'ghost')
   );
 
   /**
@@ -523,15 +523,14 @@ export class AgridComponent {
     if (ctrl) {
       // Client-side pagination: slice locally. Skipped in server mode (totalRows > 0)
       // because the host already loaded exactly the right rows into the data source.
+      const groupField = ctrl.groupByField();
       const pageSize = ctrl.pageSize();
       const isServerMode = ctrl.totalRows() > 0;
-      if (pageSize > 0 && !isServerMode) {
+      if (pageSize > 0 && !isServerMode && !groupField) {
         const maxPage = this.totalPages();
         const page = Math.max(1, Math.min(ctrl.currentPage(), maxPage));
         indices = indices.slice((page - 1) * pageSize, page * pageSize);
       }
-
-      const groupField = ctrl.groupByField();
       if (groupField) {
         const filters = ctrl.filters();
         const expandState = this._expandedGroups();
