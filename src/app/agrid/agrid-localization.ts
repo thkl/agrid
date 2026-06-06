@@ -30,6 +30,8 @@ export interface AgridLocaleText {
   next: string;
   noRows: string;
   pinColumn: string;
+  pinColumnRight: string;
+  unpinColumnRight: string;
   previous: string;
   rows: (count: number) => string;
   searchValuesPlaceholder: string;
@@ -73,7 +75,9 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     loading: 'Loading...',
     next: 'Next',
     noRows: 'No rows to display',
-    pinColumn: 'Pin column',
+    pinColumn: 'Pin left',
+    pinColumnRight: 'Pin right',
+    unpinColumnRight: 'Unpin right',
     previous: 'Previous',
     rows: count => `${count} ${count === 1 ? 'row' : 'rows'}`,
     searchValuesPlaceholder: 'Search values...',
@@ -113,7 +117,9 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     loading: 'Wird geladen...',
     next: 'Weiter',
     noRows: 'Keine Zeilen vorhanden',
-    pinColumn: 'Spalte fixieren',
+    pinColumn: 'Links fixieren',
+    pinColumnRight: 'Rechts fixieren',
+    unpinColumnRight: 'Rechts lösen',
     previous: 'Zurück',
     rows: count => `${count} ${count === 1 ? 'Zeile' : 'Zeilen'}`,
     searchValuesPlaceholder: 'Werte suchen...',

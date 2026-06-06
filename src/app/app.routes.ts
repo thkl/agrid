@@ -25,4 +25,9 @@ export const routes: Routes = [
     path: 'readonly',
     loadComponent: () => import('./demos/readonly.component').then(m => m.ReadonlyDemoComponent),
   },
+  {
+    path: 'pinning',
+    loadComponent: () => import('./demos/pinning.component').then(m => m.PinningDemoComponent),
+  },
+
 ];

@@ -8,7 +8,7 @@
   (click)="closeContextMenu(); closeCellContextMenu(); closeFilterMenu(); closeGroupActionsMenu()"
 >
   <div class="ag-main-area">
-    <div class="ag-grid-split">
+    <div class="ag-grid-split" [class.ag-has-right-pane]="hasRightPinnedPane()">
       @if (hasPinnedPane()) {
         <div class="ag-pinned-pane" [style.width.px]="pinnedPaneWidth()">
           <div
@@ -347,6 +347,137 @@
           }
         </div>
       </div>
+
+      @if (hasRightPinnedPane()) {
+        <div class="ag-pinned-pane ag-pinned-pane--right" [style.width.px]="rightPinnedPaneWidth()">
+          <div
+            class="ag-header"
+            [style.grid-template-columns]="rightGridTemplateColumns()"
+            [style.width.px]="rightPinnedPaneWidth()"
+          >
+            @for (col of rightPinnedColDefs(); track col.field) {
+              <div
+                class="ag-header-cell ag-header-cell--pinned"
+                [class.ag-header-cell--filtered]="hasActiveFilter(col.field)"
+                [class.ag-header-cell--pinned-first]="isFirstRightPinnedColumn(col.field)"
+                [attr.data-col-field]="col.field"
+                (pointerdown)="onColHeaderPointerDown($event, col.field)"
+              >
+                <span class="ag-header-cell-label">{{ col.header }}</span>
+                @if (getSort(col.field); as dir) {
+                  <span class="ag-sort-badge">{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup class="ag-sort-priority">{{ getSortPriority(col.field) }}</sup>}</span>
+                }
+                <button
+                  class="ag-header-menu-btn"
+                  [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
+                  [title]="localeText().columnMenu"
+                  (click)="openFilterMenu($event, col.field)"
+                  (pointerdown)="$event.stopPropagation()"
+                >▾</button>
+                <div class="ag-resize-handle"
+                  (mousedown)="onResizeStart($event, col)"
+                  (pointerdown)="$event.stopPropagation()"
+                  (dblclick)="onAutosizeColumn($event, col)"
+                ></div>
+              </div>
+            }
+          </div>
+
+          @if (hasFilterableColumns()) {
+            <div
+              class="ag-filter-row"
+              [style.grid-template-columns]="rightGridTemplateColumns()"
+              [style.width.px]="rightPinnedPaneWidth()"
+            >
+              @for (col of rightPinnedColDefs(); track col.field) {
+                @if (col.filterable) {
+                  <div class="ag-filter-cell" [class.ag-filter-cell--pinned-first]="isFirstRightPinnedColumn(col.field)">
+                    <input class="ag-filter-input" [value]="getTextFilter(col.field)" (input)="onTextFilterChange($event, col.field)" (click)="$event.stopPropagation()" [placeholder]="localeText().filterPlaceholder" />
+                  </div>
+                } @else {
+                  <div class="ag-filter-cell ag-filter-cell--empty" [class.ag-filter-cell--pinned-first]="isFirstRightPinnedColumn(col.field)"></div>
+                }
+              }
+            </div>
+          }
+
+          <cdk-virtual-scroll-viewport
+            #rightPinnedViewport
+            class="ag-body ag-pinned-body ag-right-pinned-body"
+            [itemSize]="rowHeight()"
+            [style.width.px]="rightPinnedPaneWidth()"
+            [style.min-height]="minHeight()"
+            [style.max-height]="maxHeight()"
+            (scroll)="onRightPinnedBodyScroll()"
+          >
+            <div
+              *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem"
+              [class.ag-row]="!isGroupHeaderItem(item)"
+              [class.ag-add-row]="item === null"
+              [class.ag-ghost-row]="item === 'ghost'"
+              [class.ag-group-header-row]="isGroupHeaderItem(item)"
+              [class.ag-row--odd]="isDataRowItem(item) && di % 2 !== 0"
+              [class.ag-row--selected]="isDataRowItem(item) && isRowSelected(item.originalIndex)"
+              [style.height.px]="rowHeight()"
+              [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? rightGridTemplateColumns() : null"
+            >
+              @if (isDataRowItem(item)) {
+                @for (col of rightPinnedColDefs(); track col.field) {
+                  @let ci = getVisibleColIndex(col.field);
+                  <agrid-cell
+                    [col]="col"
+                    [rowIndex]="item.originalIndex"
+                    [colIndex]="ci"
+                    [value]="item.row[col.field]"
+                    [row]="item.row"
+                    [locale]="locale()"
+                    [attr.title]="getCellTitle(col, item.row[col.field])"
+                    [attr.data-cell-row]="item.originalIndex"
+                    [attr.data-cell-col]="ci"
+                    [selected]="isSelected(item.originalIndex, ci)"
+                    [editing]="isEditing(item.originalIndex, ci)"
+                    [seedChar]="getSeedChar(item.originalIndex, ci)"
+                    [class]="getCellClass(col, item.row[col.field], item.row)"
+                    [class.ag-cell--range-selected]="isRangeSelected(item.originalIndex, ci)"
+                    [class.ag-cell--fill-preview]="isFillPreviewCell(item.originalIndex, ci)"
+                    [class.ag-cell--fill-handle]="isFillHandleCell(item.originalIndex, ci)"
+                    [class.ag-cell--find-match]="isFindMatchCell(item.originalIndex, ci)"
+                    [class.ag-cell--find-active]="isActiveFindMatchCell(item.originalIndex, ci)"
+                    [class.ag-cell--pinned]="true"
+                    [class.ag-cell--pinned-first]="isFirstRightPinnedColumn(col.field)"
+                    (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
+                    (activate)="onActivate(item.originalIndex, ci, $event)"
+                    (startEdit)="onStartEdit(item.originalIndex, ci)"
+                    (draftChange)="onDraftChange($event)"
+                    (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)"
+                  />
+                }
+              } @else if (item === null) {
+                <div class="ag-pinned-row-spacer"></div>
+              } @else if (item === 'ghost') {
+                @for (col of rightPinnedColDefs(); track col.field) {
+                  <div class="ag-ghost-cell ag-cell--pinned" [class.ag-cell--pinned-first]="isFirstRightPinnedColumn(col.field)">{{ getGhostCellDisplay(col) }}</div>
+                }
+              } @else {
+                <div class="ag-pinned-group-spacer"></div>
+              }
+            </div>
+          </cdk-virtual-scroll-viewport>
+
+          @if (showFooter()) {
+            <div class="ag-footer" [style.grid-template-columns]="rightGridTemplateColumns()">
+              @for (col of rightPinnedColDefs(); track col.field) {
+                <div class="ag-footer-cell" [class.ag-footer-cell--pinned-first]="isFirstRightPinnedColumn(col.field)">
+                  @if (col.aggregate) {
+                    <span class="ag-footer-label">{{ getAggregateLabel(col) }}</span>
+                    {{ getFooterDisplay(col, footerValues()[col.field]) }}
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
     </div>
 
     @if (loading()) {
@@ -479,7 +610,7 @@
       [header]="getColDef(menu.field)?.header ?? menu.field"
       [sortDir]="getSort(menu.field)"
       [showColumnActions]="!!control()"
-      [pinned]="isColumnPinned(menu.field)"
+      [pinned]="getColumnPinState(menu.field)"
       [groupable]="!!getColDef(menu.field)?.groupable"
       [grouped]="isGroupedByField(menu.field)"
       [filterable]="!!getColDef(menu.field)?.filterable"
@@ -493,6 +624,7 @@
       (resetSort)="onMenuResetSort(menu.field, $event)"
       (autosize)="onMenuAutosizeColumn(menu.field)"
       (togglePin)="onMenuTogglePin(menu.field)"
+      (togglePinRight)="onMenuTogglePinRight(menu.field)"
       (hide)="onMenuHideColumn(menu.field)"
       (toggleGroup)="onMenuToggleGroupBy(menu.field)"
       (clearFilter)="onMenuClearFilter(menu.field)"

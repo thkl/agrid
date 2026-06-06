@@ -799,7 +799,8 @@ export class AgridComponent {
       this._seededControls.add(ctrl);
       for (const col of cols) {
         if (col.hidden) ctrl.setColumnVisibility(col.field, false);
-        if (col.pinned === 'left') ctrl.setPinned(col.field, true);
+        if (col.pinned === 'left')  ctrl.setPinned(col.field, true);
+        if (col.pinned === 'right') ctrl.setPinnedRight(col.field, true);
       }
     });
   }
@@ -1381,7 +1382,8 @@ export class AgridComponent {
   openFilterMenu(event: MouseEvent, field: string): void {
     event.stopPropagation();
     this.filterMenuSearch.set('');
-    this.filterMenu.set({ field, x: event.clientX, y: event.clientY });
+    const x = Math.min(event.clientX, window.innerWidth - 220);
+    this.filterMenu.set({ field, x, y: event.clientY });
   }
 
   /** @internal */
@@ -1454,6 +1456,16 @@ export class AgridComponent {
     const offset = this.viewport().measureScrollOffset();
     this.pinnedViewport()?.scrollToOffset(offset);
     this.rightPinnedViewport()?.scrollToOffset(offset);
+  }
+
+  /** @internal */
+  onRightPinnedBodyScroll(): void {
+    const right = this.rightPinnedViewport();
+    if (!right) return;
+    const offset = right.measureScrollOffset();
+    if (Math.abs(offset - this.viewport().measureScrollOffset()) < 1) return;
+    this.viewport().scrollToOffset(offset);
+    this.pinnedViewport()?.scrollToOffset(offset);
   }
 
   /** @internal */

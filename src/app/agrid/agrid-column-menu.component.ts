@@ -39,8 +39,8 @@ export class AgridColumnMenuComponent {
   /** Whether stateful column actions should be shown. */
   showColumnActions = input<boolean>(false);
 
-  /** Whether the active column is currently pinned. */
-  pinned = input<boolean>(false);
+  /** Current pin state of the active column. */
+  pinned = input<'left' | 'right' | false>(false);
 
   /** Whether the active column supports grouping. */
   groupable = input<boolean>(false);
@@ -78,8 +78,11 @@ export class AgridColumnMenuComponent {
   /** Requests autosizing the active column. */
   autosize = output<void>();
 
-  /** Requests toggling pin state for the active column. */
+  /** Requests toggling left-pin for the active column. */
   togglePin = output<void>();
+
+  /** Requests toggling right-pin for the active column. */
+  togglePinRight = output<void>();
 
   /** Requests hiding the active column. */
   hide = output<void>();

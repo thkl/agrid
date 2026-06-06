@@ -38,9 +38,14 @@
       <button class="ag-filter-menu-item" (click)="autosize.emit()">↔ {{ localeText().autosizeColumn }}</button>
       <button
         class="ag-filter-menu-item"
-        [class.ag-filter-menu-item--active]="pinned()"
+        [class.ag-filter-menu-item--active]="pinned() === 'left'"
         (click)="togglePin.emit()"
-      >⊣ {{ pinned() ? localeText().unpinColumn : localeText().pinColumn }}</button>
+      >⊣ {{ pinned() === 'left' ? localeText().unpinColumn : localeText().pinColumn }}</button>
+      <button
+        class="ag-filter-menu-item"
+        [class.ag-filter-menu-item--active]="pinned() === 'right'"
+        (click)="togglePinRight.emit()"
+      >⊢ {{ pinned() === 'right' ? localeText().unpinColumnRight : localeText().pinColumnRight }}</button>
       <button class="ag-filter-menu-item" (click)="hide.emit()">{{ localeText().hideColumn }}</button>
     </div>
   }

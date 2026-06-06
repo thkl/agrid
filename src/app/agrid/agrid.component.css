@@ -263,6 +263,18 @@
   overflow: hidden;
 }
 
+.ag-right-pinned-body {
+  overflow-y: auto;
+}
+
+.ag-has-right-pane .ag-body:not(.ag-pinned-body) {
+  scrollbar-width: none;
+}
+
+.ag-has-right-pane .ag-body:not(.ag-pinned-body)::-webkit-scrollbar {
+  display: none;
+}
+
 .ag-sidebar-tab {
   width: 24px;
   flex-shrink: 0;
@@ -374,6 +386,17 @@
 }
 :host(.ag-zebra) .ag-row--odd.ag-row--selected .ag-cell--pinned,
 :host(.ag-zebra) .ag-row--odd.ag-row--selected .ag-control-cell {
+  background: var(--agrid-color-accent-subtle);
+}
+
+/* Zebra for right-pinned pane (same rules, pinned-first has no special shadow) */
+:host(.ag-zebra) .ag-row--odd .ag-cell--pinned-first {
+  background: var(--agrid-color-bg-stripe);
+}
+:host(.ag-zebra) .ag-row--odd:hover .ag-cell--pinned-first {
+  background: var(--agrid-color-bg-muted);
+}
+:host(.ag-zebra) .ag-row--odd.ag-row--selected .ag-cell--pinned-first {
   background: var(--agrid-color-accent-subtle);
 }
 
@@ -782,12 +805,22 @@
 
 /* ── Pinned columns ─────────────────────────────────────────────────────── */
 
+.ag-pinned-pane--right {
+  border-left: 1px solid var(--agrid-color-border);
+  border-right: none;
+  box-shadow: -3px 0 6px -2px var(--agrid-color-shadow);
+}
+
 .ag-header-cell--pinned {
   background: var(--agrid-color-bg-muted);
 }
 
 .ag-header-cell--pinned-last {
   box-shadow: inset -1px 0 0 var(--agrid-color-border), 3px 0 6px -2px var(--agrid-color-shadow);
+}
+
+.ag-header-cell--pinned-first {
+  box-shadow: none;
 }
 
 .ag-filter-cell--pinned {
@@ -798,12 +831,20 @@
   box-shadow: inset -1px 0 0 var(--agrid-color-border), 3px 0 6px -2px var(--agrid-color-shadow);
 }
 
+.ag-filter-cell--pinned-first {
+  box-shadow: none;
+}
+
 .ag-cell--pinned {
   background: var(--agrid-color-bg);
 }
 
 .ag-cell--pinned-last {
   box-shadow: inset -1px 0 0 var(--agrid-color-border), 3px 0 6px -2px var(--agrid-color-shadow);
+}
+
+.ag-cell--pinned-first {
+  box-shadow: none;
 }
 
 .ag-row:hover .ag-cell--pinned {
