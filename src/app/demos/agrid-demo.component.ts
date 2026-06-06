@@ -170,7 +170,7 @@ export class AgridDemoComponent {
   readonly ds = new AgridDataSource(generateRows(50));
   readonly gridControl = new AgridControl({ allowRowReorder: false , pageSize:20 });
   readonly gridProvider = new AgridProvider({
-    locale: 'de-DE',
+    locale: 'en-US',
     columns: this.columns,
     datasource: this.ds,
     control: this.gridControl,
