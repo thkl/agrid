@@ -3,6 +3,12 @@ export type AgridLocaleKey = 'en' | 'de';
 export interface AgridLocaleText {
   actions: string;
   addRow: string;
+  aggregate: string;
+  aggregateAvg: string;
+  aggregateCount: string;
+  aggregateMax: string;
+  aggregateMin: string;
+  aggregateSum: string;
   autosizeColumn: string;
   blank: string;
   clearAllFilters: string;
@@ -11,11 +17,15 @@ export interface AgridLocaleText {
   close: string;
   columnMenu: string;
   columns: string;
+  copyCellValue: string;
+  copyRow: string;
   deleteRow: string;
   filterPlaceholder: string;
   findPlaceholder: string;
   groupBy: (header: string) => string;
   hideColumn: string;
+  insertRowAbove: string;
+  insertRowBelow: string;
   loading: string;
   next: string;
   noRows: string;
@@ -36,6 +46,12 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
   en: {
     actions: 'Actions',
     addRow: 'Add row',
+    aggregate: 'Aggregate',
+    aggregateAvg: 'Average',
+    aggregateCount: 'Count',
+    aggregateMax: 'Maximum',
+    aggregateMin: 'Minimum',
+    aggregateSum: 'Sum',
     autosizeColumn: 'Autosize column',
     blank: '(blank)',
     clearAllFilters: 'Clear all filters',
@@ -44,11 +60,15 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     close: 'Close',
     columnMenu: 'Column menu',
     columns: 'Columns',
+    copyCellValue: 'Copy cell',
+    copyRow: 'Copy row',
     deleteRow: 'Delete row',
     filterPlaceholder: 'Filter...',
     findPlaceholder: 'Find',
     groupBy: header => `Group by ${header}`,
     hideColumn: 'Hide column',
+    insertRowAbove: 'Insert row above',
+    insertRowBelow: 'Insert row below',
     loading: 'Loading...',
     next: 'Next',
     noRows: 'No rows to display',
@@ -65,6 +85,12 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
   de: {
     actions: 'Aktionen',
     addRow: 'Zeile hinzufügen',
+    aggregate: 'Aggregat',
+    aggregateAvg: 'Durchschnitt',
+    aggregateCount: 'Anzahl',
+    aggregateMax: 'Maximum',
+    aggregateMin: 'Minimum',
+    aggregateSum: 'Summe',
     autosizeColumn: 'Spaltenbreite anpassen',
     blank: '(leer)',
     clearAllFilters: 'Alle Filter löschen',
@@ -73,11 +99,15 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     close: 'Schließen',
     columnMenu: 'Spaltenmenü',
     columns: 'Spalten',
+    copyCellValue: 'Zelle kopieren',
+    copyRow: 'Zeile kopieren',
     deleteRow: 'Zeile löschen',
     filterPlaceholder: 'Filtern...',
     findPlaceholder: 'Suchen',
     groupBy: header => `Nach ${header} gruppieren`,
     hideColumn: 'Spalte ausblenden',
+    insertRowAbove: 'Zeile darüber einfügen',
+    insertRowBelow: 'Zeile darunter einfügen',
     loading: 'Wird geladen...',
     next: 'Weiter',
     noRows: 'Keine Zeilen vorhanden',

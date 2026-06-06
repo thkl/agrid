@@ -2,6 +2,20 @@ export interface AGridOptions {
   locale: string;
 }
 
+/**
+ * A single item in the cell right-click context menu.
+ * Pass `null` in the array to render a separator line.
+ */
+export interface CellContextMenuItem {
+  /** Label shown in the menu. */
+  label: string;
+  /** Called when the item is clicked. */
+  action: (params: { value: unknown; row: Record<string, unknown>; field: string; originalIndex: number }) => void;
+  /** Grays out the item and prevents clicks. */
+  disabled?: boolean;
+  /** Renders the item in red (destructive action). */
+  danger?: boolean;
+}
 
 /**
  * A structured value option used when the data field stores a raw value (e.g. a numeric ID)

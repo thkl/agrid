@@ -33,7 +33,7 @@ import {
 } from './agrid.utils';
 import { ColumnFilter, HistoryEntry, HistoryItem } from './agrid-control';
 import {
-  CellPosition, ColDef, GridEditEvent, GridItem, GroupAction,
+  CellContextMenuItem, CellPosition, ColDef, GridEditEvent, GridItem, GroupAction,
   NewRecord, PageChangeEvent, RowClickEvent, RowRemovedEvent, RowReorderEvent, RowSelectEvent, ValueOption,
 } from './agrid.types';
 
@@ -111,6 +111,13 @@ export class AgridComponent {
 
   /** Actions shown in the group header's `⋮` menu. */
   groupActions = input<GroupAction[]>([]);
+
+  /**
+   * Extra items appended to the cell right-click context menu below the built-in ones.
+   * Pass `null` entries to insert separator lines.
+   * Receives `{ value, row, field, originalIndex }` for each item's action.
+   */
+  cellMenuItems = input<(CellContextMenuItem | null)[]>([]);
 
   /** Shade every other row slightly for easier reading. @default false */
   zebraStripes = input<boolean>(false);
@@ -545,6 +552,12 @@ export class AgridComponent {
   // ── Menu signals ─────────────────────────────────────────────────────────────
 
   readonly contextMenu    = signal<{ x: number; y: number; rowIndex: number } | null>(null);
+  readonly cellContextMenuState = signal<{
+    x: number; y: number;
+    rowIndex: number; colIndex: number;
+    field: string; value: unknown;
+    row: Record<string, unknown>;
+  } | null>(null);
   readonly filterMenu     = signal<{ field: string; x: number; y: number } | null>(null);
   readonly groupActionsMenu = signal<{ x: number; y: number; label: string } | null>(null);
   readonly filterMenuSearch = signal<string>('');
@@ -1204,6 +1217,40 @@ export class AgridComponent {
 
   /** @internal */
   closeContextMenu(): void { this.contextMenu.set(null); }
+
+  /** @internal */
+  onCellContextMenu(event: MouseEvent, rowIndex: number, colIndex: number, col: ColDef, row: Record<string, unknown>): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeContextMenu();
+    this.closeFilterMenu();
+    this.closeGroupActionsMenu();
+    this.cellContextMenuState.set({ x: event.clientX, y: event.clientY, rowIndex, colIndex, field: col.field, value: row[col.field], row });
+  }
+
+  /** @internal */
+  closeCellContextMenu(): void { this.cellContextMenuState.set(null); }
+
+  /** @internal Copy the display value of one cell to the clipboard. */
+  copyCellToClipboard(value: unknown, col: ColDef): void {
+    navigator.clipboard.writeText(getDisplayForField(col, value));
+    this.closeCellContextMenu();
+  }
+
+  /** @internal Copy all visible column values of a row as TSV to the clipboard. */
+  copyRowToClipboard(row: Record<string, unknown>): void {
+    const text = this.visibleColDefs().map(c => getDisplayForField(c, row[c.field])).join('\t');
+    navigator.clipboard.writeText(text);
+    this.closeCellContextMenu();
+  }
+
+  /** @internal Insert a blank row at a specific position and emit prepareAddRecord. */
+  insertRowAt(atIndex: number): void {
+    const emptyRow = this.buildEmptyRow();
+    const insertedIndex = this.dataSource().addRow(emptyRow, atIndex);
+    this.prepareAddRecord.emit({ index: insertedIndex, data: emptyRow });
+    this.closeCellContextMenu();
+  }
 
   /** Delete the row at `originalIndex`, adjusting stale cell/edit pointers. */
   deleteRow(originalIndex: number): void {

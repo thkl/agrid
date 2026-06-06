@@ -34,9 +34,9 @@
 
   @if (showColumnActions()) {
     <div class="ag-filter-menu-section ag-filter-menu-section--border">
-      <span class="ag-filter-menu-aggregate-label">Aggregate</span>
+      <span class="ag-filter-menu-aggregate-label">{{ localeText().aggregate }}</span>
       <div class="ag-filter-menu-aggregate-btns">
-        @for (opt of aggregateOptions; track opt.value) {
+        @for (opt of aggregateOptions(); track opt.value) {
           <button
             class="ag-aggregate-btn"
             [class.ag-aggregate-btn--active]="aggregate() === opt.value"

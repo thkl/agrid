@@ -5,7 +5,7 @@
   (keydown)="onKeyDown($event)"
   (copy)="onCopy($event)"
   (paste)="onPaste($event)"
-  (click)="closeContextMenu(); closeFilterMenu(); closeGroupActionsMenu()"
+  (click)="closeContextMenu(); closeCellContextMenu(); closeFilterMenu(); closeGroupActionsMenu()"
 >
   <div class="ag-main-area">
     <div class="ag-grid-split">
@@ -140,6 +140,7 @@
                     (activate)="onActivate(item.originalIndex, ci, $event)"
                     (startEdit)="onStartEdit(item.originalIndex, ci)"
                     (draftChange)="onDraftChange($event)"
+                    (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)"
                   />
                 }
               } @else if (item === null) {
@@ -286,6 +287,7 @@
                     (activate)="onActivate(item.originalIndex, ci, $event)"
                     (startEdit)="onStartEdit(item.originalIndex, ci)"
                     (draftChange)="onDraftChange($event)"
+                    (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)"
                   />
                 }
               } @else if (item === null) {
@@ -406,6 +408,44 @@
       <button class="ag-context-item ag-context-item--danger" (click)="deleteRow(menu.rowIndex)">
         {{ localeText().deleteRow }}
       </button>
+    </div>
+  }
+
+  <!-- Cell context menu -->
+  @if (cellContextMenuState(); as menu) {
+    @let col = getColDef(menu.field)!;
+    <div
+      class="ag-context-menu"
+      [style.left.px]="menu.x"
+      [style.top.px]="menu.y"
+      (click)="$event.stopPropagation()"
+    >
+      <button class="ag-context-item" (click)="copyCellToClipboard(menu.value, col)">{{ localeText().copyCellValue }}</button>
+      <button class="ag-context-item" (click)="copyRowToClipboard(menu.row)">{{ localeText().copyRow }}</button>
+      @if (allowAddRows() && !readonlyGrid()) {
+        <div class="ag-context-separator"></div>
+        <button class="ag-context-item" (click)="insertRowAt(menu.rowIndex)">{{ localeText().insertRowAbove }}</button>
+        <button class="ag-context-item" (click)="insertRowAt(menu.rowIndex + 1)">{{ localeText().insertRowBelow }}</button>
+      }
+      @if (!readonlyGrid()) {
+        <div class="ag-context-separator"></div>
+        <button class="ag-context-item ag-context-item--danger" (click)="deleteRow(menu.rowIndex); closeCellContextMenu()">{{ localeText().deleteRow }}</button>
+      }
+      @if (cellMenuItems().length) {
+        <div class="ag-context-separator"></div>
+        @for (item of cellMenuItems(); track $index) {
+          @if (item === null) {
+            <div class="ag-context-separator"></div>
+          } @else {
+            <button
+              class="ag-context-item"
+              [class.ag-context-item--danger]="item.danger"
+              [disabled]="item.disabled"
+              (click)="item.action({ value: menu.value, row: menu.row, field: menu.field, originalIndex: menu.rowIndex }); closeCellContextMenu()"
+            >{{ item.label }}</button>
+          }
+        }
+      }
     </div>
   }
 

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from './agrid-localization';
 
 /** Display model for one value-filter option in the column menu. */
@@ -96,11 +96,14 @@ export class AgridColumnMenuComponent {
   /** Emits the aggregate to set, or `null` to clear it. */
   setAggregate = output<'sum' | 'avg' | 'min' | 'max' | 'count' | null>();
 
-  readonly aggregateOptions = [
-    { value: 'sum'   as const, symbol: 'Σ', label: 'Sum' },
-    { value: 'avg'   as const, symbol: 'Ø', label: 'Average' },
-    { value: 'min'   as const, symbol: '↓', label: 'Min' },
-    { value: 'max'   as const, symbol: '↑', label: 'Max' },
-    { value: 'count' as const, symbol: '#', label: 'Count' },
-  ];
+  readonly aggregateOptions = computed(() => {
+    const t = this.localeText();
+    return [
+      { value: 'sum'   as const, symbol: 'Σ', label: t.aggregateSum },
+      { value: 'avg'   as const, symbol: 'Ø', label: t.aggregateAvg },
+      { value: 'min'   as const, symbol: '↓', label: t.aggregateMin },
+      { value: 'max'   as const, symbol: '↑', label: t.aggregateMax },
+      { value: 'count' as const, symbol: '#', label: t.aggregateCount },
+    ];
+  });
 }

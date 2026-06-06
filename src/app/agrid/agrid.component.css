@@ -542,6 +542,12 @@
   background: var(--agrid-color-bg-muted);
 }
 
+.ag-context-separator {
+  height: 1px;
+  background: var(--agrid-color-border);
+  margin: 3px 0;
+}
+
 .ag-context-item--danger {
   color: var(--agrid-color-danger);
 }
