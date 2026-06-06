@@ -2,6 +2,10 @@
 
 `agrid` is an Angular data grid with spreadsheet-like editing, virtual scrolling, filtering, sorting, grouping, column state, pinned columns, selection, clipboard workflows, row operations, pagination, and custom cell renderers.
 
+## Live Demo
+
+[https://thkl.github.io/agrid/](https://thkl.github.io/agrid/)
+
 ## Quick Start
 
 ```ts
