@@ -28,6 +28,10 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 10
+      
+      - run: corepack enable
+
+      - run: pnpm --version
 
       - run: pnpm install --frozen-lockfile
 
