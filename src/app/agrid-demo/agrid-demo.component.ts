@@ -17,7 +17,7 @@ const COLUMNS: ColDef[] = [
       { value: 7, label: 'Operations' },
     ]
   },
-  { field: 'salary', header: 'Salary', width: 100, type: 'number', filterable: true, hidden:true },
+  { field: 'salary', header: 'Salary', width: 100, type: 'number', filterable: true, hidden:true, aggregate: 'sum'},
   { field: 'hiredAt', header: 'Hire Date', width: 130, editable: false },
 ];
 
@@ -168,7 +168,7 @@ function generateRows(count: number): Record<string, unknown>[] {
 export class AgridDemoComponent {
   readonly columns = COLUMNS;
   readonly ds = new AgridDataSource(generateRows(50));
-  readonly gridControl = new AgridControl({ allowRowReorder: true , pageSize:20 });
+  readonly gridControl = new AgridControl({ allowRowReorder: false , pageSize:20 });
   readonly gridProvider = new AgridProvider({
     locale: 'de-DE',
     columns: this.columns,

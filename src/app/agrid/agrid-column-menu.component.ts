@@ -89,4 +89,18 @@ export class AgridColumnMenuComponent {
 
   /** Requests toggling one value-filter option by raw string value. */
   toggleValue = output<string>();
+
+  /** Active aggregate function for this column set via the control, or `null` if none. */
+  aggregate = input<'sum' | 'avg' | 'min' | 'max' | 'count' | null>(null);
+
+  /** Emits the aggregate to set, or `null` to clear it. */
+  setAggregate = output<'sum' | 'avg' | 'min' | 'max' | 'count' | null>();
+
+  readonly aggregateOptions = [
+    { value: 'sum'   as const, symbol: 'Σ', label: 'Sum' },
+    { value: 'avg'   as const, symbol: 'Ø', label: 'Average' },
+    { value: 'min'   as const, symbol: '↓', label: 'Min' },
+    { value: 'max'   as const, symbol: '↑', label: 'Max' },
+    { value: 'count' as const, symbol: '#', label: 'Count' },
+  ];
 }

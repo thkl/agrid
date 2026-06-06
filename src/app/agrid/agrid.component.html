@@ -101,6 +101,7 @@
               [style.height.px]="rowHeight()"
               [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? pinnedGridTemplateColumns() : null"
               (pointerdown)="isDataRowItem(item) && onRowPointerDown($event, item.originalIndex)"
+              (click)="isDataRowItem(item) && onRowClick($event, item)"
             >
               @if (isDataRowItem(item)) {
                 @if (showControlColumn()) {
@@ -132,6 +133,7 @@
                     [class.ag-cell--fill-handle]="isFillHandleCell(item.originalIndex, ci)"
                     [class.ag-cell--find-match]="isFindMatchCell(item.originalIndex, ci)"
                     [class.ag-cell--find-active]="isActiveFindMatchCell(item.originalIndex, ci)"
+                    [class]="getCellClass(col, item.row[col.field], item.row)"
                     [class.ag-cell--pinned]="true"
                     [class.ag-cell--pinned-last]="isLastPinnedColumn(col.field)"
                     (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
@@ -157,6 +159,22 @@
               }
             </div>
           </cdk-virtual-scroll-viewport>
+
+          @if (showFooter()) {
+            <div class="ag-footer" [style.grid-template-columns]="pinnedGridTemplateColumns()">
+              @if (showControlColumn()) {
+                <div class="ag-footer-cell ag-footer-cell--control"></div>
+              }
+              @for (col of pinnedColDefs(); track col.field) {
+                <div class="ag-footer-cell" [class.ag-footer-cell--pinned-last]="isLastPinnedColumn(col.field)">
+                  @if (col.aggregate) {
+                    <span class="ag-footer-label">{{ getAggregateLabel(col) }}</span>
+                    {{ getFooterDisplay(col, footerValues()[col.field]) }}
+                  }
+                </div>
+              }
+            </div>
+          }
         </div>
       }
 
@@ -240,6 +258,7 @@
               [style.height.px]="rowHeight()"
               [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? scrollableGridTemplateColumns() : null"
               (pointerdown)="isDataRowItem(item) && onRowPointerDown($event, item.originalIndex)"
+              (click)="isDataRowItem(item) && onRowClick($event, item)"
             >
               @if (isDataRowItem(item)) {
                 @for (col of scrollableColDefs(); track col.field) {
@@ -260,6 +279,7 @@
                     [class.ag-cell--range-selected]="isRangeSelected(item.originalIndex, ci)"
                     [class.ag-cell--fill-preview]="isFillPreviewCell(item.originalIndex, ci)"
                     [class.ag-cell--fill-handle]="isFillHandleCell(item.originalIndex, ci)"
+                    [class]="getCellClass(col, item.row[col.field], item.row)"
                     [class.ag-cell--find-match]="isFindMatchCell(item.originalIndex, ci)"
                     [class.ag-cell--find-active]="isActiveFindMatchCell(item.originalIndex, ci)"
                     (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
@@ -300,6 +320,23 @@
               }
             </div>
           </cdk-virtual-scroll-viewport>
+
+          @if (showFooter()) {
+            <div
+              class="ag-footer"
+              [style.grid-template-columns]="scrollableGridTemplateColumns()"
+              [style.min-width.px]="scrollableTotalWidth()"
+            >
+              @for (col of scrollableColDefs(); track col.field) {
+                <div class="ag-footer-cell">
+                  @if (col.aggregate) {
+                    <span class="ag-footer-label">{{ getAggregateLabel(col) }}</span>
+                    {{ getFooterDisplay(col, footerValues()[col.field]) }}
+                  }
+                </div>
+              }
+            </div>
+          }
         </div>
       </div>
     </div>
@@ -414,6 +451,8 @@
       (searchChange)="onFilterMenuSearch($event)"
       (toggleAll)="onMenuToggleAll(menu.field)"
       (toggleValue)="onMenuToggleValue(menu.field, $event)"
+      [aggregate]="getEffectiveAggregate(getColDef(menu.field)!)"
+      (setAggregate)="onMenuSetAggregate(menu.field, $event)"
     />
   }
 </div>

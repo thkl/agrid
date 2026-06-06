@@ -81,6 +81,19 @@ export interface ColDef {
    */
   pinned?: 'left';
   /**
+   * Aggregate function shown in the footer row for this column.
+   * Built-in: `'sum'`, `'avg'`, `'min'`, `'max'`, `'count'`.
+   * Pass a custom function to compute any value from the visible row values.
+   * The footer only appears when at least one column has `aggregate` set.
+   *
+   * @example
+   * ```ts
+   * { field: 'salary', aggregate: 'sum' }
+   * { field: 'score',  aggregate: values => values.filter(v => Number(v) > 90).length }
+   * ```
+   */
+  aggregate?: 'sum' | 'avg' | 'min' | 'max' | 'count' | ((values: unknown[]) => unknown);
+  /**
    * Return one or more CSS class names to apply to every cell in this column based on the
    * cell's value and row data. Useful for conditional highlighting without a custom renderer.
    *

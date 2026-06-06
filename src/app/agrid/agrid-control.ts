@@ -59,6 +59,8 @@ export interface AgridControlState {
    * a `(pageChange)` event so the host can fetch the correct slice.
    */
   totalRows?: number;
+  /** Per-field aggregate function set via the column menu. Only built-in string values are serializable. */
+  aggregates?: Record<string, 'sum' | 'avg' | 'min' | 'max' | 'count'>;
 }
 
 /**
@@ -89,6 +91,7 @@ export class AgridControl {
   private readonly _pageSize = signal<number>(0);
   private readonly _currentPage = signal<number>(1);
   private readonly _totalRows = signal<number>(0);
+  private readonly _aggregates = signal<Record<string, 'sum' | 'avg' | 'min' | 'max' | 'count'>>({});
 
   /** @param state Optional initial state, e.g. deserialized from storage. */
   constructor(state?: Partial<AgridControlState>) {
@@ -102,6 +105,7 @@ export class AgridControl {
     if (state?.pageSize) this._pageSize.set(state.pageSize);
     if (state?.currentPage) this._currentPage.set(state.currentPage);
     if (state?.totalRows) this._totalRows.set(state.totalRows);
+    if (state?.aggregates) this._aggregates.set({ ...state.aggregates });
   }
 
   /**
@@ -247,6 +251,24 @@ export class AgridControl {
    * Total server-side row count. `0` means client-side mode (grid slices locally).
    */
   readonly totalRows: Signal<number> = this._totalRows.asReadonly();
+
+  // ── Aggregates ────────────────────────────────────────────────────────────
+
+  /** Per-field aggregate overrides set via the column menu. */
+  readonly aggregates: Signal<Record<string, 'sum' | 'avg' | 'min' | 'max' | 'count'>> = this._aggregates.asReadonly();
+
+  /**
+   * Set or clear the aggregate function for a column.
+   * Pass `null` to remove the aggregate (hides the footer cell for that column).
+   */
+  setAggregate(field: string, fn: 'sum' | 'avg' | 'min' | 'max' | 'count' | null): void {
+    this._aggregates.update(a => {
+      const next = { ...a };
+      if (fn === null) delete next[field];
+      else next[field] = fn;
+      return next;
+    });
+  }
 
   // ── Undo / redo history ────────────────────────────────────────────────────
 
@@ -443,6 +465,7 @@ export class AgridControl {
       pageSize: this._pageSize(),
       currentPage: this._currentPage(),
       totalRows: this._totalRows(),
+      aggregates: { ...this._aggregates() },
     };
   }
 

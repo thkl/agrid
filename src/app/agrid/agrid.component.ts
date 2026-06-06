@@ -271,6 +271,20 @@ export class AgridComponent {
     return col.cellClass?.({ value, row }) ?? '';
   }
 
+  /** @internal Short symbol shown before the footer aggregate value. */
+  getAggregateLabel(col: ColDef): string {
+    if (!col.aggregate || typeof col.aggregate === 'function') return '';
+    return { sum: 'Σ', avg: 'Ø', min: '↓', max: '↑', count: '#' }[col.aggregate] ?? '';
+  }
+
+  /** @internal Formatted footer value — uses the column formatter when set, otherwise locale number. */
+  getFooterDisplay(col: ColDef, value: unknown): string {
+    if (value == null || value === '') return '';
+    if (col.formatter) return col.formatter(value);
+    if (typeof value === 'number') return value.toLocaleString();
+    return String(value);
+  }
+
   // ── Internal signals ─────────────────────────────────────────────────────────
 
   private readonly _localWidths = signal<Record<string, number>>({});
@@ -382,6 +396,50 @@ export class AgridComponent {
   readonly isEmpty = computed(() =>
     !this.loading() && this.filteredItems().every(item => item === null || item === 'ghost' || isGroupHeaderItemFn(item))
   );
+
+  /**
+   * @internal Effective aggregate for the column menu — string values only.
+   * Custom function aggregates from ColDef can't be represented in the menu so they return null.
+   */
+  getEffectiveAggregate(col: ColDef): 'sum' | 'avg' | 'min' | 'max' | 'count' | null {
+    const ctrlAgg = this.control()?.aggregates()[col.field];
+    if (ctrlAgg !== undefined) return ctrlAgg;
+    const colAgg = col.aggregate;
+    return typeof colAgg === 'string' ? colAgg : null;
+  }
+
+  /** True when at least one visible column has an aggregate function (from ColDef or control). */
+  readonly showFooter = computed(() => {
+    const ctrlAggs = this.control()?.aggregates() ?? {};
+    return this.visibleColDefs().some(c => c.aggregate || ctrlAggs[c.field]);
+  });
+
+  /** Computed aggregate value per column field, over currently filtered rows. */
+  readonly footerValues = computed<Record<string, unknown>>(() => {
+    const rows = this.dataSource().rows();
+    const indices = this._filteredSortedIndices();
+    const result: Record<string, unknown> = {};
+    for (const col of this.visibleColDefs()) {
+      // Resolve full aggregate type (including custom functions from ColDef)
+      const ctrlAgg = this.control()?.aggregates()[col.field];
+      const agg: ColDef['aggregate'] = ctrlAgg ?? col.aggregate;
+      if (!agg) continue;
+      const values = indices.map(i => rows[i][col.field]);
+      if (typeof agg === 'function') {
+        result[col.field] = agg(values);
+      } else {
+        const nums = values.map(Number).filter(n => !isNaN(n));
+        switch (agg) {
+          case 'sum':   result[col.field] = nums.reduce((a, b) => a + b, 0); break;
+          case 'avg':   result[col.field] = nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null; break;
+          case 'min':   result[col.field] = nums.length ? Math.min(...nums) : null; break;
+          case 'max':   result[col.field] = nums.length ? Math.max(...nums) : null; break;
+          case 'count': result[col.field] = values.filter(v => v != null && v !== '').length; break;
+        }
+      }
+    }
+    return result;
+  });
 
   readonly gridTemplateColumns = computed(() => {
     const ctrl = this.control();
@@ -842,6 +900,12 @@ export class AgridComponent {
     this.selectRowFromPointer(event, originalIndex, true);
   }
 
+  /** @internal Emits rowClick when the user single-clicks a data row outside of a cell editor. */
+  onRowClick(event: MouseEvent, item: { row: Record<string, unknown>; originalIndex: number }): void {
+    if (this.editingCell()) return;
+    this.rowClick.emit({ row: item.row, originalIndex: item.originalIndex });
+  }
+
   private selectRowFromPointer(event: PointerEvent, originalIndex: number, allowDragSelect: boolean): void {
     const mode = this.rowSelection();
     if (mode === 'none' || event.button !== 0) return;
@@ -1296,6 +1360,12 @@ export class AgridComponent {
     const col = this.getColDef(field);
     if (!col) return;
     this.setColumnWidth(field, this.measureAutosizeWidth(col));
+    this.closeFilterMenu();
+  }
+
+  /** @internal */
+  onMenuSetAggregate(field: string, agg: 'sum' | 'avg' | 'min' | 'max' | 'count' | null): void {
+    this.control()?.setAggregate(field, agg);
     this.closeFilterMenu();
   }
 
