@@ -995,7 +995,7 @@ export class AgridComponent {
       );
       this._emitRowSelect();
     } else {
-      event.preventDefault();
+      if (!(event.target instanceof HTMLSelectElement)) event.preventDefault();
       this._selectedIndices.set(new Set([originalIndex]));
       this._selectionPivot = originalIndex;
       if (allowDragSelect) this.dragHandler.startDragSelect(originalIndex);
