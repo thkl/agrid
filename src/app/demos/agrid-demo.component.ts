@@ -1,12 +1,13 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, signal, viewChild } from '@angular/core';
 import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef, GridEditEvent, GroupAction, NewRecord, RowReorderEvent, RowSelectEvent } from '../agrid';
+import { ColDefAutoSize } from '../agrid/agrid.types';
 
 const COLUMNS: ColDef[] = [
-  { field: 'id', header: 'ID', width: 70, editable: false},
-  { field: 'firstName', header: 'First Name', width: 140, filterable: true },
-  { field: 'lastName', header: 'Last Name', width: 140, filterable: true  ,groupable: true},
-  { field: 'email', header: 'Email', width: 240 },
-  { field: 'departmentId', header: 'Department', width: 130, filterable: true, groupable: true,
+  { field: 'id', header: 'ID', width: ColDefAutoSize, editable: false},
+  { field: 'firstName', header: 'First Name', width: ColDefAutoSize, filterable: true },
+  { field: 'lastName', header: 'Last Name', width: ColDefAutoSize, filterable: true  ,groupable: true},
+  { field: 'email', header: 'Email', width: ColDefAutoSize },
+  { field: 'departmentId', header: 'Department', width: ColDefAutoSize, filterable: true, groupable: true,
     values: [
       { value: 1, label: 'Engineering' },
       { value: 2, label: 'Sales' },
@@ -17,8 +18,8 @@ const COLUMNS: ColDef[] = [
       { value: 7, label: 'Operations' },
     ]
   },
-  { field: 'salary', header: 'Salary', width: 100, type: 'number', filterable: true, hidden:true, aggregate: 'sum'},
-  { field: 'hiredAt', header: 'Hire Date', width: 130, editable: false },
+  { field: 'salary', header: 'Salary', width: ColDefAutoSize, type: 'number', filterable: true, hidden:true, aggregate: 'sum'},
+  { field: 'hiredAt', header: 'Hire Date', width: ColDefAutoSize, editable: false },
 ];
 
 const FIRST_NAMES = ['Alice', 'Bob', 'Carol', 'David', 'Emma', 'Frank', 'Grace', 'Henry', 'Iris', 'Jack'];

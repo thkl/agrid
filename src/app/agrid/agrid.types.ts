@@ -36,14 +36,19 @@ export interface ValueOption {
   label: string;
 }
 
+export const ColDefAutoSize = -1
+
 /** Defines a single column in the grid. */
 export interface ColDef {
   /** Data field name — must match a key in the row object. */
   field: string;
   /** Text displayed in the column header. */
   header: string;
-  /** Default column width in pixels. Can be overridden at runtime via {@link AgridControl}. */
-  width: number;
+  /**
+   * Default column width in pixels. Can be overridden at runtime via {@link AgridControl}.
+   * Use `-1` (or omit) to make the column auto-scale and fill available space (`1fr`).
+   */
+  width?: number;
   /**
    * Semantic type of the field.
    * - `'number'` — blank rows initialize this field to `0` instead of `''`.

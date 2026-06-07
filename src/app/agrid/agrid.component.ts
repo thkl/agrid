@@ -364,7 +364,7 @@ export class AgridComponent {
   });
 
   readonly rightGridTemplateColumns = computed(() =>
-    this.rightPinnedColDefs().map(c => `${this.getColumnWidth(c)}px`).join(' ')
+    this.rightPinnedColDefs().map(c => this.getColumnWidthToken(c)).join(' ')
   );
 
   readonly rightPinnedPaneWidth = computed(() =>
@@ -472,31 +472,22 @@ export class AgridComponent {
   });
 
   readonly gridTemplateColumns = computed(() => {
-    const ctrl = this.control();
-    const ctrlWidths = ctrl ? ctrl.columnWidths() : {};
-    const localWidths = this._localWidths();
-    const cols = this.visibleColDefs()
-      .map(c => `${ctrlWidths[c.field] ?? localWidths[c.field] ?? c.width}px`).join(' ');
+    const cols = this.visibleColDefs().map(c => this.getColumnWidthToken(c)).join(' ');
     return this.showControlColumn() ? `24px ${cols}` : cols;
   });
 
   readonly pinnedGridTemplateColumns = computed(() => {
-    const cols = this.pinnedColDefs().map(c => `${this.getColumnWidth(c)}px`).join(' ');
+    const cols = this.pinnedColDefs().map(c => this.getColumnWidthToken(c)).join(' ');
     if (this.showControlColumn()) return cols ? `24px ${cols}` : '24px';
     return cols;
   });
 
   readonly scrollableGridTemplateColumns = computed(() =>
-    this.scrollableColDefs().map(c => `${this.getColumnWidth(c)}px`).join(' ')
+    this.scrollableColDefs().map(c => this.getColumnWidthToken(c)).join(' ')
   );
 
   readonly totalWidth = computed(() => {
-    const ctrl = this.control();
-    const ctrlWidths = ctrl ? ctrl.columnWidths() : {};
-    const localWidths = this._localWidths();
-    const w = this.visibleColDefs().reduce(
-      (sum, c) => sum + (ctrlWidths[c.field] ?? localWidths[c.field] ?? c.width), 0
-    );
+    const w = this.visibleColDefs().reduce((sum, c) => sum + this.getColumnWidth(c), 0);
     return this.showControlColumn() ? w + 24 : w;
   });
 
@@ -1995,7 +1986,17 @@ export class AgridComponent {
   private getColumnWidth(col: ColDef): number {
     const ctrlWidths = this.control()?.columnWidths() ?? {};
     const localWidths = this._localWidths();
-    return ctrlWidths[col.field] ?? localWidths[col.field] ?? col.width;
+    const w = ctrlWidths[col.field] ?? localWidths[col.field];
+    if (w != null) return w;
+    return (col.width == null || col.width === -1) ? 0 : col.width;
+  }
+
+  private getColumnWidthToken(col: ColDef): string {
+    const ctrlWidths = this.control()?.columnWidths() ?? {};
+    const localWidths = this._localWidths();
+    const override = ctrlWidths[col.field] ?? localWidths[col.field];
+    if (override != null) return `${override}px`;
+    return (col.width == null || col.width === -1) ? '1fr' : `${col.width}px`;
   }
 
   private setColumnWidth(field: string, width: number): void {
