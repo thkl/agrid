@@ -8,7 +8,6 @@ export interface AgridProviderConfig<T extends Record<string, unknown> = Record<
   datasource?: AgridDataSource<T>;
   control?: AgridControl;
   columns?: ColDef[];
-  localization?: AgridLocaleTextOverrides;
   /** Row height in pixels. Must be fixed for CDK virtual scroll. @default 32 */
   rowHeight?: number;
   /** Minimum height of the grid host element (e.g. `'200px'`). */
@@ -56,7 +55,26 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
   control: AgridControl;
   columns: ColDef[];
   options: AGridOptions;
-  localization?: AgridLocaleTextOverrides;
+
+  private readonly _localizations = new Map<string, AgridLocaleTextOverrides>();
+
+  /** Read-only view of registered per-locale text overrides. Used by the grid to resolve locale text. */
+  get localizations(): ReadonlyMap<string, AgridLocaleTextOverrides> {
+    return this._localizations;
+  }
+
+  /**
+   * Register locale-specific label overrides. Call multiple times for multiple locales.
+   * When `locale` is `'auto'`, the grid matches the browser language against registered locales
+   * (exact match first, then primary-language match, e.g. `'fr'` matches a browser locale of `'fr-FR'`).
+   *
+   * @example
+   * provider.addLocalization('fr-FR', { addRow: 'Ajouter une ligne', noRows: 'Aucune donnée' });
+   */
+  addLocalization(locale: string, overrides: AgridLocaleTextOverrides): this {
+    this._localizations.set(locale, overrides);
+    return this;
+  }
 
   // Static display / behaviour options
   rowHeight: number;
@@ -81,11 +99,10 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
   /** Toggle readonly mode without recreating the provider. @default signal(false) */
   readonly readonlyGrid: WritableSignal<boolean>;
   constructor(config: AgridProviderConfig<T> = {}) {
-    this.options      = { locale: config.locale ?? 'en-US' };
+    this.options      = { locale: config.locale ?? 'auto' };
     this.datasource   = config.datasource ?? new AgridDataSource<T>([]);
     this.control      = config.control ?? new AgridControl({ allowRowReorder: true });
     this.columns      = config.columns ?? [];
-    this.localization = config.localization;
 
     this.rowHeight        = config.rowHeight ?? 32;
     this.minHeight        = config.minHeight;

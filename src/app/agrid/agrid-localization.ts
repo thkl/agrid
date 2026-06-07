@@ -138,11 +138,29 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
   },
 };
 
+/** Resolves 'auto' to the browser's navigator.language, falling back to 'en-US'. */
+export function resolveLocale(locale: string): string {
+  if (locale !== 'auto') return locale;
+  return (typeof navigator !== 'undefined' ? navigator.language : null) ?? 'en-US';
+}
+
 export function resolveAgridLocaleText(
   locale: string | undefined,
-  overrides: AgridLocaleTextOverrides | undefined,
+  localizations: ReadonlyMap<string, AgridLocaleTextOverrides>,
 ): AgridLocaleText {
-  const normalized = locale?.toLowerCase() ?? '';
+  const resolved = resolveLocale(locale ?? 'auto');
+  const normalized = resolved.toLowerCase();
+  const primaryTag = normalized.split('-')[0];
+
   const base = normalized.startsWith('de') ? AGRID_LOCALE_TEXT.de : AGRID_LOCALE_TEXT.en;
+
+  // Prefer exact match (case-insensitive), fall back to primary-language match (e.g. 'fr' matches 'fr-FR')
+  let overrides: AgridLocaleTextOverrides | undefined;
+  for (const [key, value] of localizations) {
+    const k = key.toLowerCase();
+    if (k === normalized) { overrides = value; break; }
+    if (!overrides && k.split('-')[0] === primaryTag) { overrides = value; }
+  }
+
   return { ...base, ...overrides };
 }

@@ -102,34 +102,39 @@ export class PageComponent {
 
 ## Localization
 
-Set `locale` on `AgridProvider` to select built-in grid text and date formatting. Built-in text currently supports English (`en-*`) and German (`de-*`).
+Set `locale` on `AgridProvider` to control built-in grid text and date formatting. Built-in text supports English (`en-*`) and German (`de-*`).
+
+The default is `'auto'`, which reads `navigator.language` from the browser and falls back to `'en-US'` if the browser language is not supported.
 
 ```ts
-readonly gridProvider = new AgridProvider({
-  locale: 'de-DE',
-  columns: this.columns,
-  datasource: this.ds,
-  control: this.gridControl,
-});
+// Auto-detect browser language (default — no need to set locale explicitly)
+readonly gridProvider = new AgridProvider({ ... });
+
+// Pin to a specific locale
+readonly gridProvider = new AgridProvider({ locale: 'de-DE', ... });
 ```
 
-Override any label with `localization`:
+### Adding custom locale text
+
+Use `addLocalization(locale, overrides)` to register label overrides for one or more locales. When `locale` is `'auto'`, the grid matches the browser language against all registered locales — exact match first, then primary-language match (e.g. a registered `'fr'` locale matches a browser locale of `'fr-FR'` or `'fr-BE'`).
 
 ```ts
-readonly gridProvider = new AgridProvider({
-  locale: 'en-US',
-  columns: this.columns,
-  datasource: this.ds,
-  control: this.gridControl,
-  localization: {
-    addRow: 'New employee',
-    rows: count => `${count} records`,
-    groupBy: header => `Group by ${header}`,
-  },
-});
+readonly gridProvider = new AgridProvider({ ... })
+  .addLocalization('fr-FR', {
+    addRow: 'Ajouter une ligne',
+    noRows: 'Aucune donnée',
+    rows: count => `${count} enregistrement${count === 1 ? '' : 's'}`,
+    groupBy: header => `Grouper par ${header}`,
+  })
+  .addLocalization('nl-NL', {
+    addRow: 'Rij toevoegen',
+    noRows: 'Geen rijen',
+  });
 ```
 
-The exported `AgridLocaleTextOverrides` type can be used to type shared localization objects.
+`addLocalization` returns the provider so calls can be chained. Partial overrides are merged on top of the built-in base bundle for that locale — you only need to supply the labels you want to change.
+
+The `AgridLocaleTextOverrides` type covers all overridable labels.
 
 ### Outputs
 
@@ -164,7 +169,7 @@ readonly gridProvider = new AgridProvider({
 | `columns` | `ColDef[]` | `[]` | Column definitions. |
 | `datasource` | `AgridDataSource` | New empty datasource | Row data container. |
 | `control` | `AgridControl` | New default control | Manages filters, sort, grouping, pagination, and undo/redo. |
-| `locale` | `string` | `'en-US'` | BCP-47 locale tag used for built-in grid text and date formatting. |
+| `locale` | `string` | `'auto'` | BCP-47 locale tag for grid text and date formatting. `'auto'` reads `navigator.language` and falls back to `'en-US'`. |
 | `localization` | `AgridLocaleTextOverrides` | `undefined` | Overrides individual labels. See [Localization](#localization). |
 | `rowHeight` | `number` | `32` | Fixed row height in pixels. Required by CDK virtual scroll. |
 | `minHeight` | `string` | `undefined` | CSS min-height for the virtual body. Example: `'200px'`. |

@@ -19,7 +19,7 @@ import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridDragHandler } from './agrid-drag.handler';
 import { AgridFindPanelComponent } from './agrid-find-panel.component';
-import { AgridLocaleText, resolveAgridLocaleText } from './agrid-localization';
+import { AgridLocaleText, resolveAgridLocaleText, resolveLocale } from './agrid-localization';
 import { AgridProvider } from './agrid-provider';
 import { AgridResizeHandler } from './agrid-resize.handler';
 import {
@@ -113,12 +113,12 @@ export class AgridComponent {
   /** Grid UI state container from the active provider. */
   readonly control = computed<AgridControl | null>(() => this.provider().control);
 
-  /** Locale code used for date formatting and built-in localization lookup. */
-  readonly locale = computed<string>(() => this.provider().options.locale);
+  /** Resolved locale code used for date formatting and built-in localization lookup. 'auto' is replaced with navigator.language. */
+  readonly locale = computed<string>(() => resolveLocale(this.provider().options.locale));
 
   /** Resolved built-in locale text merged with provider customizations. */
   readonly localeText = computed<AgridLocaleText>(() =>
-    resolveAgridLocaleText(this.locale(), this.provider().localization)
+    resolveAgridLocaleText(this.provider().options.locale, this.provider().localizations)
   );
 
   /** Effective empty-state label. */
