@@ -1918,12 +1918,12 @@ export class AgridComponent {
   }
 
   private pasteTextAtSelection(text: string): void {
-    const start = this.selectedCell();
-    if (!start) return;
+    const bounds = this.getActiveSelectionBounds();
+    if (!bounds) return;
+    const start = this.positionFromVisibleCell(bounds.rowStart, bounds.colStart);
     const rows = this.parseDelimitedText(text);
     if (rows.length === 0) return;
-    const displayStart = this.findDisplayIndex(start.rowIndex);
-    if (displayStart < 0) return;
+    const displayStart = bounds.rowStart;
     const items = this.filteredItems();
     const cols = this.visibleColDefs();
     let lastPosition = start;

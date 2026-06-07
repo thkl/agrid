@@ -156,6 +156,30 @@ describe('AgridComponent Tab navigation', () => {
     expect(visibleDataRows(component.filteredItems()).map(item => item.row['name'])).toEqual(['Bob']);
     expect(refreshSpy).toHaveBeenCalled();
   });
+
+  it('pastes into the top-left cell of a multi-cell selection', () => {
+    provider.datasource.setData([
+      { name: 'Alice', department: 'Engineering' },
+      { name: 'Bob', department: 'Sales' },
+    ]);
+    fixture.detectChanges();
+    component.selectedCell.set({ rowIndex: 1, colIndex: 1 });
+    component.selectedRange.set({
+      anchor: { rowIndex: 0, colIndex: 0 },
+      focus: { rowIndex: 1, colIndex: 1 },
+    });
+
+    component.onPaste(clipboardEvent('Carol\tMarketing\nDavid\tFinance'));
+
+    expect(provider.datasource.rows()).toEqual([
+      { name: 'Carol', department: 'Marketing' },
+      { name: 'David', department: 'Finance' },
+    ]);
+    expect(component.selectedRange()).toEqual({
+      anchor: { rowIndex: 0, colIndex: 0 },
+      focus: { rowIndex: 1, colIndex: 1 },
+    });
+  });
 });
 
 function visibleDataRows(
@@ -177,4 +201,13 @@ function primaryPointerEvent(): PointerEvent {
     preventDefault: () => undefined,
     stopPropagation: () => undefined,
   } as unknown as PointerEvent;
+}
+
+function clipboardEvent(text: string): ClipboardEvent {
+  return {
+    clipboardData: {
+      getData: () => text,
+    },
+    preventDefault: () => undefined,
+  } as unknown as ClipboardEvent;
 }
