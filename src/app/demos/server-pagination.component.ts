@@ -50,9 +50,6 @@ const COLUMNS: ColDef[] = [
       <agrid
         class="demo-grid"
         [provider]="provider"
-        [loading]="loading()"
-        [zebraStripes]="true"
-        emptyText="No orders found"
         (pageChange)="onPageChange($event)"
       />
     </div>
@@ -73,9 +70,14 @@ export class ServerPaginationDemoComponent {
 
   readonly ds   = new AgridDataSource<Record<string, unknown>>([]);
   readonly ctrl = new AgridControl({ pageSize: PAGE_SIZE });
-  readonly provider = new AgridProvider({ columns: COLUMNS, datasource: this.ds, control: this.ctrl });
+  readonly provider = new AgridProvider({
+    columns: COLUMNS,
+    datasource: this.ds,
+    control: this.ctrl,
+    zebraStripes: true,
+    emptyText: 'No orders found',
+  });
 
-  readonly loading   = signal(false);
   readonly lastFetch = signal('');
   readonly _grid = viewChild(AgridComponent);
 
@@ -85,10 +87,10 @@ export class ServerPaginationDemoComponent {
   }
 
   onPageChange(event: PageChangeEvent): void {
-    this.loading.set(true);
+    this.provider.loading.set(true);
     setTimeout(() => {
       this.ds.setData(ALL_ROWS.slice(event.startRow, event.endRow + 1));
-      this.loading.set(false);
+      this.provider.loading.set(false);
       this.lastFetch.set(`rows ${event.startRow}–${event.endRow} (page ${event.page}/${Math.ceil(TOTAL_ROWS / PAGE_SIZE)})`);
     }, 180);
   }

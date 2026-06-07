@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, afterNextRender, computed, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, signal, viewChild } from '@angular/core';
 import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef, GridEditEvent, GroupAction, NewRecord, RowReorderEvent, RowSelectEvent } from '../agrid';
 import { ColDefAutoSize } from '../agrid/agrid.types';
 
@@ -69,14 +69,6 @@ function generateRows(count: number): Record<string, unknown>[] {
       <agrid
         class="demo-grid"
         [provider]="gridProvider"
-        [allowAddRows]="true"
-        [autoAddRows]="autoAdd()"
-        [showControlColumn]="true"
-        [showSidebar]="true"
-        [zebraStripes]="true"
-        [rowSelection]="'multi'"
-        [groupDescription]="groupDescriptionFn"
-        [groupActions]="groupActionsList"
         (cellEdit)="onEdit($event)"
         (prepareAddRecord)="onPrepareAdd($event)"
         (rowReorder)="onRowReorder($event)"
@@ -175,12 +167,20 @@ export class AgridDemoComponent {
     columns: this.columns,
     datasource: this.ds,
     control: this.gridControl,
+    allowAddRows: true,
+    showControlColumn: true,
+    showSidebar: true,
+    zebraStripes: true,
+    rowSelection: 'multi',
   });
   readonly lastEdit = signal('');
   readonly autoAdd = signal(false);
   readonly isGrouped = computed(() => this.gridControl.groupByField() === 'departmentId');
 
   constructor() {
+    this.gridProvider.groupDescription = this.groupDescriptionFn;
+    this.gridProvider.groupActions = this.groupActionsList;
+    effect(() => this.gridProvider.autoAddRows.set(this.autoAdd()));
     afterNextRender(() => this._grid()?.autosizeAllColumns());
   }
 

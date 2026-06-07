@@ -275,24 +275,41 @@
   display: none;
 }
 
-.ag-sidebar-tab {
+.ag-sidebar-strip {
   width: 24px;
   flex-shrink: 0;
   border-left: 1px solid var(--agrid-color-border);
   background: var(--agrid-color-bg-muted);
-  cursor: pointer;
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 8px;
-  font-size: 13px;
-  color: var(--agrid-color-text-muted);
-  user-select: none;
+  flex-direction: column;
 }
 
-.ag-sidebar-tab:hover {
+.ag-sidebar-strip-btn {
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--agrid-color-border);
+  cursor: pointer;
+  color: var(--agrid-color-text-muted);
+  user-select: none;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 10px 5px;
+  text-align: center;
+}
+
+.ag-sidebar-strip-btn:hover {
   background: var(--agrid-color-bg);
   color: var(--agrid-color-text);
+}
+
+.ag-sidebar-strip-btn.active {
+  color: var(--agrid-color-text);
+  background: var(--agrid-color-bg);
+  border-left: 2px solid var(--agrid-color-accent, #4f8ef7);
 }
 
 .ag-sidebar {
@@ -355,6 +372,61 @@
   cursor: pointer;
   margin: 0;
   flex-shrink: 0;
+}
+
+
+.ag-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--agrid-color-border);
+  font-size: 13px;
+}
+
+.ag-detail-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--agrid-color-text-muted);
+}
+
+.ag-detail-hidden {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.6;
+}
+
+.ag-detail-value {
+  color: var(--agrid-color-text);
+  word-break: break-word;
+}
+
+.ag-detail-empty {
+  padding: 16px 12px;
+  font-size: 13px;
+  color: var(--agrid-color-text-muted);
+  text-align: center;
+}
+
+.ag-detail-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--agrid-color-text);
+  background: var(--agrid-color-bg);
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 3px;
+  padding: 3px 6px;
+  outline: none;
+}
+
+.ag-detail-input:focus {
+  border-color: var(--agrid-color-accent, #4f8ef7);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--agrid-color-accent, #4f8ef7) 20%, transparent);
 }
 
 .ag-row {

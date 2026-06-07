@@ -77,10 +77,6 @@ function makeRows(n: number) {
       <agrid
         class="demo-grid"
         [provider]="provider"
-        [zebraStripes]="true"
-        [showSidebar]="true"
-        [showControlColumn]="true"
-        [rowSelection]="'single'"
       />
     </div>
   `,
@@ -101,6 +97,10 @@ export class CustomCellsDemoComponent {
     columns: COLUMNS,
     datasource: new AgridDataSource(makeRows(30)),
     control: new AgridControl({ allowRowReorder: true }),
+    zebraStripes: true,
+    showSidebar: true,
+    showControlColumn: true,
+    rowSelection: 'single',
   });
 
   readonly _grid = viewChild(AgridComponent);

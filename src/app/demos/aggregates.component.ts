@@ -47,10 +47,6 @@ const COLUMNS: ColDef[] = [
       <agrid
         class="demo-grid"
         [provider]="provider"
-        [zebraStripes]="true"
-        [showSidebar]="true"
-        [showControlColumn]="true"
-        [rowSelection]="'multi'"
       />
     </div>
   `,
@@ -70,6 +66,10 @@ export class AggregatesDemoComponent {
     columns: COLUMNS,
     datasource: new AgridDataSource(makeRows(80)),
     control: new AgridControl(),
+    zebraStripes: true,
+    showSidebar: true,
+    showControlColumn: true,
+    rowSelection: 'multi',
   });
 
   readonly _grid = viewChild(AgridComponent);

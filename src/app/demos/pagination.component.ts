@@ -48,8 +48,6 @@ function makeRows(n: number) {
       <agrid
         class="demo-grid"
         [provider]="provider"
-        [zebraStripes]="true"
-        [showSidebar]="true"
       />
     </div>
   `,
@@ -69,7 +67,7 @@ function makeRows(n: number) {
 export class PaginationDemoComponent {
   readonly ds   = new AgridDataSource(makeRows(500));
   readonly ctrl = new AgridControl({ pageSize: 25 });
-  readonly provider = new AgridProvider({ columns: COLUMNS, datasource: this.ds, control: this.ctrl });
+  readonly provider = new AgridProvider({ columns: COLUMNS, datasource: this.ds, control: this.ctrl, zebraStripes: true, showSidebar: true });
   readonly pageSizes = [10, 25, 50, 100];
   readonly _grid = viewChild(AgridComponent);
   readonly filteredCount = computed(() => this._grid()?.filteredRowCount() ?? this.ds.length);

@@ -71,10 +71,6 @@ function makeRows(n: number) {
       <agrid
         class="demo-grid"
         [provider]="provider"
-        [zebraStripes]="true"
-        [showSidebar]="true"
-        [showControlColumn]="true"
-        [rowSelection]="'multi'"
       />
     </div>
   `,
@@ -93,6 +89,11 @@ export class PinningDemoComponent {
     columns: COLUMNS,
     datasource: new AgridDataSource(makeRows(40)),
     control: new AgridControl(),
+    zebraStripes: true,
+    showSidebar: true,
+    showControlColumn: true,
+    rowSelection: 'multi',
+    autoOpenDetail:true
   });
 
   readonly _grid = viewChild(AgridComponent);

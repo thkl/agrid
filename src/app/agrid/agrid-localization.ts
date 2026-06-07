@@ -17,6 +17,8 @@ export interface AgridLocaleText {
   close: string;
   columnMenu: string;
   columns: string;
+  detail: string;
+  hiddenColumn: string;
   copyCellValue: string;
   copyRow: string;
   deleteRow: string;
@@ -63,6 +65,8 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     close: 'Close',
     columnMenu: 'Column menu',
     columns: 'Columns',
+    detail: 'Detail',
+    hiddenColumn: '(hidden)',
     copyCellValue: 'Copy cell',
     copyRow: 'Copy row',
     deleteRow: 'Delete row',
@@ -105,6 +109,8 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     close: 'Schließen',
     columnMenu: 'Spaltenmenü',
     columns: 'Spalten',
+    detail: 'Details',
+    hiddenColumn: '(ausgeblendet)',
     copyCellValue: 'Zelle kopieren',
     copyRow: 'Zeile kopieren',
     deleteRow: 'Zeile löschen',

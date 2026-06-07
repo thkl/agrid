@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, afterNextRender, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, afterNextRender, effect, signal, viewChild } from '@angular/core';
 import { AgridComponent, AgridControl, AgridDataSource, CellContextMenuItem, ColDef } from '../agrid';
 import { AgridProvider } from '../agrid/agrid-provider';
 
@@ -74,11 +74,6 @@ function makeRows(n: number) {
       <agrid
         class="demo-grid"
         [provider]="provider"
-        [readonly]="isReadonly()"
-        [zebraStripes]="true"
-        [showSidebar]="true"
-        [rowSelection]="'multi'"
-        [cellMenuItems]="contextItems"
       />
     </div>
   `,
@@ -95,12 +90,6 @@ function makeRows(n: number) {
 })
 export class ReadonlyDemoComponent {
   readonly ds = new AgridDataSource(makeRows(40));
-  readonly provider = new AgridProvider({
-    columns: COLUMNS,
-    datasource: this.ds,
-    control: new AgridControl(),
-  });
-
   readonly isReadonly = signal(true);
   readonly _grid = viewChild(AgridComponent);
 
@@ -109,7 +98,19 @@ export class ReadonlyDemoComponent {
     { label: 'Assign to me',  action: ({ originalIndex }) => this.ds.patchRow(originalIndex, { assignee: 'Alice' }) },
   ];
 
+  readonly provider = new AgridProvider({
+    columns: COLUMNS,
+    datasource: this.ds,
+    control: new AgridControl(),
+    zebraStripes: true,
+    showSidebar: true,
+    rowSelection: 'multi',
+    cellMenuItems: this.contextItems,
+    readonly: true,
+  });
+
   constructor() {
+    effect(() => this.provider.readonlyGrid.set(this.isReadonly()));
     afterNextRender(() => this._grid()?.autosizeAllColumns());
   }
 }

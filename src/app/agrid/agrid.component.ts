@@ -30,6 +30,7 @@ import {
   getDisplayForField,
   isDataRowItem as isDataRowItemFn,
   isGroupHeaderItem as isGroupHeaderItemFn,
+  looksLikeDate,
 } from './agrid.utils';
 import { ColumnFilter, HistoryEntry, HistoryItem } from './agrid-control';
 import {
@@ -77,59 +78,31 @@ export class AgridComponent {
   /** Grid provider containing columns, data source, control, and options. */
   provider = input<AgridProvider>(new AgridProvider());
 
-  /** Row height in pixels. Must be fixed for CDK virtual scroll. @default 32 */
-  rowHeight = input<number>(32);
+  // All display / behaviour options are read from the provider.
+  readonly rowHeight        = computed(() => this.provider().rowHeight);
+  readonly minHeight        = computed(() => this.provider().minHeight);
+  readonly maxHeight        = computed(() => this.provider().maxHeight);
+  readonly allowAddRows     = computed(() => this.provider().allowAddRows);
+  readonly autoAddRows      = computed(() => this.provider().autoAddRows());
+  readonly showControlColumn = computed(() => this.provider().showControlColumn);
+  readonly showSidebar      = computed(() => this.provider().showSidebar);
+  readonly autoOpenDetail   = computed(() => this.provider().autoOpenDetail);
+  readonly rowSelection     = computed(() => this.provider().rowSelection);
+  readonly groupDescription = computed(() => this.provider().groupDescription);
+  readonly groupActions     = computed(() => this.provider().groupActions);
+  readonly cellMenuItems    = computed(() => this.provider().cellMenuItems);
+  readonly zebraStripes     = computed(() => this.provider().zebraStripes);
+  readonly readonlyGrid     = computed(() => this.provider().readonlyGrid());
+  readonly loading          = computed(() => this.provider().loading());
+  readonly emptyText        = computed(() => this.provider().emptyText);
 
-  /** Minimum height of the grid host element (e.g. `'200px'`). */
-  minHeight = input<string | undefined>(undefined);
-
-  /** Maximum height of the grid host element (e.g. `'500px'`). */
-  maxHeight = input<string | undefined>(undefined);
-
-  /** Show a `+ Add row` placeholder at the bottom. */
-  allowAddRows = input<boolean>(false);
-
-  /** Automatically insert a blank row when navigating past the last real row. */
-  autoAddRows = input<boolean>(false);
-
-  /** Show a 24 px control column with a drag handle and right-click context menu. */
-  showControlColumn = input<boolean>(false);
-
-  /** Show a collapsible sidebar with a column visibility selector. Requires `provider.control`. */
-  showSidebar = input<boolean>(false);
-
-  /**
-   * Row selection mode.
-   * - `'none'` — no selection (default)
-   * - `'single'` — click to select/deselect
-   * - `'multi'` — Ctrl+click toggles, Shift+click extends range, click+drag sweeps
-   */
-  rowSelection = input<'single' | 'multi' | 'none'>('none');
-
-  /** Returns a short description string shown next to the group label. */
-  groupDescription = input<((label: string) => string) | null>(null);
-
-  /** Actions shown in the group header's `⋮` menu. */
-  groupActions = input<GroupAction[]>([]);
-
-  /**
-   * Extra items appended to the cell right-click context menu below the built-in ones.
-   * Pass `null` entries to insert separator lines.
-   * Receives `{ value, row, field, originalIndex }` for each item's action.
-   */
-  cellMenuItems = input<(CellContextMenuItem | null)[]>([]);
-
-  /** Shade every other row slightly for easier reading. @default false */
-  zebraStripes = input<boolean>(false);
-
-  /** Make the entire grid read-only, regardless of individual column `editable` settings. @default false */
-  readonly readonlyGrid = input<boolean>(false, { alias: 'readonly' });
-
-  /** Show a loading overlay over the grid body. @default false */
-  loading = input<boolean>(false);
-
-  /** Message shown when the grid has no rows to display. Defaults to the active localization. */
-  emptyText = input<string | undefined>(undefined);
+  // Auto-open detail panel when a row is selected and autoOpenDetail is enabled.
+  private readonly _autoDetailEffect = effect(() => {
+    if (this.autoOpenDetail() && this.selectedRowIndex() !== null) {
+      this.sidebarOpen.set(true);
+      this.sidebarTab.set('detail');
+    }
+  });
 
   /** Column definitions from the active provider. */
   readonly colDefs = computed<ColDef[]>(() => this.provider().columns);
@@ -224,8 +197,73 @@ export class AgridComponent {
   /** Whether the sidebar panel is currently open. */
   readonly sidebarOpen = signal<boolean>(false);
 
+  /** Which tab is active inside the sidebar. */
+  readonly sidebarTab = signal<'columns' | 'detail'>('columns');
+
   /** Toggle the sidebar open/closed. */
   toggleSidebar(): void { this.sidebarOpen.update(v => !v); }
+
+  /** @internal */
+  onSidebarStripClick(tab: 'columns' | 'detail'): void {
+    if (this.sidebarOpen() && this.sidebarTab() === tab) {
+      this.sidebarOpen.set(false);
+    } else {
+      this.sidebarTab.set(tab);
+      this.sidebarOpen.set(true);
+    }
+  }
+
+  /** Formatted field/value pairs for the currently selected row, or null when nothing is selected. */
+  readonly detailRow = computed<{
+    label: string; value: string; rawValue: unknown; inputValue: string;
+    hidden: boolean; editable: boolean; col: ColDef;
+  }[] | null>(() => {
+    const idx = this.selectedRowIndex();
+    if (idx === null) return null;
+    const row = this.dataSource().rows()[idx];
+    if (!row) return null;
+    const locale = this.locale();
+    const gridReadonly = this.readonlyGrid();
+    return this.colDefs().map(col => {
+      const rawValue = row[col.field];
+      const editable = !gridReadonly && col.editable !== false;
+      let inputValue = String(rawValue ?? '');
+      if (col.type === 'date' || looksLikeDate(rawValue)) {
+        const d = rawValue instanceof Date ? rawValue : new Date(rawValue as string);
+        if (!isNaN(d.getTime())) inputValue = d.toISOString().slice(0, 10);
+      }
+      return {
+        label: col.header,
+        value: getDisplayForField(col, rawValue, locale),
+        rawValue,
+        inputValue,
+        hidden: this.isColumnHidden(col.field),
+        editable,
+        col,
+      };
+    });
+  });
+
+  /** @internal Commit an edit made via the detail panel. */
+  commitDetailEdit(field: string, col: ColDef, stringValue: string): void {
+    const idx = this.selectedRowIndex();
+    if (idx === null) return;
+    let newValue: unknown = stringValue;
+    if (col.type === 'number') {
+      newValue = stringValue === '' ? null : Number(stringValue);
+    } else if (col.values?.length) {
+      const opt = col.values.find(v =>
+        typeof v === 'string' ? v === stringValue : String((v as ValueOption).value) === stringValue
+      );
+      newValue = opt === undefined ? stringValue : (typeof opt === 'string' ? opt : (opt as ValueOption).value);
+    }
+    const oldValue = this.dataSource().getRow(idx)[field];
+    if (oldValue === newValue) return;
+    this.dataSource().patchRow(idx, { [field]: newValue });
+    const ci = this.visibleColDefs().findIndex(c => c.field === field);
+    this.control()?.pushEdit({ rowIndex: idx, field, oldValue, newValue });
+    this.cellEdit.emit({ position: { rowIndex: idx, colIndex: ci }, field, oldValue, newValue });
+  }
 
   /**
    * Download the currently visible, filtered rows as a CSV file.
@@ -1052,6 +1090,8 @@ export class AgridComponent {
 
   /** @internal Main keyboard handler delegated from the wrapper div. */
   onKeyDown(event: KeyboardEvent): void {
+    if ((event.target as Element)?.closest('.ag-sidebar')) return;
+
     if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'f') {
       event.preventDefault();
       this.openFind();
