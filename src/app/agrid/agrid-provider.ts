@@ -53,7 +53,8 @@ export interface AgridProviderConfig<T extends Record<string, unknown> = Record<
 export class AgridProvider<T extends Record<string, unknown> = Record<string, unknown>> {
   datasource: AgridDataSource<T>;
   control: AgridControl;
-  columns: ColDef[];
+  /** Toggle columns without recreating the provider. @default signal([]) */
+  readonly columns: WritableSignal<ColDef[]>;
   options: AGridOptions;
 
   private readonly _localizations = new Map<string, AgridLocaleTextOverrides>();
@@ -102,7 +103,7 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
     this.options      = { locale: config.locale ?? 'auto' };
     this.datasource   = config.datasource ?? new AgridDataSource<T>([]);
     this.control      = config.control ?? new AgridControl({ allowRowReorder: true });
-    this.columns      = config.columns ?? [];
+    this.columns      = signal(config.columns ?? []);
 
     this.rowHeight        = config.rowHeight ?? 32;
     this.minHeight        = config.minHeight;

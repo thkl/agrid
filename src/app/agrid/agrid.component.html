@@ -88,8 +88,6 @@
             class="ag-body ag-pinned-body"
             [itemSize]="rowHeight()"
             [style.width.px]="pinnedPaneWidth()"
-            [style.min-height]="minHeight()"
-            [style.max-height]="maxHeight()"
           >
             <div
               *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem"
@@ -248,8 +246,6 @@
             class="ag-body"
             [itemSize]="rowHeight()"
             [style.min-width.px]="scrollableTotalWidth()"
-            [style.min-height]="minHeight()"
-            [style.max-height]="maxHeight()"
             (scroll)="onBodyScroll()"
           >
             <div

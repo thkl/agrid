@@ -69,7 +69,11 @@ type FindMatch = { rowIndex: number; displayIndex: number; colIndex: number };
   imports: [ScrollingModule, AgridCellComponent, AgridColumnMenuComponent, AgridFindPanelComponent],
   templateUrl: './agrid.component.html',
   styleUrl: './agrid.component.css',
-  host: { '[class.ag-zebra]': 'zebraStripes()' },
+  host: {
+    '[class.ag-zebra]': 'zebraStripes()',
+    '[style.min-height]': 'minHeight()',
+    '[style.max-height]': 'maxHeight()',
+  },
 })
 export class AgridComponent {
 
@@ -105,7 +109,7 @@ export class AgridComponent {
   });
 
   /** Column definitions from the active provider. */
-  readonly colDefs = computed<ColDef[]>(() => this.provider().columns);
+  readonly colDefs = computed<ColDef[]>(() => this.provider().columns());
 
   /** Signal-based data container from the active provider. */
   readonly dataSource = computed<AgridDataSource>(() => this.provider().datasource);
