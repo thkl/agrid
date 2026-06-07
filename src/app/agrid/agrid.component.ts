@@ -4,6 +4,7 @@ import {
   DestroyRef,
   ElementRef,
   Signal,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -804,6 +805,15 @@ export class AgridComponent {
   private readonly _seededControls = new WeakSet<AgridControl>();
 
   constructor() {
+    afterNextRender(() => {
+      const wrapper = this.wrapperEl().nativeElement;
+      const onKeyDown = (event: KeyboardEvent) => this.onKeyDown(event);
+      wrapper.addEventListener('keydown', onKeyDown, { capture: true });
+      this.destroyRef.onDestroy(() =>
+        wrapper.removeEventListener('keydown', onKeyDown, { capture: true })
+      );
+    });
+
     // Emit pageChange whenever page or pageSize changes in server-side pagination mode.
     effect(() => {
       const ctrl = this.control();
@@ -814,6 +824,12 @@ export class AgridComponent {
       const startRow = (page - 1) * pageSize;
       const endRow = Math.min(page * pageSize, totalRows) - 1;
       this.pageChange.emit({ page, pageSize, startRow, endRow });
+    });
+
+    effect(() => {
+      const added = this.dataSource().rowAdded();
+      if (!added) return;
+      this.revealRow(added.index);
     });
 
     // Deselect when clicking outside the grid.
@@ -839,7 +855,12 @@ export class AgridComponent {
     effect(() => {
       this.displayItems();
       setTimeout(() => {
-        const offset = this.viewport().measureScrollOffset();
+        const viewport = this.viewport();
+        viewport.checkViewportSize();
+        this.pinnedViewport()?.checkViewportSize();
+        this.rightPinnedViewport()?.checkViewportSize();
+
+        const offset = viewport.measureScrollOffset();
         this.pinnedViewport()?.scrollToOffset(offset);
         this.rightPinnedViewport()?.scrollToOffset(offset);
       }, 0);
@@ -1537,6 +1558,22 @@ export class AgridComponent {
     );
   }
 
+  private revealRow(originalIndex: number): void {
+    const filteredIndex = this._filteredSortedIndices().indexOf(originalIndex);
+    if (filteredIndex < 0) return;
+
+    const ctrl = this.control();
+    const pageSize = ctrl?.pageSize() ?? 0;
+    if (ctrl && pageSize > 0 && ctrl.totalRows() === 0 && !ctrl.groupByField()) {
+      ctrl.setPage(Math.floor(filteredIndex / pageSize) + 1);
+    }
+
+    setTimeout(() => {
+      const displayIndex = this.findDisplayIndex(originalIndex);
+      if (displayIndex >= 0) this.scrollToKeepVisible(displayIndex, 0);
+    });
+  }
+
   private buildEmptyRow(): Record<string, unknown> {
     const row: Record<string, unknown> = {};
     for (const col of this.colDefs()) row[col.field] = col.type === 'number' ? 0 : '';
@@ -1676,6 +1713,7 @@ export class AgridComponent {
       }
     }
     this.scrollToKeepVisible(newDi, newCi);
+    this.wrapperEl().nativeElement.focus();
   }
 
   /** @internal */

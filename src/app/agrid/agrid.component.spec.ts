@@ -77,6 +77,87 @@ describe('AgridComponent grouped control column selection', () => {
   });
 });
 
+describe('AgridComponent Tab navigation', () => {
+  let fixture: ComponentFixture<AgridComponent>;
+  let component: AgridComponent;
+  let provider: AgridProvider;
+
+  beforeEach(async () => {
+    provider = new AgridProvider({
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'department', header: 'Department' },
+      ],
+      datasource: new AgridDataSource([
+        { name: 'Alice', department: 'Engineering' },
+      ]),
+      allowAddRows: true,
+      autoAddRows: true,
+      showSidebar: true,
+    });
+
+    await TestBed.configureTestingModule({
+      imports: [AgridComponent],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(AgridComponent);
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+  });
+
+  afterEach(() => fixture.destroy());
+
+  it('adds a row when Tab moves past the last cell and keeps focus in the grid', () => {
+    const wrapper = fixture.nativeElement.querySelector('.ag-wrapper') as HTMLElement;
+    component.selectedCell.set({ rowIndex: 0, colIndex: 1 });
+    wrapper.focus();
+
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    wrapper.dispatchEvent(event);
+    fixture.detectChanges();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(provider.datasource.length).toBe(2);
+    expect(component.selectedCell()).toEqual({ rowIndex: 1, colIndex: 0 });
+    expect(document.activeElement).toBe(wrapper);
+  });
+
+  it('commits an edited last cell before adding a row on Tab', () => {
+    component.selectedCell.set({ rowIndex: 0, colIndex: 1 });
+    component.onStartEdit(0, 1);
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.ag-cell-input') as HTMLInputElement;
+    input.addEventListener('keydown', event => event.stopPropagation());
+    input.value = 'Sales';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    input.dispatchEvent(event);
+    fixture.detectChanges();
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(provider.datasource.getRow(0)['department']).toBe('Sales');
+    expect(provider.datasource.length).toBe(2);
+    expect(component.selectedCell()).toEqual({ rowIndex: 1, colIndex: 0 });
+  });
+
+  it('refreshes the virtual viewport when a row is added externally', async () => {
+    const viewport = component['viewport']();
+    const refreshSpy = vi.spyOn(viewport, 'checkViewportSize');
+    provider.control.setPageSize(1);
+
+    provider.datasource.addRow({ name: 'Bob', department: 'Sales' });
+    fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    fixture.detectChanges();
+
+    expect(provider.control.currentPage()).toBe(2);
+    expect(visibleDataRows(component.filteredItems()).map(item => item.row['name'])).toEqual(['Bob']);
+    expect(refreshSpy).toHaveBeenCalled();
+  });
+});
+
 function visibleDataRows(
   items: GridItem[],
 ): { row: Record<string, unknown>; originalIndex: number }[] {

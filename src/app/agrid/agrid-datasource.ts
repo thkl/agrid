@@ -18,6 +18,8 @@ import { Signal, signal } from '@angular/core';
  */
 export class AgridDataSource<T extends Record<string, unknown> = Record<string, unknown>> {
   private readonly _rows = signal<T[]>([]);
+  private readonly _rowAdded = signal<{ index: number; sequence: number } | null>(null);
+  private _changeSequence = 0;
 
   /**
    * @param initialData Rows to seed the data source with.
@@ -32,6 +34,10 @@ export class AgridDataSource<T extends Record<string, unknown> = Record<string, 
    * Read it inside Angular templates or `computed()` to react to changes automatically.
    */
   readonly rows: Signal<T[]> = this._rows.asReadonly();
+
+  /** Latest row insertion, used by attached grids to reveal the inserted row. */
+  readonly rowAdded: Signal<{ index: number; sequence: number } | null> =
+    this._rowAdded.asReadonly();
 
   /**
    * Replace the entire row array.
@@ -84,6 +90,7 @@ export class AgridDataSource<T extends Record<string, unknown> = Record<string, 
       next.splice(atIndex, 0, row);
       return next;
     });
+    this._rowAdded.set({ index: insertedAt, sequence: ++this._changeSequence });
     return insertedAt;
   }
 
