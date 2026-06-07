@@ -13,11 +13,17 @@
         <div class="ag-pinned-pane" [style.width.px]="pinnedPaneWidth()">
           <div
             class="ag-header ag-header--pinned"
+            [class.ag-header--with-filters]="hasFilterableColumns()"
             [style.grid-template-columns]="pinnedGridTemplateColumns()"
             [style.width.px]="pinnedPaneWidth()"
           >
             @if (showControlColumn()) {
-              <div class="ag-header-cell ag-control-header"></div>
+              <div class="ag-header-cell ag-control-header">
+                <div class="ag-header-cell-top"></div>
+                @if (hasFilterableColumns()) {
+                  <div class="ag-header-cell-filter"></div>
+                }
+              </div>
             }
             @for (col of pinnedColDefs(); track col.field) {
               <div
@@ -30,17 +36,32 @@
                 [attr.data-col-field]="col.field"
                 (pointerdown)="onColHeaderPointerDown($event, col.field)"
               >
-                <span class="ag-header-cell-label">{{ col.header }}</span>
-                @if (getSort(col.field); as dir) {
-                  <span class="ag-sort-badge">{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup class="ag-sort-priority">{{ getSortPriority(col.field) }}</sup>}</span>
+                <div class="ag-header-cell-top">
+                  <span class="ag-header-cell-label">{{ col.header }}</span>
+                  @if (getSort(col.field); as dir) {
+                    <span class="ag-sort-badge">{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup class="ag-sort-priority">{{ getSortPriority(col.field) }}</sup>}</span>
+                  }
+                  <button
+                    class="ag-header-menu-btn"
+                    [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
+                    [title]="localeText().columnMenu"
+                    (click)="openFilterMenu($event, col.field)"
+                    (pointerdown)="$event.stopPropagation()"
+                  >▾</button>
+                </div>
+                @if (hasFilterableColumns()) {
+                  <div class="ag-header-cell-filter">
+                    @if (col.filterable) {
+                      <input
+                        class="ag-filter-input"
+                        [value]="getTextFilter(col.field)"
+                        (input)="onTextFilterChange($event, col.field)"
+                        (click)="$event.stopPropagation()"
+                        [placeholder]="localeText().filterPlaceholder"
+                      />
+                    }
+                  </div>
                 }
-                <button
-                  class="ag-header-menu-btn"
-                  [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
-                  [title]="localeText().columnMenu"
-                  (click)="openFilterMenu($event, col.field)"
-                  (pointerdown)="$event.stopPropagation()"
-                >▾</button>
                 <div class="ag-resize-handle"
                   (mousedown)="onResizeStart($event, col)"
                   (pointerdown)="$event.stopPropagation()"
@@ -49,39 +70,6 @@
               </div>
             }
           </div>
-
-          @if (hasFilterableColumns()) {
-            <div
-              class="ag-filter-row ag-filter-row--pinned"
-              [style.grid-template-columns]="pinnedGridTemplateColumns()"
-              [style.width.px]="pinnedPaneWidth()"
-            >
-              @if (showControlColumn()) {
-                <div class="ag-filter-cell ag-filter-cell--control"></div>
-              }
-              @for (col of pinnedColDefs(); track col.field) {
-                @if (col.filterable) {
-                  <div
-                    class="ag-filter-cell ag-filter-cell--pinned"
-                    [class.ag-filter-cell--pinned-last]="isLastPinnedColumn(col.field)"
-                  >
-                    <input
-                      class="ag-filter-input"
-                      [value]="getTextFilter(col.field)"
-                      (input)="onTextFilterChange($event, col.field)"
-                      (click)="$event.stopPropagation()"
-                      [placeholder]="localeText().filterPlaceholder"
-                    />
-                  </div>
-                } @else {
-                  <div
-                    class="ag-filter-cell ag-filter-cell--empty ag-filter-cell--pinned"
-                    [class.ag-filter-cell--pinned-last]="isLastPinnedColumn(col.field)"
-                  ></div>
-                }
-              }
-            </div>
-          }
 
           <cdk-virtual-scroll-viewport
             #pinnedViewport
@@ -96,7 +84,7 @@
               [class.ag-add-row--selected]="item === null && isAddRowSelected()"
               [class.ag-ghost-row]="item === 'ghost'"
               [class.ag-group-header-row]="isGroupHeaderItem(item)"
-              [class.ag-row--odd]="isDataRowItem(item) && di % 2 !== 0"
+              [class.ag-row--odd]="isDataRowItem(item) && dataRowIsOdd().get(item.originalIndex) === true"
               [class.ag-row--selected]="isPinnedPaneRowSelected(item)"
               [attr.data-original-index]="getItemOriginalIndex(item)"
               [style.height.px]="rowHeight()"
@@ -184,6 +172,7 @@
         <div #horizontalScroller class="ag-horizontal-scroll">
           <div
             class="ag-header"
+            [class.ag-header--with-filters]="hasFilterableColumns()"
             [style.grid-template-columns]="scrollableGridTemplateColumns()"
             [style.min-width.px]="scrollableTotalWidth()"
           >
@@ -197,17 +186,32 @@
                 [attr.data-col-field]="col.field"
                 (pointerdown)="onColHeaderPointerDown($event, col.field)"
               >
-                <span class="ag-header-cell-label">{{ col.header }}</span>
-                @if (getSort(col.field); as dir) {
-                  <span class="ag-sort-badge">{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup class="ag-sort-priority">{{ getSortPriority(col.field) }}</sup>}</span>
+                <div class="ag-header-cell-top">
+                  <span class="ag-header-cell-label">{{ col.header }}</span>
+                  @if (getSort(col.field); as dir) {
+                    <span class="ag-sort-badge">{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup class="ag-sort-priority">{{ getSortPriority(col.field) }}</sup>}</span>
+                  }
+                  <button
+                    class="ag-header-menu-btn"
+                    [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
+                    [title]="localeText().columnMenu"
+                    (click)="openFilterMenu($event, col.field)"
+                    (pointerdown)="$event.stopPropagation()"
+                  >▾</button>
+                </div>
+                @if (hasFilterableColumns()) {
+                  <div class="ag-header-cell-filter">
+                    @if (col.filterable) {
+                      <input
+                        class="ag-filter-input"
+                        [value]="getTextFilter(col.field)"
+                        (input)="onTextFilterChange($event, col.field)"
+                        (click)="$event.stopPropagation()"
+                        [placeholder]="localeText().filterPlaceholder"
+                      />
+                    }
+                  </div>
                 }
-                <button
-                  class="ag-header-menu-btn"
-                  [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
-                  [title]="localeText().columnMenu"
-                  (click)="openFilterMenu($event, col.field)"
-                  (pointerdown)="$event.stopPropagation()"
-                >▾</button>
                 <div class="ag-resize-handle"
                   (mousedown)="onResizeStart($event, col)"
                   (pointerdown)="$event.stopPropagation()"
@@ -216,30 +220,6 @@
               </div>
             }
           </div>
-
-          @if (hasFilterableColumns()) {
-            <div
-              class="ag-filter-row"
-              [style.grid-template-columns]="scrollableGridTemplateColumns()"
-              [style.min-width.px]="scrollableTotalWidth()"
-            >
-              @for (col of scrollableColDefs(); track col.field) {
-                @if (col.filterable) {
-                  <div class="ag-filter-cell">
-                    <input
-                      class="ag-filter-input"
-                      [value]="getTextFilter(col.field)"
-                      (input)="onTextFilterChange($event, col.field)"
-                      (click)="$event.stopPropagation()"
-                      [placeholder]="localeText().filterPlaceholder"
-                    />
-                  </div>
-                } @else {
-                  <div class="ag-filter-cell ag-filter-cell--empty"></div>
-                }
-              }
-            </div>
-          }
 
           <cdk-virtual-scroll-viewport
             #scrollViewport
@@ -255,7 +235,7 @@
               [class.ag-add-row--selected]="item === null && isAddRowSelected()"
               [class.ag-ghost-row]="item === 'ghost'"
               [class.ag-group-header-row]="isGroupHeaderItem(item)"
-              [class.ag-row--odd]="isDataRowItem(item) && di % 2 !== 1"
+              [class.ag-row--odd]="isDataRowItem(item) && dataRowIsOdd().get(item.originalIndex) === true"
               [class.ag-row--selected]="isDataRowItem(item) && isRowSelected(item.originalIndex)"
               [attr.data-original-index]="getItemOriginalIndex(item)"
               [style.height.px]="rowHeight()"
@@ -348,6 +328,7 @@
         <div class="ag-pinned-pane ag-pinned-pane--right" [style.width.px]="rightPinnedPaneWidth()">
           <div
             class="ag-header"
+            [class.ag-header--with-filters]="hasFilterableColumns()"
             [style.grid-template-columns]="rightGridTemplateColumns()"
             [style.width.px]="rightPinnedPaneWidth()"
           >
@@ -359,17 +340,26 @@
                 [attr.data-col-field]="col.field"
                 (pointerdown)="onColHeaderPointerDown($event, col.field)"
               >
-                <span class="ag-header-cell-label">{{ col.header }}</span>
-                @if (getSort(col.field); as dir) {
-                  <span class="ag-sort-badge">{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup class="ag-sort-priority">{{ getSortPriority(col.field) }}</sup>}</span>
+                <div class="ag-header-cell-top">
+                  <span class="ag-header-cell-label">{{ col.header }}</span>
+                  @if (getSort(col.field); as dir) {
+                    <span class="ag-sort-badge">{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup class="ag-sort-priority">{{ getSortPriority(col.field) }}</sup>}</span>
+                  }
+                  <button
+                    class="ag-header-menu-btn"
+                    [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
+                    [title]="localeText().columnMenu"
+                    (click)="openFilterMenu($event, col.field)"
+                    (pointerdown)="$event.stopPropagation()"
+                  >▾</button>
+                </div>
+                @if (hasFilterableColumns()) {
+                  <div class="ag-header-cell-filter">
+                    @if (col.filterable) {
+                      <input class="ag-filter-input" [value]="getTextFilter(col.field)" (input)="onTextFilterChange($event, col.field)" (click)="$event.stopPropagation()" [placeholder]="localeText().filterPlaceholder" />
+                    }
+                  </div>
                 }
-                <button
-                  class="ag-header-menu-btn"
-                  [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
-                  [title]="localeText().columnMenu"
-                  (click)="openFilterMenu($event, col.field)"
-                  (pointerdown)="$event.stopPropagation()"
-                >▾</button>
                 <div class="ag-resize-handle"
                   (mousedown)="onResizeStart($event, col)"
                   (pointerdown)="$event.stopPropagation()"
@@ -378,24 +368,6 @@
               </div>
             }
           </div>
-
-          @if (hasFilterableColumns()) {
-            <div
-              class="ag-filter-row"
-              [style.grid-template-columns]="rightGridTemplateColumns()"
-              [style.width.px]="rightPinnedPaneWidth()"
-            >
-              @for (col of rightPinnedColDefs(); track col.field) {
-                @if (col.filterable) {
-                  <div class="ag-filter-cell" [class.ag-filter-cell--pinned-first]="isFirstRightPinnedColumn(col.field)">
-                    <input class="ag-filter-input" [value]="getTextFilter(col.field)" (input)="onTextFilterChange($event, col.field)" (click)="$event.stopPropagation()" [placeholder]="localeText().filterPlaceholder" />
-                  </div>
-                } @else {
-                  <div class="ag-filter-cell ag-filter-cell--empty" [class.ag-filter-cell--pinned-first]="isFirstRightPinnedColumn(col.field)"></div>
-                }
-              }
-            </div>
-          }
 
           <cdk-virtual-scroll-viewport
             #rightPinnedViewport
@@ -410,7 +382,7 @@
               [class.ag-add-row]="item === null"
               [class.ag-ghost-row]="item === 'ghost'"
               [class.ag-group-header-row]="isGroupHeaderItem(item)"
-              [class.ag-row--odd]="isDataRowItem(item) && di % 2 !== 0"
+              [class.ag-row--odd]="isDataRowItem(item) && dataRowIsOdd().get(item.originalIndex) === true"
               [class.ag-row--selected]="isDataRowItem(item) && isRowSelected(item.originalIndex)"
               [style.height.px]="rowHeight()"
               [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? rightGridTemplateColumns() : null"

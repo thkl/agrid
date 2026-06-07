@@ -585,6 +585,16 @@ export class AgridComponent {
   });
 
   /** Virtual scroll source — injects ghost row during a reorder drag. */
+  /** Maps originalIndex → true if the data row should receive the odd-row stripe. Counts only data rows, so group headers don't shift the pattern. */
+  readonly dataRowIsOdd = computed<Map<number, boolean>>(() => {
+    const map = new Map<number, boolean>();
+    let rank = 0;
+    for (const item of this.filteredItems()) {
+      if (isDataRowItemFn(item)) map.set(item.originalIndex, (rank++ % 2) !== 0);
+    }
+    return map;
+  });
+
   readonly displayItems = computed<GridItem[]>(() => {
     const items = this.filteredItems();
     const dragIdx = this.dragHandler.reorderOriginalIndex();
@@ -823,15 +833,16 @@ export class AgridComponent {
       document.removeEventListener('pointerup',   this._fillDragUp);
     });
 
-    // Re-sync pinned pane scroll after group changes — CDK independently adjusts both
-    // viewports when displayItems changes, which can leave them offset by one row.
+    // Re-sync pinned pane scroll after displayItems changes — CDK independently adjusts
+    // each viewport when item count changes (group/ungroup, collapse), which can leave
+    // the panes offset by one row.
     effect(() => {
-      this.control()?.groupByField();
-      queueMicrotask(() => {
+      this.displayItems();
+      setTimeout(() => {
         const offset = this.viewport().measureScrollOffset();
         this.pinnedViewport()?.scrollToOffset(offset);
         this.rightPinnedViewport()?.scrollToOffset(offset);
-      });
+      }, 0);
     });
 
     // Seed ColDef.hidden and ColDef.pinned into the control once per control instance.
@@ -905,23 +916,7 @@ export class AgridComponent {
 
   /** @internal Selection class for the separate pinned/control viewport. */
   isPinnedPaneRowSelected(item: GridItem): boolean {
-    if (!isDataRowItemFn(item)) return false;
-    const index = this.resolvePinnedPaneHighlightIndex(item.originalIndex);
-    return this.isRowSelected(index);
-  }
-
-  private resolvePinnedPaneHighlightIndex(originalIndex: number): number {
-    if (!this.showControlColumn() || this.pinnedColDefs().length > 0 || !this.hasFilterableColumns()) {
-      return originalIndex;
-    }
-    const items = this.displayItems();
-    const position = items.findIndex(item => isDataRowItemFn(item) && item.originalIndex === originalIndex);
-    if (position < 0) return originalIndex;
-    for (let i = position - 1; i >= 0; i--) {
-      const item = items[i];
-      if (isDataRowItemFn(item)) return item.originalIndex;
-    }
-    return originalIndex;
+    return isDataRowItemFn(item) && this.isRowSelected(item.originalIndex);
   }
 
   // ── Template helpers — filter menu ────────────────────────────────────────────
@@ -1198,29 +1193,10 @@ export class AgridComponent {
   onControlPointerDown(event: PointerEvent, originalIndex: number): void {
     event.stopPropagation();
     if (this.allowRowReorder()) {
-      this.onHandlePointerDown(event, this.resolvePinnedPaneHighlightIndex(originalIndex));
+      this.onHandlePointerDown(event, originalIndex);
       return;
     }
-    const rowIndex = this.resolveControlOriginalIndex(event, originalIndex);
-    this.selectRowFromPointer(event, rowIndex, false);
-  }
-
-  private resolveControlOriginalIndex(event: MouseEvent | PointerEvent, fallback: number): number {
-    return this.getScrollableOriginalIndexAtY(event.clientY) ?? fallback;
-  }
-
-  private getScrollableOriginalIndexAtY(clientY: number): number | null {
-    const hostEl = this._hostEl.nativeElement as HTMLElement;
-    const rows = hostEl.querySelectorAll<HTMLElement>('.ag-scroll-pane .ag-row[data-original-index]');
-    for (const rowEl of rows) {
-      const rect = rowEl.getBoundingClientRect();
-      if (clientY < rect.top || clientY >= rect.bottom) continue;
-      const raw = rowEl.dataset['originalIndex'];
-      if (raw === undefined) return null;
-      const index = Number(raw);
-      return Number.isFinite(index) ? index : null;
-    }
-    return null;
+    this.selectRowFromPointer(event, originalIndex, false);
   }
 
   private readonly _fillDragMove = (event: PointerEvent): void => {
@@ -1306,7 +1282,7 @@ export class AgridComponent {
     this.contextMenu.set({
       x: event.clientX,
       y: event.clientY,
-      rowIndex: this.resolveControlOriginalIndex(event, originalIndex),
+      rowIndex: originalIndex,
     });
   }
 

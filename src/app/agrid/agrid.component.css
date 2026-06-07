@@ -61,8 +61,6 @@
   position: relative;
   display: flex;
   align-items: center;
-  padding: 0 6px;
-  line-height: 32px;
   font-weight: 600;
   border-right: 1px solid var(--agrid-color-border);
   overflow: hidden;
@@ -75,10 +73,41 @@
   border-right: none;
 }
 
+.ag-header-cell-top {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  padding: 0 6px;
+  height: 32px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 .ag-header-cell-label {
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
+}
+
+.ag-header--with-filters .ag-header-cell {
+  flex-direction: column;
+  align-items: stretch;
+  height: auto;
+  white-space: normal;
+}
+
+.ag-header--with-filters .ag-header-cell-top {
+  flex: 0 0 32px;
+}
+
+.ag-header-cell-filter {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+  border-top: 1px solid var(--agrid-color-border);
+  background: var(--agrid-color-bg);
 }
 
 .ag-header-cell {
@@ -124,31 +153,6 @@
 .ag-resize-handle:hover {
   background: var(--agrid-color-accent);
   opacity: 0.5;
-}
-
-.ag-filter-row {
-  display: grid;
-  flex-shrink: 0;
-  background: var(--agrid-color-bg);
-  border-bottom: 1px solid var(--agrid-color-border);
-}
-
-.ag-filter-cell {
-  display: flex;
-  align-items: center;
-  border-right: 1px solid var(--agrid-color-border);
-  box-sizing: border-box;
-  padding: 0 2px;
-  height: 28px;
-}
-
-.ag-filter-cell:last-child {
-  border-right: none;
-}
-
-.ag-filter-cell--control,
-.ag-filter-cell--empty {
-  background: var(--agrid-color-bg-subtle);
 }
 
 .ag-filter-input {
@@ -542,6 +546,10 @@
   background: var(--agrid-color-bg-muted);
 }
 
+.ag-control-header .ag-header-cell-filter {
+  background: var(--agrid-color-bg-subtle);
+}
+
 .ag-control-cell {
   z-index: 2;
   border-right: 1px solid var(--agrid-color-border);
@@ -901,17 +909,6 @@
   box-shadow: none;
 }
 
-.ag-filter-cell--pinned {
-  background: var(--agrid-color-bg);
-}
-
-.ag-filter-cell--pinned-last {
-  box-shadow: inset -1px 0 0 var(--agrid-color-border), 3px 0 6px -2px var(--agrid-color-shadow);
-}
-
-.ag-filter-cell--pinned-first {
-  box-shadow: none;
-}
 
 .ag-cell--pinned {
   background: var(--agrid-color-bg);
