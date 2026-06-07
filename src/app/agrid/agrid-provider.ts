@@ -66,6 +66,7 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
   showControlColumn: boolean;
   showSidebar: boolean;
   autoOpenDetail: boolean;
+  /** Toggle auto-add-rows without recreating the provider. @default signal(false) */
   readonly autoAddRows: WritableSignal<boolean>;
   rowSelection: 'single' | 'multi' | 'none';
   groupDescription: ((label: string) => string) | null;
@@ -79,9 +80,6 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
   readonly loading: WritableSignal<boolean>;
   /** Toggle readonly mode without recreating the provider. @default signal(false) */
   readonly readonlyGrid: WritableSignal<boolean>;
-  /** Toggle auto-add-rows without recreating the provider. @default signal(false) */
-  readonly autoAddRows: WritableSignal<boolean>;
-
   constructor(config: AgridProviderConfig<T> = {}) {
     this.options      = { locale: config.locale ?? 'en-US' };
     this.datasource   = config.datasource ?? new AgridDataSource<T>([]);
