@@ -28,14 +28,7 @@ const columns: ColDef[] = [
   selector: 'app-page',
   imports: [AgridComponent],
   template: `
-    <agrid
-      [provider]="gridProvider"
-      [showControlColumn]="true"
-      [showSidebar]="true"
-      [zebraStripes]="true"
-      [rowSelection]="'multi'"
-      (cellEdit)="onCellEdit($event)"
-    />
+    <agrid [provider]="gridProvider" (cellEdit)="onCellEdit($event)" />
   `,
 })
 export class PageComponent {
@@ -50,6 +43,10 @@ export class PageComponent {
     columns: this.columns,
     datasource: this.ds,
     control: this.gridControl,
+    showControlColumn: true,
+    showSidebar: true,
+    zebraStripes: true,
+    rowSelection: 'multi',
   });
 
   onCellEdit(event: GridEditEvent): void {
@@ -92,28 +89,16 @@ export class PageComponent {
 ## Component API
 
 ```html
-<agrid
-  [provider]="gridProvider"
-/>
+<agrid [provider]="gridProvider" (cellEdit)="onEdit($event)" />
 ```
+
+`AgridComponent` has a single input: `provider`. All grid options, data, and control state are supplied through `AgridProvider`. See [AgridProvider Configuration](#agridprovider-configuration) for the full option list.
 
 ### Inputs
 
 | Input | Type | Default | Description |
 | --- | --- | --- | --- |
-| `provider` | `AgridProvider` | New empty provider | Supplies column definitions, data source, control, and grid options. |
-| `rowHeight` | `number` | `32` | Fixed row height in pixels. Required by CDK virtual scroll. |
-| `minHeight` | `string \| undefined` | `undefined` | CSS min-height for the virtual body. Example: `'200px'`. |
-| `maxHeight` | `string \| undefined` | `undefined` | CSS max-height for the virtual body. Example: `'500px'`. |
-| `allowAddRows` | `boolean` | `false` | Shows a `+ Add row` placeholder at the bottom when `autoAddRows` is false. |
-| `autoAddRows` | `boolean` | `false` | Automatically inserts a blank row when navigation moves past the last real row. |
-| `showControlColumn` | `boolean` | `false` | Shows a 24 px control column for row actions and row drag handles. |
-| `showSidebar` | `boolean` | `false` | Shows a collapsible column visibility sidebar. Requires `provider.control`. |
-| `rowSelection` | `'single' \| 'multi' \| 'none'` | `'none'` | Enables row selection behavior. |
-| `groupDescription` | `((label: string) => string) \| null` | `null` | Optional description text shown next to each group label. |
-| `groupActions` | `GroupAction[]` | `[]` | Actions shown in each group header menu. |
-| `zebraStripes` | `boolean` | `false` | Shades every other row slightly for easier reading. Override `--agrid-color-bg-stripe` to change the shade. |
-| `readonly` | `boolean` | `false` | Makes all cells read-only regardless of individual `ColDef.editable` settings. |
+| `provider` | `AgridProvider` | New empty provider | Supplies column definitions, data source, control state, and all grid options. |
 
 ## Localization
 
@@ -156,6 +141,79 @@ The exported `AgridLocaleTextOverrides` type can be used to type shared localiza
 | `rowReorder` | `RowReorderEvent` | Emitted after the user drops a reordered row. The host must call `dataSource.moveRow()`. |
 | `rowSelect` | `RowSelectEvent \| null` | Emitted when row selection changes. `null` means selection was cleared. |
 
+## AgridProvider Configuration
+
+All grid options are passed to `AgridProvider` at construction time:
+
+```ts
+readonly gridProvider = new AgridProvider({
+  columns: this.columns,
+  datasource: this.ds,
+  control: this.gridControl,
+  zebraStripes: true,
+  showSidebar: true,
+  showControlColumn: true,
+  rowSelection: 'multi',
+  allowAddRows: true,
+  readonly: false,
+});
+```
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `columns` | `ColDef[]` | `[]` | Column definitions. |
+| `datasource` | `AgridDataSource` | New empty datasource | Row data container. |
+| `control` | `AgridControl` | New default control | Manages filters, sort, grouping, pagination, and undo/redo. |
+| `locale` | `string` | `'en-US'` | BCP-47 locale tag used for built-in grid text and date formatting. |
+| `localization` | `AgridLocaleTextOverrides` | `undefined` | Overrides individual labels. See [Localization](#localization). |
+| `rowHeight` | `number` | `32` | Fixed row height in pixels. Required by CDK virtual scroll. |
+| `minHeight` | `string` | `undefined` | CSS min-height for the virtual body. Example: `'200px'`. |
+| `maxHeight` | `string` | `undefined` | CSS max-height for the virtual body. Example: `'500px'`. |
+| `allowAddRows` | `boolean` | `false` | Shows a `+ Add row` placeholder at the bottom when `autoAddRows` is `false`. |
+| `autoAddRows` | `boolean` | `false` | Automatically inserts a blank row when navigation moves past the last real row. |
+| `showControlColumn` | `boolean` | `false` | Shows a 24 px control column for row context actions and drag handles. |
+| `showSidebar` | `boolean` | `false` | Shows a collapsible column visibility sidebar. Requires `control`. |
+| `autoOpenDetail` | `boolean` | `false` | Opens the detail row automatically when a row is selected. |
+| `rowSelection` | `'single' \| 'multi' \| 'none'` | `'none'` | Row selection behavior. |
+| `groupDescription` | `((label: string) => string) \| null` | `null` | Optional description text shown next to each group label. |
+| `groupActions` | `GroupAction[]` | `[]` | Actions shown in each group header menu. |
+| `cellMenuItems` | `(CellContextMenuItem \| null)[]` | `[]` | Additional items in the cell right-click context menu. `null` inserts a divider. |
+| `zebraStripes` | `boolean` | `false` | Shades every other row. Override `--agrid-color-bg-stripe` to change the shade. |
+| `emptyText` | `string` | `undefined` | Text shown when the grid has no rows. Falls back to the locale default. |
+| `readonly` | `boolean` | `false` | Initial value for the readonly signal. Makes all cells non-editable. |
+| `loading` | `boolean` | `false` | Initial value for the loading signal. Shows a loading overlay over the grid body. |
+
+### Dynamic Provider Options
+
+Three options are `WritableSignal` properties on the provider instance — update them at runtime without recreating the provider:
+
+| Signal | Type | Description |
+| --- | --- | --- |
+| `provider.loading` | `WritableSignal<boolean>` | Show or hide the loading overlay. |
+| `provider.readonlyGrid` | `WritableSignal<boolean>` | Toggle readonly mode. |
+| `provider.autoAddRows` | `WritableSignal<boolean>` | Toggle automatic row insertion. |
+
+Example — toggle readonly in a host component:
+
+```ts
+readonly provider = new AgridProvider({ ..., readonly: true });
+readonly isEditing = signal(false);
+
+constructor() {
+  effect(() => this.provider.readonlyGrid.set(!this.isEditing()));
+}
+```
+
+Example — server-side loading state:
+
+```ts
+async loadPage(page: number) {
+  this.provider.loading.set(true);
+  this.ds.setData(await fetchPage(page));
+  this.provider.loading.set(false);
+}
+```
+
 ### Public Component Methods
 
 Call these through `viewChild(AgridComponent)`.
@@ -195,16 +253,19 @@ Call these through `viewChild(AgridComponent)`.
 interface ColDef {
   field: string;
   header: string;
-  width: number;
+  width: number;           // use ColDefAutoSize (-1) to autosize on first render
   type?: 'text' | 'number' | 'date';
   editable?: boolean;
+  locked?: boolean;
   values?: string[] | ValueOption[];
   formatter?: (value: unknown) => string;
   filterable?: boolean;
   groupable?: boolean;
   hidden?: boolean;
-  pinned?: 'left';
+  pinned?: 'left' | 'right';
+  aggregate?: 'sum' | 'avg' | 'min' | 'max' | 'count';
   cellRenderer?: (params: { value: unknown; row: Record<string, unknown> }) => string;
+  cellClass?: (params: { value: unknown; row: Record<string, unknown> }) => string;
 }
 ```
 
@@ -212,16 +273,34 @@ interface ColDef {
 | --- | --- | --- |
 | `field` | Yes | Key in each row object. |
 | `header` | Yes | Header label shown in the grid. |
-| `width` | Yes | Default width in pixels. Runtime widths can override it. |
+| `width` | Yes | Default width in pixels. Set to `ColDefAutoSize` (`-1`) to fit the column to its content on first render. |
 | `type` | No | Semantic type. `number` initializes blank rows with `0`. `date` forces date formatting even for values that don't match the auto-detect pattern. |
 | `editable` | No | Set to `false` for read-only cells. Defaults to editable. |
+| `locked` | No | Prevents the column from being hidden, reordered, or unpinned through the column menu. |
 | `values` | No | Fixed editor/filter values. Use `string[]` or `{ value, label }[]`. |
 | `formatter` | No | Custom display formatter. Takes precedence over date auto-formatting. |
 | `filterable` | No | Enables text filter and value picker for the column. |
 | `groupable` | No | Enables "group by" in the column menu. |
 | `hidden` | No | Hides the column on first render. |
-| `pinned` | No | Use `'left'` to pin the column initially. |
+| `pinned` | No | `'left'` or `'right'` to pin the column initially. Left-pinned columns render in a fixed pane before the scrollable area; right-pinned columns render in a fixed pane after it. |
+| `aggregate` | No | Shows an aggregate footer value: `'sum'`, `'avg'`, `'min'`, `'max'`, or `'count'`. |
 | `cellRenderer` | No | Custom HTML renderer. Return an HTML string; Angular sanitizes it automatically. See [Custom Cell Renderers](#custom-cell-renderers). |
+| `cellClass` | No | Returns a CSS class name for each cell. Applied alongside built-in state classes. |
+
+### ColDefAutoSize
+
+Import `ColDefAutoSize` and use it as the `width` value to fit the column to its content on first render:
+
+```ts
+import { ColDefAutoSize } from './agrid';
+
+const columns: ColDef[] = [
+  { field: 'name', header: 'Name', width: ColDefAutoSize },
+  { field: 'email', header: 'Email', width: ColDefAutoSize },
+];
+```
+
+The column sizes itself once on first render and then behaves like a normal resizable column.
 
 ### Value Options
 
@@ -275,10 +354,10 @@ To use a custom date format, set `formatter`:
 
 ## Zebra Stripes
 
-Alternating row shading is opt-in:
+Alternating row shading is opt-in via the provider:
 
-```html
-<agrid [zebraStripes]="true" ... />
+```ts
+readonly provider = new AgridProvider({ ..., zebraStripes: true });
 ```
 
 Override the stripe color with a CSS custom property on the host:
@@ -293,10 +372,20 @@ Hover and selection colors always override the stripe.
 
 ## Readonly Mode
 
-Make the entire grid non-editable regardless of individual column settings:
+Set `readonly: true` in the provider to make the entire grid non-editable:
 
-```html
-<agrid [readonly]="true" ... />
+```ts
+readonly provider = new AgridProvider({ ..., readonly: true });
+```
+
+To toggle readonly at runtime, use the `readonlyGrid` signal on the provider:
+
+```ts
+readonly isReadonly = signal(true);
+
+constructor() {
+  effect(() => this.provider.readonlyGrid.set(this.isReadonly()));
+}
 ```
 
 Individual `ColDef.editable: false` still works when `readonly` is `false`.

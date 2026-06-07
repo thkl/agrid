@@ -75,8 +75,12 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
   emptyText?: string;
 
   // Dynamic options exposed as signals so callers can update them without recreating the provider
+  /** Toggle the loading overlay without recreating the provider. @default signal(false) */
   readonly loading: WritableSignal<boolean>;
+  /** Toggle readonly mode without recreating the provider. @default signal(false) */
   readonly readonlyGrid: WritableSignal<boolean>;
+  /** Toggle auto-add-rows without recreating the provider. @default signal(false) */
+  readonly autoAddRows: WritableSignal<boolean>;
 
   constructor(config: AgridProviderConfig<T> = {}) {
     this.options      = { locale: config.locale ?? 'en-US' };
