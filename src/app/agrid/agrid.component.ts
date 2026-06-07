@@ -823,6 +823,17 @@ export class AgridComponent {
       document.removeEventListener('pointerup',   this._fillDragUp);
     });
 
+    // Re-sync pinned pane scroll after group changes — CDK independently adjusts both
+    // viewports when displayItems changes, which can leave them offset by one row.
+    effect(() => {
+      this.control()?.groupByField();
+      queueMicrotask(() => {
+        const offset = this.viewport().measureScrollOffset();
+        this.pinnedViewport()?.scrollToOffset(offset);
+        this.rightPinnedViewport()?.scrollToOffset(offset);
+      });
+    });
+
     // Seed ColDef.hidden and ColDef.pinned into the control once per control instance.
     effect(() => {
       const ctrl = this.control();
