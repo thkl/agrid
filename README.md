@@ -468,9 +468,65 @@ const ds = new AgridDataSource<Record<string, unknown>>([
 ]);
 ```
 
+### Linking an Angular signal
+
+Link a writable Angular signal directly when the application and grid should share ownership of
+the rows:
+
+```ts
+interface Row {
+  id: number;
+  name: string;
+}
+
+readonly rows = signal<Row[]>([
+  { id: 1, name: 'Alice' },
+]);
+readonly ds = new AgridDataSource<Row>();
+readonly provider = new AgridProvider({
+  columns: [
+    { field: 'id', header: 'ID', editable: false },
+    { field: 'name', header: 'Name' },
+  ],
+  datasource: this.ds,
+});
+
+constructor() {
+  this.ds.linkSignal(this.rows);
+}
+```
+
+No synchronization `effect()` is needed. Updates work in both directions:
+
+- Calling `rows.set(...)` or `rows.update(...)` refreshes the grid.
+- Cell edits, paste, `setData`, `updateRow`, `patchRow`, `addRow`, `removeRow`, and `moveRow`
+  update `rows` automatically.
+- Undo and redo also update `rows` because they use datasource mutations.
+
+The `(cellEdit)` output is not required to keep the writable signal synchronized. Use it only for
+side effects such as saving changes to an API:
+
+```html
+<agrid [provider]="provider" (cellEdit)="saveEdit($event)" />
+```
+
+For one-way linking, pass a readonly signal:
+
+```ts
+readonly rows = signal<Row[]>([]);
+
+constructor() {
+  this.ds.linkSignal(this.rows.asReadonly());
+}
+```
+
+In this mode, source updates refresh the grid, but grid mutations remain local to the datasource.
+In both modes, source updates are linked without copying the source array.
+
 | Member | Description |
 | --- | --- |
 | `rows` | Readonly Angular `Signal<T[]>` of current rows. |
+| `linkSignal(source)` | Links an external signal without copying. Writable signals receive datasource mutations automatically. |
 | `setData(rows)` | Replaces all rows with a shallow copy. |
 | `updateRow(index, row)` | Replaces one row. |
 | `patchRow(index, patch)` | Merges a partial row update. |

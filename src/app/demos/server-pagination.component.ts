@@ -27,7 +27,7 @@ function statusBadge(value: string): string {
 }
 
 const COLUMNS: ColDef[] = [
-  { field: 'orderId',   header: 'Order',    width: 120, editable: false, locked: true },
+  { field: 'orderId',   header: 'Order',    width: 120, editable: false },
   { field: 'customer',  header: 'Customer', width: 140, editable: false },
   { field: 'amount',    header: 'Amount',   width: 110, editable: false, formatter: v => `$${Number(v).toFixed(2)}` },
   { field: 'status',    header: 'Status',   width: 120, editable: false, cellRenderer: ({ value }) => statusBadge(String(value)) },

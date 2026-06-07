@@ -1,4 +1,4 @@
-import { Signal, signal } from '@angular/core';
+import { Signal, WritableSignal, isWritableSignal, linkedSignal, signal } from '@angular/core';
 
 /**
  * Signal-based data container shared between the grid and the host component.
@@ -17,7 +17,9 @@ import { Signal, signal } from '@angular/core';
  * ```
  */
 export class AgridDataSource<T extends Record<string, unknown> = Record<string, unknown>> {
-  private readonly _rows = signal<T[]>([]);
+  private readonly _linkedRows = signal<Signal<T[]> | null>(null);
+  private readonly _rows = linkedSignal<T[]>(() => this._linkedRows()?.() ?? []);
+  private _writableLinkedRows: WritableSignal<T[]> | null = null;
   private readonly _rowAdded = signal<{ index: number; sequence: number } | null>(null);
   private _changeSequence = 0;
 
@@ -40,11 +42,25 @@ export class AgridDataSource<T extends Record<string, unknown> = Record<string, 
     this._rowAdded.asReadonly();
 
   /**
+   * Link an external row signal to this data source.
+   *
+   * Whenever `source` changes, its array becomes the current datasource value without an
+   * intermediate effect or array copy. If `source` is writable, datasource mutations are written
+   * back to it automatically. Mutations remain local when linking a readonly signal.
+  */
+  linkSignal(source: Signal<T[]>): void {
+    this._writableLinkedRows = isWritableSignal(source)
+      ? source as WritableSignal<T[]>
+      : null;
+    this._linkedRows.set(source);
+  }
+
+  /**
    * Replace the entire row array.
    * Triggers a full grid re-render via the signal.
    */
   setData(rows: T[]): void {
-    this._rows.set([...rows]);
+    this.setRows([...rows]);
   }
 
   /**
@@ -52,7 +68,7 @@ export class AgridDataSource<T extends Record<string, unknown> = Record<string, 
    * Use {@link patchRow} when you only want to change specific fields.
    */
   updateRow(index: number, row: T): void {
-    this._rows.update(rows => {
+    this.updateRows(rows => {
       const next = [...rows];
       next[index] = row;
       return next;
@@ -64,7 +80,7 @@ export class AgridDataSource<T extends Record<string, unknown> = Record<string, 
    * The grid calls this internally when a cell edit is committed.
    */
   patchRow(index: number, patch: Partial<T>): void {
-    this._rows.update(rows => {
+    this.updateRows(rows => {
       const next = [...rows];
       next[index] = { ...next[index], ...patch } as T;
       return next;
@@ -80,7 +96,7 @@ export class AgridDataSource<T extends Record<string, unknown> = Record<string, 
    */
   addRow(row: T, atIndex?: number): number {
     let insertedAt!: number;
-    this._rows.update(rows => {
+    this.updateRows(rows => {
       if (atIndex === undefined) {
         insertedAt = rows.length;
         return [...rows, row];
@@ -100,7 +116,7 @@ export class AgridDataSource<T extends Record<string, unknown> = Record<string, 
    * via the control column context menu.
    */
   removeRow(index: number): void {
-    this._rows.update(rows => rows.filter((_, i) => i !== index));
+    this.updateRows(rows => rows.filter((_, i) => i !== index));
   }
 
   /**
@@ -112,7 +128,7 @@ export class AgridDataSource<T extends Record<string, unknown> = Record<string, 
    */
   moveRow(from: number, to: number): void {
     if (from === to) return;
-    this._rows.update(rows => {
+    this.updateRows(rows => {
       const arr = [...rows];
       const [item] = arr.splice(from, 1);
       arr.splice(to > from ? to - 1 : to, 0, item);
@@ -128,5 +144,14 @@ export class AgridDataSource<T extends Record<string, unknown> = Record<string, 
   /** Current number of rows (non-reactive snapshot). */
   get length(): number {
     return this._rows().length;
+  }
+
+  private updateRows(update: (rows: T[]) => T[]): void {
+    this.setRows(update(this._rows()));
+  }
+
+  private setRows(rows: T[]): void {
+    this._writableLinkedRows?.set(rows);
+    this._rows.set(rows);
   }
 }
