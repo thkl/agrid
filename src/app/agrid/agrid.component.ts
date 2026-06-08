@@ -24,6 +24,7 @@ import { AgridDragHandler } from './agrid-drag.handler';
 import { AgridEditController } from './agrid-edit.controller';
 import { AgridFindPanelComponent } from './agrid-find-panel.component';
 import { AgridLocaleText, resolveAgridLocaleText, resolveLocale } from './agrid-localization';
+import { AgridNavigationController } from './agrid-navigation.controller';
 import { AgridProvider } from './agrid-provider';
 import { AgridProjectionModel } from './agrid-projection.model';
 import { AgridRangeController } from './agrid-range.controller';
@@ -460,8 +461,6 @@ export class AgridComponent {
     onCellEdit: event => this.cellEdit.emit(event),
   });
 
-  private readonly _filteredSortedIndices = this.projection.filteredSortedIndices;
-
   /** Total filtered row count regardless of current page. */
   readonly filteredRowCount = this.projection.filteredRowCount;
 
@@ -695,6 +694,36 @@ export class AgridComponent {
     scrollerElement: () => this.horizontalScrollerEl().nativeElement,
   }, this.destroyRef);
 
+  private readonly navigationController = new AgridNavigationController({
+    control: this.control,
+    dataSource: this.dataSource,
+    filteredItems: this.filteredItems,
+    filteredSortedIndices: this.projection.filteredSortedIndices,
+    colDefs: this.colDefs,
+    visibleColDefs: this.visibleColDefs,
+    rowHeight: this.rowHeight,
+    allowAddRows: this.allowAddRows,
+    autoAddRows: this.autoAddRows,
+    selectedCell: this.selectedCell,
+    selectedRange: this.selectedRange,
+    editingCell: this.editController.editingCell,
+    isEditing: (originalIndex, colIndex) => this.isEditing(originalIndex, colIndex),
+    startEdit: (originalIndex, colIndex, seedChar) =>
+      this.editController.start(originalIndex, colIndex, seedChar),
+    commitEdit: () => this.editController.commit(),
+    cancelEdit: () => this.editController.cancel(),
+    undoEdit: () => this.editController.undo(),
+    redoEdit: () => this.editController.redo(),
+    extendRangeTo: (originalIndex, colIndex) =>
+      this.rangeController.extendTo(originalIndex, colIndex),
+    openFind: () => this.openFind(),
+    focusGrid: () => this.wrapperEl().nativeElement.focus(),
+    viewport: () => this.viewport(),
+    scrollColumnToKeepVisible: colIndex =>
+      this.columnSizing.scrollColumnToKeepVisible(colIndex),
+    onPrepareAddRecord: event => this.prepareAddRecord.emit(event),
+  });
+
   private readonly clipboardHandler = new AgridClipboardHandler({
     control: this.control,
     dataSource: this.dataSource,
@@ -817,7 +846,7 @@ export class AgridComponent {
     effect(() => {
       const added = this.dataSource().rowAdded();
       if (!added) return;
-      this.revealRow(added.index);
+      this.navigationController.revealRow(added.index);
     });
 
     // Deselect when clicking outside the grid.
@@ -1070,24 +1099,12 @@ export class AgridComponent {
 
   /** @internal */
   onActivate(originalIndex: number, ci: number, event?: MouseEvent): void {
-    if (this.isEditing(originalIndex, ci)) return;
-    this.cancelCurrent();
-    if (event?.shiftKey && this.selectedCell()) {
-      this.rangeController.extendTo(originalIndex, ci);
-      this.wrapperEl().nativeElement.focus();
-      return;
-    }
-    this.selectedRange.set(null);
-    this.selectedCell.set({ rowIndex: originalIndex, colIndex: ci });
-    const col = this.visibleColDefs()[ci];
-    if (col.values?.length) this.enterEdit(originalIndex, ci, '');
-    else this.wrapperEl().nativeElement.focus();
+    this.navigationController.activateCell(originalIndex, ci, event);
   }
 
   /** @internal */
   onActivateAddRow(): void {
-    this.cancelCurrent();
-    this.activateAddRow();
+    this.navigationController.activateAddRow();
   }
 
   /** @internal */
@@ -1108,46 +1125,7 @@ export class AgridComponent {
 
   /** @internal Main keyboard handler delegated from the wrapper div. */
   onKeyDown(event: KeyboardEvent): void {
-    if ((event.target as Element)?.closest('.ag-sidebar')) return;
-
-    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'f') {
-      event.preventDefault();
-      this.openFind();
-      return;
-    }
-
-    // Undo / redo — checked before everything else so they work in any state.
-    if ((event.ctrlKey || event.metaKey) && !event.altKey) {
-      if (event.key === 'z') { event.preventDefault(); event.shiftKey ? this.applyRedo() : this.applyUndo(); return; }
-      if (event.key === 'y') { event.preventDefault(); this.applyRedo(); return; }
-    }
-
-    if (this.editingCell()) {
-      switch (event.key) {
-        case 'Tab':    event.preventDefault(); this.commitCurrent(); this.moveSelection(0, event.shiftKey ? -1 : 1); break;
-        case 'Enter':  event.preventDefault(); this.commitCurrent(); this.moveSelection(1, 0); break;
-        case 'Escape': event.preventDefault(); this.cancelCurrent(); this.wrapperEl().nativeElement.focus(); break;
-      }
-      return;
-    }
-    const sel = this.selectedCell();
-    const isOnAddRow = this.allowAddRows() && !this.autoAddRows() && sel?.rowIndex === this.dataSource().length;
-    switch (event.key) {
-      case 'ArrowUp':    event.preventDefault(); this.moveSelection(-1,  0, event.shiftKey); break;
-      case 'ArrowDown':  event.preventDefault(); this.moveSelection( 1,  0, event.shiftKey); break;
-      case 'ArrowLeft':  event.preventDefault(); this.moveSelection( 0, -1, event.shiftKey); break;
-      case 'ArrowRight': event.preventDefault(); this.moveSelection( 0,  1, event.shiftKey); break;
-      case 'Tab':        event.preventDefault(); this.moveSelection(0, event.shiftKey ? -1 : 1); break;
-      case 'Enter':
-      case 'F2':
-        event.preventDefault();
-        if (sel) { if (isOnAddRow) this.activateAddRow(); else this.enterEdit(sel.rowIndex, sel.colIndex, ''); }
-        break;
-      default:
-        if (sel && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
-          if (isOnAddRow) this.activateAddRow(); else this.enterEdit(sel.rowIndex, sel.colIndex, event.key);
-        }
-    }
+    this.navigationController.handleKeyDown(event);
   }
 
   /** Open the find panel and focus its input. */
@@ -1284,9 +1262,7 @@ export class AgridComponent {
 
   /** @internal Insert a blank row at a specific position and emit prepareAddRecord. */
   insertRowAt(atIndex: number): void {
-    const emptyRow = this.buildEmptyRow();
-    const insertedIndex = this.dataSource().addRow(emptyRow, atIndex);
-    this.prepareAddRecord.emit({ index: insertedIndex, data: emptyRow });
+    this.navigationController.insertRowAt(atIndex);
     this.closeCellContextMenu();
   }
 
@@ -1555,51 +1531,8 @@ export class AgridComponent {
 
   // ── Private helpers ───────────────────────────────────────────────────────────
 
-  private selectedDisplayIndex(): number {
-    const sel = this.selectedCell();
-    if (!sel) return -1;
-    const items = this.filteredItems();
-    if (sel.rowIndex >= this.dataSource().length) return items.length - 1;
-    return items.findIndex(item => isDataRowItemFn(item) && item.originalIndex === sel.rowIndex);
-  }
-
   private findDisplayIndex(originalIndex: number): number {
-    return this.filteredItems().findIndex(
-      item => isDataRowItemFn(item) && item.originalIndex === originalIndex
-    );
-  }
-
-  private revealRow(originalIndex: number): void {
-    const filteredIndex = this._filteredSortedIndices().indexOf(originalIndex);
-    if (filteredIndex < 0) return;
-
-    const ctrl = this.control();
-    const pageSize = ctrl?.pageSize() ?? 0;
-    if (ctrl && pageSize > 0 && ctrl.totalRows() === 0 && !ctrl.groupByField()) {
-      ctrl.setPage(Math.floor(filteredIndex / pageSize) + 1);
-    }
-
-    setTimeout(() => {
-      const displayIndex = this.findDisplayIndex(originalIndex);
-      if (displayIndex >= 0) this.scrollToKeepVisible(displayIndex, 0);
-    });
-  }
-
-  private buildEmptyRow(): Record<string, unknown> {
-    const row: Record<string, unknown> = {};
-    for (const col of this.colDefs()) row[col.field] = col.type === 'number' ? 0 : '';
-    return row;
-  }
-
-  private activateAddRow(): void {
-    const emptyRow = this.buildEmptyRow();
-    const insertedIndex = this.dataSource().addRow(emptyRow);
-    this.selectedRange.set(null);
-    this.selectedCell.set({ rowIndex: insertedIndex, colIndex: 0 });
-    this.wrapperEl().nativeElement.focus();
-    const displayIdx = this.findDisplayIndex(insertedIndex);
-    if (displayIdx >= 0) this.scrollToKeepVisible(displayIdx, 0);
-    this.prepareAddRecord.emit({ index: insertedIndex, data: emptyRow });
+    return this.navigationController.findDisplayIndex(originalIndex);
   }
 
   private isCellEditable(col: ColDef): boolean {
@@ -1610,73 +1543,8 @@ export class AgridComponent {
     this.editController.start(originalIndex, ci, seedChar);
   }
 
-  private applyUndo(): void {
-    this.editController.undo();
-  }
-
-  private applyRedo(): void {
-    this.editController.redo();
-  }
-
-  private commitCurrent(): void {
-    this.editController.commit();
-  }
-
   private cancelCurrent(): void {
     this.editController.cancel();
-  }
-
-  private moveSelection(dRow: number, dCol: number, extendRange = false): void {
-    const items = this.filteredItems();
-    if (items.length === 0) return;
-    const cols = this.visibleColDefs().length;
-    let di = this.selectedDisplayIndex();
-    let ci = this.selectedCell()?.colIndex ?? 0;
-    if (di === -1) { di = 0; ci = 0; }
-    let newDi = di + dRow;
-    let newCi = ci + dCol;
-    const onAddRow = items[newDi] === null;
-    if (!onAddRow) {
-      if (newCi < 0)     { newDi--; newCi = cols - 1; }
-      if (newCi >= cols) { newDi++; newCi = 0; }
-    }
-    // Skip group header rows.
-    {
-      const skipDir = dRow < 0 ? -1 : 1;
-      let skipDi = newDi;
-      while (skipDi >= 0 && skipDi < items.length && isGroupHeaderItemFn(items[skipDi])) skipDi += skipDir;
-      if (skipDi >= 0 && skipDi < items.length) newDi = skipDi;
-    }
-    if (this.autoAddRows() && newDi >= items.length) {
-      const emptyRow = this.buildEmptyRow();
-      const insertedIndex = this.dataSource().addRow(emptyRow);
-      const newDisplayIdx = this.filteredItems().findIndex(
-        item => isDataRowItemFn(item) && item.originalIndex === insertedIndex
-      );
-      this.selectedCell.set({ rowIndex: insertedIndex, colIndex: Math.min(newCi, cols - 1) });
-      if (newDisplayIdx >= 0) {
-        this.scrollToKeepVisible(newDisplayIdx, Math.min(newCi, cols - 1));
-      }
-      this.wrapperEl().nativeElement.focus();
-      this.prepareAddRecord.emit({ index: insertedIndex, data: emptyRow });
-      return;
-    }
-    newDi = Math.max(0, Math.min(items.length - 1, newDi));
-    newCi = Math.max(0, Math.min(cols - 1, newCi));
-    const newItem = items[newDi];
-    if (newItem === null) {
-      this.selectedRange.set(null);
-      this.selectedCell.set({ rowIndex: this.dataSource().length, colIndex: 0 });
-    } else if (isDataRowItemFn(newItem)) {
-      if (extendRange) {
-        this.rangeController.extendTo(newItem.originalIndex, newCi);
-      } else {
-        this.selectedRange.set(null);
-        this.selectedCell.set({ rowIndex: newItem.originalIndex, colIndex: newCi });
-      }
-    }
-    this.scrollToKeepVisible(newDi, newCi);
-    this.wrapperEl().nativeElement.focus();
   }
 
   /** @internal */
@@ -1708,16 +1576,7 @@ export class AgridComponent {
   }
 
   private scrollToKeepVisible(displayIndex: number, colIndex: number | null = null): void {
-    const viewport   = this.viewport();
-    const itemSize   = this.rowHeight();
-    const scrollOffset   = viewport.measureScrollOffset();
-    const viewportSize   = viewport.getViewportSize();
-    if (displayIndex * itemSize < scrollOffset)
-      viewport.scrollToOffset(displayIndex * itemSize);
-    else if ((displayIndex + 1) * itemSize > scrollOffset + viewportSize)
-      viewport.scrollToOffset((displayIndex + 1) * itemSize - viewportSize);
-
-    if (colIndex !== null) this.columnSizing.scrollColumnToKeepVisible(colIndex);
+    this.navigationController.scrollToKeepVisible(displayIndex, colIndex);
   }
 
   /** @internal Current rendered width for a column. */
