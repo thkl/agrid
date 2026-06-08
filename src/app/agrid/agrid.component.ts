@@ -16,8 +16,9 @@ import {
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { AgridCellComponent } from './agrid-cell.component';
 import { AgridClipboardHandler, CellRange } from './agrid-clipboard.handler';
+import { AgridColumnMenuController } from './agrid-column-menu.controller';
 import { AgridColumnSizingController } from './agrid-column-sizing.controller';
-import { AgridColumnMenuComponent, AgridColumnMenuValueItem } from './agrid-column-menu.component';
+import { AgridColumnMenuComponent } from './agrid-column-menu.component';
 import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridDragHandler } from './agrid-drag.handler';
@@ -578,67 +579,7 @@ export class AgridComponent {
     field: string; value: unknown;
     row: Record<string, unknown>;
   } | null>(null);
-  readonly filterMenu     = signal<{ field: string; x: number; y: number } | null>(null);
   readonly groupActionsMenu = signal<{ x: number; y: number; label: string } | null>(null);
-  readonly filterMenuSearch = signal<string>('');
-
-  readonly filterMenuItems = computed<{ label: string; rawStr: string }[]>(() => {
-    const menu = this.filterMenu();
-    if (!menu) return [];
-    const col = this.colDefs().find(c => c.field === menu.field);
-    const vals = col?.values;
-    if (vals?.length) {
-      return vals
-        .map(v => typeof v === 'string'
-          ? { label: v, rawStr: v }
-          : { label: (v as ValueOption).label, rawStr: String((v as ValueOption).value) })
-        .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
-    }
-    const rows = this.dataSource().rows();
-    const rawStrs = [...new Set(rows.map(r => String(r[menu.field] ?? '')))];
-    return rawStrs
-      .map(rawStr => ({ label: col?.formatter ? col.formatter(rawStr) : rawStr, rawStr }))
-      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
-  });
-
-  readonly filterMenuVisibleItems = computed(() => {
-    const search = this.filterMenuSearch().toLowerCase();
-    return this.filterMenuItems().filter(item => !search || item.label.toLowerCase().includes(search));
-  });
-
-  readonly columnMenuValueItems = computed<AgridColumnMenuValueItem[]>(() => {
-    const menu = this.filterMenu();
-    if (!menu) return [];
-    return this.filterMenuVisibleItems().map(item => ({
-      ...item,
-      active: this.isMenuValueActive(item.rawStr),
-      selected: this.isMenuValueSelected(menu.field, item.rawStr),
-    }));
-  });
-
-  readonly filterMenuActiveValues = computed(() => {
-    const menu = this.filterMenu();
-    if (!menu) return new Set<string>();
-    const rows = this.dataSource().rows();
-    const ctrl = this.control();
-    const openField = menu.field;
-    let indices = rows.map((_, i) => i);
-    if (ctrl) {
-      const filters = ctrl.filters();
-      for (const [field, filter] of Object.entries(filters)) {
-        if (field === openField) continue;
-        if (filter.text) {
-          const lc = filter.text.toLowerCase();
-          indices = indices.filter(i => String(rows[i][field] ?? '').toLowerCase().includes(lc));
-        }
-        if (filter.selectedValues !== null) {
-          const allowed = new Set(filter.selectedValues);
-          indices = indices.filter(i => allowed.has(String(rows[i][field] ?? '')));
-        }
-      }
-    }
-    return new Set(indices.map(i => String(rows[i][openField] ?? '')));
-  });
 
   readonly findMatches = computed<FindMatch[]>(() => {
     const query = this.findQuery().trim().toLowerCase();
@@ -693,6 +634,26 @@ export class AgridComponent {
     wrapperElement: () => this.wrapperEl().nativeElement,
     scrollerElement: () => this.horizontalScrollerEl().nativeElement,
   }, this.destroyRef);
+
+  private readonly columnMenuController = new AgridColumnMenuController({
+    control: this.control,
+    dataSource: this.dataSource,
+    colDefs: this.colDefs,
+    serverSideFiltering: this.serverSideFiltering,
+    filterDebounceMs: this.filterDebounceMs,
+    sortOption: this.sortOption,
+    effectiveSortOrder: () => this.projection.effectiveSortOrder(),
+    autosizeColumn: col => this.columnSizing.autosizeColumn(col),
+    onFilterChange: event => this.filterChange.emit(event),
+    onSortChange: event => this.sortChange.emit(event),
+  }, this.destroyRef);
+
+  readonly filterMenu = this.columnMenuController.menu;
+  readonly filterMenuSearch = this.columnMenuController.search;
+  readonly filterMenuItems = this.columnMenuController.items;
+  readonly filterMenuVisibleItems = this.columnMenuController.visibleItems;
+  readonly filterMenuActiveValues = this.columnMenuController.activeValues;
+  readonly columnMenuValueItems = this.columnMenuController.valueItems;
 
   private readonly navigationController = new AgridNavigationController({
     control: this.control,
@@ -753,8 +714,6 @@ export class AgridComponent {
   private readonly _colDragInsertBefore = signal<boolean>(true);
   private _colDragStartField: string | null = null;
   private _colDragStartX = 0;
-
-  private readonly _filterDebounces = new Map<string, ReturnType<typeof setTimeout>>();
 
   /** @internal Start a column header drag. */
   onColHeaderPointerDown(event: PointerEvent, field: string): void {
@@ -862,8 +821,6 @@ export class AgridComponent {
       document.removeEventListener('pointerdown', onOutsidePointerDown);
       document.removeEventListener('pointermove', this._colDragMove);
       document.removeEventListener('pointerup',   this._colDragUp);
-      for (const timer of this._filterDebounces.values()) clearTimeout(timer);
-      this._filterDebounces.clear();
     });
 
     // Re-sync pinned pane scroll after displayItems changes — CDK independently adjusts
@@ -961,37 +918,39 @@ export class AgridComponent {
 
   /** @internal */
   /** @internal 1-based sort priority for a column, 0 if not sorted. */
-  getSortPriority(field: string): number { return this.control()?.getSortPriority(field) ?? 0; }
+  getSortPriority(field: string): number { return this.columnMenuController.getSortPriority(field); }
 
   /** @internal Whether more than one column is currently sorted. */
   hasMultiSort(): boolean {
-    return this.sortOption() === 'multi' && this.effectiveSortOrder().length > 1;
+    return this.columnMenuController.hasMultiSort();
   }
 
-  getTextFilter(field: string): string { return this.control()?.getFilter(field).text ?? ''; }
+  getTextFilter(field: string): string { return this.columnMenuController.getTextFilter(field); }
 
   /** @internal */
   getSort(field: string): 'asc' | 'desc' | null {
-    return this.sortOption() === 'none' ? null : this.control()?.getFilter(field).sort ?? null;
+    return this.columnMenuController.getSort(field);
   }
 
   /** @internal */
   isMenuAllSelected(field: string): boolean {
-    return this.control()?.getFilter(field).selectedValues === null;
+    return this.columnMenuController.isAllSelected(field);
   }
 
   /** @internal */
-  isMenuValueActive(rawStr: string): boolean { return this.filterMenuActiveValues().has(rawStr); }
+  isMenuValueActive(rawStr: string): boolean {
+    return this.columnMenuController.isValueActive(rawStr);
+  }
 
   /** @internal */
   isMenuValueSelected(field: string, value: string): boolean {
-    const selected = this.control()?.getFilter(field).selectedValues;
-    if (selected == null) return true;
-    return selected.includes(value);
+    return this.columnMenuController.isValueSelected(field, value);
   }
 
   /** @internal */
-  hasActiveFilter(field: string): boolean { return this.control()?.hasActiveFilter(field) ?? false; }
+  hasActiveFilter(field: string): boolean {
+    return this.columnMenuController.hasActiveFilter(field);
+  }
 
   /** @internal */
   getColDef(field: string): ColDef | undefined { return this.colDefs().find(c => c.field === field); }
@@ -1336,149 +1295,61 @@ export class AgridComponent {
 
   /** @internal */
   onTextFilterChange(event: Event, field: string): void {
-    const value = (event.target as HTMLInputElement).value;
-    this.control()?.setTextFilter(field, value);
-    if (!this.serverSideFiltering()) return;
-
-    this.cancelFilterDebounce(field);
-    const delay = this.filterDebounceMs();
-    if (delay === 0) {
-      this.filterChange.emit({ field, value });
-      return;
-    }
-    this._filterDebounces.set(field, setTimeout(() => {
-      this._filterDebounces.delete(field);
-      this.filterChange.emit({ field, value });
-    }, delay));
+    this.columnMenuController.onTextFilterChange(event, field);
   }
 
   /** @internal */
   openFilterMenu(event: MouseEvent, field: string): void {
-    event.stopPropagation();
-    this.filterMenuSearch.set('');
-    const x = Math.min(event.clientX, window.innerWidth - 220);
-    this.filterMenu.set({ field, x, y: event.clientY });
+    this.columnMenuController.open(event, field);
   }
 
   /** @internal */
-  closeFilterMenu(): void { this.filterMenu.set(null); }
+  closeFilterMenu(): void { this.columnMenuController.close(); }
 
   /** @internal */
   onFilterMenuSearch(value: string): void {
-    this.filterMenuSearch.set(value);
+    this.columnMenuController.setSearch(value);
   }
 
   /** @internal */
   onMenuSort(field: string, dir: 'asc' | 'desc'): void {
-    const ctrl = this.control();
-    if (!ctrl || this.sortOption() === 'none') return;
-    if (ctrl.getFilter(field).sort === dir) {
-      const previous = ctrl.getFilter(field);
-      ctrl.clearFilter(field);   // toggle off — remove from stack
-      if (previous.text) ctrl.setTextFilter(field, previous.text);
-      if (previous.selectedValues !== null) {
-        ctrl.setSelectedValues(field, previous.selectedValues);
-      }
-      if (this.serverSideFiltering()) this.sortChange.emit({ field, direction: null });
-    } else if (this.sortOption() === 'single') {
-      const previousFields = ctrl.sortOrder().filter(sortedField => sortedField !== field);
-      ctrl.setSort(field, dir);
-      if (this.serverSideFiltering()) {
-        for (const previousField of previousFields) {
-          this.sortChange.emit({ field: previousField, direction: null });
-        }
-        this.sortChange.emit({ field, direction: dir });
-      }
-    } else {
-      ctrl.addSort(field, dir);  // add to stack or switch direction
-      if (this.serverSideFiltering()) this.sortChange.emit({ field, direction: dir });
-    }
-    this.closeFilterMenu();
+    this.columnMenuController.sort(field, dir);
   }
 
   /** @internal */
   onMenuClearFilter(field: string): void {
-    const ctrl = this.control();
-    if (!ctrl) return;
-    this.cancelFilterDebounce(field);
-    const previous = ctrl.getFilter(field);
-    ctrl.clearFilter(field);
-    if (this.serverSideFiltering()) {
-      if (previous.text) this.filterChange.emit({ field, value: '' });
-      if (previous.sort) this.sortChange.emit({ field, direction: null });
-    }
-    this.closeFilterMenu();
+    this.columnMenuController.clearFilter(field);
   }
 
   /** @internal */
   /** @internal Replace the entire sort stack with a single sort on this column. */
   onMenuResetSort(field: string, dir: 'asc' | 'desc'): void {
-    const ctrl = this.control();
-    if (!ctrl || this.sortOption() !== 'multi') return;
-    const previousFields = ctrl.sortOrder().filter(sortedField => sortedField !== field);
-    ctrl.setSort(field, dir);
-    if (this.serverSideFiltering()) {
-      for (const previousField of previousFields) {
-        this.sortChange.emit({ field: previousField, direction: null });
-      }
-      this.sortChange.emit({ field, direction: dir });
-    }
-    this.closeFilterMenu();
+    this.columnMenuController.resetSort(field, dir);
   }
 
   onMenuToggleGroupBy(field: string): void {
-    const ctrl = this.control();
-    if (!ctrl) return;
-    ctrl.setGroupBy(ctrl.groupByField() === field ? null : field);
-    this.closeFilterMenu();
+    this.columnMenuController.toggleGroupBy(field);
   }
 
   /** @internal */
   onMenuClearAll(): void {
-    const ctrl = this.control();
-    if (!ctrl) return;
-    for (const field of this._filterDebounces.keys()) this.cancelFilterDebounce(field);
-    const previous = ctrl.filters();
-    ctrl.clearAllFilters();
-    if (this.serverSideFiltering()) {
-      for (const [field, filter] of Object.entries(previous)) {
-        if (filter.text) this.filterChange.emit({ field, value: '' });
-        if (filter.sort) this.sortChange.emit({ field, direction: null });
-      }
-    }
-    this.closeFilterMenu();
-  }
-
-  private cancelFilterDebounce(field: string): void {
-    const timer = this._filterDebounces.get(field);
-    if (timer === undefined) return;
-    clearTimeout(timer);
-    this._filterDebounces.delete(field);
-  }
-
-  private effectiveSortOrder(): string[] {
-    return this.projection.effectiveSortOrder();
+    this.columnMenuController.clearAll();
   }
 
   /** @internal */
   onMenuToggleAll(field: string): void {
-    const ctrl = this.control();
-    if (!ctrl) return;
-    ctrl.setSelectedValues(field, ctrl.getFilter(field).selectedValues === null ? [] : null);
+    this.columnMenuController.toggleAll(field);
   }
 
   /** @internal */
   onMenuToggleValue(field: string, rawStr: string): void {
-    const ctrl = this.control();
-    if (!ctrl) return;
-    const allRawStrs = this.filterMenuItems().map(i => i.rawStr);
-    const current = ctrl.getFilter(field).selectedValues ?? allRawStrs;
-    const next = current.includes(rawStr) ? current.filter(v => v !== rawStr) : [...current, rawStr];
-    ctrl.setSelectedValues(field, next.length === allRawStrs.length ? null : next);
+    this.columnMenuController.toggleValue(field, rawStr);
   }
 
   /** @internal */
-  onSidebarToggleColumn(field: string): void { this.control()?.toggleColumnVisibility(field); }
+  onSidebarToggleColumn(field: string): void {
+    this.columnMenuController.toggleColumnVisibility(field);
+  }
 
   /** @internal Mirrors vertical scrolling from the main viewport into both pinned panes. */
   onBodyScroll(): void {
@@ -1499,34 +1370,27 @@ export class AgridComponent {
 
   /** @internal */
   onMenuTogglePin(field: string): void {
-    this.control()?.togglePinned(field);
-    this.closeFilterMenu();
+    this.columnMenuController.togglePin(field);
   }
 
   /** @internal */
   onMenuTogglePinRight(field: string): void {
-    this.control()?.togglePinnedRight(field);
-    this.closeFilterMenu();
+    this.columnMenuController.togglePinRight(field);
   }
 
   /** @internal */
   onMenuAutosizeColumn(field: string): void {
-    const col = this.getColDef(field);
-    if (!col) return;
-    this.columnSizing.autosizeColumn(col);
-    this.closeFilterMenu();
+    this.columnMenuController.autosize(field);
   }
 
   /** @internal */
   onMenuSetAggregate(field: string, agg: 'sum' | 'avg' | 'min' | 'max' | 'count' | null): void {
-    this.control()?.setAggregate(field, agg);
-    this.closeFilterMenu();
+    this.columnMenuController.setAggregate(field, agg);
   }
 
   /** @internal */
   onMenuHideColumn(field: string): void {
-    this.control()?.setColumnVisibility(field, false);
-    this.closeFilterMenu();
+    this.columnMenuController.hideColumn(field);
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────────
