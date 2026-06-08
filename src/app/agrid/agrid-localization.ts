@@ -43,6 +43,7 @@ export interface AgridLocaleText {
   sortDescending: string;
   ungroup: string;
   unpinColumn: string;
+  save:string;
 }
 
 export type AgridLocaleTextOverrides = Partial<AgridLocaleText>;
@@ -91,6 +92,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     sortDescending: 'Sort descending',
     ungroup: 'Ungroup',
     unpinColumn: 'Unpin column',
+    save:'Save'
   },
   de: {
     actions: 'Aktionen',
@@ -135,6 +137,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     sortDescending: 'Absteigend sortieren',
     ungroup: 'Gruppierung aufheben',
     unpinColumn: 'Fixierung lösen',
+    save:'Speichern'
   },
 };
 

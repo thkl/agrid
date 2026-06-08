@@ -44,6 +44,10 @@ export interface AgridProviderConfig<T extends Record<string, unknown> = Record<
   zebraStripes?: boolean;
   /** Make the entire grid read-only. @default false */
   readonly?: boolean;
+
+  /** allow the user only to edit data in the sidebar editor */
+  useSidebarEditor?:boolean;
+
   /** Show a loading overlay over the grid body. @default false */
   loading?: boolean;
   /** Message shown when the grid has no rows to display. */
@@ -53,7 +57,6 @@ export interface AgridProviderConfig<T extends Record<string, unknown> = Record<
 export class AgridProvider<T extends Record<string, unknown> = Record<string, unknown>> {
   datasource: AgridDataSource<T>;
   control: AgridControl;
-  /** Toggle columns without recreating the provider. @default signal([]) */
   readonly columns: WritableSignal<ColDef[]>;
   options: AGridOptions;
 
@@ -93,6 +96,7 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
   cellMenuItems: (CellContextMenuItem | null)[];
   zebraStripes: boolean;
   emptyText?: string;
+  useSidebarEditor: boolean;
 
   // Dynamic options exposed as signals so callers can update them without recreating the provider
   /** Toggle the loading overlay without recreating the provider. @default signal(false) */
@@ -121,6 +125,7 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
     this.emptyText        = config.emptyText;
     this.loading          = signal(config.loading ?? false);
     this.readonlyGrid     = signal(config.readonly ?? false);
+    this.useSidebarEditor = config.useSidebarEditor ?? false;
   }
 
   getGridData() {

@@ -100,6 +100,7 @@ export class AgridComponent {
   readonly readonlyGrid     = computed(() => this.provider().readonlyGrid());
   readonly loading          = computed(() => this.provider().loading());
   readonly emptyText        = computed(() => this.provider().emptyText);
+  readonly useSidebarEditor = computed(()=> this.provider().useSidebarEditor);
 
   // Auto-open detail panel when a row is selected and autoOpenDetail is enabled.
   private readonly _autoDetailEffect = effect(() => {
@@ -267,7 +268,10 @@ export class AgridComponent {
     this.dataSource().patchRow(idx, { [field]: newValue });
     const ci = this.visibleColDefs().findIndex(c => c.field === field);
     this.control()?.pushEdit({ rowIndex: idx, field, oldValue, newValue });
-    this.cellEdit.emit({ position: { rowIndex: idx, colIndex: ci }, field, oldValue, newValue });
+    if (!this.useSidebarEditor()) {
+      // Only emit a change when the edit came from the grid 
+      this.cellEdit.emit({ position: { rowIndex: idx, colIndex: ci }, field, oldValue, newValue });
+    }
   }
 
   /**
@@ -2092,5 +2096,9 @@ export class AgridComponent {
     const style = getComputedStyle(this.wrapperEl().nativeElement);
     ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
     return ctx;
+  }
+
+  public saveFromSidebar(event:any) {
+    console.log(event);
   }
 }
