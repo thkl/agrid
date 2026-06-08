@@ -247,13 +247,18 @@ describe('AgridComponent server-side filtering', () => {
     const emitted: unknown[] = [];
     component.sortChange.subscribe(event => emitted.push(event));
 
+    component.filterMenu.set({ field: 'name', x: 0, y: 0 });
     component.onMenuSort('name', 'asc');
+    expect(component.filterMenu()).toBeNull();
+
+    component.filterMenu.set({ field: 'name', x: 0, y: 0 });
     component.onMenuSort('name', 'asc');
 
     expect(emitted).toEqual([
       { field: 'name', direction: 'asc' },
       { field: 'name', direction: null },
     ]);
+    expect(component.filterMenu()).toBeNull();
     expect(visibleDataRows(component.filteredItems()).map(item => item.row['name']))
       .toEqual(['Bob', 'Alice']);
   });

@@ -1489,6 +1489,7 @@ export class AgridComponent {
       ctrl.addSort(field, dir);  // add to stack or switch direction
       if (this.serverSideFiltering()) this.sortChange.emit({ field, direction: dir });
     }
+    this.closeFilterMenu();
   }
 
   /** @internal */
