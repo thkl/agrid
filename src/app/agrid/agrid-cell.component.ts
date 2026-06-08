@@ -4,13 +4,11 @@ import {
   ElementRef,
   computed,
   effect,
-  inject,
   input,
   output,
   signal,
   viewChild,
 } from '@angular/core';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ColDef, ValueOption } from './agrid.types';
 import { formatDateValue, looksLikeDate } from './agrid.utils';
 
@@ -26,8 +24,10 @@ import { formatDateValue, looksLikeDate } from './agrid.utils';
   selector: 'agrid-cell',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
+    role: 'gridcell',
     '[class.selected]': 'selected()',
     '[class.editing]': 'editing()',
+    '[attr.aria-readonly]': 'col().editable === false ? "true" : null',
     '(click)': 'activate.emit($event)',
     '(dblclick)': 'startEdit.emit()',
     tabindex: '-1',
@@ -109,14 +109,10 @@ export class AgridCellComponent {
   /** Live draft value managed by the cell during an active edit. */
   readonly draft = signal<unknown>('');
 
-  private readonly sanitizer = inject(DomSanitizer);
-
-  readonly renderedHtml = computed((): SafeHtml => {
+  readonly renderedHtml = computed((): string => {
     const renderer = this.col().cellRenderer;
     if (!renderer) return '';
-    return this.sanitizer.bypassSecurityTrustHtml(
-      renderer({ value: this.value(), row: this.row() })
-    );
+    return renderer({ value: this.value(), row: this.row() });
   });
 
   /**

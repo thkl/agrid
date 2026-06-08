@@ -1,4 +1,4 @@
-<div class="ag-find-panel" (click)="$event.stopPropagation()">
+<div class="ag-find-panel" role="search" (click)="$event.stopPropagation()">
   <input
     #findInput
     class="ag-find-input"
@@ -6,9 +6,13 @@
     (input)="queryChange.emit($any($event.target).value)"
     (keydown)="onKeyDown($event)"
     [placeholder]="localeText().findPlaceholder"
+    [attr.aria-label]="localeText().findPlaceholder"
   />
-  <span class="ag-find-count">{{ countLabel() }}</span>
-  <button class="ag-find-btn" [title]="localeText().previous" (click)="previous.emit()">↑</button>
-  <button class="ag-find-btn" [title]="localeText().next" (click)="next.emit()">↓</button>
-  <button class="ag-find-btn" [title]="localeText().close" (click)="close.emit()">✕</button>
+  <span class="ag-find-count" aria-live="polite">{{ countLabel() }}</span>
+  <button class="ag-find-btn" [title]="localeText().previous" [attr.aria-label]="localeText().previous"
+    (click)="previous.emit()">↑</button>
+  <button class="ag-find-btn" [title]="localeText().next" [attr.aria-label]="localeText().next"
+    (click)="next.emit()">↓</button>
+  <button class="ag-find-btn" [title]="localeText().close" [attr.aria-label]="localeText().close"
+    (click)="close.emit()">✕</button>
 </div>

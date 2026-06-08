@@ -1,8 +1,10 @@
 @if (open()) {
-  <div class="ag-sidebar">
+  <div class="ag-sidebar" role="region"
+    [attr.aria-label]="activeTab() === 'columns' ? localeText().columns : localeText().detail">
     <div class="ag-sidebar-header">
       <span>{{ activeTab() === 'columns' ? localeText().columns : localeText().detail }}</span>
-      <button class="ag-sidebar-close" (click)="close.emit()" [title]="localeText().close">✕</button>
+      <button class="ag-sidebar-close" (click)="close.emit()" [title]="localeText().close"
+        [attr.aria-label]="localeText().close">✕</button>
     </div>
 
     @if (activeTab() === 'columns') {
@@ -77,11 +79,13 @@
   <button
     class="ag-sidebar-strip-btn"
     [class.active]="open() && activeTab() === 'columns'"
+    [attr.aria-pressed]="open() && activeTab() === 'columns'"
     (click)="tabChange.emit('columns')"
   >{{ localeText().columns }}</button>
   <button
     class="ag-sidebar-strip-btn"
     [class.active]="open() && activeTab() === 'detail'"
+    [attr.aria-pressed]="open() && activeTab() === 'detail'"
     (click)="tabChange.emit('detail')"
   >{{ localeText().detail }}</button>
 </div>

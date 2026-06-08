@@ -1,13 +1,18 @@
-<div #wrapper class="ag-wrapper" tabindex="0" (copy)="onCopy($event)" (paste)="onPaste($event)"
+<div #wrapper class="ag-wrapper" tabindex="0" role="grid" [attr.aria-label]="localeText().grid"
+  [attr.aria-rowcount]="ariaRowCount()" [attr.aria-colcount]="ariaColCount()"
+  [attr.aria-multiselectable]="rowSelection() === 'multi' ? 'true' : null"
+  [attr.aria-readonly]="readonlyGrid() ? 'true' : null"
+  [attr.aria-busy]="loading() ? 'true' : null" (copy)="onCopy($event)" (paste)="onPaste($event)"
   (click)="closeContextMenu(); closeCellContextMenu(); closeFilterMenu(); closeGroupActionsMenu()">
   <div class="ag-main-area">
     <div class="ag-grid-split" [class.ag-has-right-pane]="hasRightPinnedPane()">
       @if (hasPinnedPane()) {
       <div class="ag-pinned-pane" [style.width.px]="pinnedPaneWidth()">
-        <div class="ag-header ag-header--pinned" [class.ag-header--with-filters]="hasFilterableColumns()"
+        <div class="ag-header ag-header--pinned" role="row" aria-rowindex="1"
+          [class.ag-header--with-filters]="hasFilterableColumns()"
           [style.grid-template-columns]="pinnedGridTemplateColumns()" [style.width.px]="pinnedPaneWidth()">
           @if (showControlColumn()) {
-          <div class="ag-header-cell ag-control-header">
+          <div class="ag-header-cell ag-control-header" role="columnheader" aria-colindex="1">
             <div class="ag-header-cell-top"></div>
             @if (hasFilterableColumns()) {
             <div class="ag-header-cell-filter"></div>
@@ -15,7 +20,9 @@
           </div>
           }
           @for (col of pinnedColDefs(); track col.field) {
-          <div class="ag-header-cell ag-header-cell--pinned"
+          <div class="ag-header-cell ag-header-cell--pinned" role="columnheader"
+            [attr.aria-colindex]="getAriaColIndex(getVisibleColIndex(col.field))"
+            [attr.aria-sort]="getSort(col.field) === 'asc' ? 'ascending' : getSort(col.field) === 'desc' ? 'descending' : 'none'"
             [class.ag-header-cell--filtered]="hasActiveFilter(col.field)"
             [class.ag-header-cell--dragging]="isColDragging(col.field)"
             [class.ag-header-cell--drop-before]="getColDropSide(col.field) === 'before'"
@@ -29,7 +36,9 @@
                   class="ag-sort-priority">{{ getSortPriority(col.field) }}</sup>}</span>
               }
               <button class="ag-header-menu-btn" [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
-                [title]="localeText().columnMenu" (click)="openFilterMenu($event, col.field)"
+                [title]="localeText().columnMenu" [attr.aria-label]="localeText().columnMenu + ': ' + col.header"
+                [attr.aria-expanded]="filterMenu()?.field === col.field" aria-haspopup="menu"
+                (click)="openFilterMenu($event, col.field)"
                 (pointerdown)="$event.stopPropagation()">▾</button>
             </div>
             @if (hasFilterableColumns()) {
@@ -37,11 +46,16 @@
               @if (col.filterable) {
               <input class="ag-filter-input" [value]="getTextFilter(col.field)"
                 (input)="onTextFilterChange($event, col.field)" (click)="$event.stopPropagation()"
-                [placeholder]="localeText().filterPlaceholder" />
+                [placeholder]="localeText().filterPlaceholder"
+                [attr.aria-label]="localeText().filterPlaceholder + ' ' + col.header" />
               }
             </div>
             }
-            <div class="ag-resize-handle" (mousedown)="onResizeStart($event, col)"
+            <div class="ag-resize-handle" role="separator" [attr.tabindex]="col.locked ? -1 : 0"
+              aria-orientation="vertical" [attr.aria-disabled]="col.locked ? 'true' : null"
+              [attr.aria-label]="localeText().resizeColumn + ': ' + col.header"
+              [attr.aria-valuenow]="getColumnWidth(col)" (keydown)="onResizeKeyDown($event, col)"
+              (mousedown)="onResizeStart($event, col)"
               (pointerdown)="$event.stopPropagation()" (dblclick)="onAutosizeColumn($event, col)"></div>
           </div>
           }
@@ -49,7 +63,9 @@
 
         <cdk-virtual-scroll-viewport #pinnedViewport class="ag-body ag-pinned-body" [itemSize]="rowHeight()"
           [style.width.px]="pinnedPaneWidth()">
-          <div *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem"
+          <div *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem" role="row"
+            [attr.aria-rowindex]="di + 2"
+            [attr.aria-selected]="isDataRowItem(item) && isRowSelected(item.originalIndex) ? 'true' : null"
             [class.ag-row]="!isGroupHeaderItem(item)" [class.ag-add-row]="item === null"
             [class.ag-add-row--selected]="item === null && isAddRowSelected()" [class.ag-ghost-row]="item === 'ghost'"
             [class.ag-group-header-row]="isGroupHeaderItem(item)"
@@ -61,7 +77,8 @@
             (click)="isDataRowItem(item) && onRowClick($event, item)">
             @if (isDataRowItem(item)) {
             @if (showControlColumn()) {
-            <div class="ag-control-cell" [class.ag-control-cell--reorder]="allowRowReorder()"
+            <div class="ag-control-cell" role="rowheader" aria-colindex="1"
+              [class.ag-control-cell--reorder]="allowRowReorder()"
               (contextmenu)="onControlContextMenu($event, item.originalIndex)" (click)="$event.stopPropagation()"
               (pointerdown)="onControlPointerDown($event, item.originalIndex)"></div>
             }
@@ -70,6 +87,8 @@
             <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
               [row]="item.row" [locale]="locale()" [attr.title]="getCellTitle(col, item.row[col.field])"
               [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
+              [attr.aria-colindex]="getAriaColIndex(ci)"
+              [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
               [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
               [seedChar]="getSeedChar(item.originalIndex, ci)"
               [class.ag-cell--range-selected]="isRangeSelected(item.originalIndex, ci)"
@@ -101,13 +120,16 @@
         </cdk-virtual-scroll-viewport>
 
         @if (showFooter()) {
-        <div class="ag-footer" [style.grid-template-columns]="pinnedGridTemplateColumns()">
+        <div class="ag-footer" role="row" [attr.aria-rowindex]="displayItems().length + 2"
+          [style.grid-template-columns]="pinnedGridTemplateColumns()">
           @if (showControlColumn()) {
-          <div class="ag-footer-cell ag-footer-cell--control"></div>
+          <div class="ag-footer-cell ag-footer-cell--control" role="gridcell" aria-colindex="1"></div>
           }
           @for (col of pinnedColDefs(); track col.field) {
-          <div class="ag-footer-cell" [class.ag-footer-cell--pinned-last]="isLastPinnedColumn(col.field)">
-            @if (col.aggregate) {
+          <div class="ag-footer-cell" role="gridcell"
+            [attr.aria-colindex]="getAriaColIndex(getVisibleColIndex(col.field))"
+            [class.ag-footer-cell--pinned-last]="isLastPinnedColumn(col.field)">
+            @if (hasAggregate(col)) {
             <span class="ag-footer-label">{{ getAggregateLabel(col) }}</span>
             {{ getFooterDisplay(col, footerValues()[col.field]) }}
             }
@@ -120,11 +142,15 @@
 
       <div class="ag-scroll-pane">
         <div #horizontalScroller class="ag-horizontal-scroll">
-          <div class="ag-header" [class.ag-header--with-filters]="hasFilterableColumns()"
+          <div class="ag-header" role="row" aria-rowindex="1"
+            [class.ag-header--with-filters]="hasFilterableColumns()"
             [style.grid-template-columns]="scrollableGridTemplateColumns()"
             [style.min-width.px]="scrollableTotalWidth()">
             @for (col of scrollableColDefs(); track col.field) {
-            <div class="ag-header-cell" [class.ag-header-cell--filtered]="hasActiveFilter(col.field)"
+            <div class="ag-header-cell" role="columnheader"
+              [attr.aria-colindex]="getAriaColIndex(getVisibleColIndex(col.field))"
+              [attr.aria-sort]="getSort(col.field) === 'asc' ? 'ascending' : getSort(col.field) === 'desc' ? 'descending' : 'none'"
+              [class.ag-header-cell--filtered]="hasActiveFilter(col.field)"
               [class.ag-header-cell--dragging]="isColDragging(col.field)"
               [class.ag-header-cell--drop-before]="getColDropSide(col.field) === 'before'"
               [class.ag-header-cell--drop-after]="getColDropSide(col.field) === 'after'"
@@ -139,7 +165,9 @@
                 <span class="ag-sort-badge">⊟</span>
                 }
                 <button class="ag-header-menu-btn" [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
-                  [title]="localeText().columnMenu" (click)="openFilterMenu($event, col.field)"
+                  [title]="localeText().columnMenu" [attr.aria-label]="localeText().columnMenu + ': ' + col.header"
+                  [attr.aria-expanded]="filterMenu()?.field === col.field" aria-haspopup="menu"
+                  (click)="openFilterMenu($event, col.field)"
                   (pointerdown)="$event.stopPropagation()">▾</button>
               </div>
               @if (hasFilterableColumns()) {
@@ -147,11 +175,16 @@
                 @if (col.filterable) {
                 <input class="ag-filter-input" [value]="getTextFilter(col.field)"
                   (input)="onTextFilterChange($event, col.field)" (click)="$event.stopPropagation()"
-                  [placeholder]="localeText().filterPlaceholder" />
+                  [placeholder]="localeText().filterPlaceholder"
+                  [attr.aria-label]="localeText().filterPlaceholder + ' ' + col.header" />
                 }
               </div>
               }
-              <div class="ag-resize-handle" (mousedown)="onResizeStart($event, col)"
+              <div class="ag-resize-handle" role="separator" [attr.tabindex]="col.locked ? -1 : 0"
+                aria-orientation="vertical" [attr.aria-disabled]="col.locked ? 'true' : null"
+                [attr.aria-label]="localeText().resizeColumn + ': ' + col.header"
+                [attr.aria-valuenow]="getColumnWidth(col)" (keydown)="onResizeKeyDown($event, col)"
+                (mousedown)="onResizeStart($event, col)"
                 (pointerdown)="$event.stopPropagation()" (dblclick)="onAutosizeColumn($event, col)"></div>
             </div>
             }
@@ -159,7 +192,9 @@
 
           <cdk-virtual-scroll-viewport #scrollViewport class="ag-body" [itemSize]="rowHeight()"
             [style.min-width.px]="scrollableTotalWidth()" (scroll)="onBodyScroll()">
-            <div *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem"
+            <div *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem" role="row"
+              [attr.aria-rowindex]="di + 2"
+              [attr.aria-selected]="isDataRowItem(item) && isRowSelected(item.originalIndex) ? 'true' : null"
               [class.ag-row]="!isGroupHeaderItem(item)" [class.ag-add-row]="item === null"
               [class.ag-add-row--selected]="item === null && isAddRowSelected()" [class.ag-ghost-row]="item === 'ghost'"
               [class.ag-group-header-row]="isGroupHeaderItem(item)"
@@ -175,6 +210,8 @@
               <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
                 [row]="item.row" [locale]="locale()" [attr.title]="getCellTitle(col, item.row[col.field])"
                 [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
+                [attr.aria-colindex]="getAriaColIndex(ci)"
+                [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
                 [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
                 [seedChar]="getSeedChar(item.originalIndex, ci)"
                 [class.ag-cell--range-selected]="isRangeSelected(item.originalIndex, ci)"
@@ -217,11 +254,13 @@
           </cdk-virtual-scroll-viewport>
 
           @if (showFooter()) {
-          <div class="ag-footer" [style.grid-template-columns]="scrollableGridTemplateColumns()"
+          <div class="ag-footer" role="row" [attr.aria-rowindex]="displayItems().length + 2"
+            [style.grid-template-columns]="scrollableGridTemplateColumns()"
             [style.min-width.px]="scrollableTotalWidth()">
             @for (col of scrollableColDefs(); track col.field) {
-            <div class="ag-footer-cell">
-              @if (col.aggregate) {
+            <div class="ag-footer-cell" role="gridcell"
+              [attr.aria-colindex]="getAriaColIndex(getVisibleColIndex(col.field))">
+              @if (hasAggregate(col)) {
               <span class="ag-footer-label">{{ getAggregateLabel(col) }}</span>
               {{ getFooterDisplay(col, footerValues()[col.field]) }}
               }
@@ -234,10 +273,13 @@
 
       @if (hasRightPinnedPane()) {
       <div class="ag-pinned-pane ag-pinned-pane--right" [style.width.px]="rightPinnedPaneWidth()">
-        <div class="ag-header" [class.ag-header--with-filters]="hasFilterableColumns()"
+        <div class="ag-header" role="row" aria-rowindex="1"
+          [class.ag-header--with-filters]="hasFilterableColumns()"
           [style.grid-template-columns]="rightGridTemplateColumns()" [style.width.px]="rightPinnedPaneWidth()">
           @for (col of rightPinnedColDefs(); track col.field) {
-          <div class="ag-header-cell ag-header-cell--pinned"
+          <div class="ag-header-cell ag-header-cell--pinned" role="columnheader"
+            [attr.aria-colindex]="getAriaColIndex(getVisibleColIndex(col.field))"
+            [attr.aria-sort]="getSort(col.field) === 'asc' ? 'ascending' : getSort(col.field) === 'desc' ? 'descending' : 'none'"
             [class.ag-header-cell--filtered]="hasActiveFilter(col.field)"
             [class.ag-header-cell--pinned-first]="isFirstRightPinnedColumn(col.field)" [attr.data-col-field]="col.field"
             (pointerdown)="onColHeaderPointerDown($event, col.field)">
@@ -251,7 +293,9 @@
               <span class="ag-sort-badge">'⊟ '</span>
               }
               <button class="ag-header-menu-btn" [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
-                [title]="localeText().columnMenu" (click)="openFilterMenu($event, col.field)"
+                [title]="localeText().columnMenu" [attr.aria-label]="localeText().columnMenu + ': ' + col.header"
+                [attr.aria-expanded]="filterMenu()?.field === col.field" aria-haspopup="menu"
+                (click)="openFilterMenu($event, col.field)"
                 (pointerdown)="$event.stopPropagation()">▾</button>
             </div>
             @if (hasFilterableColumns()) {
@@ -259,11 +303,16 @@
               @if (col.filterable) {
               <input class="ag-filter-input" [value]="getTextFilter(col.field)"
                 (input)="onTextFilterChange($event, col.field)" (click)="$event.stopPropagation()"
-                [placeholder]="localeText().filterPlaceholder" />
+                [placeholder]="localeText().filterPlaceholder"
+                [attr.aria-label]="localeText().filterPlaceholder + ' ' + col.header" />
               }
             </div>
             }
-            <div class="ag-resize-handle" (mousedown)="onResizeStart($event, col)"
+            <div class="ag-resize-handle" role="separator" [attr.tabindex]="col.locked ? -1 : 0"
+              aria-orientation="vertical" [attr.aria-disabled]="col.locked ? 'true' : null"
+              [attr.aria-label]="localeText().resizeColumn + ': ' + col.header"
+              [attr.aria-valuenow]="getColumnWidth(col)" (keydown)="onResizeKeyDown($event, col)"
+              (mousedown)="onResizeStart($event, col)"
               (pointerdown)="$event.stopPropagation()" (dblclick)="onAutosizeColumn($event, col)"></div>
           </div>
           }
@@ -271,7 +320,9 @@
 
         <cdk-virtual-scroll-viewport #rightPinnedViewport class="ag-body ag-pinned-body ag-right-pinned-body"
           [itemSize]="rowHeight()" [style.width.px]="rightPinnedPaneWidth()" (scroll)="onRightPinnedBodyScroll()">
-          <div *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem"
+          <div *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem" role="row"
+            [attr.aria-rowindex]="di + 2"
+            [attr.aria-selected]="isDataRowItem(item) && isRowSelected(item.originalIndex) ? 'true' : null"
             [class.ag-row]="!isGroupHeaderItem(item)" [class.ag-add-row]="item === null"
             [class.ag-ghost-row]="item === 'ghost'" [class.ag-group-header-row]="isGroupHeaderItem(item)"
             [class.ag-row--odd]="isDataRowItem(item) && dataRowIsOdd().get(item.originalIndex) === true"
@@ -284,6 +335,8 @@
             <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
               [row]="item.row" [locale]="locale()" [attr.title]="getCellTitle(col, item.row[col.field])"
               [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
+              [attr.aria-colindex]="getAriaColIndex(ci)"
+              [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
               [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
               [seedChar]="getSeedChar(item.originalIndex, ci)"
               [class]="getCellClass(col, item.row[col.field], item.row)"
@@ -312,10 +365,13 @@
         </cdk-virtual-scroll-viewport>
 
         @if (showFooter()) {
-        <div class="ag-footer" [style.grid-template-columns]="rightGridTemplateColumns()">
+        <div class="ag-footer" role="row" [attr.aria-rowindex]="displayItems().length + 2"
+          [style.grid-template-columns]="rightGridTemplateColumns()">
           @for (col of rightPinnedColDefs(); track col.field) {
-          <div class="ag-footer-cell" [class.ag-footer-cell--pinned-first]="isFirstRightPinnedColumn(col.field)">
-            @if (col.aggregate) {
+          <div class="ag-footer-cell" role="gridcell"
+            [attr.aria-colindex]="getAriaColIndex(getVisibleColIndex(col.field))"
+            [class.ag-footer-cell--pinned-first]="isFirstRightPinnedColumn(col.field)">
+            @if (hasAggregate(col)) {
             <span class="ag-footer-label">{{ getAggregateLabel(col) }}</span>
             {{ getFooterDisplay(col, footerValues()[col.field]) }}
             }
@@ -328,9 +384,9 @@
     </div>
 
     @if (loading()) {
-    <div class="ag-state-overlay">{{ localeText().loading }}</div>
+    <div class="ag-state-overlay" role="status" aria-live="polite">{{ localeText().loading }}</div>
     } @else if (isEmpty()) {
-    <div class="ag-state-overlay">{{ emptyTextLabel() }}</div>
+    <div class="ag-state-overlay" role="status" aria-live="polite">{{ emptyTextLabel() }}</div>
     }
 
     @if (showSidebar()) {
@@ -354,16 +410,20 @@
   </div><!-- /.ag-main-area -->
 
   @if (showPagination()) {
-  <div class="ag-pagination">
-    <button class="ag-page-btn" [disabled]="control()!.currentPage() <= 1" (click)="goToFirstPage()">«</button>
-    <button class="ag-page-btn" [disabled]="control()!.currentPage() <= 1" (click)="goToPrevPage()">‹</button>
-    <span class="ag-page-info">{{ control()!.currentPage() }} / {{ totalPages() }}</span>
+  <nav class="ag-pagination" [attr.aria-label]="localeText().pagination">
+    <button class="ag-page-btn" [attr.aria-label]="localeText().firstPage"
+      [disabled]="control()!.currentPage() <= 1" (click)="goToFirstPage()">«</button>
+    <button class="ag-page-btn" [attr.aria-label]="localeText().previous"
+      [disabled]="control()!.currentPage() <= 1" (click)="goToPrevPage()">‹</button>
+    <span class="ag-page-info" aria-live="polite">{{ control()!.currentPage() }} / {{ totalPages() }}</span>
     <button class="ag-page-btn" [disabled]="control()!.currentPage() >= totalPages()"
+      [attr.aria-label]="localeText().next"
       (click)="goToNextPage()">›</button>
     <button class="ag-page-btn" [disabled]="control()!.currentPage() >= totalPages()"
+      [attr.aria-label]="localeText().lastPage"
       (click)="goToLastPage()">»</button>
     <span class="ag-page-count">{{ localeText().rows(filteredRowCount()) }}</span>
-  </div>
+  </nav>
   }
 
   @if (findOpen()) {
@@ -374,8 +434,9 @@
 
   <!-- Row context menu -->
   @if (contextMenu(); as menu) {
-  <div class="ag-context-menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (click)="$event.stopPropagation()">
-    <button class="ag-context-item ag-context-item--danger" (click)="deleteRow(menu.rowIndex)">
+  <div class="ag-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y"
+    (click)="$event.stopPropagation()">
+    <button class="ag-context-item ag-context-item--danger" role="menuitem" (click)="deleteRow(menu.rowIndex)">
       {{ localeText().deleteRow }}
     </button>
   </div>
@@ -384,27 +445,28 @@
   <!-- Cell context menu -->
   @if (cellContextMenuState(); as menu) {
   @let col = getColDef(menu.field)!;
-  <div class="ag-context-menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (click)="$event.stopPropagation()">
-    <button class="ag-context-item" (click)="copyCellToClipboard(menu.value, col)">{{ localeText().copyCellValue
+  <div class="ag-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y"
+    (click)="$event.stopPropagation()">
+    <button class="ag-context-item" role="menuitem" (click)="copyCellToClipboard(menu.value, col)">{{ localeText().copyCellValue
       }}</button>
-    <button class="ag-context-item" (click)="copyRowToClipboard(menu.row)">{{ localeText().copyRow }}</button>
+    <button class="ag-context-item" role="menuitem" (click)="copyRowToClipboard(menu.row)">{{ localeText().copyRow }}</button>
     @if (allowAddRows() && !readonlyGrid()) {
-    <div class="ag-context-separator"></div>
-    <button class="ag-context-item" (click)="insertRowAt(menu.rowIndex)">{{ localeText().insertRowAbove }}</button>
-    <button class="ag-context-item" (click)="insertRowAt(menu.rowIndex + 1)">{{ localeText().insertRowBelow }}</button>
+    <div class="ag-context-separator" role="separator"></div>
+    <button class="ag-context-item" role="menuitem" (click)="insertRowAt(menu.rowIndex)">{{ localeText().insertRowAbove }}</button>
+    <button class="ag-context-item" role="menuitem" (click)="insertRowAt(menu.rowIndex + 1)">{{ localeText().insertRowBelow }}</button>
     }
     @if (!readonlyGrid()) {
-    <div class="ag-context-separator"></div>
-    <button class="ag-context-item ag-context-item--danger"
+    <div class="ag-context-separator" role="separator"></div>
+    <button class="ag-context-item ag-context-item--danger" role="menuitem"
       (click)="deleteRow(menu.rowIndex); closeCellContextMenu()">{{ localeText().deleteRow }}</button>
     }
     @if (cellMenuItems().length) {
-    <div class="ag-context-separator"></div>
+    <div class="ag-context-separator" role="separator"></div>
     @for (item of cellMenuItems(); track $index) {
     @if (item === null) {
-    <div class="ag-context-separator"></div>
+    <div class="ag-context-separator" role="separator"></div>
     } @else {
-    <button class="ag-context-item" [class.ag-context-item--danger]="item.danger" [disabled]="item.disabled"
+    <button class="ag-context-item" role="menuitem" [class.ag-context-item--danger]="item.danger" [disabled]="item.disabled"
       (click)="item.action({ value: menu.value, row: menu.row, field: menu.field, originalIndex: menu.rowIndex }); closeCellContextMenu()">{{
       item.label }}</button>
     }
@@ -415,9 +477,10 @@
 
   <!-- Group actions menu -->
   @if (groupActionsMenu(); as menu) {
-  <div class="ag-context-menu" [style.left.px]="menu.x" [style.top.px]="menu.y" (click)="$event.stopPropagation()">
+  <div class="ag-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y"
+    (click)="$event.stopPropagation()">
     @for (action of groupActions(); track action.label) {
-    <button class="ag-context-item" (click)="onGroupAction(action, menu.label)">
+    <button class="ag-context-item" role="menuitem" (click)="onGroupAction(action, menu.label)">
       {{ action.label }}
     </button>
     }

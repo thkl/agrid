@@ -24,17 +24,22 @@ export interface AgridLocaleText {
   deleteRow: string;
   filterPlaceholder: string;
   findPlaceholder: string;
+  firstPage: string;
+  grid: string;
   groupBy: (header: string) => string;
   hideColumn: string;
   insertRowAbove: string;
   insertRowBelow: string;
+  lastPage: string;
   loading: string;
   next: string;
   noRows: string;
+  pagination: string;
   pinColumn: string;
   pinColumnRight: string;
   unpinColumnRight: string;
   previous: string;
+  resizeColumn: string;
   rows: (count: number) => string;
   searchValuesPlaceholder: string;
   selectAll: string;
@@ -73,17 +78,22 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     deleteRow: 'Delete row',
     filterPlaceholder: 'Filter...',
     findPlaceholder: 'Find',
+    firstPage: 'First page',
+    grid: 'Data grid',
     groupBy: header => `Group by ${header}`,
     hideColumn: 'Hide column',
     insertRowAbove: 'Insert row above',
     insertRowBelow: 'Insert row below',
+    lastPage: 'Last page',
     loading: 'Loading...',
     next: 'Next',
     noRows: 'No rows to display',
+    pagination: 'Pagination',
     pinColumn: 'Pin left',
     pinColumnRight: 'Pin right',
     unpinColumnRight: 'Unpin right',
     previous: 'Previous',
+    resizeColumn: 'Resize column',
     rows: count => `${count} ${count === 1 ? 'row' : 'rows'}`,
     searchValuesPlaceholder: 'Search values...',
     selectAll: '(Select All)',
@@ -118,17 +128,22 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     deleteRow: 'Zeile löschen',
     filterPlaceholder: 'Filtern...',
     findPlaceholder: 'Suchen',
+    firstPage: 'Erste Seite',
+    grid: 'Datentabelle',
     groupBy: header => `Nach ${header} gruppieren`,
     hideColumn: 'Spalte ausblenden',
     insertRowAbove: 'Zeile darüber einfügen',
     insertRowBelow: 'Zeile darunter einfügen',
+    lastPage: 'Letzte Seite',
     loading: 'Wird geladen...',
     next: 'Weiter',
     noRows: 'Keine Zeilen vorhanden',
+    pagination: 'Seitennavigation',
     pinColumn: 'Links fixieren',
     pinColumnRight: 'Rechts fixieren',
     unpinColumnRight: 'Rechts lösen',
     previous: 'Zurück',
+    resizeColumn: 'Spaltenbreite ändern',
     rows: count => `${count} ${count === 1 ? 'Zeile' : 'Zeilen'}`,
     searchValuesPlaceholder: 'Werte suchen...',
     selectAll: '(Alle auswählen)',

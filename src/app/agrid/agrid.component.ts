@@ -331,8 +331,14 @@ export class AgridComponent {
 
   /** @internal Short symbol shown before the footer aggregate value. */
   getAggregateLabel(col: ColDef): string {
-    if (!col.aggregate || typeof col.aggregate === 'function') return '';
-    return { sum: 'Σ', avg: 'Ø', min: '↓', max: '↑', count: '#' }[col.aggregate] ?? '';
+    const aggregate = this.control()?.aggregates()[col.field] ?? col.aggregate;
+    if (!aggregate || typeof aggregate === 'function') return '';
+    return { sum: 'Σ', avg: 'Ø', min: '↓', max: '↑', count: '#' }[aggregate] ?? '';
+  }
+
+  /** @internal Whether a column has a static or control-configured aggregate. */
+  hasAggregate(col: ColDef): boolean {
+    return this.control()?.aggregates()[col.field] !== undefined || !!col.aggregate;
   }
 
   /** @internal Formatted footer value — uses the column formatter when set, otherwise locale number. */
@@ -472,6 +478,16 @@ export class AgridComponent {
   });
 
   readonly showPagination = computed(() => (this.control()?.pageSize() ?? 0) > 0 && !this.control()?.groupByField());
+
+  /** Number of rendered semantic rows, including the header row. */
+  readonly ariaRowCount = computed(() =>
+    this.displayItems().length + 1 + (this.showFooter() ? 1 : 0)
+  );
+
+  /** Number of visible semantic columns, including the optional control column. */
+  readonly ariaColCount = computed(() =>
+    this.visibleColDefs().length + (this.showControlColumn() ? 1 : 0)
+  );
 
   /** True when no rows or group headers are visible (ignores add-row sentinel and ghost). */
   readonly isEmpty = computed(() =>
@@ -995,6 +1011,11 @@ export class AgridComponent {
     return this.visibleColDefs().findIndex(c => c.field === field);
   }
 
+  /** @internal Convert a zero-based visible data-column index to a one-based ARIA index. */
+  getAriaColIndex(colIndex: number): number {
+    return colIndex + 1 + (this.showControlColumn() ? 1 : 0);
+  }
+
   /** @internal */
   isColumnHidden(field: string): boolean { return this.control()?.isColumnHidden(field) ?? false; }
 
@@ -1296,6 +1317,14 @@ export class AgridComponent {
   onResizeStart(event: MouseEvent, col: ColDef): void {
     if (col.locked) return;
     this.resizeHandler.start(event, col);
+  }
+
+  /** @internal Resize a column from its keyboard-accessible separator handle. */
+  onResizeKeyDown(event: KeyboardEvent, col: ColDef): void {
+    if (col.locked || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
+    event.preventDefault();
+    const delta = event.key === 'ArrowLeft' ? -10 : 10;
+    this.setColumnWidth(col.field, this.getColumnWidth(col) + delta);
   }
 
   /** @internal Autosize a column to fit its header and currently visible row values. */
@@ -2137,7 +2166,8 @@ export class AgridComponent {
     return { start: 0, end: 0 };
   }
 
-  private getColumnWidth(col: ColDef): number {
+  /** @internal Current rendered width for a column. */
+  getColumnWidth(col: ColDef): number {
     const ctrlWidths = this.control()?.columnWidths() ?? {};
     const localWidths = this._localWidths();
     const w = ctrlWidths[col.field] ?? localWidths[col.field];

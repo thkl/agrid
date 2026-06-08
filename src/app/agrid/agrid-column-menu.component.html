@@ -1,5 +1,7 @@
 <div
   class="ag-filter-menu"
+  role="dialog"
+  [attr.aria-label]="localeText().columnMenu + ': ' + header()"
   [style.left.px]="x()"
   [style.top.px]="y()"
   (click)="$event.stopPropagation()"

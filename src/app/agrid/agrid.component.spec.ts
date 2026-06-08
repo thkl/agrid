@@ -309,6 +309,95 @@ describe('AgridComponent server-side filtering', () => {
   });
 });
 
+describe('AgridComponent aggregates and accessibility', () => {
+  let fixture: ComponentFixture<AgridComponent>;
+  let component: AgridComponent;
+  let provider: AgridProvider;
+  let control: AgridControl;
+
+  beforeEach(async () => {
+    control = new AgridControl();
+    provider = new AgridProvider({
+      columns: [
+        { field: 'name', header: 'Name', width: 120, filterable: true },
+        { field: 'amount', header: 'Amount', width: 100, type: 'number' },
+      ],
+      datasource: new AgridDataSource([
+        { name: 'Alice', amount: 10 },
+        { name: 'Bob', amount: 20 },
+      ]),
+      control,
+      rowSelection: 'multi',
+    });
+
+    await TestBed.configureTestingModule({
+      imports: [AgridComponent],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(AgridComponent);
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+  });
+
+  afterEach(() => fixture.destroy());
+
+  it('renders aggregates configured through AgridControl', () => {
+    control.setAggregate('amount', 'sum');
+    fixture.detectChanges();
+
+    const footer = fixture.nativeElement.querySelector('.ag-footer') as HTMLElement;
+    expect(footer.textContent).toContain('Σ');
+    expect(footer.textContent).toContain('30');
+  });
+
+  it('exposes grid structure, state, controls, and menus to assistive technology', () => {
+    control.setSort('name', 'asc');
+    control.setPageSize(1);
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    component.contextMenu.set({ x: 0, y: 0, rowIndex: 0 });
+    fixture.detectChanges();
+
+    const grid = fixture.nativeElement.querySelector('.ag-wrapper') as HTMLElement;
+    expect(grid.getAttribute('role')).toBe('grid');
+    expect(grid.getAttribute('aria-label')).toBe(component.localeText().grid);
+    expect(grid.getAttribute('aria-colcount')).toBe('2');
+    expect(grid.getAttribute('aria-rowcount')).toBe('2');
+    expect(grid.getAttribute('aria-multiselectable')).toBe('true');
+
+    const nameHeader = fixture.nativeElement.querySelector(
+      '[role="columnheader"][data-col-field="name"]',
+    ) as HTMLElement;
+    expect(nameHeader.getAttribute('aria-colindex')).toBe('1');
+    expect(nameHeader.getAttribute('aria-sort')).toBe('ascending');
+
+    const selectedCell = fixture.nativeElement.querySelector(
+      'agrid-cell[data-cell-row="0"][data-cell-col="0"]',
+    ) as HTMLElement;
+    expect(selectedCell.getAttribute('role')).toBe('gridcell');
+    expect(selectedCell.getAttribute('aria-colindex')).toBe('1');
+    expect(selectedCell.getAttribute('aria-selected')).toBe('true');
+
+    const resizeHandle = nameHeader.querySelector('[role="separator"]') as HTMLElement;
+    resizeHandle.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'ArrowRight',
+      bubbles: true,
+      cancelable: true,
+    }));
+    fixture.detectChanges();
+    expect(resizeHandle.getAttribute('aria-valuenow')).toBe('130');
+
+    const pagination = fixture.nativeElement.querySelector('nav.ag-pagination') as HTMLElement;
+    expect(pagination.getAttribute('aria-label')).toBe(component.localeText().pagination);
+    expect(pagination.querySelector('button')?.getAttribute('aria-label'))
+      .toBe(component.localeText().firstPage);
+    expect(fixture.nativeElement.querySelector('.ag-context-menu')?.getAttribute('role'))
+      .toBe('menu');
+    expect(fixture.nativeElement.querySelector('.ag-context-item')?.getAttribute('role'))
+      .toBe('menuitem');
+  });
+});
+
 function visibleDataRows(
   items: GridItem[],
 ): { row: Record<string, unknown>; originalIndex: number }[] {
