@@ -17,40 +17,41 @@ import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrollin
 import { AgridCellComponent } from './agrid-cell.component';
 import { AgridClipboardHandler, CellRange } from './agrid-clipboard.handler';
 import { AgridColumnMenuController } from './agrid-column-menu.controller';
+import { AgridColumnReorderController } from './agrid-column-reorder.controller';
 import { AgridColumnSizingController } from './agrid-column-sizing.controller';
+import { AgridColumnStateService } from './agrid-column-state.service';
 import { AgridColumnMenuComponent } from './agrid-column-menu.component';
 import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridDragHandler } from './agrid-drag.handler';
 import { AgridEditController } from './agrid-edit.controller';
+import { AgridFindController } from './agrid-find.controller';
 import { AgridFindPanelComponent } from './agrid-find-panel.component';
+import { AgridGroupController } from './agrid-group.controller';
 import { AgridLocaleText, resolveAgridLocaleText, resolveLocale } from './agrid-localization';
 import { AgridNavigationController } from './agrid-navigation.controller';
+import { AgridPresentationService } from './agrid-presentation.service';
 import { AgridProvider } from './agrid-provider';
 import { AgridProjectionModel } from './agrid-projection.model';
 import { AgridRangeController } from './agrid-range.controller';
+import { AgridRowController } from './agrid-row.controller';
+import { AgridSidebarController } from './agrid-sidebar.controller';
 import {
   AgridSidebarComponent,
-  AgridSidebarDetailField,
   AgridSidebarEdit,
 } from './agrid-sidebar.component';
 import {
-  buildSelectionRange,
-  getDisplayForField,
   isDataRowItem as isDataRowItemFn,
   isGroupHeaderItem as isGroupHeaderItemFn,
-  looksLikeDate,
 } from './agrid.utils';
 import {
   CellContextMenuItem, CellPosition, ColDef, FilterChangeEvent, GridEditEvent, GridItem,
   GroupAction, NewRecord, PageChangeEvent, RowClickEvent, RowRemovedEvent, RowReorderEvent,
-  RowSelectEvent, SortChangeEvent, ValueOption,
+  RowSelectEvent, SortChangeEvent,
 } from './agrid.types';
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
 export type { GridItem };
-
-type FindMatch = { rowIndex: number; displayIndex: number; colIndex: number };
 
 /**
  * Excel-like data grid for Angular 21.
@@ -117,14 +118,6 @@ export class AgridComponent {
   readonly emptyText        = computed(() => this.provider().emptyText);
   readonly useSidebarEditor = computed(()=> this.provider().useSidebarEditor);
 
-  // Auto-open detail panel when a row is selected and autoOpenDetail is enabled.
-  private readonly _autoDetailEffect = effect(() => {
-    if (this.autoOpenDetail() && this.selectedRowIndex() !== null) {
-      this.sidebarOpen.set(true);
-      this.sidebarTab.set('detail');
-    }
-  });
-
   /** Column definitions from the active provider. */
   readonly colDefs = computed<ColDef[]>(() => this.provider().columns());
 
@@ -190,15 +183,6 @@ export class AgridComponent {
   /** Fill-handle drag preview bounds, in visible row/column coordinates. */
   get fillPreviewBounds() { return this.rangeController.fillPreviewBounds; }
 
-  /** Whether the in-grid find box is visible. */
-  readonly findOpen = signal<boolean>(false);
-
-  /** Current find query. Matches are computed against visible formatted cell values. */
-  readonly findQuery = signal<string>('');
-
-  /** Index of the active match inside `findMatches`, or `-1` when no match is active. */
-  readonly findActiveIndex = signal<number>(-1);
-
   /** Position of the cell in edit mode, or `null`. */
   get editingCell() { return this.editController.editingCell; }
 
@@ -208,74 +192,22 @@ export class AgridComponent {
   /** Seed character typed to enter edit mode (e.g. pressing 'A'). */
   get editSeedChar() { return this.editController.editSeedChar; }
 
-  /** Set of currently selected original row indices. */
-  private readonly _selectedIndices = signal<Set<number>>(new Set());
-
-  /** Reactive read-only view of selected indices. */
-  readonly selectedRowIndices: Signal<ReadonlySet<number>> =
-    this._selectedIndices.asReadonly() as Signal<ReadonlySet<number>>;
-
-  /** First selected index, or `null` (convenience for `'single'` mode). */
-  readonly selectedRowIndex = computed<number | null>(() => {
-    const s = this._selectedIndices();
-    return s.size > 0 ? [...s][0] : null;
-  });
-
-  /** Whether the sidebar panel is currently open. */
-  readonly sidebarOpen = signal<boolean>(false);
-
-  /** Which tab is active inside the sidebar. */
-  readonly sidebarTab = signal<'columns' | 'detail'>('columns');
-
   /** Toggle the sidebar open/closed. */
-  toggleSidebar(): void { this.sidebarOpen.update(v => !v); }
+  toggleSidebar(): void { this.sidebarController.toggle(); }
 
   /** @internal */
   onSidebarStripClick(tab: 'columns' | 'detail'): void {
-    if (this.sidebarOpen() && this.sidebarTab() === tab) {
-      this.sidebarOpen.set(false);
-    } else {
-      this.sidebarTab.set(tab);
-      this.sidebarOpen.set(true);
-    }
+    this.sidebarController.selectTab(tab);
   }
-
-  readonly sidebarRow = computed<Record<string, unknown> | null>(() => {
-    const idx = this.selectedRowIndex();
-    return idx === null ? null : this.dataSource().rows()[idx] ?? null;
-  });
-
-  readonly sidebarHiddenColumns = computed<ReadonlySet<string>>(
-    () => this.control()?.hiddenColumns() ?? new Set<string>()
-  );
 
   /** @internal */
   onSidebarDetailEdit(event: AgridSidebarEdit): void {
-    this.commitDetailEdit(event.field, event.col, event.value);
+    this.sidebarController.edit(event);
   }
 
   /** @internal Commit an edit made via the detail panel. */
   commitDetailEdit(field: string, col: ColDef, stringValue: string): void {
-    const idx = this.selectedRowIndex();
-    if (idx === null) return;
-    let newValue: unknown = stringValue;
-    if (col.type === 'number') {
-      newValue = stringValue === '' ? null : Number(stringValue);
-    } else if (col.values?.length) {
-      const opt = col.values.find(v =>
-        typeof v === 'string' ? v === stringValue : String((v as ValueOption).value) === stringValue
-      );
-      newValue = opt === undefined ? stringValue : (typeof opt === 'string' ? opt : (opt as ValueOption).value);
-    }
-    const oldValue = this.dataSource().getRow(idx)[field];
-    if (oldValue === newValue) return;
-    this.dataSource().patchRow(idx, { [field]: newValue });
-    const ci = this.visibleColDefs().findIndex(c => c.field === field);
-    this.control()?.pushEdit({ rowIndex: idx, field, oldValue, newValue });
-    if (!this.useSidebarEditor()) {
-      // Only emit a change when the edit came from the grid 
-      this.cellEdit.emit({ position: { rowIndex: idx, colIndex: ci }, field, oldValue, newValue });
-    }
+    this.sidebarController.commitEdit(field, col, stringValue);
   }
 
   /**
@@ -286,24 +218,7 @@ export class AgridComponent {
    * @param filename  Output filename, defaults to `'export.csv'`.
    */
   exportCsv(filename = 'export.csv'): void {
-    const cols = this.visibleColDefs();
-    const dataRows = this.filteredItems()
-      .filter((item): item is { row: Record<string, unknown>; originalIndex: number } => isDataRowItemFn(item))
-      .map(item => item.row);
-
-    const esc = (v: string): string => /[,"\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-    const header = cols.map(c => esc(c.header)).join(',');
-    const locale = this.locale();
-    const body   = dataRows.map(row => cols.map(c => esc(getDisplayForField(c, row[c.field], locale))).join(',')).join('\n');
-
-    const blob = new Blob([header + '\n' + body], { type: 'text/csv;charset=utf-8;' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = filename; a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    this.presentation.exportCsv(filename);
   }
 
   /** @internal */ goToFirstPage(): void { this.control()?.setPage(1); }
@@ -318,38 +233,34 @@ export class AgridComponent {
 
   /** @internal Full display value for a cell — used as the `title` tooltip attribute. */
   getCellTitle(col: ColDef, value: unknown): string {
-    return getDisplayForField(col, value, this.locale());
+    return this.presentation.getCellTitle(col, value);
   }
 
   /** @internal Dynamic CSS class string for a cell from `ColDef.cellClass`. */
   getCellClass(col: ColDef, value: unknown, row: Record<string, unknown>): string {
-    return col.cellClass?.({ value, row }) ?? '';
+    return this.presentation.getCellClass(col, value, row);
   }
 
   /** @internal Short symbol shown before the footer aggregate value. */
   getAggregateLabel(col: ColDef): string {
-    const aggregate = this.control()?.aggregates()[col.field] ?? col.aggregate;
-    if (!aggregate || typeof aggregate === 'function') return '';
-    return { sum: 'Σ', avg: 'Ø', min: '↓', max: '↑', count: '#' }[aggregate] ?? '';
+    return this.presentation.getAggregateLabel(col);
   }
 
   /** @internal Whether a column has a static or control-configured aggregate. */
   hasAggregate(col: ColDef): boolean {
-    return this.control()?.aggregates()[col.field] !== undefined || !!col.aggregate;
+    return this.presentation.hasAggregate(col);
   }
 
   /** @internal Formatted footer value — uses the column formatter when set, otherwise locale number. */
   getFooterDisplay(col: ColDef, value: unknown): string {
-    if (value == null || value === '') return '';
-    if (col.formatter) return col.formatter(value);
-    if (typeof value === 'number') return value.toLocaleString();
-    return String(value);
+    return this.presentation.getFooterDisplay(col, value);
   }
 
   // ── Internal signals ─────────────────────────────────────────────────────────
 
-  private readonly _expandedGroups = signal<{ field: string | null; labels: Set<string> }>({
-    field: null, labels: new Set(),
+  private readonly groupController = new AgridGroupController({
+    control: this.control,
+    groupDescription: this.groupDescription,
   });
 
   // ── Derived state ─────────────────────────────────────────────────────────────
@@ -436,7 +347,16 @@ export class AgridComponent {
 
   readonly hasFilterableColumns = computed(() => this.visibleColDefs().some(c => c.filterable));
 
-  private readonly projection = new AgridProjectionModel({
+  private readonly columnState = new AgridColumnStateService({
+    control: this.control,
+    colDefs: this.colDefs,
+    visibleColDefs: this.visibleColDefs,
+    pinnedColDefs: this.pinnedColDefs,
+    rightPinnedColDefs: this.rightPinnedColDefs,
+    showControlColumn: this.showControlColumn,
+  });
+
+  private readonly projection: AgridProjectionModel = new AgridProjectionModel({
     dataSource: this.dataSource,
     control: this.control,
     colDefs: this.colDefs,
@@ -446,7 +366,7 @@ export class AgridComponent {
     sortOption: this.sortOption,
     allowAddRows: this.allowAddRows,
     autoAddRows: this.autoAddRows,
-    expandedGroups: this._expandedGroups,
+    expandedGroups: this.groupController.expandedGroups,
   });
 
   private readonly editController = new AgridEditController({
@@ -535,7 +455,7 @@ export class AgridComponent {
    * Filtered, sorted, and optionally grouped row list for `*cdkVirtualFor`.
    * Appends `null` when the explicit add-row placeholder is active.
    */
-  readonly filteredItems = this.projection.filteredItems;
+  readonly filteredItems: Signal<GridItem[]> = this.projection.filteredItems;
 
   /** Virtual scroll source — injects ghost row during a reorder drag. */
   /** Maps originalIndex → true if the data row should receive the odd-row stripe. Counts only data rows, so group headers don't shift the pattern. */
@@ -572,32 +492,7 @@ export class AgridComponent {
 
   // ── Menu signals ─────────────────────────────────────────────────────────────
 
-  readonly contextMenu    = signal<{ x: number; y: number; rowIndex: number } | null>(null);
-  readonly cellContextMenuState = signal<{
-    x: number; y: number;
-    rowIndex: number; colIndex: number;
-    field: string; value: unknown;
-    row: Record<string, unknown>;
-  } | null>(null);
-  readonly groupActionsMenu = signal<{ x: number; y: number; label: string } | null>(null);
-
-  readonly findMatches = computed<FindMatch[]>(() => {
-    const query = this.findQuery().trim().toLowerCase();
-    if (!query) return [];
-    const cols = this.visibleColDefs();
-    const matches: FindMatch[] = [];
-    this.filteredItems().forEach((item, displayIndex) => {
-      if (!isDataRowItemFn(item)) return;
-      for (let colIndex = 0; colIndex < cols.length; colIndex++) {
-        const col = cols[colIndex];
-        const value = getDisplayForField(col, item.row[col.field], this.locale()).toLowerCase();
-        if (value.includes(query)) {
-          matches.push({ rowIndex: item.originalIndex, displayIndex, colIndex });
-        }
-      }
-    });
-    return matches;
-  });
+  readonly groupActionsMenu = this.groupController.actionsMenu;
 
   // ── Infrastructure ────────────────────────────────────────────────────────────
 
@@ -655,6 +550,29 @@ export class AgridComponent {
   readonly filterMenuActiveValues = this.columnMenuController.activeValues;
   readonly columnMenuValueItems = this.columnMenuController.valueItems;
 
+  private readonly presentation = new AgridPresentationService({
+    control: this.control,
+    visibleColDefs: this.visibleColDefs,
+    filteredItems: this.filteredItems,
+    locale: this.locale,
+  });
+
+  private readonly findController = new AgridFindController({
+    filteredItems: this.filteredItems,
+    visibleColDefs: this.visibleColDefs,
+    locale: this.locale,
+    selectedCell: this.selectedCell,
+    selectedRange: this.selectedRange,
+    scrollToCell: (displayIndex, colIndex) =>
+      this.navigationController.scrollToKeepVisible(displayIndex, colIndex),
+    focusGrid: () => this.wrapperEl().nativeElement.focus(),
+  });
+
+  readonly findOpen = this.findController.open;
+  readonly findQuery = this.findController.query;
+  readonly findActiveIndex = this.findController.activeIndex;
+  readonly findMatches = this.findController.matches;
+
   private readonly navigationController = new AgridNavigationController({
     control: this.control,
     dataSource: this.dataSource,
@@ -677,13 +595,51 @@ export class AgridComponent {
     redoEdit: () => this.editController.redo(),
     extendRangeTo: (originalIndex, colIndex) =>
       this.rangeController.extendTo(originalIndex, colIndex),
-    openFind: () => this.openFind(),
+    openFind: () => this.findController.show(),
     focusGrid: () => this.wrapperEl().nativeElement.focus(),
     viewport: () => this.viewport(),
     scrollColumnToKeepVisible: colIndex =>
       this.columnSizing.scrollColumnToKeepVisible(colIndex),
     onPrepareAddRecord: event => this.prepareAddRecord.emit(event),
   });
+
+  private readonly rowController = new AgridRowController({
+    dataSource: this.dataSource,
+    filteredItems: this.filteredItems,
+    visibleColDefs: this.visibleColDefs,
+    rowSelection: this.rowSelection,
+    selectedCell: this.selectedCell,
+    editingCell: this.editController.editingCell,
+    insertRowAt: index => this.navigationController.insertRowAt(index),
+    startDragSelect: originalIndex => this.dragHandler.startDragSelect(originalIndex),
+    onRowSelect: event => this.rowSelect.emit(event),
+    onRowClick: event => this.rowClick.emit(event),
+    onRowRemoved: event => this.rowRemoved.emit(event),
+    onEditRowRemoved: originalIndex => this.editController.onRowRemoved(originalIndex),
+    closeFilterMenu: () => this.columnMenuController.close(),
+    closeGroupActionsMenu: () => this.closeGroupActionsMenu(),
+  });
+
+  readonly selectedRowIndices = this.rowController.selectedRowIndices;
+  readonly selectedRowIndex = this.rowController.selectedRowIndex;
+  readonly contextMenu = this.rowController.contextMenu;
+  readonly cellContextMenuState = this.rowController.cellContextMenu;
+
+  private readonly sidebarController = new AgridSidebarController({
+    control: this.control,
+    dataSource: this.dataSource,
+    colDefs: this.colDefs,
+    visibleColDefs: this.visibleColDefs,
+    selectedRowIndex: this.selectedRowIndex,
+    autoOpenDetail: this.autoOpenDetail,
+    useSidebarEditor: this.useSidebarEditor,
+    onCellEdit: event => this.cellEdit.emit(event),
+  });
+
+  readonly sidebarOpen = this.sidebarController.open;
+  readonly sidebarTab = this.sidebarController.tab;
+  readonly sidebarRow = this.sidebarController.row;
+  readonly sidebarHiddenColumns = this.sidebarController.hiddenColumns;
 
   private readonly clipboardHandler = new AgridClipboardHandler({
     control: this.control,
@@ -702,78 +658,30 @@ export class AgridComponent {
     dataSource: this.dataSource,
     filteredItems: () => this.filteredItems(),
     locale: () => this.locale(),
-    selectedIndices: this._selectedIndices,
+    selectedIndices: this.rowController.selectedIndices,
     onReorder: e => this.rowReorder.emit(e),
-    onSelectionChange: () => this._emitRowSelect(),
+    onSelectionChange: () => this.rowController.emitSelection(),
   }, this.destroyRef);
 
-  // ── Column reorder drag ───────────────────────────────────────────────────────
-
-  private readonly _colDragField        = signal<string | null>(null);
-  private readonly _colDragOverField    = signal<string | null>(null);
-  private readonly _colDragInsertBefore = signal<boolean>(true);
-  private _colDragStartField: string | null = null;
-  private _colDragStartX = 0;
+  private readonly columnReorder = new AgridColumnReorderController({
+    control: this.control,
+    visibleColDefs: this.visibleColDefs,
+    getColDef: field => this.getColDef(field),
+  }, this.destroyRef);
 
   /** @internal Start a column header drag. */
   onColHeaderPointerDown(event: PointerEvent, field: string): void {
-    if (!this.control() || event.button !== 0) return;
-    if (this.getColDef(field)?.locked) return;
-    this._colDragStartField = field;
-    this._colDragStartX = event.clientX;
-    document.addEventListener('pointermove', this._colDragMove);
-    document.addEventListener('pointerup',   this._colDragUp);
-  }
-
-  private readonly _colDragMove = (e: PointerEvent): void => {
-    if (!this._colDragStartField) return;
-    if (this._colDragField() === null) {
-      if (Math.abs(e.clientX - this._colDragStartX) < 5) return;
-      this._colDragField.set(this._colDragStartField);
-    }
-    const hovered = this._getHoveredHeaderCell(e.clientX, e.clientY);
-    if (hovered && hovered.field !== this._colDragField()) {
-      this._colDragOverField.set(hovered.field);
-      this._colDragInsertBefore.set(hovered.insertBefore);
-    } else {
-      this._colDragOverField.set(null);
-    }
-  };
-
-  private readonly _colDragUp = (): void => {
-    document.removeEventListener('pointermove', this._colDragMove);
-    document.removeEventListener('pointerup',   this._colDragUp);
-    const from = this._colDragField();
-    const to   = this._colDragOverField();
-    if (from && to) {
-      this.control()?.moveColumn(
-        this.visibleColDefs().map(c => c.field), from, to, this._colDragInsertBefore()
-      );
-    }
-    this._colDragField.set(null);
-    this._colDragOverField.set(null);
-    this._colDragStartField = null;
-  };
-
-  private _getHoveredHeaderCell(x: number, y: number): { field: string; insertBefore: boolean } | null {
-    for (const el of document.elementsFromPoint(x, y)) {
-      const headerEl = (el as HTMLElement).closest<HTMLElement>('.ag-header-cell[data-col-field]');
-      if (!headerEl?.dataset['colField']) continue;
-      const rect = headerEl.getBoundingClientRect();
-      return { field: headerEl.dataset['colField'], insertBefore: x < rect.left + rect.width / 2 };
-    }
-    return null;
+    this.columnReorder.start(event, field);
   }
 
   /** @internal Whether the given column header is being dragged. */
   isColDragging(field: string): boolean {
-    return this._colDragField() === field;
+    return this.columnReorder.isDragging(field);
   }
 
   /** @internal Template helper for drop-indicator class. */
   getColDropSide(field: string): 'before' | 'after' | null {
-    if (this._colDragOverField() !== field || this._colDragField() === field) return null;
-    return this._colDragInsertBefore() ? 'before' : 'after';
+    return this.columnReorder.getDropSide(field);
   }
 
   // ── Setup ─────────────────────────────────────────────────────────────────────
@@ -781,6 +689,8 @@ export class AgridComponent {
   private readonly _seededControls = new WeakSet<AgridControl>();
 
   constructor() {
+    effect(() => this.sidebarController.syncAutoOpen());
+
     afterNextRender(() => {
       const wrapper = this.wrapperEl().nativeElement;
       const onKeyDown = (event: KeyboardEvent) => this.onKeyDown(event);
@@ -811,16 +721,13 @@ export class AgridComponent {
     // Deselect when clicking outside the grid.
     const onOutsidePointerDown = (e: PointerEvent) => {
       if (this.rowSelection() === 'none') return;
-      if (this._selectedIndices().size === 0) return;
+      if (this.selectedRowIndices().size === 0) return;
       if (this._hostEl.nativeElement.contains(e.target as Node)) return;
-      this._selectedIndices.set(new Set());
-      this.rowSelect.emit(null);
+      this.rowController.clearSelection();
     };
     document.addEventListener('pointerdown', onOutsidePointerDown);
     this.destroyRef.onDestroy(() => {
       document.removeEventListener('pointerdown', onOutsidePointerDown);
-      document.removeEventListener('pointermove', this._colDragMove);
-      document.removeEventListener('pointerup',   this._colDragUp);
     });
 
     // Re-sync pinned pane scroll after displayItems changes — CDK independently adjusts
@@ -906,12 +813,12 @@ export class AgridComponent {
 
   /** @internal */
   isRowSelected(originalIndex: number): boolean {
-    return this._selectedIndices().has(originalIndex);
+    return this.rowController.isRowSelected(originalIndex);
   }
 
   /** @internal Selection class for the separate pinned/control viewport. */
   isPinnedPaneRowSelected(item: GridItem): boolean {
-    return isDataRowItemFn(item) && this.isRowSelected(item.originalIndex);
+    return this.rowController.isPinnedPaneRowSelected(item);
   }
 
   // ── Template helpers — filter menu ────────────────────────────────────────────
@@ -953,105 +860,57 @@ export class AgridComponent {
   }
 
   /** @internal */
-  getColDef(field: string): ColDef | undefined { return this.colDefs().find(c => c.field === field); }
+  getColDef(field: string): ColDef | undefined { return this.columnState.getColDef(field); }
 
   /** @internal */
   getVisibleColIndex(field: string): number {
-    return this.visibleColDefs().findIndex(c => c.field === field);
+    return this.columnState.getVisibleColIndex(field);
   }
 
   /** @internal Convert a zero-based visible data-column index to a one-based ARIA index. */
   getAriaColIndex(colIndex: number): number {
-    return colIndex + 1 + (this.showControlColumn() ? 1 : 0);
+    return this.columnState.getAriaColIndex(colIndex);
   }
 
   /** @internal */
-  isColumnHidden(field: string): boolean { return this.control()?.isColumnHidden(field) ?? false; }
+  isColumnHidden(field: string): boolean { return this.columnState.isColumnHidden(field); }
 
   /** @internal */
-  isGroupedByField(field: string): boolean { return this.control()?.groupByField() === field; }
+  isGroupedByField(field: string): boolean { return this.columnState.isGroupedByField(field); }
 
   /** @internal */
   isColumnPinned(field: string): boolean {
-    return this.pinnedColDefs().some(c => c.field === field);
+    return this.columnState.isColumnPinned(field);
   }
 
   isColumnPinnedRight(field: string): boolean {
-    return this.rightPinnedColDefs().some(c => c.field === field);
+    return this.columnState.isColumnPinnedRight(field);
   }
 
   /** Returns `'left'`, `'right'`, or `false` — used by the column menu. */
   getColumnPinState(field: string): 'left' | 'right' | false {
-    if (this.isColumnPinned(field)) return 'left';
-    if (this.isColumnPinnedRight(field)) return 'right';
-    return false;
+    return this.columnState.getColumnPinState(field);
   }
 
   isFirstRightPinnedColumn(field: string): boolean {
-    const cols = this.rightPinnedColDefs();
-    return cols.length > 0 && cols[0].field === field;
+    return this.columnState.isFirstRightPinnedColumn(field);
   }
 
   /** @internal Returns `true` for the rightmost pinned column (used to draw the separator shadow). */
   isLastPinnedColumn(field: string): boolean {
-    const cols = this.pinnedColDefs();
-    return cols.length > 0 && cols[cols.length - 1].field === field;
+    return this.columnState.isLastPinnedColumn(field);
   }
 
   // ── Row selection ─────────────────────────────────────────────────────────────
 
-  private _selectionPivot: number | null = null;
-
   /** @internal */
   onRowPointerDown(event: PointerEvent, originalIndex: number): void {
-    this.selectRowFromPointer(event, originalIndex, true);
+    this.rowController.selectFromPointer(event, originalIndex, true);
   }
 
   /** @internal Emits rowClick when the user single-clicks a data row outside of a cell editor. */
   onRowClick(event: MouseEvent, item: { row: Record<string, unknown>; originalIndex: number }): void {
-    if (this.editingCell()) return;
-    this.rowClick.emit({ row: item.row, originalIndex: item.originalIndex });
-  }
-
-  private selectRowFromPointer(event: PointerEvent, originalIndex: number, allowDragSelect: boolean): void {
-    const mode = this.rowSelection();
-    if (mode === 'none' || event.button !== 0) return;
-
-    if (mode === 'single') {
-      const already = this._selectedIndices().has(originalIndex);
-      this._selectedIndices.set(already ? new Set() : new Set([originalIndex]));
-      this._emitRowSelect();
-      return;
-    }
-
-    const ctrl  = event.ctrlKey || event.metaKey;
-    const shift = event.shiftKey;
-
-    if (ctrl) {
-      const next = new Set(this._selectedIndices());
-      if (next.has(originalIndex)) next.delete(originalIndex); else next.add(originalIndex);
-      this._selectedIndices.set(next);
-      this._selectionPivot = originalIndex;
-      this._emitRowSelect();
-    } else if (shift && this._selectionPivot !== null) {
-      this._selectedIndices.set(
-        buildSelectionRange(this._selectionPivot, originalIndex, this.filteredItems())
-      );
-      this._emitRowSelect();
-    } else {
-      if (!(event.target instanceof HTMLSelectElement)) event.preventDefault();
-      this._selectedIndices.set(new Set([originalIndex]));
-      this._selectionPivot = originalIndex;
-      if (allowDragSelect) this.dragHandler.startDragSelect(originalIndex);
-      else this._emitRowSelect();
-    }
-  }
-
-  private _emitRowSelect(): void {
-    const indices = this._selectedIndices();
-    if (indices.size === 0) { this.rowSelect.emit(null); return; }
-    const rows = this.dataSource().rows();
-    this.rowSelect.emit({ rows: [...indices].map(i => ({ row: rows[i], originalIndex: i })) });
+    this.rowController.clickRow(item);
   }
 
   // ── Cell interaction ──────────────────────────────────────────────────────────
@@ -1089,38 +948,22 @@ export class AgridComponent {
 
   /** Open the find panel and focus its input. */
   openFind(): void {
-    this.findOpen.set(true);
+    this.findController.show();
   }
 
   /** @internal */
   closeFind(): void {
-    this.findOpen.set(false);
-    this.wrapperEl().nativeElement.focus();
+    this.findController.close();
   }
 
   /** @internal */
   onFindInput(value: string): void {
-    this.findQuery.set(value);
-    this.findActiveIndex.set(-1);
-    this.goToFindMatch(1);
+    this.findController.setQuery(value);
   }
 
   /** @internal */
   goToFindMatch(direction: 1 | -1): void {
-    const matches = this.findMatches();
-    if (matches.length === 0) {
-      this.findActiveIndex.set(-1);
-      return;
-    }
-    const current = this.findActiveIndex();
-    const next = current < 0
-      ? (direction === 1 ? 0 : matches.length - 1)
-      : (current + direction + matches.length) % matches.length;
-    this.findActiveIndex.set(next);
-    const match = matches[next];
-    this.selectedRange.set(null);
-    this.selectedCell.set({ rowIndex: match.rowIndex, colIndex: match.colIndex });
-    this.scrollToKeepVisible(match.displayIndex, match.colIndex);
+    this.findController.goToMatch(direction);
   }
 
   // ── Row reorder ───────────────────────────────────────────────────────────────
@@ -1141,7 +984,7 @@ export class AgridComponent {
       this.onHandlePointerDown(event, originalIndex);
       return;
     }
-    this.selectRowFromPointer(event, originalIndex, false);
+    this.rowController.selectFromPointer(event, originalIndex, false);
   }
 
   /** @internal Copy the active range or cell as TSV. */
@@ -1181,114 +1024,73 @@ export class AgridComponent {
 
   /** @internal */
   onControlContextMenu(event: MouseEvent, originalIndex: number): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.contextMenu.set({
-      x: event.clientX,
-      y: event.clientY,
-      rowIndex: originalIndex,
-    });
+    this.rowController.openRowContextMenu(event, originalIndex);
   }
 
   /** @internal */
-  closeContextMenu(): void { this.contextMenu.set(null); }
+  closeContextMenu(): void { this.rowController.closeContextMenu(); }
 
   /** @internal */
   onCellContextMenu(event: MouseEvent, rowIndex: number, colIndex: number, col: ColDef, row: Record<string, unknown>): void {
-    event.preventDefault();
-    event.stopPropagation();
-    this.closeContextMenu();
-    this.closeFilterMenu();
-    this.closeGroupActionsMenu();
-    this.cellContextMenuState.set({ x: event.clientX, y: event.clientY, rowIndex, colIndex, field: col.field, value: row[col.field], row });
+    this.rowController.openCellContextMenu(event, rowIndex, colIndex, col, row);
   }
 
   /** @internal */
-  closeCellContextMenu(): void { this.cellContextMenuState.set(null); }
+  closeCellContextMenu(): void { this.rowController.closeCellContextMenu(); }
 
   /** @internal Copy the display value of one cell to the clipboard. */
   copyCellToClipboard(value: unknown, col: ColDef): void {
-    navigator.clipboard.writeText(getDisplayForField(col, value));
-    this.closeCellContextMenu();
+    this.rowController.copyCellToClipboard(value, col);
   }
 
   /** @internal Copy all visible column values of a row as TSV to the clipboard. */
   copyRowToClipboard(row: Record<string, unknown>): void {
-    const text = this.visibleColDefs().map(c => getDisplayForField(c, row[c.field])).join('\t');
-    navigator.clipboard.writeText(text);
-    this.closeCellContextMenu();
+    this.rowController.copyRowToClipboard(row);
   }
 
   /** @internal Insert a blank row at a specific position and emit prepareAddRecord. */
   insertRowAt(atIndex: number): void {
-    this.navigationController.insertRowAt(atIndex);
-    this.closeCellContextMenu();
+    this.rowController.insertRowAt(atIndex);
   }
 
   /** Delete the row at `originalIndex`, adjusting stale cell/edit pointers. */
   deleteRow(originalIndex: number): void {
-    this.dataSource().removeRow(originalIndex);
-
-    const sel = this.selectedCell();
-    if (sel?.rowIndex === originalIndex) this.selectedCell.set(null);
-    else if (sel && sel.rowIndex > originalIndex)
-      this.selectedCell.update(s => s ? { ...s, rowIndex: s.rowIndex - 1 } : null);
-
-    this.editController.onRowRemoved(originalIndex);
-
-    if (this._selectedIndices().has(originalIndex)) {
-      this._selectedIndices.update(s => { const n = new Set(s); n.delete(originalIndex); return n; });
-      this._emitRowSelect();
-    }
-    this.contextMenu.set(null);
-    this.rowRemoved.emit({ oldIndex: originalIndex });
+    this.rowController.deleteRow(originalIndex);
   }
 
   // ── Group expand / collapse ───────────────────────────────────────────────────
 
   /** @internal */
   onGroupHeaderClick(label: string): void {
-    const groupField = this.control()?.groupByField() ?? null;
-    this._expandedGroups.update(state => {
-      const labels = state.field === groupField ? new Set(state.labels) : new Set<string>();
-      if (labels.has(label)) labels.delete(label); else labels.add(label);
-      return { field: groupField, labels };
-    });
+    this.groupController.toggle(label);
   }
 
   /** Expand all groups. No-op when grouping is not active. */
   expandGroups(): void {
-    const groupField = this.control()?.groupByField() ?? null;
-    if (!groupField) return;
-    const labels = new Set<string>();
-    for (const item of this.filteredItems()) {
-      if (isGroupHeaderItemFn(item)) labels.add(item.groupLabel);
-    }
-    this._expandedGroups.set({ field: groupField, labels });
+    this.groupController.expandAll(this.filteredItems());
   }
 
   /** Collapse all groups. No-op when grouping is not active. */
   collapseGroups(): void {
-    const groupField = this.control()?.groupByField() ?? null;
-    this._expandedGroups.set({ field: groupField, labels: new Set() });
+    this.groupController.collapseAll();
   }
 
   /** @internal */
-  getGroupDescription(label: string): string { return this.groupDescription()?.(label) ?? ''; }
+  getGroupDescription(label: string): string {
+    return this.groupController.getDescription(label);
+  }
 
   /** @internal */
   openGroupActionsMenu(event: MouseEvent, label: string): void {
-    event.stopPropagation();
-    this.groupActionsMenu.set({ x: event.clientX, y: event.clientY, label });
+    this.groupController.openActionsMenu(event, label);
   }
 
   /** @internal */
-  closeGroupActionsMenu(): void { this.groupActionsMenu.set(null); }
+  closeGroupActionsMenu(): void { this.groupController.closeActionsMenu(); }
 
   /** @internal */
   onGroupAction(action: GroupAction, label: string): void {
-    action.action(label);
-    this.closeGroupActionsMenu();
+    this.groupController.runAction(action, label);
   }
 
   // ── Filter row & menu ─────────────────────────────────────────────────────────
@@ -1418,15 +1220,12 @@ export class AgridComponent {
 
   /** @internal */
   isFindMatchCell(originalIndex: number, colIndex: number): boolean {
-    return this.findMatches().some(match =>
-      match.rowIndex === originalIndex && match.colIndex === colIndex
-    );
+    return this.findController.isMatchCell(originalIndex, colIndex);
   }
 
   /** @internal */
   isActiveFindMatchCell(originalIndex: number, colIndex: number): boolean {
-    const match = this.findMatches()[this.findActiveIndex()];
-    return !!match && match.rowIndex === originalIndex && match.colIndex === colIndex;
+    return this.findController.isActiveMatchCell(originalIndex, colIndex);
   }
 
   /** @internal */
@@ -1452,7 +1251,4 @@ export class AgridComponent {
     return this.columnSizing.getWidthToken(col);
   }
 
-  public saveFromSidebar(event: AgridSidebarDetailField[]) {
-    console.log(event);
-  }
 }
