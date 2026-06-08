@@ -183,6 +183,7 @@ readonly gridProvider = new AgridProvider({
 | `autoOpenDetail` | `boolean` | `false` | Opens the detail row automatically when a row is selected. |
 | `serverSideFiltering` | `boolean` | `false` | Emits filter/sort events instead of applying them locally and hides the value checklist. |
 | `filterDebounceMs` | `number` | `300` | Debounce delay for server-side `filterChange` events. Set to `0` to disable. |
+| `sortOption` | `'single' \| 'multi' \| 'none'` | `'multi'` | Allows one sort, multiple sorts, or disables sorting. |
 | `rowSelection` | `'single' \| 'multi' \| 'none'` | `'none'` | Row selection behavior. |
 | `groupDescription` | `((label: string) => string) \| null` | `null` | Optional description text shown next to each group label. |
 | `groupActions` | `GroupAction[]` | `[]` | Actions shown in each group header menu. |
@@ -429,6 +430,7 @@ readonly provider = new AgridProvider({
   datasource: this.ds,
   control: this.ctrl,
   serverSideFiltering: true,
+  sortOption: 'single',
 });
 ```
 
@@ -465,6 +467,10 @@ In server-side mode:
 - Clearing emits an empty filter value or a `null` sort direction.
 - Multi-column sorting emits one event for each changed column.
 - Text filter events are debounced by `filterDebounceMs` (300 ms by default).
+
+Use `sortOption: 'single'` for backends that accept only one sort field. Selecting another column
+clears the previous sort first. Use `'none'` to remove sorting controls completely; `'multi'`
+preserves the default multi-column behavior.
 
 The grid updates its visible filter state immediately, but only emits the final server filter value
 after the debounce delay. Set `filterDebounceMs: 0` when immediate events are required. For server

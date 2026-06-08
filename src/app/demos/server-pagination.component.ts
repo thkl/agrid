@@ -88,6 +88,7 @@ export class ServerPaginationDemoComponent {
     zebraStripes: true,
     emptyText: 'No orders found',
     serverSideFiltering: true,
+    sortOption: 'single',
   });
 
   readonly lastFetch = signal('');

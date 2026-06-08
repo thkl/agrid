@@ -36,6 +36,9 @@ export class AgridColumnMenuComponent {
   /** Current sort direction for the active column. */
   sortDir = input<'asc' | 'desc' | null>(null);
 
+  /** Whether sort controls are available for this grid. */
+  sortable = input<boolean>(true);
+
   /** Whether stateful column actions should be shown. */
   showColumnActions = input<boolean>(false);
 

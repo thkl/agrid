@@ -32,6 +32,11 @@ export interface AgridProviderConfig<T extends Record<string, unknown> = Record<
   /** Delay before emitting server-side text filter changes. Set to `0` to disable. @default 300 */
   filterDebounceMs?: number;
   /**
+   * Sorting behavior: one active column, multiple columns, or disabled entirely.
+   * @default 'multi'
+   */
+  sortOption?: 'single' | 'multi' | 'none';
+  /**
    * Row selection mode.
    * - `'none'` — no selection (default)
    * - `'single'` — click to select/deselect
@@ -97,6 +102,7 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
   autoOpenDetail: boolean;
   serverSideFiltering: boolean;
   filterDebounceMs: number;
+  sortOption: 'single' | 'multi' | 'none';
   /** Toggle auto-add-rows without recreating the provider. @default signal(false) */
   readonly autoAddRows: WritableSignal<boolean>;
   rowSelection: 'single' | 'multi' | 'none';
@@ -128,6 +134,7 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
     this.autoOpenDetail   = config.autoOpenDetail ?? false;
     this.serverSideFiltering = config.serverSideFiltering ?? false;
     this.filterDebounceMs = Math.max(0, config.filterDebounceMs ?? 300);
+    this.sortOption = config.sortOption ?? 'multi';
     this.rowSelection     = config.rowSelection ?? 'none';
     this.groupDescription = config.groupDescription ?? null;
     this.groupActions     = config.groupActions ?? [];

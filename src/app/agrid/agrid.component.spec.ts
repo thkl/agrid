@@ -199,6 +199,7 @@ describe('AgridComponent server-side filtering', () => {
       ]),
       serverSideFiltering: true,
       filterDebounceMs: 0,
+      sortOption: 'single',
     });
 
     await TestBed.configureTestingModule({
@@ -255,6 +256,43 @@ describe('AgridComponent server-side filtering', () => {
     ]);
     expect(visibleDataRows(component.filteredItems()).map(item => item.row['name']))
       .toEqual(['Bob', 'Alice']);
+  });
+
+  it('clears the previous sort when single sorting switches columns', () => {
+    const emitted: unknown[] = [];
+    component.sortChange.subscribe(event => emitted.push(event));
+
+    component.onMenuSort('name', 'asc');
+    component.onMenuSort('department', 'desc');
+
+    expect(provider.control.sortOrder()).toEqual(['department']);
+    expect(provider.control.getFilter('name').sort).toBeNull();
+    expect(emitted).toEqual([
+      { field: 'name', direction: 'asc' },
+      { field: 'name', direction: null },
+      { field: 'department', direction: 'desc' },
+    ]);
+  });
+
+  it('hides and disables sorting when sortOption is none', () => {
+    provider = new AgridProvider({
+      columns: provider.columns(),
+      datasource: provider.datasource,
+      control: new AgridControl(),
+      serverSideFiltering: true,
+      filterDebounceMs: 0,
+      sortOption: 'none',
+    });
+    fixture.componentRef.setInput('provider', provider);
+    component.filterMenu.set({ field: 'name', x: 0, y: 0 });
+    fixture.detectChanges();
+
+    const menuText = fixture.nativeElement.querySelector('.ag-filter-menu')?.textContent ?? '';
+    expect(menuText).not.toContain(component.localeText().sortAscending);
+    expect(menuText).not.toContain(component.localeText().sortDescending);
+
+    component.onMenuSort('name', 'asc');
+    expect(provider.control.sortOrder()).toEqual([]);
   });
 
   it('hides the Excel-style value picker', () => {

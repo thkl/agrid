@@ -4,6 +4,7 @@
   [style.top.px]="y()"
   (click)="$event.stopPropagation()"
 >
+  @if (sortable()) {
   <div class="ag-filter-menu-section">
     <button
       class="ag-filter-menu-item"
@@ -32,6 +33,7 @@
       <button class="ag-filter-menu-item" (click)="sort.emit(sortDir()!)">{{ localeText().clearSort }}</button>
     }
   </div>
+  }
 
   @if (showColumnActions()) {
     <div class="ag-filter-menu-section ag-filter-menu-section--border">

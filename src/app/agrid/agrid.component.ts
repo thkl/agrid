@@ -106,6 +106,7 @@ export class AgridComponent {
   readonly autoOpenDetail   = computed(() => this.provider().autoOpenDetail);
   readonly serverSideFiltering = computed(() => this.provider().serverSideFiltering);
   readonly filterDebounceMs = computed(() => this.provider().filterDebounceMs);
+  readonly sortOption = computed(() => this.provider().sortOption);
   readonly rowSelection     = computed(() => this.provider().rowSelection);
   readonly groupDescription = computed(() => this.provider().groupDescription);
   readonly groupActions     = computed(() => this.provider().groupActions);
@@ -445,7 +446,7 @@ export class AgridComponent {
       const filters = ctrl.filters();
       indices = applyTextAndValueFilters(rows, indices, filters, colMap, this.locale());
       if (!ctrl.groupByField()) {
-        const order = this.serverSideFiltering() ? [] : ctrl.sortOrder();
+        const order = this.effectiveSortOrder();
         const sortEntries = order
           .map(f => [f, filters[f]] as [string, ColumnFilter])
           .filter(([, f]) => f?.sort);
@@ -577,7 +578,7 @@ export class AgridComponent {
         const expandState = this._expandedGroups();
         const expandedLabels = expandState.field === groupField
           ? expandState.labels : new Set<string>();
-        const order = ctrl.sortOrder();
+        const order = this.serverSideFiltering() ? [] : this.effectiveSortOrder();
         const sortEntries = order
           .map(f => [f, filters[f]] as [string, ColumnFilter])
           .filter(([, f]) => f?.sort);
@@ -957,12 +958,16 @@ export class AgridComponent {
   getSortPriority(field: string): number { return this.control()?.getSortPriority(field) ?? 0; }
 
   /** @internal Whether more than one column is currently sorted. */
-  hasMultiSort(): boolean { return (this.control()?.sortOrder().length ?? 0) > 1; }
+  hasMultiSort(): boolean {
+    return this.sortOption() === 'multi' && this.effectiveSortOrder().length > 1;
+  }
 
   getTextFilter(field: string): string { return this.control()?.getFilter(field).text ?? ''; }
 
   /** @internal */
-  getSort(field: string): 'asc' | 'desc' | null { return this.control()?.getFilter(field).sort ?? null; }
+  getSort(field: string): 'asc' | 'desc' | null {
+    return this.sortOption() === 'none' ? null : this.control()?.getFilter(field).sort ?? null;
+  }
 
   /** @internal */
   isMenuAllSelected(field: string): boolean {
@@ -1462,7 +1467,7 @@ export class AgridComponent {
   /** @internal */
   onMenuSort(field: string, dir: 'asc' | 'desc'): void {
     const ctrl = this.control();
-    if (!ctrl) return;
+    if (!ctrl || this.sortOption() === 'none') return;
     if (ctrl.getFilter(field).sort === dir) {
       const previous = ctrl.getFilter(field);
       ctrl.clearFilter(field);   // toggle off — remove from stack
@@ -1471,6 +1476,15 @@ export class AgridComponent {
         ctrl.setSelectedValues(field, previous.selectedValues);
       }
       if (this.serverSideFiltering()) this.sortChange.emit({ field, direction: null });
+    } else if (this.sortOption() === 'single') {
+      const previousFields = ctrl.sortOrder().filter(sortedField => sortedField !== field);
+      ctrl.setSort(field, dir);
+      if (this.serverSideFiltering()) {
+        for (const previousField of previousFields) {
+          this.sortChange.emit({ field: previousField, direction: null });
+        }
+        this.sortChange.emit({ field, direction: dir });
+      }
     } else {
       ctrl.addSort(field, dir);  // add to stack or switch direction
       if (this.serverSideFiltering()) this.sortChange.emit({ field, direction: dir });
@@ -1495,7 +1509,7 @@ export class AgridComponent {
   /** @internal Replace the entire sort stack with a single sort on this column. */
   onMenuResetSort(field: string, dir: 'asc' | 'desc'): void {
     const ctrl = this.control();
-    if (!ctrl) return;
+    if (!ctrl || this.sortOption() !== 'multi') return;
     const previousFields = ctrl.sortOrder().filter(sortedField => sortedField !== field);
     ctrl.setSort(field, dir);
     if (this.serverSideFiltering()) {
@@ -1535,6 +1549,12 @@ export class AgridComponent {
     if (timer === undefined) return;
     clearTimeout(timer);
     this._filterDebounces.delete(field);
+  }
+
+  private effectiveSortOrder(): string[] {
+    if (this.sortOption() === 'none') return [];
+    const order = this.control()?.sortOrder() ?? [];
+    return this.sortOption() === 'single' ? order.slice(-1) : order;
   }
 
   /** @internal */
