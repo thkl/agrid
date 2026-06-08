@@ -1,4 +1,10 @@
-import { ChangeDetectionStrategy, Component, afterNextRender, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  afterNextRender,
+  signal,
+  viewChild,
+} from '@angular/core';
 import {
   AgridComponent, AgridControl, AgridDataSource, ColDef, FilterChangeEvent,
   PageChangeEvent, SortChangeEvent,

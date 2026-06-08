@@ -29,6 +29,8 @@ export interface AgridProviderConfig<T extends Record<string, unknown> = Record<
    * The Excel-style value picker is hidden in this mode. @default false
    */
   serverSideFiltering?: boolean;
+  /** Delay before emitting server-side text filter changes. Set to `0` to disable. @default 300 */
+  filterDebounceMs?: number;
   /**
    * Row selection mode.
    * - `'none'` — no selection (default)
@@ -94,6 +96,7 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
   showSidebar: boolean;
   autoOpenDetail: boolean;
   serverSideFiltering: boolean;
+  filterDebounceMs: number;
   /** Toggle auto-add-rows without recreating the provider. @default signal(false) */
   readonly autoAddRows: WritableSignal<boolean>;
   rowSelection: 'single' | 'multi' | 'none';
@@ -124,6 +127,7 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
     this.showSidebar      = config.showSidebar ?? false;
     this.autoOpenDetail   = config.autoOpenDetail ?? false;
     this.serverSideFiltering = config.serverSideFiltering ?? false;
+    this.filterDebounceMs = Math.max(0, config.filterDebounceMs ?? 300);
     this.rowSelection     = config.rowSelection ?? 'none';
     this.groupDescription = config.groupDescription ?? null;
     this.groupActions     = config.groupActions ?? [];

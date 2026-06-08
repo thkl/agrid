@@ -198,6 +198,7 @@ describe('AgridComponent server-side filtering', () => {
         { name: 'Alice', department: 'Engineering' },
       ]),
       serverSideFiltering: true,
+      filterDebounceMs: 0,
     });
 
     await TestBed.configureTestingModule({
@@ -221,6 +222,24 @@ describe('AgridComponent server-side filtering', () => {
     expect(emitted).toEqual([{ field: 'name', value: 'alice' }]);
     expect(visibleDataRows(component.filteredItems()).map(item => item.row['name']))
       .toEqual(['Bob', 'Alice']);
+  });
+
+  it('debounces server-side filter events per column', () => {
+    vi.useFakeTimers();
+    provider.filterDebounceMs = 300;
+    const emitted: unknown[] = [];
+    component.filterChange.subscribe(event => emitted.push(event));
+
+    component.onTextFilterChange({ target: { value: 'a' } } as unknown as Event, 'name');
+    component.onTextFilterChange({ target: { value: 'alice' } } as unknown as Event, 'name');
+
+    expect(provider.control.getFilter('name').text).toBe('alice');
+    expect(emitted).toEqual([]);
+
+    vi.advanceTimersByTime(300);
+
+    expect(emitted).toEqual([{ field: 'name', value: 'alice' }]);
+    vi.useRealTimers();
   });
 
   it('emits sort changes without sorting local rows', () => {

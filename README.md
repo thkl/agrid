@@ -182,6 +182,7 @@ readonly gridProvider = new AgridProvider({
 | `showSidebar` | `boolean` | `false` | Shows a collapsible column visibility sidebar. Requires `control`. |
 | `autoOpenDetail` | `boolean` | `false` | Opens the detail row automatically when a row is selected. |
 | `serverSideFiltering` | `boolean` | `false` | Emits filter/sort events instead of applying them locally and hides the value checklist. |
+| `filterDebounceMs` | `number` | `300` | Debounce delay for server-side `filterChange` events. Set to `0` to disable. |
 | `rowSelection` | `'single' \| 'multi' \| 'none'` | `'none'` | Row selection behavior. |
 | `groupDescription` | `((label: string) => string) \| null` | `null` | Optional description text shown next to each group label. |
 | `groupActions` | `GroupAction[]` | `[]` | Actions shown in each group header menu. |
@@ -463,10 +464,12 @@ In server-side mode:
 - The Excel-style distinct-value checklist is hidden.
 - Clearing emits an empty filter value or a `null` sort direction.
 - Multi-column sorting emits one event for each changed column.
+- Text filter events are debounced by `filterDebounceMs` (300 ms by default).
 
-`filterChange` fires for every text input event. Debounce API requests in the host when necessary.
-For server pagination, call `control.setTotalRows(total)` after each response and replace the
-datasource contents with the returned page.
+The grid updates its visible filter state immediately, but only emits the final server filter value
+after the debounce delay. Set `filterDebounceMs: 0` when immediate events are required. For server
+pagination, call `control.setTotalRows(total)` after each response and replace the datasource
+contents with the returned page.
 
 ## Custom Cell Renderers
 

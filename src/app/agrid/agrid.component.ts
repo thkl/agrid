@@ -105,6 +105,7 @@ export class AgridComponent {
   readonly showSidebar      = computed(() => this.provider().showSidebar);
   readonly autoOpenDetail   = computed(() => this.provider().autoOpenDetail);
   readonly serverSideFiltering = computed(() => this.provider().serverSideFiltering);
+  readonly filterDebounceMs = computed(() => this.provider().filterDebounceMs);
   readonly rowSelection     = computed(() => this.provider().rowSelection);
   readonly groupDescription = computed(() => this.provider().groupDescription);
   readonly groupActions     = computed(() => this.provider().groupActions);
@@ -744,6 +745,7 @@ export class AgridComponent {
   private _colDragStartX = 0;
 
   private _fillDragSource: VisibleCellBounds | null = null;
+  private readonly _filterDebounces = new Map<string, ReturnType<typeof setTimeout>>();
 
   /** @internal Start a column header drag. */
   onColHeaderPointerDown(event: PointerEvent, field: string): void {
@@ -853,6 +855,8 @@ export class AgridComponent {
       document.removeEventListener('pointerup',   this._colDragUp);
       document.removeEventListener('pointermove', this._fillDragMove);
       document.removeEventListener('pointerup',   this._fillDragUp);
+      for (const timer of this._filterDebounces.values()) clearTimeout(timer);
+      this._filterDebounces.clear();
     });
 
     // Re-sync pinned pane scroll after displayItems changes — CDK independently adjusts
@@ -1425,7 +1429,18 @@ export class AgridComponent {
   onTextFilterChange(event: Event, field: string): void {
     const value = (event.target as HTMLInputElement).value;
     this.control()?.setTextFilter(field, value);
-    if (this.serverSideFiltering()) this.filterChange.emit({ field, value });
+    if (!this.serverSideFiltering()) return;
+
+    this.cancelFilterDebounce(field);
+    const delay = this.filterDebounceMs();
+    if (delay === 0) {
+      this.filterChange.emit({ field, value });
+      return;
+    }
+    this._filterDebounces.set(field, setTimeout(() => {
+      this._filterDebounces.delete(field);
+      this.filterChange.emit({ field, value });
+    }, delay));
   }
 
   /** @internal */
@@ -1466,6 +1481,7 @@ export class AgridComponent {
   onMenuClearFilter(field: string): void {
     const ctrl = this.control();
     if (!ctrl) return;
+    this.cancelFilterDebounce(field);
     const previous = ctrl.getFilter(field);
     ctrl.clearFilter(field);
     if (this.serverSideFiltering()) {
@@ -1502,6 +1518,7 @@ export class AgridComponent {
   onMenuClearAll(): void {
     const ctrl = this.control();
     if (!ctrl) return;
+    for (const field of this._filterDebounces.keys()) this.cancelFilterDebounce(field);
     const previous = ctrl.filters();
     ctrl.clearAllFilters();
     if (this.serverSideFiltering()) {
@@ -1511,6 +1528,13 @@ export class AgridComponent {
       }
     }
     this.closeFilterMenu();
+  }
+
+  private cancelFilterDebounce(field: string): void {
+    const timer = this._filterDebounces.get(field);
+    if (timer === undefined) return;
+    clearTimeout(timer);
+    this._filterDebounces.delete(field);
   }
 
   /** @internal */
