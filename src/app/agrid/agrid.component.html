@@ -334,64 +334,22 @@
     }
 
     @if (showSidebar()) {
-    @if (sidebarOpen()) {
-    <div class="ag-sidebar">
-      <div class="ag-sidebar-header">
-        <span>{{ sidebarTab() === 'columns' ? localeText().columns : localeText().detail }}</span>
-        <button class="ag-sidebar-close" (click)="toggleSidebar()" [title]="localeText().close">✕</button>
-      </div>
-      @if (sidebarTab() === 'columns') {
-      @for (col of colDefs(); track col.field) {
-      <label class="ag-sidebar-item" (click)="$event.stopPropagation()">
-        <input type="checkbox" [checked]="!isColumnHidden(col.field)" (change)="onSidebarToggleColumn(col.field)" />
-        {{ col.header }}
-      </label>
-      }
-      } @else {
-      @if (detailRow(); as fields) {
-      @for (field of fields; track field.label) {
-      <div class="ag-detail-field">
-        <span class="ag-detail-label">{{ field.label }}@if (field.hidden) { <span class="ag-detail-hidden">{{
-            localeText().hiddenColumn }}</span> }</span>
-        @if ((field.editable || useSidebarEditor()) && field.col.values?.length) {
-        <select class="ag-detail-input"
-          (change)="commitDetailEdit(field.col.field, field.col, $any($event.target).value)">
-          @for (opt of field.col.values; track $index) {
-          @if ($any(opt).value !== undefined) {
-          <option [value]="$any(opt).value" [selected]="$any(opt).value === field.rawValue">{{ $any(opt).label }}
-          </option>
-          } @else {
-          <option [value]="opt" [selected]="opt === field.rawValue">{{ opt }}</option>
-          }
-          }
-        </select>
-        } @else if (field.editable || useSidebarEditor()) {
-        <input class="ag-detail-input"
-          [type]="field.col.type === 'number' ? 'number' : field.col.type === 'date' ? 'date' : 'text'"
-          [value]="field.inputValue"
-          (change)="commitDetailEdit(field.col.field, field.col, $any($event.target).value)" />
-        } @else {
-        <span class="ag-detail-value">{{ field.value }}</span>
-        }
-      </div>
-      }
-      @if(useSidebarEditor()) {
-        <div class="ag-detail-field">
-          <button class="ag-button" (click)="saveFromSidebar(fields)">{{localeText().save}}</button>
-        </div>
-      }
-      } @else {
-      <div class="ag-detail-empty">{{ localeText().noRows }}</div>
-      }
-      }
-    </div>
-    }
-    <div class="ag-sidebar-strip">
-      <button class="ag-sidebar-strip-btn" [class.active]="sidebarOpen() && sidebarTab() === 'columns'"
-        (click)="onSidebarStripClick('columns')">{{ localeText().columns }}</button>
-      <button class="ag-sidebar-strip-btn" [class.active]="sidebarOpen() && sidebarTab() === 'detail'"
-        (click)="onSidebarStripClick('detail')">{{ localeText().detail }}</button>
-    </div>
+    <agrid-sidebar
+      [open]="sidebarOpen()"
+      [activeTab]="sidebarTab()"
+      [columns]="colDefs()"
+      [row]="sidebarRow()"
+      [hiddenColumns]="sidebarHiddenColumns()"
+      [locale]="locale()"
+      [localeText]="localeText()"
+      [readonlyGrid]="readonlyGrid()"
+      [useSidebarEditor]="useSidebarEditor()"
+      (close)="toggleSidebar()"
+      (tabChange)="onSidebarStripClick($event)"
+      (toggleColumn)="onSidebarToggleColumn($event)"
+      (detailEdit)="onSidebarDetailEdit($event)"
+      (save)="saveFromSidebar($event)"
+    />
     }
   </div><!-- /.ag-main-area -->
 
@@ -471,8 +429,10 @@
   <agrid-column-menu [x]="menu.x" [y]="menu.y" [header]="getColDef(menu.field)?.header ?? menu.field"
     [sortDir]="getSort(menu.field)" [showColumnActions]="!!control()" [pinned]="getColumnPinState(menu.field)"
     [groupable]="!!getColDef(menu.field)?.groupable" [grouped]="isGroupedByField(menu.field)"
-    [filterable]="!!getColDef(menu.field)?.filterable" [search]="filterMenuSearch()"
-    [allSelected]="isMenuAllSelected(menu.field)" [valueItems]="columnMenuValueItems()" [localeText]="localeText()"
+    [filterable]="!!getColDef(menu.field)?.filterable" [showValueFilter]="!serverSideFiltering()"
+    [search]="filterMenuSearch()"
+    [allSelected]="isMenuAllSelected(menu.field)"
+    [valueItems]="serverSideFiltering() ? [] : columnMenuValueItems()" [localeText]="localeText()"
     [sortPriority]="getSortPriority(menu.field)" [hasMultiSort]="hasMultiSort()" (sort)="onMenuSort(menu.field, $event)"
     (resetSort)="onMenuResetSort(menu.field, $event)" (autosize)="onMenuAutosizeColumn(menu.field)"
     (togglePin)="onMenuTogglePin(menu.field)" (togglePinRight)="onMenuTogglePinRight(menu.field)"

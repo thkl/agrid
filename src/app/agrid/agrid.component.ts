@@ -24,6 +24,11 @@ import { AgridLocaleText, resolveAgridLocaleText, resolveLocale } from './agrid-
 import { AgridProvider } from './agrid-provider';
 import { AgridResizeHandler } from './agrid-resize.handler';
 import {
+  AgridSidebarComponent,
+  AgridSidebarDetailField,
+  AgridSidebarEdit,
+} from './agrid-sidebar.component';
+import {
   applyTextAndValueFilters,
   applySortToIndices,
   buildGroupedItems,
@@ -35,8 +40,9 @@ import {
 } from './agrid.utils';
 import { ColumnFilter, HistoryEntry, HistoryItem } from './agrid-control';
 import {
-  CellContextMenuItem, CellPosition, ColDef, GridEditEvent, GridItem, GroupAction,
-  NewRecord, PageChangeEvent, RowClickEvent, RowRemovedEvent, RowReorderEvent, RowSelectEvent, ValueOption,
+  CellContextMenuItem, CellPosition, ColDef, FilterChangeEvent, GridEditEvent, GridItem,
+  GroupAction, NewRecord, PageChangeEvent, RowClickEvent, RowRemovedEvent, RowReorderEvent,
+  RowSelectEvent, SortChangeEvent, ValueOption,
 } from './agrid.types';
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
@@ -67,7 +73,13 @@ type FindMatch = { rowIndex: number; displayIndex: number; colIndex: number };
 @Component({
   selector: 'agrid',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ScrollingModule, AgridCellComponent, AgridColumnMenuComponent, AgridFindPanelComponent],
+  imports: [
+    ScrollingModule,
+    AgridCellComponent,
+    AgridColumnMenuComponent,
+    AgridFindPanelComponent,
+    AgridSidebarComponent,
+  ],
   templateUrl: './agrid.component.html',
   styleUrl: './agrid.component.css',
   host: {
@@ -92,6 +104,7 @@ export class AgridComponent {
   readonly showControlColumn = computed(() => this.provider().showControlColumn);
   readonly showSidebar      = computed(() => this.provider().showSidebar);
   readonly autoOpenDetail   = computed(() => this.provider().autoOpenDetail);
+  readonly serverSideFiltering = computed(() => this.provider().serverSideFiltering);
   readonly rowSelection     = computed(() => this.provider().rowSelection);
   readonly groupDescription = computed(() => this.provider().groupDescription);
   readonly groupActions     = computed(() => this.provider().groupActions);
@@ -158,6 +171,12 @@ export class AgridComponent {
    */
   pageChange = output<PageChangeEvent>();
 
+  /** Emitted when a header filter changes in server-side filtering mode. */
+  filterChange = output<FilterChangeEvent>();
+
+  /** Emitted when a column sort changes in server-side filtering mode. */
+  sortChange = output<SortChangeEvent>();
+
   // ── Public state ─────────────────────────────────────────────────────────────
 
   /** Currently focused cell, or `null`. */
@@ -219,36 +238,19 @@ export class AgridComponent {
     }
   }
 
-  /** Formatted field/value pairs for the currently selected row, or null when nothing is selected. */
-  readonly detailRow = computed<{
-    label: string; value: string; rawValue: unknown; inputValue: string;
-    hidden: boolean; editable: boolean; col: ColDef;
-  }[] | null>(() => {
+  readonly sidebarRow = computed<Record<string, unknown> | null>(() => {
     const idx = this.selectedRowIndex();
-    if (idx === null) return null;
-    const row = this.dataSource().rows()[idx];
-    if (!row) return null;
-    const locale = this.locale();
-    const gridReadonly = this.readonlyGrid();
-    return this.colDefs().map(col => {
-      const rawValue = row[col.field];
-      const editable = !gridReadonly && col.editable !== false;
-      let inputValue = String(rawValue ?? '');
-      if (col.type === 'date' || looksLikeDate(rawValue)) {
-        const d = rawValue instanceof Date ? rawValue : new Date(rawValue as string);
-        if (!isNaN(d.getTime())) inputValue = d.toISOString().slice(0, 10);
-      }
-      return {
-        label: col.header,
-        value: getDisplayForField(col, rawValue, locale),
-        rawValue,
-        inputValue,
-        hidden: this.isColumnHidden(col.field),
-        editable,
-        col,
-      };
-    });
+    return idx === null ? null : this.dataSource().rows()[idx] ?? null;
   });
+
+  readonly sidebarHiddenColumns = computed<ReadonlySet<string>>(
+    () => this.control()?.hiddenColumns() ?? new Set<string>()
+  );
+
+  /** @internal */
+  onSidebarDetailEdit(event: AgridSidebarEdit): void {
+    this.commitDetailEdit(event.field, event.col, event.value);
+  }
 
   /** @internal Commit an edit made via the detail panel. */
   commitDetailEdit(field: string, col: ColDef, stringValue: string): void {
@@ -438,11 +440,11 @@ export class AgridComponent {
     const colDefs = this.colDefs();
     const colMap = new Map(colDefs.map(c => [c.field, c]));
     let indices = rows.map((_, i) => i);
-    if (ctrl) {
+    if (ctrl && !this.serverSideFiltering()) {
       const filters = ctrl.filters();
       indices = applyTextAndValueFilters(rows, indices, filters, colMap, this.locale());
       if (!ctrl.groupByField()) {
-        const order = ctrl.sortOrder();
+        const order = this.serverSideFiltering() ? [] : ctrl.sortOrder();
         const sortEntries = order
           .map(f => [f, filters[f]] as [string, ColumnFilter])
           .filter(([, f]) => f?.sort);
@@ -1421,7 +1423,9 @@ export class AgridComponent {
 
   /** @internal */
   onTextFilterChange(event: Event, field: string): void {
-    this.control()?.setTextFilter(field, (event.target as HTMLInputElement).value);
+    const value = (event.target as HTMLInputElement).value;
+    this.control()?.setTextFilter(field, value);
+    if (this.serverSideFiltering()) this.filterChange.emit({ field, value });
   }
 
   /** @internal */
@@ -1445,22 +1449,45 @@ export class AgridComponent {
     const ctrl = this.control();
     if (!ctrl) return;
     if (ctrl.getFilter(field).sort === dir) {
+      const previous = ctrl.getFilter(field);
       ctrl.clearFilter(field);   // toggle off — remove from stack
+      if (previous.text) ctrl.setTextFilter(field, previous.text);
+      if (previous.selectedValues !== null) {
+        ctrl.setSelectedValues(field, previous.selectedValues);
+      }
+      if (this.serverSideFiltering()) this.sortChange.emit({ field, direction: null });
     } else {
       ctrl.addSort(field, dir);  // add to stack or switch direction
+      if (this.serverSideFiltering()) this.sortChange.emit({ field, direction: dir });
     }
   }
 
   /** @internal */
   onMenuClearFilter(field: string): void {
-    this.control()?.clearFilter(field);
+    const ctrl = this.control();
+    if (!ctrl) return;
+    const previous = ctrl.getFilter(field);
+    ctrl.clearFilter(field);
+    if (this.serverSideFiltering()) {
+      if (previous.text) this.filterChange.emit({ field, value: '' });
+      if (previous.sort) this.sortChange.emit({ field, direction: null });
+    }
     this.closeFilterMenu();
   }
 
   /** @internal */
   /** @internal Replace the entire sort stack with a single sort on this column. */
   onMenuResetSort(field: string, dir: 'asc' | 'desc'): void {
-    this.control()?.setSort(field, dir);
+    const ctrl = this.control();
+    if (!ctrl) return;
+    const previousFields = ctrl.sortOrder().filter(sortedField => sortedField !== field);
+    ctrl.setSort(field, dir);
+    if (this.serverSideFiltering()) {
+      for (const previousField of previousFields) {
+        this.sortChange.emit({ field: previousField, direction: null });
+      }
+      this.sortChange.emit({ field, direction: dir });
+    }
     this.closeFilterMenu();
   }
 
@@ -1473,7 +1500,16 @@ export class AgridComponent {
 
   /** @internal */
   onMenuClearAll(): void {
-    this.control()?.clearAllFilters();
+    const ctrl = this.control();
+    if (!ctrl) return;
+    const previous = ctrl.filters();
+    ctrl.clearAllFilters();
+    if (this.serverSideFiltering()) {
+      for (const [field, filter] of Object.entries(previous)) {
+        if (filter.text) this.filterChange.emit({ field, value: '' });
+        if (filter.sort) this.sortChange.emit({ field, direction: null });
+      }
+    }
     this.closeFilterMenu();
   }
 
@@ -2098,7 +2134,7 @@ export class AgridComponent {
     return ctx;
   }
 
-  public saveFromSidebar(event:any) {
+  public saveFromSidebar(event: AgridSidebarDetailField[]) {
     console.log(event);
   }
 }

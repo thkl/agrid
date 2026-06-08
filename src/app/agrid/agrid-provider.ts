@@ -25,6 +25,11 @@ export interface AgridProviderConfig<T extends Record<string, unknown> = Record<
   /** Automatically open the detail panel when a row is selected. */
   autoOpenDetail?: boolean;
   /**
+   * Emit filter and sort changes for server processing instead of applying them locally.
+   * The Excel-style value picker is hidden in this mode. @default false
+   */
+  serverSideFiltering?: boolean;
+  /**
    * Row selection mode.
    * - `'none'` — no selection (default)
    * - `'single'` — click to select/deselect
@@ -88,6 +93,7 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
   showControlColumn: boolean;
   showSidebar: boolean;
   autoOpenDetail: boolean;
+  serverSideFiltering: boolean;
   /** Toggle auto-add-rows without recreating the provider. @default signal(false) */
   readonly autoAddRows: WritableSignal<boolean>;
   rowSelection: 'single' | 'multi' | 'none';
@@ -117,6 +123,7 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
     this.showControlColumn = config.showControlColumn ?? false;
     this.showSidebar      = config.showSidebar ?? false;
     this.autoOpenDetail   = config.autoOpenDetail ?? false;
+    this.serverSideFiltering = config.serverSideFiltering ?? false;
     this.rowSelection     = config.rowSelection ?? 'none';
     this.groupDescription = config.groupDescription ?? null;
     this.groupActions     = config.groupActions ?? [];

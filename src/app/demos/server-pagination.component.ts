@@ -1,5 +1,8 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, signal, viewChild } from '@angular/core';
-import { AgridComponent, AgridControl, AgridDataSource, ColDef, PageChangeEvent } from '../agrid';
+import {
+  AgridComponent, AgridControl, AgridDataSource, ColDef, FilterChangeEvent,
+  PageChangeEvent, SortChangeEvent,
+} from '../agrid';
 import { AgridProvider } from '../agrid/agrid-provider';
 
 const TOTAL_ROWS = 1_000;
@@ -27,11 +30,11 @@ function statusBadge(value: string): string {
 }
 
 const COLUMNS: ColDef[] = [
-  { field: 'orderId',   header: 'Order',    width: 120, editable: false },
-  { field: 'customer',  header: 'Customer', width: 140, editable: false },
-  { field: 'amount',    header: 'Amount',   width: 110, editable: false, formatter: v => `$${Number(v).toFixed(2)}` },
-  { field: 'status',    header: 'Status',   width: 120, editable: false, cellRenderer: ({ value }) => statusBadge(String(value)) },
-  { field: 'createdAt', header: 'Date',     width: 120, editable: false },
+  { field: 'orderId',   header: 'Order',    width: 120, editable: false, filterable: true },
+  { field: 'customer',  header: 'Customer', width: 140, editable: false, filterable: true },
+  { field: 'amount',    header: 'Amount',   width: 110, editable: false, filterable: true, formatter: v => `$${Number(v).toFixed(2)}` },
+  { field: 'status',    header: 'Status',   width: 120, editable: false, filterable: true, cellRenderer: ({ value }) => statusBadge(String(value)) },
+  { field: 'createdAt', header: 'Date',     width: 120, editable: false, filterable: true },
 ];
 
 @Component({
@@ -51,6 +54,8 @@ const COLUMNS: ColDef[] = [
         class="demo-grid"
         [provider]="provider"
         (pageChange)="onPageChange($event)"
+        (filterChange)="onFilter($event)"
+        (sortChange)="onSort($event)"
       />
     </div>
   `,
@@ -76,10 +81,14 @@ export class ServerPaginationDemoComponent {
     control: this.ctrl,
     zebraStripes: true,
     emptyText: 'No orders found',
+    serverSideFiltering: true,
   });
 
   readonly lastFetch = signal('');
   readonly _grid = viewChild(AgridComponent);
+  private readonly filters = new Map<string, string>();
+  private readonly sorts = new Map<string, 'asc' | 'desc'>();
+  private requestSequence = 0;
 
   constructor() {
     this.ctrl.setTotalRows(TOTAL_ROWS);
@@ -87,11 +96,54 @@ export class ServerPaginationDemoComponent {
   }
 
   onPageChange(event: PageChangeEvent): void {
+    this.loadPage(event.page, event.pageSize);
+  }
+
+  onFilter(event: FilterChangeEvent): void {
+    if (event.value) this.filters.set(event.field, event.value);
+    else this.filters.delete(event.field);
+    this.reloadFirstPage();
+  }
+
+  onSort(event: SortChangeEvent): void {
+    if (event.direction) this.sorts.set(event.field, event.direction);
+    else this.sorts.delete(event.field);
+    this.reloadFirstPage();
+  }
+
+  private reloadFirstPage(): void {
+    if (this.ctrl.currentPage() === 1) this.loadPage(1, PAGE_SIZE);
+    else this.ctrl.setPage(1);
+  }
+
+  private loadPage(page: number, pageSize: number): void {
+    const request = ++this.requestSequence;
     this.provider.loading.set(true);
     setTimeout(() => {
-      this.ds.setData(ALL_ROWS.slice(event.startRow, event.endRow + 1));
+      if (request !== this.requestSequence) return;
+      let rows = ALL_ROWS.filter(row =>
+        [...this.filters].every(([field, value]) =>
+          String(row[field as keyof typeof row] ?? '').toLowerCase().includes(value.toLowerCase())
+        )
+      );
+      const sortOrder = this.ctrl.sortOrder().filter(field => this.sorts.has(field));
+      if (sortOrder.length) {
+        rows = [...rows].sort((a, b) => {
+          for (const field of sortOrder) {
+            const left = a[field as keyof typeof a];
+            const right = b[field as keyof typeof b];
+            const result = String(left ?? '').localeCompare(String(right ?? ''), undefined, { numeric: true });
+            if (result !== 0) return this.sorts.get(field) === 'asc' ? result : -result;
+          }
+          return 0;
+        });
+      }
+      this.ctrl.setTotalRows(rows.length);
+      const startRow = (page - 1) * pageSize;
+      const endRow = Math.min(startRow + pageSize, rows.length);
+      this.ds.setData(rows.slice(startRow, endRow));
       this.provider.loading.set(false);
-      this.lastFetch.set(`rows ${event.startRow}–${event.endRow} (page ${event.page}/${Math.ceil(TOTAL_ROWS / PAGE_SIZE)})`);
+      this.lastFetch.set(`rows ${startRow}–${Math.max(startRow, endRow - 1)} (page ${page}/${Math.max(1, Math.ceil(rows.length / pageSize))})`);
     }, 180);
   }
 }

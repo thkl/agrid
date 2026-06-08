@@ -51,6 +51,9 @@ export class AgridColumnMenuComponent {
   /** Whether the active column supports value-filter controls. */
   filterable = input<boolean>(false);
 
+  /** Whether to show the Excel-style distinct-value picker. */
+  showValueFilter = input<boolean>(true);
+
   /** Current search text for the value-filter option list. */
   search = input<string>('');
 

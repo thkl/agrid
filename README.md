@@ -145,6 +145,8 @@ The `AgridLocaleTextOverrides` type covers all overridable labels.
 | `prepareAddRecord` | `NewRecord` | Emitted after the grid inserts a blank row. Use it to patch defaults. |
 | `rowReorder` | `RowReorderEvent` | Emitted after the user drops a reordered row. The host must call `dataSource.moveRow()`. |
 | `rowSelect` | `RowSelectEvent \| null` | Emitted when row selection changes. `null` means selection was cleared. |
+| `filterChange` | `FilterChangeEvent` | Emitted for text filter changes when `serverSideFiltering` is enabled. |
+| `sortChange` | `SortChangeEvent` | Emitted for sort changes when `serverSideFiltering` is enabled. |
 
 ## AgridProvider Configuration
 
@@ -179,6 +181,7 @@ readonly gridProvider = new AgridProvider({
 | `showControlColumn` | `boolean` | `false` | Shows a 24 px control column for row context actions and drag handles. |
 | `showSidebar` | `boolean` | `false` | Shows a collapsible column visibility sidebar. Requires `control`. |
 | `autoOpenDetail` | `boolean` | `false` | Opens the detail row automatically when a row is selected. |
+| `serverSideFiltering` | `boolean` | `false` | Emits filter/sort events instead of applying them locally and hides the value checklist. |
 | `rowSelection` | `'single' \| 'multi' \| 'none'` | `'none'` | Row selection behavior. |
 | `groupDescription` | `((label: string) => string) \| null` | `null` | Optional description text shown next to each group label. |
 | `groupActions` | `GroupAction[]` | `[]` | Actions shown in each group header menu. |
@@ -412,6 +415,59 @@ this.gridControl.setPage(2);
 
 Pagination applies to data rows after filtering and sorting, before grouping. Each page therefore always contains at most `pageSize` data rows.
 
+### Server-side filtering and sorting
+
+Enable `serverSideFiltering` when the API should filter and sort the dataset:
+
+```ts
+readonly provider = new AgridProvider({
+  columns: [
+    { field: 'name', header: 'Name', filterable: true },
+    { field: 'status', header: 'Status', filterable: true },
+  ],
+  datasource: this.ds,
+  control: this.ctrl,
+  serverSideFiltering: true,
+});
+```
+
+```html
+<agrid
+  [provider]="provider"
+  (filterChange)="onFilter($event)"
+  (sortChange)="onSort($event)"
+/>
+```
+
+```ts
+readonly filters = new Map<string, string>();
+readonly sorts = new Map<string, 'asc' | 'desc'>();
+
+onFilter(event: FilterChangeEvent): void {
+  if (event.value) this.filters.set(event.field, event.value);
+  else this.filters.delete(event.field);
+  this.loadRows();
+}
+
+onSort(event: SortChangeEvent): void {
+  if (event.direction) this.sorts.set(event.field, event.direction);
+  else this.sorts.delete(event.field);
+  this.loadRows();
+}
+```
+
+In server-side mode:
+
+- Filter and sort state remains visible in the grid headers.
+- The grid does not filter or sort loaded rows locally.
+- The Excel-style distinct-value checklist is hidden.
+- Clearing emits an empty filter value or a `null` sort direction.
+- Multi-column sorting emits one event for each changed column.
+
+`filterChange` fires for every text input event. Debounce API requests in the host when necessary.
+For server pagination, call `control.setTotalRows(total)` after each response and replace the
+datasource contents with the returned page.
+
 ## Custom Cell Renderers
 
 Return an HTML string from `cellRenderer` to render rich content in a cell. Angular's built-in sanitization runs automatically — scripts and event handlers are stripped, safe markup is preserved.
@@ -641,6 +697,28 @@ interface GridEditEvent {
 ```
 
 Emitted whenever a committed grid operation changes a cell.
+
+### FilterChangeEvent
+
+```ts
+interface FilterChangeEvent {
+  field: string;
+  value: string;
+}
+```
+
+An empty `value` clears the server-side text filter.
+
+### SortChangeEvent
+
+```ts
+interface SortChangeEvent {
+  field: string;
+  direction: 'asc' | 'desc' | null;
+}
+```
+
+A `null` direction clears the server-side sort for that field.
 
 ### CellPosition
 

@@ -235,6 +235,22 @@ export interface PageChangeEvent {
   endRow: number;
 }
 
+/** Emitted when a text filter changes in server-side filtering mode. */
+export interface FilterChangeEvent {
+  /** Field name of the filtered column. */
+  field: string;
+  /** Current filter text. An empty string clears the filter. */
+  value: string;
+}
+
+/** Emitted when a sort changes in server-side filtering mode. */
+export interface SortChangeEvent {
+  /** Field name of the sorted column. */
+  field: string;
+  /** Current direction. `null` clears the sort. */
+  direction: 'asc' | 'desc' | null;
+}
+
 /**
  * Emitted by `(prepareAddRecord)` when the grid has inserted a blank row.
  * Use this to populate the new row with real defaults via {@link AgridDataSource.updateRow} or

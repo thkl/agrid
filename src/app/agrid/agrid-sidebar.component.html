@@ -1,0 +1,87 @@
+@if (open()) {
+  <div class="ag-sidebar">
+    <div class="ag-sidebar-header">
+      <span>{{ activeTab() === 'columns' ? localeText().columns : localeText().detail }}</span>
+      <button class="ag-sidebar-close" (click)="close.emit()" [title]="localeText().close">✕</button>
+    </div>
+
+    @if (activeTab() === 'columns') {
+      @for (col of columns(); track col.field) {
+        <label class="ag-sidebar-item" (click)="$event.stopPropagation()">
+          <input
+            type="checkbox"
+            [checked]="!hiddenColumns().has(col.field)"
+            (change)="toggleColumn.emit(col.field)"
+          />
+          {{ col.header }}
+        </label>
+      }
+    } @else {
+      @if (detailFields(); as fields) {
+        @for (field of fields; track field.col.field) {
+          <div class="ag-detail-field">
+            <span class="ag-detail-label">
+              {{ field.label }}
+              @if (field.hidden) {
+                <span class="ag-detail-hidden">{{ localeText().hiddenColumn }}</span>
+              }
+            </span>
+            @if ((field.editable || useSidebarEditor()) && field.col.values?.length) {
+              <select
+                class="ag-detail-input"
+                (change)="detailEdit.emit({
+                  field: field.col.field,
+                  col: field.col,
+                  value: $any($event.target).value
+                })"
+              >
+                @for (opt of field.col.values; track $index) {
+                  @if ($any(opt).value !== undefined) {
+                    <option [value]="$any(opt).value" [selected]="$any(opt).value === field.rawValue">
+                      {{ $any(opt).label }}
+                    </option>
+                  } @else {
+                    <option [value]="opt" [selected]="opt === field.rawValue">{{ opt }}</option>
+                  }
+                }
+              </select>
+            } @else if (field.editable || useSidebarEditor()) {
+              <input
+                class="ag-detail-input"
+                [type]="field.col.type === 'number' ? 'number' : field.col.type === 'date' ? 'date' : 'text'"
+                [value]="field.inputValue"
+                (change)="detailEdit.emit({
+                  field: field.col.field,
+                  col: field.col,
+                  value: $any($event.target).value
+                })"
+              />
+            } @else {
+              <span class="ag-detail-value">{{ field.value }}</span>
+            }
+          </div>
+        }
+        @if (useSidebarEditor()) {
+          <div class="ag-detail-field">
+            <button class="ag-button" (click)="save.emit(fields)">{{ localeText().save }}</button>
+          </div>
+        }
+      } @else {
+        <div class="ag-detail-empty">{{ localeText().noRows }}</div>
+      }
+    }
+  </div>
+}
+
+<div class="ag-sidebar-strip">
+  <button
+    class="ag-sidebar-strip-btn"
+    [class.active]="open() && activeTab() === 'columns'"
+    (click)="tabChange.emit('columns')"
+  >{{ localeText().columns }}</button>
+  <button
+    class="ag-sidebar-strip-btn"
+    [class.active]="open() && activeTab() === 'detail'"
+    (click)="tabChange.emit('detail')"
+  >{{ localeText().detail }}</button>
+</div>

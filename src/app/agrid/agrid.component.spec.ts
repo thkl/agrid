@@ -182,6 +182,71 @@ describe('AgridComponent Tab navigation', () => {
   });
 });
 
+describe('AgridComponent server-side filtering', () => {
+  let fixture: ComponentFixture<AgridComponent>;
+  let component: AgridComponent;
+  let provider: AgridProvider;
+
+  beforeEach(async () => {
+    provider = new AgridProvider({
+      columns: [
+        { field: 'name', header: 'Name', filterable: true },
+        { field: 'department', header: 'Department', filterable: true },
+      ],
+      datasource: new AgridDataSource([
+        { name: 'Bob', department: 'Sales' },
+        { name: 'Alice', department: 'Engineering' },
+      ]),
+      serverSideFiltering: true,
+    });
+
+    await TestBed.configureTestingModule({
+      imports: [AgridComponent],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(AgridComponent);
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+  });
+
+  afterEach(() => fixture.destroy());
+
+  it('emits text filters without filtering local rows', () => {
+    const emitted: unknown[] = [];
+    component.filterChange.subscribe(event => emitted.push(event));
+
+    component.onTextFilterChange({ target: { value: 'alice' } } as unknown as Event, 'name');
+
+    expect(emitted).toEqual([{ field: 'name', value: 'alice' }]);
+    expect(visibleDataRows(component.filteredItems()).map(item => item.row['name']))
+      .toEqual(['Bob', 'Alice']);
+  });
+
+  it('emits sort changes without sorting local rows', () => {
+    const emitted: unknown[] = [];
+    component.sortChange.subscribe(event => emitted.push(event));
+
+    component.onMenuSort('name', 'asc');
+    component.onMenuSort('name', 'asc');
+
+    expect(emitted).toEqual([
+      { field: 'name', direction: 'asc' },
+      { field: 'name', direction: null },
+    ]);
+    expect(visibleDataRows(component.filteredItems()).map(item => item.row['name']))
+      .toEqual(['Bob', 'Alice']);
+  });
+
+  it('hides the Excel-style value picker', () => {
+    component.filterMenu.set({ field: 'name', x: 0, y: 0 });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.ag-filter-menu-values')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.ag-filter-menu-search')).toBeNull();
+  });
+});
+
 function visibleDataRows(
   items: GridItem[],
 ): { row: Record<string, unknown>; originalIndex: number }[] {

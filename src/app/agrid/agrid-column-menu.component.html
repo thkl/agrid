@@ -86,39 +86,41 @@
       </button>
     </div>
 
-    <div class="ag-filter-menu-section ag-filter-menu-section--border">
-      <input
-        class="ag-filter-menu-search"
-        [value]="search()"
-        (input)="searchChange.emit($any($event.target).value)"
-        [placeholder]="localeText().searchValuesPlaceholder"
-        (click)="$event.stopPropagation()"
-      />
-    </div>
-
-    <div class="ag-filter-menu-values">
-      <label class="ag-filter-menu-value">
+    @if (showValueFilter()) {
+      <div class="ag-filter-menu-section ag-filter-menu-section--border">
         <input
-          type="checkbox"
-          [checked]="allSelected()"
-          (change)="toggleAll.emit()"
+          class="ag-filter-menu-search"
+          [value]="search()"
+          (input)="searchChange.emit($any($event.target).value)"
+          [placeholder]="localeText().searchValuesPlaceholder"
+          (click)="$event.stopPropagation()"
         />
-        <span class="ag-filter-menu-value-label">{{ localeText().selectAll }}</span>
-      </label>
-      @for (item of valueItems(); track item.rawStr) {
-        <label
-          class="ag-filter-menu-value"
-          [class.ag-filter-menu-value--inactive]="!item.active"
-        >
+      </div>
+
+      <div class="ag-filter-menu-values">
+        <label class="ag-filter-menu-value">
           <input
             type="checkbox"
-            [checked]="item.selected"
-            [disabled]="!item.active"
-            (change)="toggleValue.emit(item.rawStr)"
+            [checked]="allSelected()"
+            (change)="toggleAll.emit()"
           />
-          <span class="ag-filter-menu-value-label">{{ item.label || localeText().blank }}</span>
+          <span class="ag-filter-menu-value-label">{{ localeText().selectAll }}</span>
         </label>
-      }
-    </div>
+        @for (item of valueItems(); track item.rawStr) {
+          <label
+            class="ag-filter-menu-value"
+            [class.ag-filter-menu-value--inactive]="!item.active"
+          >
+            <input
+              type="checkbox"
+              [checked]="item.selected"
+              [disabled]="!item.active"
+              (change)="toggleValue.emit(item.rawStr)"
+            />
+            <span class="ag-filter-menu-value-label">{{ item.label || localeText().blank }}</span>
+          </label>
+        }
+      </div>
+    }
   }
 </div>
