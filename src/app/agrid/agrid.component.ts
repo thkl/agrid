@@ -20,9 +20,12 @@ import { AgridColumnMenuComponent, AgridColumnMenuValueItem } from './agrid-colu
 import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridDragHandler } from './agrid-drag.handler';
+import { AgridEditController } from './agrid-edit.controller';
 import { AgridFindPanelComponent } from './agrid-find-panel.component';
 import { AgridLocaleText, resolveAgridLocaleText, resolveLocale } from './agrid-localization';
 import { AgridProvider } from './agrid-provider';
+import { AgridProjectionModel } from './agrid-projection.model';
+import { AgridRangeController } from './agrid-range.controller';
 import { AgridResizeHandler } from './agrid-resize.handler';
 import {
   AgridSidebarComponent,
@@ -30,16 +33,12 @@ import {
   AgridSidebarEdit,
 } from './agrid-sidebar.component';
 import {
-  applyTextAndValueFilters,
-  applySortToIndices,
-  buildGroupedItems,
   buildSelectionRange,
   getDisplayForField,
   isDataRowItem as isDataRowItemFn,
   isGroupHeaderItem as isGroupHeaderItemFn,
   looksLikeDate,
 } from './agrid.utils';
-import { ColumnFilter, HistoryEntry, HistoryItem } from './agrid-control';
 import {
   CellContextMenuItem, CellPosition, ColDef, FilterChangeEvent, GridEditEvent, GridItem,
   GroupAction, NewRecord, PageChangeEvent, RowClickEvent, RowRemovedEvent, RowReorderEvent,
@@ -49,7 +48,6 @@ import {
 // Re-export for backward compatibility with existing imports of GridItem from this file.
 export type { GridItem };
 
-type VisibleCellBounds = { rowStart: number; rowEnd: number; colStart: number; colEnd: number };
 type FindMatch = { rowIndex: number; displayIndex: number; colIndex: number };
 
 /**
@@ -188,7 +186,7 @@ export class AgridComponent {
   readonly selectedRange = signal<CellRange | null>(null);
 
   /** Fill-handle drag preview bounds, in visible row/column coordinates. */
-  readonly fillPreviewBounds = signal<VisibleCellBounds | null>(null);
+  get fillPreviewBounds() { return this.rangeController.fillPreviewBounds; }
 
   /** Whether the in-grid find box is visible. */
   readonly findOpen = signal<boolean>(false);
@@ -200,13 +198,13 @@ export class AgridComponent {
   readonly findActiveIndex = signal<number>(-1);
 
   /** Position of the cell in edit mode, or `null`. */
-  readonly editingCell = signal<CellPosition | null>(null);
+  get editingCell() { return this.editController.editingCell; }
 
   /** Draft value while editing — committed on Tab/Enter, discarded on Escape. */
-  readonly currentDraft = signal<unknown>(null);
+  get currentDraft() { return this.editController.currentDraft; }
 
   /** Seed character typed to enter edit mode (e.g. pressing 'A'). */
-  readonly editSeedChar = signal<string>('');
+  get editSeedChar() { return this.editController.editSeedChar; }
 
   /** Set of currently selected original row indices. */
   private readonly _selectedIndices = signal<Set<number>>(new Set());
@@ -441,43 +439,41 @@ export class AgridComponent {
 
   readonly hasFilterableColumns = computed(() => this.visibleColDefs().some(c => c.filterable));
 
-  /** Filtered + sorted indices without pagination or grouping — source of truth for counts. */
-  private readonly _filteredSortedIndices = computed<number[]>(() => {
-    const rows = this.dataSource().rows();
-    const ctrl = this.control();
-    const colDefs = this.colDefs();
-    const colMap = new Map(colDefs.map(c => [c.field, c]));
-    let indices = rows.map((_, i) => i);
-    if (ctrl && !this.serverSideFiltering()) {
-      const filters = ctrl.filters();
-      indices = applyTextAndValueFilters(rows, indices, filters, colMap, this.locale());
-      if (!ctrl.groupByField()) {
-        const order = this.effectiveSortOrder();
-        const sortEntries = order
-          .map(f => [f, filters[f]] as [string, ColumnFilter])
-          .filter(([, f]) => f?.sort);
-        if (sortEntries.length) indices = applySortToIndices(rows, indices, sortEntries, colMap, this.locale());
-      }
-    }
-    return indices;
+  private readonly projection = new AgridProjectionModel({
+    dataSource: this.dataSource,
+    control: this.control,
+    colDefs: this.colDefs,
+    visibleColDefs: this.visibleColDefs,
+    locale: this.locale,
+    serverSideFiltering: this.serverSideFiltering,
+    sortOption: this.sortOption,
+    allowAddRows: this.allowAddRows,
+    autoAddRows: this.autoAddRows,
+    expandedGroups: this._expandedGroups,
   });
+
+  private readonly editController = new AgridEditController({
+    control: this.control,
+    dataSource: this.dataSource,
+    visibleColDefs: this.visibleColDefs,
+    readonlyGrid: this.readonlyGrid,
+    selectedCell: this.selectedCell,
+    selectedRange: this.selectedRange,
+    findDisplayIndex: originalIndex => this.findDisplayIndex(originalIndex),
+    scrollToCell: (displayIndex, colIndex) => this.scrollToKeepVisible(displayIndex, colIndex),
+    focusGrid: () => this.wrapperEl().nativeElement.focus(),
+    onCellEdit: event => this.cellEdit.emit(event),
+  });
+
+  private readonly _filteredSortedIndices = this.projection.filteredSortedIndices;
 
   /** Total filtered row count regardless of current page. */
-  readonly filteredRowCount = computed(() => this._filteredSortedIndices().length);
+  readonly filteredRowCount = this.projection.filteredRowCount;
 
   /** Total number of pages given the current filter and page size. */
-  readonly totalPages = computed(() => {
-    const ctrl = this.control();
-    const pageSize = ctrl?.pageSize() ?? 0;
-    if (pageSize <= 0) return 1;
-    // Server mode: use the externally supplied total instead of the local count
-    const count = (ctrl?.totalRows() ?? 0) > 0
-      ? ctrl!.totalRows()
-      : this._filteredSortedIndices().length;
-    return Math.max(1, Math.ceil(count / pageSize));
-  });
+  readonly totalPages = this.projection.totalPages;
 
-  readonly showPagination = computed(() => (this.control()?.pageSize() ?? 0) > 0 && !this.control()?.groupByField());
+  readonly showPagination = this.projection.showPagination;
 
   /** Number of rendered semantic rows, including the header row. */
   readonly ariaRowCount = computed(() =>
@@ -506,37 +502,10 @@ export class AgridComponent {
   }
 
   /** True when at least one visible column has an aggregate function (from ColDef or control). */
-  readonly showFooter = computed(() => {
-    const ctrlAggs = this.control()?.aggregates() ?? {};
-    return this.visibleColDefs().some(c => c.aggregate || ctrlAggs[c.field]);
-  });
+  readonly showFooter = this.projection.showFooter;
 
   /** Computed aggregate value per column field, over currently filtered rows. */
-  readonly footerValues = computed<Record<string, unknown>>(() => {
-    const rows = this.dataSource().rows();
-    const indices = this._filteredSortedIndices();
-    const result: Record<string, unknown> = {};
-    for (const col of this.visibleColDefs()) {
-      // Resolve full aggregate type (including custom functions from ColDef)
-      const ctrlAgg = this.control()?.aggregates()[col.field];
-      const agg: ColDef['aggregate'] = ctrlAgg ?? col.aggregate;
-      if (!agg) continue;
-      const values = indices.map(i => rows[i][col.field]);
-      if (typeof agg === 'function') {
-        result[col.field] = agg(values);
-      } else {
-        const nums = values.map(Number).filter(n => !isNaN(n));
-        switch (agg) {
-          case 'sum':   result[col.field] = nums.reduce((a, b) => a + b, 0); break;
-          case 'avg':   result[col.field] = nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null; break;
-          case 'min':   result[col.field] = nums.length ? Math.min(...nums) : null; break;
-          case 'max':   result[col.field] = nums.length ? Math.max(...nums) : null; break;
-          case 'count': result[col.field] = values.filter(v => v != null && v !== '').length; break;
-        }
-      }
-    }
-    return result;
-  });
+  readonly footerValues = this.projection.footerValues;
 
   readonly gridTemplateColumns = computed(() => {
     const cols = this.visibleColDefs().map(c => this.getColumnWidthToken(c)).join(' ');
@@ -571,43 +540,7 @@ export class AgridComponent {
    * Filtered, sorted, and optionally grouped row list for `*cdkVirtualFor`.
    * Appends `null` when the explicit add-row placeholder is active.
    */
-  readonly filteredItems = computed<GridItem[]>(() => {
-    const rows = this.dataSource().rows();
-    const ctrl = this.control();
-    const colDefs = this.colDefs();
-    const colMap = new Map(colDefs.map(c => [c.field, c]));
-    let indices = this._filteredSortedIndices();
-
-    if (ctrl) {
-      // Client-side pagination: slice locally. Skipped in server mode (totalRows > 0)
-      // because the host already loaded exactly the right rows into the data source.
-      const groupField = ctrl.groupByField();
-      const pageSize = ctrl.pageSize();
-      const isServerMode = ctrl.totalRows() > 0;
-      if (pageSize > 0 && !isServerMode && !groupField) {
-        const maxPage = this.totalPages();
-        const page = Math.max(1, Math.min(ctrl.currentPage(), maxPage));
-        indices = indices.slice((page - 1) * pageSize, page * pageSize);
-      }
-      if (groupField) {
-        const filters = ctrl.filters();
-        const expandState = this._expandedGroups();
-        const expandedLabels = expandState.field === groupField
-          ? expandState.labels : new Set<string>();
-        const order = this.serverSideFiltering() ? [] : this.effectiveSortOrder();
-        const sortEntries = order
-          .map(f => [f, filters[f]] as [string, ColumnFilter])
-          .filter(([, f]) => f?.sort);
-        const items = buildGroupedItems(rows, indices, groupField, colMap, sortEntries, expandedLabels, this.locale());
-        if (this.allowAddRows() && !this.autoAddRows()) items.push(null);
-        return items;
-      }
-    }
-
-    const items: GridItem[] = indices.map(i => ({ row: rows[i], originalIndex: i }));
-    if (this.allowAddRows() && !this.autoAddRows()) items.push(null);
-    return items;
-  });
+  readonly filteredItems = this.projection.filteredItems;
 
   /** Virtual scroll source — injects ghost row during a reorder drag. */
   /** Maps originalIndex → true if the data row should receive the odd-row stripe. Counts only data rows, so group headers don't shift the pattern. */
@@ -742,6 +675,20 @@ export class AgridComponent {
   private readonly destroyRef  = inject(DestroyRef);
   private readonly _hostEl     = inject(ElementRef<HTMLElement>);
 
+  private readonly rangeController = new AgridRangeController({
+    control: this.control,
+    dataSource: this.dataSource,
+    filteredItems: this.filteredItems,
+    visibleColDefs: this.visibleColDefs,
+    selectedCell: this.selectedCell,
+    selectedRange: this.selectedRange,
+    isCellEditable: col => this.isCellEditable(col),
+    cancelEdit: () => this.cancelCurrent(),
+    findDisplayIndex: originalIndex => this.findDisplayIndex(originalIndex),
+    scrollToCell: (displayIndex, colIndex) => this.scrollToKeepVisible(displayIndex, colIndex),
+    onCellEdit: event => this.cellEdit.emit(event),
+  }, this.destroyRef);
+
   private readonly resizeHandler = new AgridResizeHandler(this.control, this._localWidths, this.destroyRef);
 
   private readonly clipboardHandler = new AgridClipboardHandler({
@@ -774,7 +721,6 @@ export class AgridComponent {
   private _colDragStartField: string | null = null;
   private _colDragStartX = 0;
 
-  private _fillDragSource: VisibleCellBounds | null = null;
   private readonly _filterDebounces = new Map<string, ReturnType<typeof setTimeout>>();
 
   /** @internal Start a column header drag. */
@@ -883,8 +829,6 @@ export class AgridComponent {
       document.removeEventListener('pointerdown', onOutsidePointerDown);
       document.removeEventListener('pointermove', this._colDragMove);
       document.removeEventListener('pointerup',   this._colDragUp);
-      document.removeEventListener('pointermove', this._fillDragMove);
-      document.removeEventListener('pointerup',   this._fillDragUp);
       for (const timer of this._filterDebounces.values()) clearTimeout(timer);
       this._filterDebounces.clear();
     });
@@ -1125,7 +1069,7 @@ export class AgridComponent {
     if (this.isEditing(originalIndex, ci)) return;
     this.cancelCurrent();
     if (event?.shiftKey && this.selectedCell()) {
-      this.extendRangeTo(originalIndex, ci);
+      this.rangeController.extendTo(originalIndex, ci);
       this.wrapperEl().nativeElement.focus();
       return;
     }
@@ -1151,21 +1095,11 @@ export class AgridComponent {
   }
 
   /** @internal */
-  onDraftChange(value: unknown): void { this.currentDraft.set(value); }
+  onDraftChange(value: unknown): void { this.editController.setDraft(value); }
 
   /** @internal Starts a fill-handle drag from the bottom-right corner of the selection. */
   onCellPointerDown(event: PointerEvent, originalIndex: number, colIndex: number): void {
-    if (event.button !== 0 || !this.isFillHandleCell(originalIndex, colIndex)) return;
-    if (!this.isFillHandleHit(event)) return;
-    const bounds = this.getActiveSelectionBounds();
-    if (!bounds) return;
-    event.preventDefault();
-    event.stopPropagation();
-    this.cancelCurrent();
-    this._fillDragSource = bounds;
-    this.fillPreviewBounds.set(null);
-    document.addEventListener('pointermove', this._fillDragMove);
-    document.addEventListener('pointerup', this._fillDragUp);
+    this.rangeController.startFill(event, originalIndex, colIndex);
   }
 
   /** @internal Main keyboard handler delegated from the wrapper div. */
@@ -1269,44 +1203,6 @@ export class AgridComponent {
     this.selectRowFromPointer(event, originalIndex, false);
   }
 
-  private readonly _fillDragMove = (event: PointerEvent): void => {
-    const source = this._fillDragSource;
-    if (!source) return;
-    const target = this.getHoveredCellPosition(event.clientX, event.clientY);
-    if (!target) {
-      this.fillPreviewBounds.set(null);
-      return;
-    }
-    const targetDi = this.findDisplayIndex(target.rowIndex);
-    if (targetDi < 0) {
-      this.fillPreviewBounds.set(null);
-      return;
-    }
-    const rowEnd = Math.max(source.rowEnd, targetDi);
-    const colEnd = Math.max(source.colEnd, target.colIndex);
-    if (rowEnd === source.rowEnd && colEnd === source.colEnd) {
-      this.fillPreviewBounds.set(null);
-      return;
-    }
-    this.fillPreviewBounds.set({
-      rowStart: source.rowStart,
-      rowEnd,
-      colStart: source.colStart,
-      colEnd,
-    });
-    this.scrollToKeepVisible(rowEnd, colEnd);
-  };
-
-  private readonly _fillDragUp = (): void => {
-    document.removeEventListener('pointermove', this._fillDragMove);
-    document.removeEventListener('pointerup', this._fillDragUp);
-    const source = this._fillDragSource;
-    const target = this.fillPreviewBounds();
-    this._fillDragSource = null;
-    this.fillPreviewBounds.set(null);
-    if (source && target) this.applyFill(source, target);
-  };
-
   /** @internal Copy the active range or cell as TSV. */
   onCopy(event: ClipboardEvent): void {
     this.clipboardHandler.copy(event);
@@ -1404,10 +1300,7 @@ export class AgridComponent {
     else if (sel && sel.rowIndex > originalIndex)
       this.selectedCell.update(s => s ? { ...s, rowIndex: s.rowIndex - 1 } : null);
 
-    const ed = this.editingCell();
-    if (ed?.rowIndex === originalIndex) { this.editingCell.set(null); this.editSeedChar.set(''); }
-    else if (ed && ed.rowIndex > originalIndex)
-      this.editingCell.update(p => p ? { ...p, rowIndex: p.rowIndex - 1 } : null);
+    this.editController.onRowRemoved(originalIndex);
 
     if (this._selectedIndices().has(originalIndex)) {
       this._selectedIndices.update(s => { const n = new Set(s); n.delete(originalIndex); return n; });
@@ -1589,9 +1482,7 @@ export class AgridComponent {
   }
 
   private effectiveSortOrder(): string[] {
-    if (this.sortOption() === 'none') return [];
-    const order = this.control()?.sortOrder() ?? [];
-    return this.sortOption() === 'single' ? order.slice(-1) : order;
+    return this.projection.effectiveSortOrder();
   }
 
   /** @internal */
@@ -1713,75 +1604,27 @@ export class AgridComponent {
   }
 
   private isCellEditable(col: ColDef): boolean {
-    return !this.readonlyGrid() && col.editable !== false;
+    return this.editController.isCellEditable(col);
   }
 
   private enterEdit(originalIndex: number, ci: number, seedChar: string): void {
-    const col = this.visibleColDefs()[ci];
-    if (!this.isCellEditable(col)) return;
-    const currentValue = this.dataSource().getRow(originalIndex)[col.field];
-    this.selectedRange.set(null);
-    this.selectedCell.set({ rowIndex: originalIndex, colIndex: ci });
-    this.currentDraft.set(seedChar !== '' ? seedChar : currentValue);
-    this.editSeedChar.set(seedChar);
-    this.editingCell.set({ rowIndex: originalIndex, colIndex: ci });
-    const displayIdx = this.findDisplayIndex(originalIndex);
-    if (displayIdx >= 0) this.scrollToKeepVisible(displayIdx, ci);
+    this.editController.start(originalIndex, ci, seedChar);
   }
 
   private applyUndo(): void {
-    const ctrl = this.control();
-    if (!ctrl) return;
-    const item = ctrl.undo();
-    if (!item) return;
-    this._applyHistoryItem(item, 'oldValue');
+    this.editController.undo();
   }
 
   private applyRedo(): void {
-    const ctrl = this.control();
-    if (!ctrl) return;
-    const item = ctrl.redo();
-    if (!item) return;
-    this._applyHistoryItem(item, 'newValue');
-  }
-
-  private _applyHistoryItem(item: HistoryItem, valueKey: 'oldValue' | 'newValue'): void {
-    const entries = Array.isArray(item) ? item : [item];
-    const ordered = valueKey === 'oldValue' ? [...entries].reverse() : entries;
-    for (const entry of ordered) this._applyHistoryEntry(entry, entry[valueKey]);
-  }
-
-  private _applyHistoryEntry(entry: HistoryEntry, value: unknown): void {
-    const prevValue = this.dataSource().getRow(entry.rowIndex)[entry.field];
-    this.dataSource().patchRow(entry.rowIndex, { [entry.field]: value });
-    const ci = this.visibleColDefs().findIndex(c => c.field === entry.field);
-    this.cellEdit.emit({
-      position: { rowIndex: entry.rowIndex, colIndex: ci },
-      field: entry.field,
-      oldValue: prevValue,
-      newValue: value,
-    });
+    this.editController.redo();
   }
 
   private commitCurrent(): void {
-    const pos = this.editingCell();
-    if (!pos) return;
-    const col = this.visibleColDefs()[pos.colIndex];
-    const oldValue = this.dataSource().getRow(pos.rowIndex)[col.field];
-    const newValue = this.currentDraft();
-    if (oldValue !== newValue) {
-      this.dataSource().patchRow(pos.rowIndex, { [col.field]: newValue });
-      this.control()?.pushEdit({ rowIndex: pos.rowIndex, field: col.field, oldValue, newValue });
-      this.cellEdit.emit({ position: pos, field: col.field, oldValue, newValue });
-    }
-    this.editingCell.set(null);
-    this.editSeedChar.set('');
-    this.wrapperEl().nativeElement.focus();
+    this.editController.commit();
   }
 
   private cancelCurrent(): void {
-    this.editingCell.set(null);
-    this.editSeedChar.set('');
+    this.editController.cancel();
   }
 
   private moveSelection(dRow: number, dCol: number, extendRange = false): void {
@@ -1827,7 +1670,7 @@ export class AgridComponent {
       this.selectedCell.set({ rowIndex: this.dataSource().length, colIndex: 0 });
     } else if (isDataRowItemFn(newItem)) {
       if (extendRange) {
-        this.extendRangeTo(newItem.originalIndex, newCi);
+        this.rangeController.extendTo(newItem.originalIndex, newCi);
       } else {
         this.selectedRange.set(null);
         this.selectedCell.set({ rowIndex: newItem.originalIndex, colIndex: newCi });
@@ -1839,11 +1682,7 @@ export class AgridComponent {
 
   /** @internal */
   isRangeSelected(originalIndex: number, colIndex: number): boolean {
-    const range = this.getVisibleRangeBounds();
-    if (!range) return false;
-    const displayIndex = this.findDisplayIndex(originalIndex);
-    return displayIndex >= range.rowStart && displayIndex <= range.rowEnd
-      && colIndex >= range.colStart && colIndex <= range.colEnd;
+    return this.rangeController.isRangeSelected(originalIndex, colIndex);
   }
 
   /** @internal */
@@ -1861,154 +1700,12 @@ export class AgridComponent {
 
   /** @internal */
   isFillHandleCell(originalIndex: number, colIndex: number): boolean {
-    const bounds = this.getActiveSelectionBounds();
-    if (!bounds) return false;
-    const displayIndex = this.findDisplayIndex(originalIndex);
-    return displayIndex === bounds.rowEnd && colIndex === bounds.colEnd;
+    return this.rangeController.isFillHandleCell(originalIndex, colIndex);
   }
 
   /** @internal */
   isFillPreviewCell(originalIndex: number, colIndex: number): boolean {
-    const source = this._fillDragSource;
-    const target = this.fillPreviewBounds();
-    if (!source || !target) return false;
-    const displayIndex = this.findDisplayIndex(originalIndex);
-    const insideTarget = displayIndex >= target.rowStart && displayIndex <= target.rowEnd
-      && colIndex >= target.colStart && colIndex <= target.colEnd;
-    const insideSource = displayIndex >= source.rowStart && displayIndex <= source.rowEnd
-      && colIndex >= source.colStart && colIndex <= source.colEnd;
-    return insideTarget && !insideSource;
-  }
-
-  private extendRangeTo(rowIndex: number, colIndex: number): void {
-    const selected = this.selectedCell();
-    const anchor = this.selectedRange()?.anchor ?? selected ?? { rowIndex, colIndex };
-    const focus = { rowIndex, colIndex };
-    this.selectedCell.set(focus);
-    this.selectedRange.set({ anchor, focus });
-  }
-
-  private getVisibleRangeBounds(): {
-    rowStart: number; rowEnd: number; colStart: number; colEnd: number;
-  } | null {
-    const range = this.selectedRange();
-    if (!range) return null;
-    const anchorDi = this.findDisplayIndex(range.anchor.rowIndex);
-    const focusDi = this.findDisplayIndex(range.focus.rowIndex);
-    if (anchorDi < 0 || focusDi < 0) return null;
-    return {
-      rowStart: Math.min(anchorDi, focusDi),
-      rowEnd: Math.max(anchorDi, focusDi),
-      colStart: Math.min(range.anchor.colIndex, range.focus.colIndex),
-      colEnd: Math.max(range.anchor.colIndex, range.focus.colIndex),
-    };
-  }
-
-  private getActiveSelectionBounds(): VisibleCellBounds | null {
-    const range = this.getVisibleRangeBounds();
-    if (range) return range;
-    const selected = this.selectedCell();
-    if (!selected) return null;
-    const displayIndex = this.findDisplayIndex(selected.rowIndex);
-    if (displayIndex < 0) return null;
-    return {
-      rowStart: displayIndex,
-      rowEnd: displayIndex,
-      colStart: selected.colIndex,
-      colEnd: selected.colIndex,
-    };
-  }
-
-  private isFillHandleHit(event: PointerEvent): boolean {
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    return event.clientX >= rect.right - 8 && event.clientY >= rect.bottom - 8;
-  }
-
-  private getHoveredCellPosition(x: number, y: number): CellPosition | null {
-    for (const el of document.elementsFromPoint(x, y)) {
-      const cell = (el as HTMLElement).closest<HTMLElement>('agrid-cell[data-cell-row][data-cell-col]');
-      if (!cell) continue;
-      const rowIndex = Number(cell.dataset['cellRow']);
-      const colIndex = Number(cell.dataset['cellCol']);
-      if (Number.isFinite(rowIndex) && Number.isFinite(colIndex)) return { rowIndex, colIndex };
-    }
-    return null;
-  }
-
-  private applyFill(source: VisibleCellBounds, target: VisibleCellBounds): void {
-    const items = this.filteredItems();
-    const cols = this.visibleColDefs();
-    const sourceRows = this.getDataDisplayIndices(source.rowStart, source.rowEnd);
-    const targetRows = this.getDataDisplayIndices(target.rowStart, target.rowEnd);
-    if (sourceRows.length === 0 || targetRows.length === 0) return;
-
-    const sourceValues = sourceRows.map(di => {
-      const item = items[di];
-      return isDataRowItemFn(item)
-        ? cols.slice(source.colStart, source.colEnd + 1).map(col => item.row[col.field])
-        : [];
-    });
-
-    let lastPosition: CellPosition | null = null;
-    const historyEntries: HistoryEntry[] = [];
-    for (let targetRowOffset = 0; targetRowOffset < targetRows.length; targetRowOffset++) {
-      const di = targetRows[targetRowOffset];
-      const item = items[di];
-      if (!isDataRowItemFn(item)) continue;
-      for (let ci = target.colStart; ci <= target.colEnd; ci++) {
-        const insideSource = di >= source.rowStart && di <= source.rowEnd
-          && ci >= source.colStart && ci <= source.colEnd;
-        if (insideSource) continue;
-        const col = cols[ci];
-        if (!col || !this.isCellEditable(col)) continue;
-        const sourceRowIndex = targetRowOffset % sourceValues.length;
-        const sourceColIndex = (ci - source.colStart) % sourceValues[sourceRowIndex].length;
-        const oldValue = this.dataSource().getRow(item.originalIndex)[col.field];
-        const newValue = sourceValues[sourceRowIndex][sourceColIndex];
-        if (oldValue === newValue) continue;
-        this.dataSource().patchRow(item.originalIndex, { [col.field]: newValue });
-        historyEntries.push({
-          rowIndex: item.originalIndex,
-          field: col.field,
-          oldValue,
-          newValue,
-        });
-        this.cellEdit.emit({
-          position: { rowIndex: item.originalIndex, colIndex: ci },
-          field: col.field,
-          oldValue,
-          newValue,
-        });
-        lastPosition = { rowIndex: item.originalIndex, colIndex: ci };
-      }
-    }
-
-    this.control()?.pushEditBatch(historyEntries);
-    const targetItem = items[target.rowEnd];
-    if (isDataRowItemFn(targetItem)) {
-      this.selectedCell.set({ rowIndex: targetItem.originalIndex, colIndex: target.colEnd });
-      this.selectedRange.set({
-        anchor: this.positionFromVisibleCell(source.rowStart, source.colStart),
-        focus: { rowIndex: targetItem.originalIndex, colIndex: target.colEnd },
-      });
-    } else if (lastPosition) {
-      this.selectedCell.set(lastPosition);
-    }
-  }
-
-  private getDataDisplayIndices(start: number, end: number): number[] {
-    const items = this.filteredItems();
-    const indices: number[] = [];
-    for (let di = start; di <= end; di++) {
-      if (isDataRowItemFn(items[di])) indices.push(di);
-    }
-    return indices;
-  }
-
-  private positionFromVisibleCell(displayIndex: number, colIndex: number): CellPosition {
-    const item = this.filteredItems()[displayIndex];
-    if (isDataRowItemFn(item)) return { rowIndex: item.originalIndex, colIndex };
-    return this.selectedCell() ?? { rowIndex: 0, colIndex };
+    return this.rangeController.isFillPreviewCell(originalIndex, colIndex);
   }
 
   private scrollToKeepVisible(displayIndex: number, colIndex: number | null = null): void {
