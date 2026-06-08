@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, viewChild } from '@angular/core';
 import { AgridComponent, AgridControl, AgridDataSource, ColDef } from '../agrid';
 import { AgridProvider } from '../agrid/agrid-provider';
+import { escapeRendererText, rendererClassSuffix } from './demo-renderer.utils';
 
 const COLUMNS: ColDef[] = [
   { field: 'id',         header: 'ID',         width: 70,  editable: false, pinned: 'left', locked: true },
@@ -18,16 +19,8 @@ const COLUMNS: ColDef[] = [
   { field: 'score',      header: 'Score',       width: 90,  type: 'number', aggregate: 'avg' },
   { field: 'status',     header: 'Status',      width: 110, pinned: 'right',
     values: ['Active','Inactive','On Leave','Pending'],
-    cellRenderer: ({ value }) => {
-      const colors: Record<string, [string, string]> = {
-        Active:     ['#d4edda', '#155724'],
-        Inactive:   ['#f8d7da', '#721c24'],
-        'On Leave': ['#fff3cd', '#856404'],
-        Pending:    ['#d1ecf1', '#0c5460'],
-      };
-      const [bg, fg] = colors[value as string] ?? ['#e9ecef', '#495057'];
-      return `<span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${bg};color:${fg}">${value}</span>`;
-    },
+    cellRenderer: ({ value }) =>
+      `<span class="demo-badge demo-badge--${rendererClassSuffix(value)}">${escapeRendererText(value)}</span>`,
   },
 ];
 
@@ -82,6 +75,11 @@ function makeRows(n: number) {
     .demo-meta { font-size: 12px; color: #57606a; }
     .demo-hint { font-size: 12px; color: #57606a; background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 8px 12px; }
     .demo-grid { flex: 1; min-height: 0; }
+    :host ::ng-deep .demo-badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #e9ecef; color: #495057; }
+    :host ::ng-deep .demo-badge--active { background: #d4edda; color: #155724; }
+    :host ::ng-deep .demo-badge--inactive { background: #f8d7da; color: #721c24; }
+    :host ::ng-deep .demo-badge--on-leave { background: #fff3cd; color: #856404; }
+    :host ::ng-deep .demo-badge--pending { background: #d1ecf1; color: #0c5460; }
   `],
 })
 export class PinningDemoComponent {

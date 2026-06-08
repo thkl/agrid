@@ -10,6 +10,7 @@ import {
   PageChangeEvent, SortChangeEvent,
 } from '../agrid';
 import { AgridProvider } from '../agrid/agrid-provider';
+import { escapeRendererText, rendererClassSuffix } from './demo-renderer.utils';
 
 const TOTAL_ROWS = 1_000;
 const PAGE_SIZE  = 20;
@@ -30,9 +31,7 @@ function fakeRow(i: number) {
 const ALL_ROWS = Array.from({ length: TOTAL_ROWS }, (_, i) => fakeRow(i));
 
 function statusBadge(value: string): string {
-  const bg: Record<string, string> = { Shipped: '#d4edda', Delivered: '#d4edda', Pending: '#fff3cd', Processing: '#d1ecf1', Cancelled: '#f8d7da' };
-  const fg: Record<string, string> = { Shipped: '#155724', Delivered: '#155724', Pending: '#856404', Processing: '#0c5460', Cancelled: '#721c24' };
-  return `<span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:600;background:${bg[value] ?? '#e9ecef'};color:${fg[value] ?? '#495057'}">${value}</span>`;
+  return `<span class="demo-badge demo-badge--${rendererClassSuffix(value)}">${escapeRendererText(value)}</span>`;
 }
 
 const COLUMNS: ColDef[] = [
@@ -73,6 +72,11 @@ const COLUMNS: ColDef[] = [
     .demo-meta { font-size: 12px; color: #57606a; }
     .fetch-info { font-size: 11px; color: #1a73e8; margin-left: auto; }
     .demo-grid { flex: 1; min-height: 0; }
+    :host ::ng-deep .demo-badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #e9ecef; color: #495057; }
+    :host ::ng-deep .demo-badge--shipped, :host ::ng-deep .demo-badge--delivered { background: #d4edda; color: #155724; }
+    :host ::ng-deep .demo-badge--pending { background: #fff3cd; color: #856404; }
+    :host ::ng-deep .demo-badge--processing { background: #d1ecf1; color: #0c5460; }
+    :host ::ng-deep .demo-badge--cancelled { background: #f8d7da; color: #721c24; }
   `],
 })
 export class ServerPaginationDemoComponent {

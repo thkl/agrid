@@ -15,6 +15,7 @@ import {
 } from '@angular/core';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { AgridCellComponent } from './agrid-cell.component';
+import { AgridClipboardHandler, CellRange } from './agrid-clipboard.handler';
 import { AgridColumnMenuComponent, AgridColumnMenuValueItem } from './agrid-column-menu.component';
 import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
@@ -48,7 +49,6 @@ import {
 // Re-export for backward compatibility with existing imports of GridItem from this file.
 export type { GridItem };
 
-type CellRange = { anchor: CellPosition; focus: CellPosition };
 type VisibleCellBounds = { rowStart: number; rowEnd: number; colStart: number; colEnd: number };
 type FindMatch = { rowIndex: number; displayIndex: number; colIndex: number };
 
@@ -744,6 +744,19 @@ export class AgridComponent {
 
   private readonly resizeHandler = new AgridResizeHandler(this.control, this._localWidths, this.destroyRef);
 
+  private readonly clipboardHandler = new AgridClipboardHandler({
+    control: this.control,
+    dataSource: this.dataSource,
+    filteredItems: this.filteredItems,
+    visibleColDefs: this.visibleColDefs,
+    locale: this.locale,
+    selectedCell: this.selectedCell,
+    selectedRange: this.selectedRange,
+    isCellEditable: col => this.isCellEditable(col),
+    onCellEdit: event => this.cellEdit.emit(event),
+    scrollToCell: (displayIndex, colIndex) => this.scrollToKeepVisible(displayIndex, colIndex),
+  });
+
   readonly dragHandler = new AgridDragHandler({
     dataSource: this.dataSource,
     filteredItems: () => this.filteredItems(),
@@ -1296,19 +1309,13 @@ export class AgridComponent {
 
   /** @internal Copy the active range or cell as TSV. */
   onCopy(event: ClipboardEvent): void {
-    const text = this.getSelectedTsv();
-    if (!text) return;
-    event.clipboardData?.setData('text/plain', text);
-    event.preventDefault();
+    this.clipboardHandler.copy(event);
   }
 
   /** @internal Paste TSV/CSV-like plain text into the current cell. */
   onPaste(event: ClipboardEvent): void {
     if (this.editingCell()) return;
-    const text = event.clipboardData?.getData('text/plain');
-    if (!text || !this.selectedCell()) return;
-    event.preventDefault();
-    this.pasteTextAtSelection(text);
+    this.clipboardHandler.paste(event);
   }
 
   // ── Column resize ─────────────────────────────────────────────────────────────
@@ -2002,122 +2009,6 @@ export class AgridComponent {
     const item = this.filteredItems()[displayIndex];
     if (isDataRowItemFn(item)) return { rowIndex: item.originalIndex, colIndex };
     return this.selectedCell() ?? { rowIndex: 0, colIndex };
-  }
-
-  private getSelectedTsv(): string {
-    const bounds = this.getVisibleRangeBounds();
-    const sel = this.selectedCell();
-    if (!bounds && !sel) return '';
-    const rowStart = bounds?.rowStart ?? this.findDisplayIndex(sel!.rowIndex);
-    const rowEnd = bounds?.rowEnd ?? rowStart;
-    const colStart = bounds?.colStart ?? sel!.colIndex;
-    const colEnd = bounds?.colEnd ?? sel!.colIndex;
-    const rows = this.filteredItems();
-    const cols = this.visibleColDefs();
-    const lines: string[] = [];
-    for (let di = rowStart; di <= rowEnd; di++) {
-      const item = rows[di];
-      if (!isDataRowItemFn(item)) continue;
-      const cells: string[] = [];
-      for (let ci = colStart; ci <= colEnd; ci++) {
-        cells.push(this.escapeTsvValue(getDisplayForField(cols[ci], item.row[cols[ci].field], this.locale())));
-      }
-      lines.push(cells.join('\t'));
-    }
-    return lines.join('\n');
-  }
-
-  private escapeTsvValue(value: string): string {
-    return /["\t\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
-  }
-
-  private pasteTextAtSelection(text: string): void {
-    const bounds = this.getActiveSelectionBounds();
-    if (!bounds) return;
-    const start = this.positionFromVisibleCell(bounds.rowStart, bounds.colStart);
-    const rows = this.parseDelimitedText(text);
-    if (rows.length === 0) return;
-    const displayStart = bounds.rowStart;
-    const items = this.filteredItems();
-    const cols = this.visibleColDefs();
-    let lastPosition = start;
-    const historyEntries: HistoryEntry[] = [];
-
-    for (let r = 0; r < rows.length; r++) {
-      const item = items[displayStart + r];
-      if (!isDataRowItemFn(item)) continue;
-      for (let c = 0; c < rows[r].length; c++) {
-        const colIndex = start.colIndex + c;
-        const col = cols[colIndex];
-        if (!col || !this.isCellEditable(col)) continue;
-        const oldValue = this.dataSource().getRow(item.originalIndex)[col.field];
-        const newValue = this.coercePastedValue(rows[r][c], col);
-        if (oldValue === newValue) continue;
-        this.dataSource().patchRow(item.originalIndex, { [col.field]: newValue });
-        historyEntries.push({
-          rowIndex: item.originalIndex,
-          field: col.field,
-          oldValue,
-          newValue,
-        });
-        this.cellEdit.emit({
-          position: { rowIndex: item.originalIndex, colIndex },
-          field: col.field,
-          oldValue,
-          newValue,
-        });
-        lastPosition = { rowIndex: item.originalIndex, colIndex };
-      }
-    }
-
-    this.control()?.pushEditBatch(historyEntries);
-    this.selectedRange.set({ anchor: start, focus: lastPosition });
-    this.selectedCell.set(lastPosition);
-    this.scrollToKeepVisible(this.findDisplayIndex(lastPosition.rowIndex), lastPosition.colIndex);
-  }
-
-  private parseDelimitedText(text: string): string[][] {
-    const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n$/, '');
-    const delimiter = normalized.includes('\t') ? '\t' : ',';
-    const rows: string[][] = [];
-    let row: string[] = [];
-    let cell = '';
-    let quoted = false;
-    for (let i = 0; i < normalized.length; i++) {
-      const ch = normalized[i];
-      if (quoted) {
-        if (ch === '"' && normalized[i + 1] === '"') { cell += '"'; i++; }
-        else if (ch === '"') quoted = false;
-        else cell += ch;
-      } else if (ch === '"') {
-        quoted = true;
-      } else if (ch === delimiter) {
-        row.push(cell); cell = '';
-      } else if (ch === '\n') {
-        row.push(cell); rows.push(row); row = []; cell = '';
-      } else {
-        cell += ch;
-      }
-    }
-    row.push(cell);
-    rows.push(row);
-    return rows.filter(r => r.length > 1 || r[0] !== '');
-  }
-
-  private coercePastedValue(value: string, col: ColDef): unknown {
-    if (col.values?.length) {
-      const match = col.values.find(option =>
-        typeof option === 'string'
-          ? option === value
-          : option.label === value || String(option.value) === value
-      );
-      if (match !== undefined) return typeof match === 'string' ? match : match.value;
-    }
-    if (col.type === 'number') {
-      const n = Number(value);
-      return value.trim() === '' || Number.isNaN(n) ? value : n;
-    }
-    return value;
   }
 
   private scrollToKeepVisible(displayIndex: number, colIndex: number | null = null): void {

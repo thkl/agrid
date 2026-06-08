@@ -479,7 +479,10 @@ contents with the returned page.
 
 ## Custom Cell Renderers
 
-Return an HTML string from `cellRenderer` to render rich content in a cell. Angular's built-in sanitization runs automatically — scripts and event handlers are stripped, safe markup is preserved.
+Return an HTML string from `cellRenderer` to render rich content in a cell. Angular's built-in
+sanitization runs automatically. Use CSS classes rather than inline styles; Angular strips unsafe
+attributes and logs a development warning when renderer output requires sanitization. Escape
+dynamic text before interpolating it into HTML.
 
 ```ts
 const columns: ColDef[] = [
@@ -488,15 +491,10 @@ const columns: ColDef[] = [
     header: 'Status',
     width: 100,
     editable: false,
-    cellRenderer: ({ value }) =>
-      `<span style="
-        display:inline-block;
-        padding:1px 8px;
-        border-radius:10px;
-        font-size:11px;
-        background:${value === 'active' ? '#d4edda' : '#f8d7da'};
-        color:${value === 'active' ? '#155724' : '#721c24'}
-      ">${value}</span>`,
+    cellRenderer: ({ value }) => {
+      const status = value === 'active' ? 'active' : 'inactive';
+      return `<span class="status-badge status-badge--${status}">${status}</span>`;
+    },
   },
   {
     field: 'salary',

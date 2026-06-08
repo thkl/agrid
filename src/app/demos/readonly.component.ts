@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, effect, signal, viewChild } from '@angular/core';
 import { AgridComponent, AgridControl, AgridDataSource, CellContextMenuItem, ColDef } from '../agrid';
 import { AgridProvider } from '../agrid/agrid-provider';
+import { escapeRendererText, rendererClassSuffix } from './demo-renderer.utils';
 
 const PRIORITIES = ['Critical','High','Medium','Low'];
 const TYPES      = ['Bug','Feature','Task','Improvement','Documentation'];
@@ -9,17 +10,12 @@ const STATUSES   = ['Open','In Progress','Review','Done','Closed'];
 const TAG_POOL   = ['frontend','backend','api','ux','infra','perf','security','a11y','mobile','auth'];
 
 function priorityBadge(value: string): string {
-  const colors: Record<string, [string, string]> = {
-    Critical: ['#f8d7da','#721c24'], High: ['#fff3cd','#856404'],
-    Medium: ['#d1ecf1','#0c5460'],  Low: ['#e2e3e5','#383d41'],
-  };
-  const [bg, fg] = colors[value] ?? ['#e9ecef','#495057'];
-  return `<span style="display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;background:${bg};color:${fg}">${value}</span>`;
+  return `<span class="demo-priority demo-priority--${rendererClassSuffix(value)}">${escapeRendererText(value)}</span>`;
 }
 
 function renderTags(value: string): string {
   return value.split(',').map(t => t.trim()).filter(Boolean)
-    .map(t => `<span style="display:inline-block;padding:0 6px;margin-right:3px;border:1px solid #d0d7de;border-radius:10px;font-size:11px;color:#57606a">${t}</span>`)
+    .map(tag => `<span class="demo-tag">${escapeRendererText(tag)}</span>`)
     .join('');
 }
 
@@ -86,6 +82,12 @@ function makeRows(n: number) {
     .demo-toggle { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #57606a; cursor: pointer; margin-left: auto; }
     .demo-grid { flex: 1; min-height: 0; }
     :host ::ng-deep .cell-muted { opacity: 0.45; }
+    :host ::ng-deep .demo-priority { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #e9ecef; color: #495057; }
+    :host ::ng-deep .demo-priority--critical { background: #f8d7da; color: #721c24; }
+    :host ::ng-deep .demo-priority--high { background: #fff3cd; color: #856404; }
+    :host ::ng-deep .demo-priority--medium { background: #d1ecf1; color: #0c5460; }
+    :host ::ng-deep .demo-priority--low { background: #e2e3e5; color: #383d41; }
+    :host ::ng-deep .demo-tag { display: inline-block; padding: 0 6px; margin-right: 3px; border: 1px solid #d0d7de; border-radius: 10px; font-size: 11px; color: #57606a; }
   `],
 })
 export class ReadonlyDemoComponent {
