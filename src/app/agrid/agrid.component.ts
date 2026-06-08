@@ -16,6 +16,7 @@ import {
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { AgridCellComponent } from './agrid-cell.component';
 import { AgridClipboardHandler, CellRange } from './agrid-clipboard.handler';
+import { AgridColumnSizingController } from './agrid-column-sizing.controller';
 import { AgridColumnMenuComponent, AgridColumnMenuValueItem } from './agrid-column-menu.component';
 import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
@@ -26,7 +27,6 @@ import { AgridLocaleText, resolveAgridLocaleText, resolveLocale } from './agrid-
 import { AgridProvider } from './agrid-provider';
 import { AgridProjectionModel } from './agrid-projection.model';
 import { AgridRangeController } from './agrid-range.controller';
-import { AgridResizeHandler } from './agrid-resize.handler';
 import {
   AgridSidebarComponent,
   AgridSidebarDetailField,
@@ -311,10 +311,7 @@ export class AgridComponent {
 
   /** Resize every visible column to fit its header and current row values. */
   autosizeAllColumns(): void {
-    const ctx = this.getAutosizeContext();
-    for (const col of this.visibleColDefs()) {
-      this.setColumnWidth(col.field, this.measureAutosizeWidth(col, ctx));
-    }
+    this.columnSizing.autosizeAllColumns();
   }
 
   /** @internal Full display value for a cell — used as the `title` tooltip attribute. */
@@ -348,8 +345,6 @@ export class AgridComponent {
   }
 
   // ── Internal signals ─────────────────────────────────────────────────────────
-
-  private readonly _localWidths = signal<Record<string, number>>({});
 
   private readonly _expandedGroups = signal<{ field: string | null; labels: Set<string> }>({
     field: null, labels: new Set(),
@@ -689,7 +684,16 @@ export class AgridComponent {
     onCellEdit: event => this.cellEdit.emit(event),
   }, this.destroyRef);
 
-  private readonly resizeHandler = new AgridResizeHandler(this.control, this._localWidths, this.destroyRef);
+  private readonly columnSizing = new AgridColumnSizingController({
+    control: this.control,
+    filteredItems: this.filteredItems,
+    visibleColDefs: this.visibleColDefs,
+    scrollableColDefs: this.scrollableColDefs,
+    locale: this.locale,
+    isColumnPinned: field => this.isColumnPinned(field),
+    wrapperElement: () => this.wrapperEl().nativeElement,
+    scrollerElement: () => this.horizontalScrollerEl().nativeElement,
+  }, this.destroyRef);
 
   private readonly clipboardHandler = new AgridClipboardHandler({
     control: this.control,
@@ -1216,18 +1220,14 @@ export class AgridComponent {
 
   // ── Column resize ─────────────────────────────────────────────────────────────
 
-  /** @internal Delegates to AgridResizeHandler. */
+  /** @internal Starts pointer-based column resizing. */
   onResizeStart(event: MouseEvent, col: ColDef): void {
-    if (col.locked) return;
-    this.resizeHandler.start(event, col);
+    this.columnSizing.startResize(event, col);
   }
 
   /** @internal Resize a column from its keyboard-accessible separator handle. */
   onResizeKeyDown(event: KeyboardEvent, col: ColDef): void {
-    if (col.locked || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
-    event.preventDefault();
-    const delta = event.key === 'ArrowLeft' ? -10 : 10;
-    this.setColumnWidth(col.field, this.getColumnWidth(col) + delta);
+    this.columnSizing.resizeFromKeyboard(event, col);
   }
 
   /** @internal Autosize a column to fit its header and currently visible row values. */
@@ -1235,10 +1235,9 @@ export class AgridComponent {
     if (col.locked) return;
     event.preventDefault();
     event.stopPropagation();
-    const width = this.measureAutosizeWidth(col);
-    this.setColumnWidth(col.field, width);
+    this.columnSizing.autosizeColumn(col);
     const selected = this.selectedCell();
-    if (selected) this.scrollColumnToKeepVisible(selected.colIndex);
+    if (selected) this.columnSizing.scrollColumnToKeepVisible(selected.colIndex);
   }
 
   // ── Row context menu ──────────────────────────────────────────────────────────
@@ -1538,7 +1537,7 @@ export class AgridComponent {
   onMenuAutosizeColumn(field: string): void {
     const col = this.getColDef(field);
     if (!col) return;
-    this.setColumnWidth(field, this.measureAutosizeWidth(col));
+    this.columnSizing.autosizeColumn(col);
     this.closeFilterMenu();
   }
 
@@ -1718,83 +1717,16 @@ export class AgridComponent {
     else if ((displayIndex + 1) * itemSize > scrollOffset + viewportSize)
       viewport.scrollToOffset((displayIndex + 1) * itemSize - viewportSize);
 
-    if (colIndex !== null) this.scrollColumnToKeepVisible(colIndex);
-  }
-
-  private scrollColumnToKeepVisible(colIndex: number): void {
-    const cols = this.visibleColDefs();
-    const col = cols[colIndex];
-    if (!col || this.isColumnPinned(col.field)) return;
-
-    const scroller = this.horizontalScrollerEl().nativeElement;
-    const { start, end } = this.getScrollableColumnBounds(col.field);
-    const maxScrollLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-
-    let nextScrollLeft = scroller.scrollLeft;
-    if (start < nextScrollLeft) {
-      nextScrollLeft = start;
-    } else if (end > nextScrollLeft + scroller.clientWidth) {
-      nextScrollLeft = end - scroller.clientWidth;
-    }
-
-    nextScrollLeft = Math.max(0, Math.min(maxScrollLeft, nextScrollLeft));
-    if (nextScrollLeft !== scroller.scrollLeft) {
-      scroller.scrollLeft = nextScrollLeft;
-    }
-  }
-
-  private getScrollableColumnBounds(field: string): { start: number; end: number } {
-    const cols = this.scrollableColDefs();
-    let start = 0;
-    for (const col of cols) {
-      const width = this.getColumnWidth(col);
-      if (col.field === field) return { start, end: start + width };
-      start += width;
-    }
-    return { start: 0, end: 0 };
+    if (colIndex !== null) this.columnSizing.scrollColumnToKeepVisible(colIndex);
   }
 
   /** @internal Current rendered width for a column. */
   getColumnWidth(col: ColDef): number {
-    const ctrlWidths = this.control()?.columnWidths() ?? {};
-    const localWidths = this._localWidths();
-    const w = ctrlWidths[col.field] ?? localWidths[col.field];
-    if (w != null) return w;
-    return (col.width == null || col.width === -1) ? 0 : col.width;
+    return this.columnSizing.getWidth(col);
   }
 
   private getColumnWidthToken(col: ColDef): string {
-    const ctrlWidths = this.control()?.columnWidths() ?? {};
-    const localWidths = this._localWidths();
-    const override = ctrlWidths[col.field] ?? localWidths[col.field];
-    if (override != null) return `${override}px`;
-    return (col.width == null || col.width === -1) ? '1fr' : `${col.width}px`;
-  }
-
-  private setColumnWidth(field: string, width: number): void {
-    const ctrl = this.control();
-    if (ctrl) ctrl.setColumnWidth(field, width);
-    else this._localWidths.update(w => ({ ...w, [field]: Math.max(40, width) }));
-  }
-
-  private measureAutosizeWidth(col: ColDef, ctx = this.getAutosizeContext()): number {
-    const values = [col.header];
-    for (const item of this.filteredItems()) {
-      if (!isDataRowItemFn(item)) continue;
-      values.push(getDisplayForField(col, item.row[col.field], this.locale()));
-    }
-    const measured = values.reduce((max, value) => Math.max(max, ctx.measureText(value).width), 0);
-    const extra = 42;
-    return Math.max(40, Math.min(500, Math.ceil(measured + extra)));
-  }
-
-  private getAutosizeContext(): CanvasRenderingContext2D {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Unable to create canvas context for column autosize.');
-    const style = getComputedStyle(this.wrapperEl().nativeElement);
-    ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-    return ctx;
+    return this.columnSizing.getWidthToken(col);
   }
 
   public saveFromSidebar(event: AgridSidebarDetailField[]) {
