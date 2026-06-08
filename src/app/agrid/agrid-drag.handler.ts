@@ -1,4 +1,5 @@
 import { DestroyRef, Signal, WritableSignal, signal } from '@angular/core';
+import { AgridBrowserAdapter } from './agrid-browser.adapter';
 import { AgridDataSource } from './agrid-datasource';
 import { ColDef, GridItem, RowReorderEvent } from './agrid.types';
 import { buildSelectionRange, getDisplayForField } from './agrid.utils';
@@ -29,12 +30,13 @@ export class AgridDragHandler {
   private _offsetY = 0;
   private _dragSelAnchor: number | null = null;
 
-  constructor(private readonly opts: AgridDragHandlerOptions, destroyRef: DestroyRef) {
+  constructor(
+    private readonly opts: AgridDragHandlerOptions,
+    destroyRef: DestroyRef,
+    private readonly browser = new AgridBrowserAdapter(),
+  ) {
     destroyRef.onDestroy(() => this._cleanupReorder());
-    destroyRef.onDestroy(() => {
-      document.removeEventListener('pointermove', this._dragSelMove);
-      document.removeEventListener('pointerup',   this._dragSelUp);
-    });
+    destroyRef.onDestroy(() => this._cancelDragSelect());
   }
 
   // ── Row reorder ──────────────────────────────────────────────────────────────
@@ -59,10 +61,14 @@ export class AgridDragHandler {
       boxShadow: '0 4px 16px rgba(0,0,0,0.15)', overflow: 'hidden',
       opacity: '0.95', cursor: 'grabbing',
     });
-    document.body.appendChild(overlay);
+    if (!this.browser.appendToBody(overlay)) {
+      this._clearReorder();
+      return;
+    }
     this._overlayEl = overlay;
-    document.addEventListener('pointermove', this._reorderMove);
-    document.addEventListener('pointerup',   this._reorderUp);
+    this.browser.addDocumentListener('pointermove', this._reorderMove);
+    this.browser.addDocumentListener('pointerup', this._reorderUp);
+    this.browser.addDocumentListener('pointercancel', this._reorderCancel);
   }
 
   getGhostDisplay(col: ColDef): string {
@@ -80,18 +86,19 @@ export class AgridDragHandler {
     if (hovered) {
       if (this.reorderOverIndex()    !== hovered.originalIndex) this.reorderOverIndex.set(hovered.originalIndex);
       if (this.reorderInsertBefore() !== hovered.insertBefore)  this.reorderInsertBefore.set(hovered.insertBefore);
+    } else {
+      this.reorderOverIndex.set(null);
     }
   };
 
   private readonly _reorderUp = (_e: PointerEvent): void => {
-    document.removeEventListener('pointermove', this._reorderMove);
-    document.removeEventListener('pointerup',   this._reorderUp);
+    this._removeReorderListeners();
     const overlay = this._overlayEl;
     this._overlayEl = null;
     if (overlay) {
       overlay.style.transition = 'opacity 80ms ease';
       overlay.style.opacity = '0';
-      setTimeout(() => overlay.remove(), 90);
+      this.browser.schedule(() => overlay.remove(), 90);
     }
     const oldIndex = this.reorderOriginalIndex();
     const overIdx  = this.reorderOverIndex();
@@ -107,25 +114,34 @@ export class AgridDragHandler {
     }
   };
 
+  private readonly _reorderCancel = (): void => this._cleanupReorder();
+
   private _cleanupReorder(): void {
-    document.removeEventListener('pointermove', this._reorderMove);
-    document.removeEventListener('pointerup',   this._reorderUp);
+    this._removeReorderListeners();
     this._overlayEl?.remove();
     this._overlayEl = null;
     this._clearReorder();
   }
 
+  private _removeReorderListeners(): void {
+    this.browser.removeDocumentListener('pointermove', this._reorderMove);
+    this.browser.removeDocumentListener('pointerup', this._reorderUp);
+    this.browser.removeDocumentListener('pointercancel', this._reorderCancel);
+  }
+
   private _clearReorder(): void {
     this.reorderOriginalIndex.set(null);
     this.reorderOverIndex.set(null);
+    this.reorderInsertBefore.set(true);
   }
 
   // ── Drag select ──────────────────────────────────────────────────────────────
 
   startDragSelect(originalIndex: number): void {
     this._dragSelAnchor = originalIndex;
-    document.addEventListener('pointermove', this._dragSelMove);
-    document.addEventListener('pointerup',   this._dragSelUp);
+    this.browser.addDocumentListener('pointermove', this._dragSelMove);
+    this.browser.addDocumentListener('pointerup', this._dragSelUp);
+    this.browser.addDocumentListener('pointercancel', this._dragSelCancel);
   }
 
   private readonly _dragSelMove = (e: PointerEvent): void => {
@@ -139,16 +155,28 @@ export class AgridDragHandler {
   };
 
   private readonly _dragSelUp = (): void => {
-    document.removeEventListener('pointermove', this._dragSelMove);
-    document.removeEventListener('pointerup',   this._dragSelUp);
+    this._removeDragSelectListeners();
     this._dragSelAnchor = null;
     this.opts.onSelectionChange();
   };
 
+  private readonly _dragSelCancel = (): void => this._cancelDragSelect();
+
+  private _cancelDragSelect(): void {
+    this._removeDragSelectListeners();
+    this._dragSelAnchor = null;
+  }
+
+  private _removeDragSelectListeners(): void {
+    this.browser.removeDocumentListener('pointermove', this._dragSelMove);
+    this.browser.removeDocumentListener('pointerup', this._dragSelUp);
+    this.browser.removeDocumentListener('pointercancel', this._dragSelCancel);
+  }
+
   // ── Shared ───────────────────────────────────────────────────────────────────
 
   private _getHoveredRow(x: number, y: number): { originalIndex: number; insertBefore: boolean } | null {
-    for (const el of document.elementsFromPoint(x, y)) {
+    for (const el of this.browser.elementsFromPoint(x, y)) {
       const rowEl = (el as HTMLElement).closest<HTMLElement>('.ag-row[data-original-index]');
       if (!rowEl) continue;
       const rect = rowEl.getBoundingClientRect();

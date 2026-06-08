@@ -1,4 +1,5 @@
 import { Signal } from '@angular/core';
+import { AgridBrowserAdapter } from './agrid-browser.adapter';
 import { AgridControl } from './agrid-control';
 import { ColDef, GridItem } from './agrid.types';
 import { getDisplayForField, isDataRowItem } from './agrid.utils';
@@ -12,7 +13,10 @@ export interface AgridPresentationOptions {
 
 /** Provides display formatting and CSV export without coupling them to the grid component. */
 export class AgridPresentationService {
-  constructor(private readonly opts: AgridPresentationOptions) {}
+  constructor(
+    private readonly opts: AgridPresentationOptions,
+    private readonly browser = new AgridBrowserAdapter(),
+  ) {}
 
   getCellTitle(col: ColDef, value: unknown): string {
     return getDisplayForField(col, value, this.opts.locale());
@@ -53,15 +57,10 @@ export class AgridPresentationService {
         .map(col => escape(getDisplayForField(col, row[col.field], locale)))
         .join(','))
       .join('\n');
-    const blob = new Blob([`${header}\n${body}`], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.style.display = 'none';
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    URL.revokeObjectURL(url);
+    this.browser.downloadText(
+      filename,
+      `${header}\n${body}`,
+      'text/csv;charset=utf-8;',
+    );
   }
 }

@@ -1,4 +1,5 @@
 import { DestroyRef, signal } from '@angular/core';
+import { AgridBrowserAdapter } from './agrid-browser.adapter';
 import { AgridColumnSizingController } from './agrid-column-sizing.controller';
 import { AgridControl } from './agrid-control';
 import { ColDef, GridItem } from './agrid.types';
@@ -10,7 +11,10 @@ describe('AgridColumnSizingController', () => {
     { field: 'notes', header: 'Notes' },
   ];
 
-  function createController(control: AgridControl | null = new AgridControl()) {
+  function createController(
+    control: AgridControl | null = new AgridControl(),
+    browser?: AgridBrowserAdapter,
+  ) {
     const scroller = document.createElement('div');
     Object.defineProperties(scroller, {
       clientWidth: { value: 150, configurable: true },
@@ -35,7 +39,7 @@ describe('AgridColumnSizingController', () => {
       isColumnPinned: () => false,
       wrapperElement: () => wrapper,
       scrollerElement: () => scroller,
-    }, destroyRef);
+    }, destroyRef, browser);
     return {
       controller,
       destroy: () => destroyCallback(),
@@ -92,5 +96,15 @@ describe('AgridColumnSizingController', () => {
 
     expect(controller.getWidth(columns[1])).toBe(152);
     getContext.mockRestore();
+  });
+
+  it('skips autosizing safely when browser canvas APIs are unavailable', () => {
+    const { controller } = createController(
+      new AgridControl(),
+      new AgridBrowserAdapter(null, null),
+    );
+
+    expect(() => controller.autosizeColumn(columns[1])).not.toThrow();
+    expect(controller.getWidth(columns[1])).toBe(120);
   });
 });

@@ -116,4 +116,31 @@ describe('AgridRangeController', () => {
     expect(Array.isArray(history)).toBe(true);
     expect(history).toHaveLength(4);
   });
+
+  it('cancels an active fill drag without applying changes', () => {
+    const { controller, dataSource } = createController();
+    const cell = document.createElement('div');
+    vi.spyOn(cell, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, top: 0, left: 0, right: 100, bottom: 40,
+      width: 100, height: 40, toJSON: () => ({}),
+    });
+    controller.startFill({
+      button: 0,
+      clientX: 99,
+      clientY: 39,
+      currentTarget: cell,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as PointerEvent, 0, 0);
+
+    document.dispatchEvent(new Event('pointercancel'));
+    document.dispatchEvent(new Event('pointerup'));
+
+    expect(controller.fillPreviewBounds()).toBeNull();
+    expect(dataSource.rows()).toEqual([
+      { name: 'A', amount: 1, locked: 'source' },
+      { name: 'B', amount: 2, locked: 'keep-1' },
+      { name: 'C', amount: 3, locked: 'keep-2' },
+    ]);
+  });
 });

@@ -1,4 +1,5 @@
 import { DestroyRef, Signal, computed, signal } from '@angular/core';
+import { AgridBrowserAdapter } from './agrid-browser.adapter';
 import { AgridColumnMenuValueItem } from './agrid-column-menu.component';
 import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
@@ -100,6 +101,7 @@ export class AgridColumnMenuController {
   constructor(
     private readonly opts: AgridColumnMenuControllerOptions,
     destroyRef: DestroyRef,
+    private readonly browser = new AgridBrowserAdapter(),
   ) {
     destroyRef.onDestroy(() => {
       for (const timer of this.filterDebounces.values()) clearTimeout(timer);
@@ -164,7 +166,7 @@ export class AgridColumnMenuController {
     this.search.set('');
     this.menu.set({
       field,
-      x: Math.min(event.clientX, window.innerWidth - 220),
+      x: Math.min(event.clientX, this.browser.viewportWidth() - 220),
       y: event.clientY,
     });
   }

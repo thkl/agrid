@@ -1,4 +1,5 @@
 import { DestroyRef, Signal, WritableSignal, signal } from '@angular/core';
+import { AgridBrowserAdapter } from './agrid-browser.adapter';
 import { CellRange } from './agrid-clipboard.handler';
 import { AgridControl, HistoryEntry } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
@@ -34,8 +35,9 @@ export class AgridRangeController {
   constructor(
     private readonly opts: AgridRangeControllerOptions,
     destroyRef: DestroyRef,
+    private readonly browser = new AgridBrowserAdapter(),
   ) {
-    destroyRef.onDestroy(() => this.stopFillListeners());
+    destroyRef.onDestroy(() => this.cancelFill());
   }
 
   extendTo(rowIndex: number, colIndex: number): void {
@@ -112,8 +114,9 @@ export class AgridRangeController {
     this.opts.cancelEdit();
     this.fillDragSource = bounds;
     this.fillPreviewBounds.set(null);
-    document.addEventListener('pointermove', this.fillDragMove);
-    document.addEventListener('pointerup', this.fillDragUp);
+    this.browser.addDocumentListener('pointermove', this.fillDragMove);
+    this.browser.addDocumentListener('pointerup', this.fillDragUp);
+    this.browser.addDocumentListener('pointercancel', this.fillDragCancel);
   }
 
   applyFill(source: VisibleCellBounds, target: VisibleCellBounds): void {
@@ -217,9 +220,18 @@ export class AgridRangeController {
     if (source && target) this.applyFill(source, target);
   };
 
+  private readonly fillDragCancel = (): void => this.cancelFill();
+
+  private cancelFill(): void {
+    this.stopFillListeners();
+    this.fillDragSource = null;
+    this.fillPreviewBounds.set(null);
+  }
+
   private stopFillListeners(): void {
-    document.removeEventListener('pointermove', this.fillDragMove);
-    document.removeEventListener('pointerup', this.fillDragUp);
+    this.browser.removeDocumentListener('pointermove', this.fillDragMove);
+    this.browser.removeDocumentListener('pointerup', this.fillDragUp);
+    this.browser.removeDocumentListener('pointercancel', this.fillDragCancel);
   }
 
   private isFillHandleHit(event: PointerEvent): boolean {
@@ -228,7 +240,7 @@ export class AgridRangeController {
   }
 
   private getHoveredCellPosition(x: number, y: number): CellPosition | null {
-    for (const element of document.elementsFromPoint(x, y)) {
+    for (const element of this.browser.elementsFromPoint(x, y)) {
       const cell = (element as HTMLElement)
         .closest<HTMLElement>('agrid-cell[data-cell-row][data-cell-col]');
       if (!cell) continue;

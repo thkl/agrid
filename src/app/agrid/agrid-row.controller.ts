@@ -1,4 +1,5 @@
 import { Signal, WritableSignal, computed, signal } from '@angular/core';
+import { AgridBrowserAdapter } from './agrid-browser.adapter';
 import { AgridDataSource } from './agrid-datasource';
 import { CellPosition, ColDef, GridItem, RowClickEvent, RowRemovedEvent, RowSelectEvent } from './agrid.types';
 import { buildSelectionRange, getDisplayForField, isDataRowItem } from './agrid.utils';
@@ -46,7 +47,10 @@ export class AgridRowController {
 
   private selectionPivot: number | null = null;
 
-  constructor(private readonly opts: AgridRowControllerOptions) {}
+  constructor(
+    private readonly opts: AgridRowControllerOptions,
+    private readonly browser = new AgridBrowserAdapter(),
+  ) {}
 
   isRowSelected(originalIndex: number): boolean {
     return this.selectedIndices().has(originalIndex);
@@ -140,7 +144,7 @@ export class AgridRowController {
   }
 
   copyCellToClipboard(value: unknown, col: ColDef): void {
-    navigator.clipboard.writeText(getDisplayForField(col, value));
+    void this.browser.writeClipboard(getDisplayForField(col, value));
     this.closeCellContextMenu();
   }
 
@@ -148,7 +152,7 @@ export class AgridRowController {
     const text = this.opts.visibleColDefs()
       .map(col => getDisplayForField(col, row[col.field]))
       .join('\t');
-    navigator.clipboard.writeText(text);
+    void this.browser.writeClipboard(text);
     this.closeCellContextMenu();
   }
 

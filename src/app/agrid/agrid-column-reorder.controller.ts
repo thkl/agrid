@@ -1,4 +1,5 @@
 import { DestroyRef, Signal, signal } from '@angular/core';
+import { AgridBrowserAdapter } from './agrid-browser.adapter';
 import { AgridControl } from './agrid-control';
 import { ColDef } from './agrid.types';
 
@@ -19,8 +20,9 @@ export class AgridColumnReorderController {
   constructor(
     private readonly opts: AgridColumnReorderControllerOptions,
     destroyRef: DestroyRef,
+    private readonly browser = new AgridBrowserAdapter(),
   ) {
-    destroyRef.onDestroy(() => this.removeListeners());
+    destroyRef.onDestroy(() => this.cancel());
   }
 
   start(event: PointerEvent, field: string): void {
@@ -28,8 +30,9 @@ export class AgridColumnReorderController {
     if (this.opts.getColDef(field)?.locked) return;
     this.dragStartField = field;
     this.dragStartX = event.clientX;
-    document.addEventListener('pointermove', this.dragMove);
-    document.addEventListener('pointerup', this.dragUp);
+    this.browser.addDocumentListener('pointermove', this.dragMove);
+    this.browser.addDocumentListener('pointerup', this.dragUp);
+    this.browser.addDocumentListener('pointercancel', this.dragCancel);
   }
 
   isDragging(field: string): boolean {
@@ -70,16 +73,28 @@ export class AgridColumnReorderController {
     }
     this.dragField.set(null);
     this.dragOverField.set(null);
+    this.dragInsertBefore.set(true);
     this.dragStartField = null;
   };
 
+  private readonly dragCancel = (): void => this.cancel();
+
+  private cancel(): void {
+    this.removeListeners();
+    this.dragField.set(null);
+    this.dragOverField.set(null);
+    this.dragInsertBefore.set(true);
+    this.dragStartField = null;
+  }
+
   private removeListeners(): void {
-    document.removeEventListener('pointermove', this.dragMove);
-    document.removeEventListener('pointerup', this.dragUp);
+    this.browser.removeDocumentListener('pointermove', this.dragMove);
+    this.browser.removeDocumentListener('pointerup', this.dragUp);
+    this.browser.removeDocumentListener('pointercancel', this.dragCancel);
   }
 
   private getHoveredHeaderCell(x: number, y: number): { field: string; insertBefore: boolean } | null {
-    for (const el of document.elementsFromPoint(x, y)) {
+    for (const el of this.browser.elementsFromPoint(x, y)) {
       const headerEl = (el as HTMLElement).closest<HTMLElement>('.ag-header-cell[data-col-field]');
       if (!headerEl?.dataset['colField']) continue;
       const rect = headerEl.getBoundingClientRect();

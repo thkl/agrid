@@ -1,4 +1,5 @@
 import { DestroyRef, Signal, signal } from '@angular/core';
+import { AgridBrowserAdapter } from './agrid-browser.adapter';
 import { AgridControl } from './agrid-control';
 import { ColDef, GridItem } from './agrid.types';
 import { getDisplayForField, isDataRowItem } from './agrid.utils';
@@ -22,6 +23,7 @@ export class AgridColumnSizingController {
   constructor(
     private readonly opts: AgridColumnSizingOptions,
     destroyRef: DestroyRef,
+    private readonly browser = new AgridBrowserAdapter(),
   ) {
     destroyRef.onDestroy(() => this.finishResize());
   }
@@ -62,10 +64,9 @@ export class AgridColumnSizingController {
       startX: event.clientX,
       startWidth: this.getWidth(col) || renderedWidth || 100,
     };
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', this.resizeMove);
-    document.addEventListener('mouseup', this.resizeUp);
+    this.browser.setBodyInteraction('col-resize', 'none');
+    this.browser.addDocumentListener('mousemove', this.resizeMove);
+    this.browser.addDocumentListener('mouseup', this.resizeUp);
   }
 
   resizeFromKeyboard(event: KeyboardEvent, col: ColDef): void {
@@ -77,11 +78,14 @@ export class AgridColumnSizingController {
 
   autosizeColumn(col: ColDef): void {
     if (col.locked) return;
-    this.setWidth(col.field, this.measureAutosizeWidth(col));
+    const context = this.getAutosizeContext();
+    if (!context) return;
+    this.setWidth(col.field, this.measureAutosizeWidth(col, context));
   }
 
   autosizeAllColumns(): void {
     const context = this.getAutosizeContext();
+    if (!context) return;
     for (const col of this.opts.visibleColDefs()) {
       if (!col.locked) this.setWidth(col.field, this.measureAutosizeWidth(col, context));
     }
@@ -118,10 +122,9 @@ export class AgridColumnSizingController {
 
   private finishResize(): void {
     this.resizeState = null;
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-    document.removeEventListener('mousemove', this.resizeMove);
-    document.removeEventListener('mouseup', this.resizeUp);
+    this.browser.setBodyInteraction('', '');
+    this.browser.removeDocumentListener('mousemove', this.resizeMove);
+    this.browser.removeDocumentListener('mouseup', this.resizeUp);
   }
 
   private widthOverride(field: string): number | undefined {
@@ -140,7 +143,7 @@ export class AgridColumnSizingController {
 
   private measureAutosizeWidth(
     col: ColDef,
-    context = this.getAutosizeContext(),
+    context: CanvasRenderingContext2D,
   ): number {
     const values = [col.header];
     for (const item of this.opts.filteredItems()) {
@@ -154,11 +157,11 @@ export class AgridColumnSizingController {
     return Math.max(40, Math.min(500, Math.ceil(measured + 42)));
   }
 
-  private getAutosizeContext(): CanvasRenderingContext2D {
-    const context = document.createElement('canvas').getContext('2d');
-    if (!context) throw new Error('Unable to create canvas context for column autosize.');
-    const style = getComputedStyle(this.opts.wrapperElement());
-    context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  private getAutosizeContext(): CanvasRenderingContext2D | null {
+    const context = this.browser.createCanvasContext();
+    if (!context) return null;
+    const style = this.browser.computedStyle(this.opts.wrapperElement());
+    if (style) context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
     return context;
   }
 }

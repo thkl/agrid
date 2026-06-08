@@ -15,6 +15,7 @@ import {
 } from '@angular/core';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { AgridCellComponent } from './agrid-cell.component';
+import { AgridBrowserAdapter } from './agrid-browser.adapter';
 import { AgridClipboardHandler, CellRange } from './agrid-clipboard.handler';
 import { AgridColumnMenuController } from './agrid-column-menu.controller';
 import { AgridColumnReorderController } from './agrid-column-reorder.controller';
@@ -504,6 +505,7 @@ export class AgridComponent {
     viewChild.required<ElementRef<HTMLDivElement>>('horizontalScroller');
   private readonly destroyRef  = inject(DestroyRef);
   private readonly _hostEl     = inject(ElementRef<HTMLElement>);
+  private readonly browser = new AgridBrowserAdapter();
 
   private readonly rangeController = new AgridRangeController({
     control: this.control,
@@ -725,9 +727,9 @@ export class AgridComponent {
       if (this._hostEl.nativeElement.contains(e.target as Node)) return;
       this.rowController.clearSelection();
     };
-    document.addEventListener('pointerdown', onOutsidePointerDown);
+    this.browser.addDocumentListener('pointerdown', onOutsidePointerDown);
     this.destroyRef.onDestroy(() => {
-      document.removeEventListener('pointerdown', onOutsidePointerDown);
+      this.browser.removeDocumentListener('pointerdown', onOutsidePointerDown);
     });
 
     // Re-sync pinned pane scroll after displayItems changes — CDK independently adjusts
