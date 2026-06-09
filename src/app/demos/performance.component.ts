@@ -79,10 +79,10 @@ function createRows(count: number): PerformanceRow[] {
           </p>
         </div>
         <nav aria-label="Dataset size">
-          <a href="/performance?rows=10000">10k</a>
-          <a href="/performance?rows=50000">50k</a>
-          <a href="/performance?rows=100000">100k</a>
-          <a href="/performance?rows=250000">250k</a>
+          <a href="./performance?rows=10000">10k</a>
+          <a href="./performance?rows=50000">50k</a>
+          <a href="./performance?rows=100000">100k</a>
+          <a href="./performance?rows=250000">250k</a>
         </nav>
       </header>
 
