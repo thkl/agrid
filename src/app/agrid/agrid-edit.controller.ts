@@ -46,7 +46,15 @@ export class AgridEditController {
     const currentValue = this.opts.dataSource().getRow(originalIndex)[col.field];
     this.opts.selectedRange.set(null);
     this.opts.selectedCell.set({ rowIndex: originalIndex, colIndex });
-    this.currentDraft.set(seedChar !== '' ? seedChar : currentValue);
+    let initialDraft: unknown;
+    if (seedChar !== '') {
+      initialDraft = seedChar;
+    } else if (col.type === 'date' && (currentValue == null || currentValue === '')) {
+      initialDraft = new Date().toISOString().slice(0, 10);
+    } else {
+      initialDraft = currentValue;
+    }
+    this.currentDraft.set(initialDraft);
     this.editSeedChar.set(seedChar);
     this.editingCell.set({ rowIndex: originalIndex, colIndex });
     const displayIndex = this.opts.findDisplayIndex(originalIndex);

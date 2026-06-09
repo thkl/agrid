@@ -182,8 +182,10 @@ export class AgridCellComponent {
       if (this.editing()) {
         const seed = this.seedChar();
         const isDate = this.col().type === 'date';
+        const existingDate = isDate ? getDateInputValue(this.value()) : '';
+        const dateInitial = existingDate || (isDate && seed === '' ? new Date().toISOString().slice(0, 10) : '');
         const initialValue = isDate
-          ? getDateInputValue(this.value())
+          ? dateInitial
           : seed !== '' ? seed : this.value();
         this.draft.set(initialValue);
 
@@ -191,7 +193,7 @@ export class AgridCellComponent {
           const input = this.inputEl()?.nativeElement;
           if (input) {
             const displaySeed = isDate
-              ? getDateInputValue(this.value())
+              ? dateInitial
               : seed !== '' ? seed : String(this.value() ?? '');
             input.value = displaySeed;
             input.focus();
