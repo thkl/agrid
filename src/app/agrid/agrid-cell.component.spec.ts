@@ -34,4 +34,30 @@ describe('AgridCellComponent custom renderer', () => {
     expect(value.querySelector('.badge')?.hasAttribute('onclick')).toBe(false);
     expect(value.querySelector('script')).toBeNull();
   });
+
+  it('uses a native date input and preserves an ISO time suffix', async () => {
+    fixture.componentRef.setInput('col', {
+      field: 'hiredAt',
+      header: 'Hired',
+      type: 'date',
+    });
+    fixture.componentRef.setInput('value', '2024-03-15T14:30:00.000Z');
+    fixture.componentRef.setInput('row', { hiredAt: '2024-03-15T14:30:00.000Z' });
+    fixture.componentRef.setInput('editing', true);
+    const emitted: unknown[] = [];
+    fixture.componentInstance.draftChange.subscribe(value => emitted.push(value));
+    fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.ag-cell-input') as HTMLInputElement;
+    expect(input.type).toBe('date');
+    expect(input.value).toBe('2024-03-15');
+
+    input.value = '2025-04-20';
+    input.dispatchEvent(new Event('input'));
+
+    expect(emitted).toEqual(['2025-04-20T14:30:00.000Z']);
+    expect(fixture.componentInstance.editorValue()).toBe('2025-04-20');
+  });
 });

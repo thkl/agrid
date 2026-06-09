@@ -19,7 +19,7 @@ const COLUMNS: ColDef[] = [
     ]
   },
   { field: 'salary', header: 'Salary', width: ColDefAutoSize, type: 'number', filterable: true, hidden:true, aggregate: 'sum'},
-  { field: 'hiredAt', header: 'Hire Date', width: ColDefAutoSize, editable: false },
+  { field: 'hiredAt', header: 'Hire Date', width: ColDefAutoSize, type: 'date' },
 ];
 
 const FIRST_NAMES = ['Alice', 'Bob', 'Carol', 'David', 'Emma', 'Frank', 'Grace', 'Henry', 'Iris', 'Jack'];

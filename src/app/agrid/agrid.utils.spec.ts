@@ -6,12 +6,37 @@ import {
   applySortToIndices,
   buildGroupedItems,
   buildSelectionRange,
+  coerceDateInputValue,
   formatDateValue,
+  getDateInputValue,
   getDisplayForField,
   isDataRowItem,
   isGroupHeaderItem,
   looksLikeDate,
 } from './agrid.utils';
+
+describe('date input conversion', () => {
+  it('formats supported date values for native date inputs', () => {
+    expect(getDateInputValue('2024-03-15')).toBe('2024-03-15');
+    expect(getDateInputValue('2024-03-15T14:30:00.000Z')).toBe('2024-03-15');
+    expect(getDateInputValue(new Date('2024-03-15T14:30:00.000Z'))).toBe('2024-03-15');
+    expect(getDateInputValue('not-a-date')).toBe('');
+  });
+
+  it('preserves the original date storage form', () => {
+    expect(coerceDateInputValue('2025-04-20', '2024-03-15')).toBe('2025-04-20');
+    expect(
+      coerceDateInputValue('2025-04-20', '2024-03-15T14:30:00.000Z'),
+    ).toBe('2025-04-20T14:30:00.000Z');
+
+    const result = coerceDateInputValue(
+      '2025-04-20',
+      new Date('2024-03-15T14:30:00.000Z'),
+    );
+    expect(result).toBeInstanceOf(Date);
+    expect((result as Date).toISOString()).toBe('2025-04-20T00:00:00.000Z');
+  });
+});
 
 // ── looksLikeDate ──────────────────────────────────────────────────────────────
 

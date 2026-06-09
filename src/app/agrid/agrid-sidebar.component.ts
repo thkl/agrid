@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from './agrid-localization';
-import { getDisplayForField, looksLikeDate } from './agrid.utils';
+import { getDateInputValue, getDisplayForField, looksLikeDate } from './agrid.utils';
 import { ColDef } from './agrid.types';
 
 /** Field edit emitted by the sidebar detail form. @internal */
@@ -65,8 +65,7 @@ export class AgridSidebarComponent {
       const rawValue = row[col.field];
       let inputValue = String(rawValue ?? '');
       if (col.type === 'date' || looksLikeDate(rawValue)) {
-        const date = rawValue instanceof Date ? rawValue : new Date(rawValue as string);
-        if (!Number.isNaN(date.getTime())) inputValue = date.toISOString().slice(0, 10);
+        inputValue = getDateInputValue(rawValue);
       }
       return {
         label: col.header,

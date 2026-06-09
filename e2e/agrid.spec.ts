@@ -21,6 +21,22 @@ test.describe('agrid browser interactions', () => {
     await expect(page.locator('.edit-log')).toContainText('"firstName": "Alice" → "Alicia"');
   });
 
+  test('edits date columns with a native date input', async ({ page }) => {
+    await page.goto('/');
+    const grid = page.getByRole('grid');
+    const hiredAt = page.locator(cell(0, 5)).first();
+
+    await hiredAt.click();
+    await grid.press('Enter');
+    const editor = hiredAt.locator('input[type="date"]');
+    await expect(editor).toHaveValue('2017-12-31');
+    await editor.fill('2020-05-20');
+    await editor.press('Enter');
+
+    await expect(page.locator('.edit-log')).toContainText('2020-05-20T');
+    await expect(hiredAt.locator('.ag-cell-value')).toContainText('May');
+  });
+
   test('copies and pastes a selected cell through browser clipboard events', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.goto('/');

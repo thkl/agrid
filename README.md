@@ -319,7 +319,7 @@ interface ColDef {
 | `field` | Yes | Key in each row object. |
 | `header` | Yes | Header label shown in the grid. |
 | `width` | Yes | Default width in pixels. Set to `ColDefAutoSize` (`-1`) to fit the column to its content on first render. |
-| `type` | No | Semantic type. `number` initializes blank rows with `0`. `date` forces date formatting even for values that don't match the auto-detect pattern. |
+| `type` | No | Semantic type. `number` initializes blank rows with `0`. `date` treats the ISO date prefix as a calendar date, with localized display formatting and a native inline editor. |
 | `editable` | No | Set to `false` for read-only cells. Defaults to editable. |
 | `locked` | No | Prevents the column from being hidden, reordered, or unpinned through the column menu. |
 | `values` | No | Fixed editor/filter values. Use `string[]` or `{ value, label }[]`. |

@@ -10,7 +10,12 @@ import {
   viewChild,
 } from '@angular/core';
 import { ColDef, ValueOption } from './agrid.types';
-import { formatDateValue, looksLikeDate } from './agrid.utils';
+import {
+  coerceDateInputValue,
+  formatDateValue,
+  getDateInputValue,
+  looksLikeDate,
+} from './agrid.utils';
 
 /**
  * Individual cell component used inside `AgridComponent`.
@@ -48,7 +53,8 @@ import { formatDateValue, looksLikeDate } from './agrid.utils';
         <input
           #editInput
           class="ag-cell-input"
-          [value]="draft()"
+          [type]="col().type === 'date' ? 'date' : col().type === 'number' ? 'number' : 'text'"
+          [value]="editorValue()"
           (input)="onInput($event)"
         />
       }
@@ -109,6 +115,14 @@ export class AgridCellComponent {
   /** Live draft value managed by the cell during an active edit. */
   readonly draft = signal<unknown>('');
 
+  /** String value accepted by the active native input element. */
+  readonly editorValue = computed((): string => {
+    const draft = this.draft();
+    return this.col().type === 'date'
+      ? getDateInputValue(draft)
+      : String(draft ?? '');
+  });
+
   readonly renderedHtml = computed((): string => {
     const renderer = this.col().cellRenderer;
     if (!renderer) return '';
@@ -144,7 +158,9 @@ export class AgridCellComponent {
     }
 
     if (col.formatter) return col.formatter(raw);
-    if (col.type === 'date' || looksLikeDate(raw)) return formatDateValue(raw, this.locale());
+    if (col.type === 'date' || looksLikeDate(raw)) {
+      return formatDateValue(raw, this.locale(), col.type === 'date');
+    }
     return String(raw ?? '');
   });
 
@@ -165,17 +181,22 @@ export class AgridCellComponent {
     effect(() => {
       if (this.editing()) {
         const seed = this.seedChar();
-        this.draft.set(seed !== '' ? seed : this.value());
+        const isDate = this.col().type === 'date';
+        const initialValue = isDate
+          ? getDateInputValue(this.value())
+          : seed !== '' ? seed : this.value();
+        this.draft.set(initialValue);
 
         setTimeout(() => {
           const input = this.inputEl()?.nativeElement;
           if (input) {
-            // For text inputs, show the string representation as the editable text
-            const displaySeed = seed !== '' ? seed : String(this.value() ?? '');
+            const displaySeed = isDate
+              ? getDateInputValue(this.value())
+              : seed !== '' ? seed : String(this.value() ?? '');
             input.value = displaySeed;
             input.focus();
-            if (!seed) input.select();
-            else {
+            if (input.type === 'text' && !seed) input.select();
+            else if (input.type === 'text') {
               const len = displaySeed.length;
               input.setSelectionRange(len, len);
             }
@@ -201,8 +222,11 @@ export class AgridCellComponent {
   /** Forward `<input>` changes to the grid. */
   onInput(event: Event): void {
     const val = (event.target as HTMLInputElement).value;
-    this.draft.set(val);
-    this.draftChange.emit(val);
+    const draft = this.col().type === 'date'
+      ? coerceDateInputValue(val, this.value())
+      : val;
+    this.draft.set(draft);
+    this.draftChange.emit(draft);
   }
 
   /**

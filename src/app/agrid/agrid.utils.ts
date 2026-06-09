@@ -18,11 +18,44 @@ export function looksLikeDate(raw: unknown): boolean {
  * Accepts Date objects and ISO strings.
  * Returns empty string for null/undefined, raw string if unparseable.
  */
-export function formatDateValue(raw: unknown, locale?: string): string {
+export function formatDateValue(raw: unknown, locale?: string, calendarDate = false): string {
   if (raw == null || raw === '') return '';
-  const d = raw instanceof Date ? raw : new Date(raw as string);
+  const dateInputValue = calendarDate ? getDateInputValue(raw) : '';
+  const d = dateInputValue
+    ? new Date(`${dateInputValue}T00:00:00.000Z`)
+    : raw instanceof Date ? raw : new Date(raw as string);
   if (isNaN(d.getTime())) return String(raw);
-  return d.toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(locale, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    ...(calendarDate ? { timeZone: 'UTC' } : {}),
+  });
+}
+
+/** Converts a supported date value to the `YYYY-MM-DD` format required by date inputs. */
+export function getDateInputValue(raw: unknown): string {
+  if (raw == null || raw === '') return '';
+  const date = raw instanceof Date ? raw : new Date(raw as string);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
+}
+
+/**
+ * Converts a date input value back to the storage form used by the original value.
+ *
+ * `Date` objects remain `Date` objects. ISO timestamps retain their original time and zone
+ * suffix, while date-only strings and previously empty values remain date-only strings.
+ */
+export function coerceDateInputValue(value: string, originalValue: unknown): unknown {
+  if (value === '') return '';
+  if (originalValue instanceof Date) return new Date(`${value}T00:00:00.000Z`);
+  if (
+    typeof originalValue === 'string'
+    && /^\d{4}-\d{2}-\d{2}T/.test(originalValue)
+  ) {
+    return `${value}${originalValue.slice(10)}`;
+  }
+  return value;
 }
 
 /** Resolve the display string for a raw cell value via ValueOption label, formatter, or coercion. */
@@ -35,7 +68,9 @@ export function getDisplayForField(col: ColDef | undefined, raw: unknown, locale
     if (opt !== undefined) return typeof opt === 'string' ? opt : (opt as ValueOption).label;
   }
   if (col.formatter) return col.formatter(raw);
-  if (col.type === 'date' || looksLikeDate(raw)) return formatDateValue(raw, locale);
+  if (col.type === 'date' || looksLikeDate(raw)) {
+    return formatDateValue(raw, locale, col.type === 'date');
+  }
   return String(raw ?? '');
 }
 

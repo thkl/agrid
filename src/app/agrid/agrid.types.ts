@@ -69,7 +69,7 @@ interface ColDefBase<T extends object, K extends AgridField<T>> {
   /**
    * Semantic type of the field.
    * - `'number'` — blank rows initialize this field to `0` instead of `''`.
-   * - `'date'` — reserved for future typed editors.
+   * - `'date'` — uses a native date editor and built-in localized display formatting.
    */
   type?: 'text' | 'number' | 'date';
   /**

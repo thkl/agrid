@@ -3,6 +3,7 @@ import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridSidebarEdit } from './agrid-sidebar.component';
 import { ColDef, GridEditEvent, ValueOption } from './agrid.types';
+import { coerceDateInputValue } from './agrid.utils';
 
 /** Dependencies and callbacks required by {@link AgridSidebarController}. @internal */
 export interface AgridSidebarControllerOptions {
@@ -80,6 +81,11 @@ export class AgridSidebarController {
     let newValue: unknown = stringValue;
     if (col.type === 'number') {
       newValue = stringValue === '' ? null : Number(stringValue);
+    } else if (col.type === 'date') {
+      newValue = coerceDateInputValue(
+        stringValue,
+        this.opts.dataSource().getRow(index)[field],
+      );
     } else if (col.values?.length) {
       const option = col.values.find(value =>
         typeof value === 'string'
