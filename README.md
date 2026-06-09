@@ -142,7 +142,7 @@ The `AgridLocaleTextOverrides` type covers all overridable labels.
 | --- | --- | --- |
 | `cellEdit` | `GridEditEvent` | Emitted after a committed cell edit, paste, fill, undo, or redo changes a cell. |
 | `rowRemoved` | `RowRemovedEvent` | Emitted after deleting a row through the control column context menu. |
-| `prepareAddRecord` | `NewRecord` | Emitted after the grid inserts a blank row. Use it to patch defaults. |
+| `prepareAddRecord` | `NewRecord` | Emitted after the grid inserts a blank row. Patch `event.datasource` to target the correct grid when multiple providers are rendered. |
 | `rowReorder` | `RowReorderEvent` | Emitted after the user drops a reordered row. The host must call `dataSource.moveRow()`. |
 | `rowSelect` | `RowSelectEvent \| null` | Emitted when row selection changes. `null` means selection was cleared. |
 | `filterChange` | `FilterChangeEvent` | Emitted for text filter changes when `serverSideFiltering` is enabled. |
@@ -766,6 +766,18 @@ The grid does not reorder rows itself on drop. Call `dataSource.moveRow(event.ol
 interface NewRecord {
   index: number;
   data: Record<string, unknown>;
+  provider: AgridProvider;
+  datasource: AgridDataSource;
+}
+```
+
+For repeated grids, use the source carried by the event instead of looking the provider up by
+the row or loop index:
+
+```ts
+onPrepareAdd(event: NewRecord): void {
+  const next = event.datasource.length;
+  event.datasource.patchRow(event.index, { id: next, departmentId: 1 });
 }
 ```
 

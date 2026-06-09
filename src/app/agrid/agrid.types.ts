@@ -1,3 +1,6 @@
+import type { AgridDataSource } from './agrid-datasource';
+import type { AgridProvider } from './agrid-provider';
+
 export interface AGridOptions {
   locale: string;
 }
@@ -202,6 +205,14 @@ export interface RowClickEvent {
 }
 
 /**
+ * Event type for updating a row via the sidebar editor
+ */
+export interface RowUpdateEvent {
+   row: Record<string, unknown>;
+   originalIndex: number ;
+}
+
+/**
  * Emitted by `(rowReorder)` when the user finishes dragging a row to a new position.
  * The grid does **not** reorder data itself — call `dataSource.moveRow(oldIndex, newIndex)`
  * (or your own equivalent) inside the handler.
@@ -261,4 +272,8 @@ export interface NewRecord {
   index: number;
   /** The empty row object the grid created (field values are `''` / `0` by type). */
   data: Record<string, unknown>;
+  /** Exact provider instance that emitted this event. Useful when rendering multiple grids. */
+  provider: AgridProvider;
+  /** Exact data source containing the inserted row. */
+  datasource: AgridDataSource;
 }

@@ -35,7 +35,7 @@ export interface AgridNavigationControllerOptions {
   focusGrid: () => void;
   viewport: () => AgridVerticalViewport;
   scrollColumnToKeepVisible: (colIndex: number) => void;
-  onPrepareAddRecord: (event: NewRecord) => void;
+  onPrepareAddRecord: (event: Pick<NewRecord, 'index' | 'data'>) => void;
 }
 
 /** Owns grid keyboard navigation, cell activation, add-row creation, and visibility scrolling. */

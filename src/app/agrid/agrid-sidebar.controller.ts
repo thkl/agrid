@@ -27,7 +27,7 @@ export class AgridSidebarController {
     () => this.opts.control()?.hiddenColumns() ?? new Set<string>(),
   );
 
-  constructor(private readonly opts: AgridSidebarControllerOptions) {}
+  constructor(private readonly opts: AgridSidebarControllerOptions) { }
 
   syncAutoOpen(): void {
     if (this.opts.autoOpenDetail() && this.opts.selectedRowIndex() !== null) {
@@ -40,6 +40,15 @@ export class AgridSidebarController {
     this.open.update(value => !value);
   }
 
+  openSidebar(): void {
+    this.open.set(true);
+  }
+
+  closeSidebar(): void {
+    this.open.set(false);
+  }
+
+
   selectTab(tab: 'columns' | 'detail'): void {
     if (this.open() && this.tab() === tab) {
       this.open.set(false);
@@ -51,6 +60,10 @@ export class AgridSidebarController {
 
   edit(event: AgridSidebarEdit): void {
     this.commitEdit(event.field, event.col, event.value);
+  }
+
+  selectedRowIndex() {
+    return this.opts.selectedRowIndex();
   }
 
   commitEdit(field: string, col: ColDef, stringValue: string): void {

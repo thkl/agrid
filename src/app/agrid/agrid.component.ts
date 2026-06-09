@@ -39,6 +39,7 @@ import { AgridRowController } from './agrid-row.controller';
 import { AgridSidebarController } from './agrid-sidebar.controller';
 import {
   AgridSidebarComponent,
+  AgridSidebarDetailField,
   AgridSidebarEdit,
 } from './agrid-sidebar.component';
 import {
@@ -48,7 +49,7 @@ import {
 import {
   CellContextMenuItem, CellPosition, ColDef, FilterChangeEvent, GridEditEvent, GridItem,
   GroupAction, NewRecord, PageChangeEvent, RowClickEvent, RowRemovedEvent, RowReorderEvent,
-  RowSelectEvent, SortChangeEvent,
+  RowSelectEvent, RowUpdateEvent, SortChangeEvent,
 } from './agrid.types';
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
@@ -98,26 +99,26 @@ export class AgridComponent {
   provider = input<AgridProvider>(new AgridProvider());
 
   // All display / behaviour options are read from the provider.
-  readonly rowHeight        = computed(() => this.provider().rowHeight);
-  readonly minHeight        = computed(() => this.provider().minHeight);
-  readonly maxHeight        = computed(() => this.provider().maxHeight);
-  readonly allowAddRows     = computed(() => this.provider().allowAddRows);
-  readonly autoAddRows      = computed(() => this.provider().autoAddRows());
+  readonly rowHeight = computed(() => this.provider().rowHeight);
+  readonly minHeight = computed(() => this.provider().minHeight);
+  readonly maxHeight = computed(() => this.provider().maxHeight);
+  readonly allowAddRows = computed(() => this.provider().allowAddRows);
+  readonly autoAddRows = computed(() => this.provider().autoAddRows());
   readonly showControlColumn = computed(() => this.provider().showControlColumn);
-  readonly showSidebar      = computed(() => this.provider().showSidebar);
-  readonly autoOpenDetail   = computed(() => this.provider().autoOpenDetail);
+  readonly showSidebar = computed(() => this.provider().showSidebar);
+  readonly autoOpenDetail = computed(() => this.provider().autoOpenDetail);
   readonly serverSideFiltering = computed(() => this.provider().serverSideFiltering);
   readonly filterDebounceMs = computed(() => this.provider().filterDebounceMs);
   readonly sortOption = computed(() => this.provider().sortOption);
-  readonly rowSelection     = computed(() => this.provider().rowSelection);
+  readonly rowSelection = computed(() => this.provider().rowSelection);
   readonly groupDescription = computed(() => this.provider().groupDescription);
-  readonly groupActions     = computed(() => this.provider().groupActions);
-  readonly cellMenuItems    = computed(() => this.provider().cellMenuItems);
-  readonly zebraStripes     = computed(() => this.provider().zebraStripes);
-  readonly readonlyGrid     = computed(() => this.provider().readonlyGrid());
-  readonly loading          = computed(() => this.provider().loading());
-  readonly emptyText        = computed(() => this.provider().emptyText);
-  readonly useSidebarEditor = computed(()=> this.provider().useSidebarEditor);
+  readonly groupActions = computed(() => this.provider().groupActions);
+  readonly cellMenuItems = computed(() => this.provider().cellMenuItems);
+  readonly zebraStripes = computed(() => this.provider().zebraStripes);
+  readonly readonlyGrid = computed(() => this.provider().readonlyGrid());
+  readonly loading = computed(() => this.provider().loading());
+  readonly emptyText = computed(() => this.provider().emptyText);
+  readonly useSidebarEditor = computed(() => this.provider().useSidebarEditor);
 
   /** Column definitions from the active provider. */
   readonly colDefs = computed<ColDef[]>(() => this.provider().columns());
@@ -160,6 +161,8 @@ export class AgridComponent {
   /** Emitted when the user single-clicks a data row. */
   rowClick = output<RowClickEvent>();
 
+  /** Emitted when the user has changed and saved a record via the sidebar editor save button */
+  rowChanged = output<RowUpdateEvent>();
   /**
    * Emitted when the user navigates to a new page in **server-side pagination mode**
    * (i.e. when `AgridControl.totalRows` is greater than zero).
@@ -211,6 +214,18 @@ export class AgridComponent {
     this.sidebarController.commitEdit(field, col, stringValue);
   }
 
+  onSidebarDetailSave(event: AgridSidebarDetailField[]): void {
+    const originalIndex = this.sidebarController.selectedRowIndex();
+    if (originalIndex) {
+      const row = this.displayItems()[originalIndex];
+      if (row && this.isDataRowItem(row)) {
+        const saveEvent: RowUpdateEvent = { row:row.row, originalIndex: originalIndex };
+        this.rowChanged.emit(saveEvent);
+        this.sidebarController.closeSidebar();
+      }
+    }
+  }
+
   /**
    * Download the currently visible, filtered rows as a CSV file.
    * Uses display values (ValueOption labels, formatters) and respects column visibility.
@@ -223,9 +238,9 @@ export class AgridComponent {
   }
 
   /** @internal */ goToFirstPage(): void { this.control()?.setPage(1); }
-  /** @internal */ goToLastPage(): void  { this.control()?.setPage(this.totalPages()); }
-  /** @internal */ goToNextPage(): void  { const c = this.control(); if (c) c.setPage(Math.min(c.currentPage() + 1, this.totalPages())); }
-  /** @internal */ goToPrevPage(): void  { const c = this.control(); if (c) c.setPage(Math.max(c.currentPage() - 1, 1)); }
+  /** @internal */ goToLastPage(): void { this.control()?.setPage(this.totalPages()); }
+  /** @internal */ goToNextPage(): void { const c = this.control(); if (c) c.setPage(Math.min(c.currentPage() + 1, this.totalPages())); }
+  /** @internal */ goToPrevPage(): void { const c = this.control(); if (c) c.setPage(Math.max(c.currentPage() - 1, 1)); }
 
   /** Resize every visible column to fit its header and current row values. */
   autosizeAllColumns(): void {
@@ -445,7 +460,7 @@ export class AgridComponent {
 
   readonly pinnedPaneWidth = computed(() =>
     (this.showControlColumn() ? 24 : 0)
-      + this.pinnedColDefs().reduce((sum, c) => sum + this.getColumnWidth(c), 0)
+    + this.pinnedColDefs().reduce((sum, c) => sum + this.getColumnWidth(c), 0)
   );
 
   readonly scrollableTotalWidth = computed(() =>
@@ -497,14 +512,14 @@ export class AgridComponent {
 
   // ── Infrastructure ────────────────────────────────────────────────────────────
 
-  private readonly viewport    = viewChild.required<CdkVirtualScrollViewport>('scrollViewport');
-  private readonly pinnedViewport      = viewChild<CdkVirtualScrollViewport>('pinnedViewport');
+  private readonly viewport = viewChild.required<CdkVirtualScrollViewport>('scrollViewport');
+  private readonly pinnedViewport = viewChild<CdkVirtualScrollViewport>('pinnedViewport');
   private readonly rightPinnedViewport = viewChild<CdkVirtualScrollViewport>('rightPinnedViewport');
-  private readonly wrapperEl   = viewChild.required<ElementRef<HTMLDivElement>>('wrapper');
+  private readonly wrapperEl = viewChild.required<ElementRef<HTMLDivElement>>('wrapper');
   private readonly horizontalScrollerEl =
     viewChild.required<ElementRef<HTMLDivElement>>('horizontalScroller');
-  private readonly destroyRef  = inject(DestroyRef);
-  private readonly _hostEl     = inject(ElementRef<HTMLElement>);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly _hostEl = inject(ElementRef<HTMLElement>);
   private readonly browser = new AgridBrowserAdapter();
 
   private readonly rangeController = new AgridRangeController({
@@ -602,7 +617,11 @@ export class AgridComponent {
     viewport: () => this.viewport(),
     scrollColumnToKeepVisible: colIndex =>
       this.columnSizing.scrollColumnToKeepVisible(colIndex),
-    onPrepareAddRecord: event => this.prepareAddRecord.emit(event),
+    onPrepareAddRecord: event => this.prepareAddRecord.emit({
+      ...event,
+      provider: this.provider(),
+      datasource: this.dataSource(),
+    }),
   });
 
   private readonly rowController = new AgridRowController({
@@ -757,7 +776,7 @@ export class AgridComponent {
       this._seededControls.add(ctrl);
       for (const col of cols) {
         if (col.hidden) ctrl.setColumnVisibility(col.field, false);
-        if (col.pinned === 'left')  ctrl.setPinned(col.field, true);
+        if (col.pinned === 'left') ctrl.setPinned(col.field, true);
         if (col.pinned === 'right') ctrl.setPinnedRight(col.field, true);
       }
     });
@@ -930,7 +949,7 @@ export class AgridComponent {
   /** @internal */
   onStartEdit(originalIndex: number, ci: number): void {
     const row = this.dataSource().rows()[originalIndex];
-    this.rowDoubleClicked.emit({row,originalIndex});
+    this.rowDoubleClicked.emit({ row, originalIndex });
     if (this.isEditing(originalIndex, ci)) return;
     this.enterEdit(originalIndex, ci, '');
   }

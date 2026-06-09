@@ -97,7 +97,7 @@ function setup(overrides: {
   const selectedCell = signal<CellPosition | null>(null);
   const selectedRange = signal<CellRange | null>(null);
   const editingCell = overrides.editingCell ?? signal<CellPosition | null>(null);
-  const prepared: NewRecord[] = [];
+  const prepared: Pick<NewRecord, 'index' | 'data'>[] = [];
   const focusGrid = vi.fn();
   const startEdit = vi.fn();
   const commitEdit = vi.fn();

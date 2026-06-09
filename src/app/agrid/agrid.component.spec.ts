@@ -142,6 +142,42 @@ describe('AgridComponent Tab navigation', () => {
     expect(component.selectedCell()).toEqual({ rowIndex: 1, colIndex: 0 });
   });
 
+  it('identifies the source datasource when multiple grids auto-add rows', async () => {
+    const secondProvider = new AgridProvider({
+      columns: [
+        { field: 'id', header: 'ID', type: 'number' },
+        { field: 'name', header: 'Name' },
+      ],
+      datasource: new AgridDataSource([{ id: 1, name: 'Alice' }]),
+      allowAddRows: true,
+      autoAddRows: true,
+    });
+    const secondFixture = TestBed.createComponent(AgridComponent);
+    secondFixture.componentRef.setInput('provider', secondProvider);
+    secondFixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    secondFixture.detectChanges();
+    const secondComponent = secondFixture.componentInstance;
+    secondComponent.prepareAddRecord.subscribe(event => {
+      expect(event.provider).toBe(secondProvider);
+      expect(event.datasource).toBe(secondProvider.datasource);
+      event.datasource.patchRow(event.index, { id: event.datasource.length, name: 'New row' });
+    });
+    secondComponent.selectedCell.set({ rowIndex: 0, colIndex: 1 });
+
+    secondComponent.onKeyDown(new KeyboardEvent('keydown', {
+      key: 'Tab',
+      cancelable: true,
+    }));
+    secondFixture.detectChanges();
+
+    expect(provider.datasource.length).toBe(1);
+    expect(secondProvider.datasource.getRow(1)).toEqual({ id: 2, name: 'New row' });
+    expect(secondFixture.nativeElement.textContent).toContain('2');
+    expect(secondFixture.nativeElement.textContent).toContain('New row');
+    secondFixture.destroy();
+  });
+
   it('refreshes the virtual viewport when a row is added externally', async () => {
     const viewport = component['viewport']();
     const refreshSpy = vi.spyOn(viewport, 'checkViewportSize');

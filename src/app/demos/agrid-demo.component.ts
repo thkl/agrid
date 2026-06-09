@@ -226,8 +226,8 @@ export class AgridDemoComponent {
   onPrepareAdd(event: NewRecord): void {
     // Grid already inserted the blank row — optionally fill it with defaults here.
     // Example: assign the next id based on current length.
-    const next = this.ds.length;
-    this.ds.patchRow(event.index, { id: next, departmentId: 1 });
+    const next = event.datasource.length;
+    event.datasource.patchRow(event.index, { id: next, departmentId: 1 });
     this.lastEdit.set(`Row ${next} added at index ${event.index} — navigate to it and edit`);
   }
 
