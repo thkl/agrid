@@ -19,4 +19,15 @@ describe('AgridPresentationService', () => {
     expect(service.getFooterDisplay({ field: 'amount', header: 'Amount' }, 1000)).toBe('1,000');
     expect(service.getCellTitle({ field: 'amount', header: 'Amount' }, 1)).toBe('1');
   });
+
+  it('formats numeric footer values with the configured locale', () => {
+    const service = new AgridPresentationService({
+      control: signal(null),
+      visibleColDefs: signal([]),
+      filteredItems: signal([]),
+      locale: signal('de-DE'),
+    });
+
+    expect(service.getFooterDisplay({ field: 'amount', header: 'Amount' }, 1000)).toBe('1.000');
+  });
 });

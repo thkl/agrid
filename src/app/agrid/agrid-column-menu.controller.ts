@@ -35,6 +35,7 @@ export class AgridColumnMenuController {
     const menu = this.menu();
     if (!menu) return [];
     const col = this.getColDef(menu.field);
+    if (!col?.filterable) return [];
     const values = col?.values;
     if (values?.length) {
       return values

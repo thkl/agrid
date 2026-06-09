@@ -5,7 +5,7 @@ const cell = (row: number, col: number) =>
 
 test.describe('agrid browser interactions', () => {
   test('supports keyboard editing and navigation', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/demo');
     const grid = page.getByRole('grid');
     const firstName = page.locator(cell(0, 1)).first();
 
@@ -22,7 +22,7 @@ test.describe('agrid browser interactions', () => {
   });
 
   test('edits date columns with a native date input', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/demo');
     const grid = page.getByRole('grid');
     const hiredAt = page.locator(cell(0, 5)).first();
 
@@ -39,7 +39,7 @@ test.describe('agrid browser interactions', () => {
 
   test('copies and pastes a selected cell through browser clipboard events', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await page.goto('/');
+    await page.goto('/demo');
     const grid = page.getByRole('grid');
     const source = page.locator(cell(0, 1)).first();
     const target = page.locator(cell(1, 1)).first();

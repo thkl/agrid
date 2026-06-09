@@ -33,5 +33,9 @@ export const routes: Routes = [
     path: 'pinning',
     loadComponent: () => import('./demos/pinning.component').then(m => m.PinningDemoComponent),
   },
+  {
+    path: 'performance',
+    loadComponent: () => import('./demos/performance.component').then(m => m.PerformanceDemoComponent),
+  },
 
 ];

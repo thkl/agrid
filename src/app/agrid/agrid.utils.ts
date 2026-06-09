@@ -124,25 +124,65 @@ export function applySortToIndices(
   locale?: string,
 ): number[] {
   if (sortEntries.length === 0) return indices;
-  return [...indices].sort((a, b) => {
-    for (const [sortField, sortFilter] of sortEntries) {
-      const sortCol = colMap.get(sortField);
-      const rawA = rows[a][sortField];
-      const rawB = rows[b][sortField];
-      let cmp: number;
-      if (sortCol?.type === 'date' || looksLikeDate(rawA) || looksLikeDate(rawB)) {
-        const ta = rawA instanceof Date ? rawA.getTime() : new Date(rawA as string).getTime();
-        const tb = rawB instanceof Date ? rawB.getTime() : new Date(rawB as string).getTime();
-        cmp = (isNaN(ta) ? -1 : ta) - (isNaN(tb) ? -1 : tb);
+
+  interface SortKey {
+    display: string;
+    dateLike: boolean;
+    dateValue: number;
+    numericValue: number | null;
+  }
+
+  const collator = new Intl.Collator(locale, { numeric: true, sensitivity: 'base' });
+  const fields = sortEntries.map(([field, filter]) => ({
+    field,
+    direction: filter.sort === 'desc' ? -1 : 1,
+    col: colMap.get(field),
+  }));
+  const decorated = indices.map((index, position) => ({
+    index,
+    position,
+    keys: fields.map(({ field, col }): SortKey => {
+      const raw = rows[index][field];
+      const dateLike = col?.type === 'date' || looksLikeDate(raw);
+      const dateValue = dateLike
+        ? raw instanceof Date ? raw.getTime() : new Date(raw as string).getTime()
+        : Number.NaN;
+      const numericValue = col?.type === 'number'
+        && !col.formatter
+        && !col.values?.length
+        && typeof raw === 'number'
+        && Number.isFinite(raw)
+        ? raw
+        : null;
+      return {
+        display: dateLike ? '' : getDisplayForField(col, raw, locale),
+        dateLike,
+        dateValue: Number.isNaN(dateValue) ? -1 : dateValue,
+        numericValue,
+      };
+    }),
+  }));
+
+  decorated.sort((a, b) => {
+    for (let fieldIndex = 0; fieldIndex < fields.length; fieldIndex++) {
+      const keyA = a.keys[fieldIndex];
+      const keyB = b.keys[fieldIndex];
+      let comparison: number;
+      if (keyA.dateLike || keyB.dateLike) {
+        comparison = keyA.dateValue - keyB.dateValue;
+      } else if (keyA.numericValue !== null && keyB.numericValue !== null) {
+        comparison = keyA.numericValue - keyB.numericValue;
       } else {
-        const av = getDisplayForField(sortCol, rawA, locale);
-        const bv = getDisplayForField(sortCol, rawB, locale);
-        cmp = av.localeCompare(bv, locale, { numeric: true, sensitivity: 'base' });
+        comparison = collator.compare(keyA.display, keyB.display);
       }
-      if (cmp !== 0) return sortFilter.sort === 'asc' ? cmp : -cmp;
+      if (comparison !== 0) {
+        return comparison * fields[fieldIndex].direction;
+      }
     }
-    return 0;
+    return a.position - b.position;
   });
+
+  return decorated.map(item => item.index);
 }
 
 // Grouping

@@ -152,6 +152,13 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
               <div class="demo-card-title">Column pinning</div>
               <div class="demo-card-desc">Freeze columns to the left or right edge while scrolling.</div>
               <span class="demo-card-link">Open →</span>
+
+              
+            </a>
+            <a class="demo-card" routerLink="/performance">
+              <div class="demo-card-title">Performance Test</div>
+              <div class="demo-card-desc">Run a performance test with up to 250k Records</div>
+              <span class="demo-card-link">Open →</span>
             </a>
           </div>
         </div>

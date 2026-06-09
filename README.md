@@ -965,6 +965,7 @@ pnpm start
 pnpm build
 pnpm test
 pnpm test:e2e
+pnpm test:performance
 ```
 
 The TypeScript compile check:
@@ -979,3 +980,8 @@ tests in Chromium. Install its browser once when setting up a new environment:
 ```bash
 pnpm exec playwright install chromium
 ```
+
+`pnpm test:performance` runs the isolated large-dataset suite serially against 10k, 50k, and
+100k rows. It reports initial render, filtering, sorting, grouping, aggregation, row updates, and
+virtual-scroll timings without enforcing machine-dependent thresholds. The same operations can be
+run manually at `/performance`.

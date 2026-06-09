@@ -241,6 +241,62 @@ describe('applySortToIndices', () => {
     const result = applySortToIndices(dateRows, [0, 1, 2], [asc('d')], dateColMap);
     expect(result.map(i => dateRows[i].d)).toEqual(['2024-01-01', '2024-03-01', '2024-06-01']);
   });
+
+  it('sorts typed numeric columns numerically', () => {
+    const numericRows = [{ score: 100 }, { score: 9 }, { score: 20 }];
+    const numericColMap = new Map<string, ColDef>([
+      ['score', { field: 'score', header: 'Score', type: 'number' }],
+    ]);
+    const result = applySortToIndices(numericRows, [0, 1, 2], [asc('score')], numericColMap);
+    expect(result.map(i => numericRows[i].score)).toEqual([9, 20, 100]);
+  });
+
+  it('resolves formatter values once per row and sort field', () => {
+    let formatterCalls = 0;
+    const formattedRows = [{ status: 2 }, { status: 1 }, { status: 3 }];
+    const formattedColMap = new Map<string, ColDef>([
+      ['status', {
+        field: 'status',
+        header: 'Status',
+        formatter: value => {
+          formatterCalls++;
+          return ({ 1: 'Beta', 2: 'Alpha', 3: 'Gamma' })[Number(value)] ?? '';
+        },
+      }],
+    ]);
+
+    const result = applySortToIndices(
+      formattedRows,
+      [0, 1, 2],
+      [asc('status')],
+      formattedColMap,
+    );
+
+    expect(result.map(i => formattedRows[i].status)).toEqual([2, 1, 3]);
+    expect(formatterCalls).toBe(formattedRows.length);
+  });
+
+  it('uses subsequent fields for ties and preserves input order for complete ties', () => {
+    const tiedRows = [
+      { department: 'Engineering', score: 20 },
+      { department: 'Engineering', score: 10 },
+      { department: 'Sales', score: 10 },
+      { department: 'Engineering', score: 10 },
+    ];
+    const tiedColMap = new Map<string, ColDef>([
+      ['department', { field: 'department', header: 'Department' }],
+      ['score', { field: 'score', header: 'Score', type: 'number' }],
+    ]);
+
+    expect(
+      applySortToIndices(
+        tiedRows,
+        [0, 1, 2, 3],
+        [asc('department'), asc('score')],
+        tiedColMap,
+      ),
+    ).toEqual([1, 3, 0, 2]);
+  });
 });
 
 // ── buildGroupedItems ──────────────────────────────────────────────────────────

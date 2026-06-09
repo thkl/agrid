@@ -48,7 +48,7 @@ export class AgridPresentationService {
   getFooterDisplay(col: ColDef, value: unknown): string {
     if (value == null || value === '') return '';
     if (col.formatter) return col.formatter(value);
-    if (typeof value === 'number') return value.toLocaleString();
+    if (typeof value === 'number') return value.toLocaleString(this.opts.locale());
     return String(value);
   }
 

@@ -12,6 +12,7 @@ describe('AgridColumnMenuController', () => {
         {
           field: 'status',
           header: 'Status',
+          filterable: true,
           values: [
             { label: 'Backlog', value: 'backlog' },
             { label: 'Done', value: 'done' },
@@ -26,6 +27,20 @@ describe('AgridColumnMenuController', () => {
       { label: 'Backlog', rawStr: 'backlog', active: true, selected: false },
       { label: 'Done', rawStr: 'done', active: true, selected: true },
     ]);
+  });
+
+  it('does not scan values for non-filterable columns', () => {
+    const formatter = vi.fn(value => String(value));
+    const { controller } = setup({
+      columns: [
+        { field: 'status', header: 'Status', formatter },
+      ],
+    });
+
+    controller.menu.set({ field: 'status', x: 0, y: 0 });
+
+    expect(controller.valueItems()).toEqual([]);
+    expect(formatter).not.toHaveBeenCalled();
   });
 
   it('debounces server-side text filter events per field', () => {
