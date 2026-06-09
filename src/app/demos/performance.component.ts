@@ -7,7 +7,8 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   AgridComponent,
   AgridControl,
@@ -67,7 +68,7 @@ function createRows(count: number): PerformanceRow[] {
 @Component({
   selector: 'demo-performance',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AgridComponent],
+  imports: [AgridComponent, RouterLink],
   template: `
     <main class="benchmark">
       <header>
@@ -79,10 +80,10 @@ function createRows(count: number): PerformanceRow[] {
           </p>
         </div>
         <nav aria-label="Dataset size">
-          <a href="./performance?rows=10000">10k</a>
-          <a href="./performance?rows=50000">50k</a>
-          <a href="./performance?rows=100000">100k</a>
-          <a href="./performance?rows=250000">250k</a>
+          <a routerLink="." [queryParams]="{ rows: 10000 }">10k</a>
+          <a routerLink="." [queryParams]="{ rows: 50000 }">50k</a>
+          <a routerLink="." [queryParams]="{ rows: 100000 }">100k</a>
+          <a routerLink="." [queryParams]="{ rows: 250000 }">250k</a>
         </nav>
       </header>
 
@@ -183,6 +184,17 @@ export class PerformanceDemoComponent {
   constructor() {
     const startedAt = performance.now();
     afterNextRender(() => this.finish('initial-render', startedAt));
+
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed())
+      .subscribe(params => {
+        const requestedRowCount = Number(params.get('rows'));
+        const rowCount = ROW_COUNTS.has(requestedRowCount) ? requestedRowCount : 10_000;
+        if (rowCount === this.rowCount()) return;
+
+        this.rowCount.set(rowCount);
+        this.datasource.setData(createRows(rowCount));
+      });
   }
 
   runFilter(): void {
