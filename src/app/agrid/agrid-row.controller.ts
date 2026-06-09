@@ -1,7 +1,14 @@
 import { Signal, WritableSignal, computed, signal } from '@angular/core';
 import { AgridBrowserAdapter } from './agrid-browser.adapter';
 import { AgridDataSource } from './agrid-datasource';
-import { CellPosition, ColDef, GridItem, RowClickEvent, RowRemovedEvent, RowSelectEvent } from './agrid.types';
+import {
+  CellPosition,
+  ColDef,
+  GridItem,
+  RecordEditEvent,
+  RowClickEvent,
+  RowSelectEvent,
+} from './agrid.types';
 import { buildSelectionRange, getDisplayForField, isDataRowItem } from './agrid.utils';
 
 /** Dependencies and callbacks required by {@link AgridRowController}. @internal */
@@ -16,7 +23,7 @@ export interface AgridRowControllerOptions {
   startDragSelect: (originalIndex: number) => void;
   onRowSelect: (event: RowSelectEvent | null) => void;
   onRowClick: (event: RowClickEvent) => void;
-  onRowRemoved: (event: RowRemovedEvent) => void;
+  onRowRemoved: (event: Pick<RecordEditEvent, 'index' | 'data'>) => void;
   onEditRowRemoved: (originalIndex: number) => void;
   closeFilterMenu: () => void;
   closeGroupActionsMenu: () => void;
@@ -181,6 +188,7 @@ export class AgridRowController {
 
   /** Removes a row and reconciles selection and editing indices. */
   deleteRow(originalIndex: number): void {
+    const removedRow = this.opts.dataSource().getRow(originalIndex);
     this.opts.dataSource().removeRow(originalIndex);
 
     const selectedCell = this.opts.selectedCell();
@@ -201,7 +209,7 @@ export class AgridRowController {
       this.emitSelection();
     }
     this.contextMenu.set(null);
-    this.opts.onRowRemoved({ oldIndex: originalIndex });
+    this.opts.onRowRemoved({ index: originalIndex, data: removedRow });
   }
 
   /** Emits the current selected rows, or `null` when selection is empty. */

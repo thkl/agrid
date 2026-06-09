@@ -32,7 +32,7 @@ describe('AgridRowController', () => {
     expect(dataSource.rows()).toEqual([{ name: 'Alice' }, { name: 'Carol' }]);
     expect(selectedCell()).toEqual({ rowIndex: 1, colIndex: 0 });
     expect(editRemoved).toHaveBeenCalledWith(1);
-    expect(removed).toEqual([{ oldIndex: 1 }]);
+    expect(removed).toEqual([{ index: 1, data: { name: 'Bob' } }]);
   });
 });
 
@@ -46,7 +46,7 @@ function setup(overrides: {
     { name: 'Carol' },
   ]);
   const selected: (RowSelectEvent | null)[] = [];
-  const removed: { oldIndex: number }[] = [];
+  const removed: { index: number; data: Record<string, unknown> }[] = [];
   const editRemoved = vi.fn();
   const cols: ColDef[] = [{ field: 'name', header: 'Name' }];
   const items: GridItem[] = dataSource.rows().map((row, originalIndex) => ({ row, originalIndex }));

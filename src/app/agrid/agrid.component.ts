@@ -48,8 +48,8 @@ import {
 } from './agrid.utils';
 import {
   CellContextMenuItem, CellPosition, ColDef, FilterChangeEvent, GridEditEvent, GridItem,
-  GroupAction, NewRecord, PageChangeEvent, RecordEditEvent, RowClickEvent, RowRemovedEvent,
-  RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent,
+  GroupAction, NewRecord, PageChangeEvent, RecordEditEvent, RowClickEvent, RowReorderEvent,
+  RowSelectEvent, RowUpdateEvent, SortChangeEvent,
 } from './agrid.types';
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
@@ -151,7 +151,8 @@ export class AgridComponent {
    */
   recordEdit = output<RecordEditEvent>();
 
-  rowRemoved = output<RowRemovedEvent>();
+  /** Emitted after a row is removed, with its former index and captured row data. */
+  rowRemoved = output<RecordEditEvent>();
 
   /** Emitted when the grid inserts a blank row. Use `dataSource.patchRow()` to populate it. */
   prepareAddRecord = output<NewRecord>();
@@ -639,7 +640,7 @@ export class AgridComponent {
     startDragSelect: originalIndex => this.dragHandler.startDragSelect(originalIndex),
     onRowSelect: event => this.rowSelect.emit(event),
     onRowClick: event => this.rowClick.emit(event),
-    onRowRemoved: event => this.rowRemoved.emit(event),
+    onRowRemoved: event => this.rowRemoved.emit(this.createRecordEvent(event.index, event.data)),
     onEditRowRemoved: originalIndex => this.editController.onRowRemoved(originalIndex),
     closeFilterMenu: () => this.columnMenuController.close(),
     closeGroupActionsMenu: () => this.closeGroupActionsMenu(),
@@ -720,12 +721,18 @@ export class AgridComponent {
 
   private emitRecordEdit(index: number): void {
     const datasource = this.dataSource();
-    this.recordEdit.emit({
+    const event = this.createRecordEvent(index, datasource.getRow(index));
+    queueMicrotask(() => this.recordEdit.emit(event));
+  }
+
+  private createRecordEvent(index: number, data: Record<string, unknown>): RecordEditEvent {
+    const datasource = this.dataSource();
+    return {
       index,
-      data: datasource.getRow(index),
+      data,
       provider: this.provider(),
       datasource,
-    });
+    };
   }
 
   constructor() {

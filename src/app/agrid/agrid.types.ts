@@ -194,7 +194,7 @@ export interface GridEditEvent {
 }
 
 /**
- * Emitted after an edit changes a row.
+ * Emitted asynchronously after an edit changes a row and the data source has been updated.
  *
  * Unlike {@link GridEditEvent}, this row-level event identifies the provider and
  * data source that own the edited record, which is useful when rendering multiple grids.
@@ -210,11 +210,11 @@ export interface RecordEditEvent {
   datasource: AgridDataSource;
 }
 
-/** Emitted after a row is removed from the data source. */
-export interface RowRemovedEvent {
-  /** Zero-based data-source index occupied by the row before removal. */
-  oldIndex: number;
-}
+/**
+ * Compatibility alias for the provider-aware event emitted by `(rowRemoved)`.
+ * @deprecated Use {@link RecordEditEvent}.
+ */
+export type RowRemovedEvent = RecordEditEvent;
 
 /**
  * Emitted by `(rowSelect)` when the selection changes. `null` means all rows were deselected.

@@ -142,9 +142,12 @@ describe('AgridComponent Tab navigation', () => {
     expect(component.selectedCell()).toEqual({ rowIndex: 1, colIndex: 0 });
   });
 
-  it('emits the edited record with its provider and datasource', () => {
+  it('emits the edited record after its datasource has been updated', async () => {
     const emitted: RecordEditEvent[] = [];
-    component.recordEdit.subscribe(event => emitted.push(event));
+    component.recordEdit.subscribe(event => {
+      expect(event.datasource.getRow(event.index)).toEqual(event.data);
+      emitted.push(event);
+    });
     component.selectedCell.set({ rowIndex: 0, colIndex: 1 });
     component.onStartEdit(0, 1);
     component.onDraftChange('Sales');
@@ -153,6 +156,10 @@ describe('AgridComponent Tab navigation', () => {
       key: 'Enter',
       cancelable: true,
     }));
+
+    expect(provider.datasource.getRow(0)).toEqual({ name: 'Alice', department: 'Sales' });
+    expect(emitted).toHaveLength(0);
+    await Promise.resolve();
 
     expect(emitted).toHaveLength(1);
     expect(emitted[0]).toEqual({
@@ -163,7 +170,7 @@ describe('AgridComponent Tab navigation', () => {
     });
   });
 
-  it('emits recordEdit for row zero when sidebar-only edits are saved', () => {
+  it('emits recordEdit for row zero after sidebar-only edits are saved', async () => {
     const sidebarProvider = new AgridProvider({
       columns: provider.columns(),
       datasource: new AgridDataSource([
@@ -183,12 +190,34 @@ describe('AgridComponent Tab navigation', () => {
 
     sidebarComponent.onSidebarDetailSave([]);
 
+    expect(sidebarProvider.datasource.getRow(0)).toEqual({
+      name: 'Alice',
+      department: 'Sales',
+    });
+    expect(emitted).toHaveLength(0);
+    await Promise.resolve();
+
     expect(emitted).toHaveLength(1);
     expect(emitted[0].index).toBe(0);
     expect(emitted[0].data).toEqual({ name: 'Alice', department: 'Sales' });
     expect(emitted[0].provider).toBe(sidebarProvider);
     expect(emitted[0].datasource).toBe(sidebarProvider.datasource);
     sidebarFixture.destroy();
+  });
+
+  it('emits the same provider-aware payload after removing a row', () => {
+    const emitted: RecordEditEvent[] = [];
+    component.rowRemoved.subscribe(event => emitted.push(event));
+
+    component.deleteRow(0);
+
+    expect(provider.datasource.length).toBe(0);
+    expect(emitted).toEqual([{
+      index: 0,
+      data: { name: 'Alice', department: 'Engineering' },
+      provider,
+      datasource: provider.datasource,
+    }]);
   });
 
   it('identifies the source datasource when multiple grids auto-add rows', async () => {
