@@ -16,7 +16,7 @@ import { Signal, WritableSignal, isWritableSignal, linkedSignal, signal } from '
  * this.ds.patchRow(5, { salary: 99000 });
  * ```
  */
-export class AgridDataSource<T extends Record<string, unknown> = Record<string, unknown>> {
+export class AgridDataSource<T extends object = any> {
   private readonly _linkedRows = signal<Signal<T[]> | null>(null);
   private readonly _rows = linkedSignal<T[]>(() => this._linkedRows()?.() ?? []);
   private _writableLinkedRows: WritableSignal<T[]> | null = null;

@@ -1,6 +1,9 @@
 import type { AgridDataSource } from './agrid-datasource';
 import type { AgridProvider } from './agrid-provider';
 
+/** String-valued property names available on a row type. */
+export type AgridField<T extends object> = Extract<keyof T, string>;
+
 /** Global options shared by grid providers. */
 export interface AGridOptions {
   /**
@@ -14,11 +17,16 @@ export interface AGridOptions {
  * A single item in the cell right-click context menu.
  * Pass `null` in the array to render a separator line.
  */
-export interface CellContextMenuItem {
+export interface CellContextMenuItem<T extends object = any> {
   /** Label shown in the menu. */
   label: string;
   /** Called when the item is clicked. */
-  action: (params: { value: unknown; row: Record<string, unknown>; field: string; originalIndex: number }) => void;
+  action: (params: {
+    value: T[AgridField<T>];
+    row: T;
+    field: AgridField<T>;
+    originalIndex: number;
+  }) => void;
   /** Grays out the item and prevents clicks. */
   disabled?: boolean;
   /** Renders the item in red (destructive action). */
@@ -37,9 +45,9 @@ export interface CellContextMenuItem {
  * ]
  * ```
  */
-export interface ValueOption {
+export interface ValueOption<TValue = unknown> {
   /** Raw value stored in the data source (e.g. `1`, `'ENG'`). */
-  value: unknown;
+  value: TValue;
   /** Human-readable label shown in the cell, dropdown, and filter menu. */
   label: string;
 }
@@ -47,10 +55,10 @@ export interface ValueOption {
 /** Width sentinel that makes a column fill the remaining horizontal space. */
 export const ColDefAutoSize = -1;
 
-/** Defines a single column in the grid. */
-export interface ColDef {
+/** Defines the behavior shared by every typed column. */
+interface ColDefBase<T extends object, K extends AgridField<T>> {
   /** Data field name — must match a key in the row object. */
-  field: string;
+  field: K;
   /** Text displayed in the column header. */
   header: string;
   /**
@@ -76,7 +84,7 @@ export interface ColDef {
    * - `ValueOption[]` — structured list; the stored value (`value`) differs from the
    *   displayed label (`label`). Useful when the dataset stores IDs but should show names.
    */
-  values?: string[] | ValueOption[];
+  values?: string[] | ValueOption<T[K]>[];
   /**
    * Optional display formatter applied when the column has no `values` list.
    * Receives the raw cell value and returns the string to display in the cell.
@@ -86,7 +94,7 @@ export interface ColDef {
    * { field: 'salary', formatter: v => `$${Number(v).toLocaleString()}` }
    * ```
    */
-  formatter?: (value: unknown) => string;
+  formatter?: (value: T[K]) => string;
   /**
    * Set to `true` to show a filter input and value-picker in the filter row for this column.
    * At least one filterable column must exist for the filter row to appear.
@@ -130,7 +138,7 @@ export interface ColDef {
    * { field: 'score', cellClass: ({ value }) => Number(value) < 50 ? 'cell-danger' : '' }
    * ```
    */
-  cellClass?: (params: { value: unknown; row: Record<string, unknown> }) => string;
+  cellClass?: (params: { value: T[K]; row: T }) => string;
   /**
    * Set to `true` to prevent the column from being resized, reordered, or autosized.
    * The column can still be hidden, filtered, and sorted.
@@ -146,8 +154,17 @@ export interface ColDef {
    *   `<span class="badge badge-${value}">${value}</span>` }
    * ```
    */
-  cellRenderer?: (params: { value: unknown; row: Record<string, unknown> }) => string;
+  cellRenderer?: (params: { value: T[K]; row: T }) => string;
 }
+
+/**
+ * Defines a column whose `field`, formatter value, renderer value, and row are
+ * derived from the supplied row type.
+ */
+export type ColDef<
+  T extends object = any,
+  K extends AgridField<T> = AgridField<T>,
+> = K extends AgridField<T> ? ColDefBase<T, K> : never;
 
 /**
  * Defines a single action shown in the group header's action menu.
@@ -167,8 +184,8 @@ export interface GroupAction {
  * - `'ghost'` — the drop-target ghost inserted while dragging
  * - `{ groupLabel, count, collapsed }` — group header row when grouping is active
  */
-export type GridItem =
-  | { row: Record<string, unknown>; originalIndex: number }
+export type GridItem<T extends object = Record<string, unknown>> =
+  | { row: T; originalIndex: number }
   | null
   | 'ghost'
   | { groupLabel: string; count: number; collapsed: boolean };
@@ -182,16 +199,18 @@ export interface CellPosition {
 }
 
 /** Emitted by `(cellEdit)` after the user commits a cell change. */
-export interface GridEditEvent {
-  /** Position of the edited cell. */
-  position: CellPosition;
-  /** The `ColDef.field` that was changed. */
-  field: string;
-  /** Previous field value before the edit. */
-  oldValue: unknown;
-  /** New field value after the edit. */
-  newValue: unknown;
-}
+export type GridEditEvent<T extends object = any> = {
+  [K in AgridField<T>]: {
+    /** Position of the edited cell. */
+    position: CellPosition;
+    /** The `ColDef.field` that was changed. */
+    field: K;
+    /** Previous field value before the edit. */
+    oldValue: T[K];
+    /** New field value after the edit. */
+    newValue: T[K];
+  }
+}[AgridField<T>];
 
 /**
  * Emitted asynchronously after an edit changes a row and the data source has been updated.
@@ -199,44 +218,44 @@ export interface GridEditEvent {
  * Unlike {@link GridEditEvent}, this row-level event identifies the provider and
  * data source that own the edited record, which is useful when rendering multiple grids.
  */
-export interface RecordEditEvent {
+export interface RecordEditEvent<T extends object = any> {
   /** Zero-based index of the edited row in the data source. */
   index: number;
   /** Current row data after the edit has been applied. */
-  data: Record<string, unknown>;
+  data: T;
   /** Exact provider instance that emitted the event. */
-  provider: AgridProvider;
+  provider: AgridProvider<T>;
   /** Exact data source containing the edited row. */
-  datasource: AgridDataSource;
+  datasource: AgridDataSource<T>;
 }
 
 /**
  * Compatibility alias for the provider-aware event emitted by `(rowRemoved)`.
  * @deprecated Use {@link RecordEditEvent}.
  */
-export type RowRemovedEvent = RecordEditEvent;
+export type RowRemovedEvent<T extends object = any> = RecordEditEvent<T>;
 
 /**
  * Emitted by `(rowSelect)` when the selection changes. `null` means all rows were deselected.
  * In `'single'` mode `rows` always has at most one entry.
  */
-export interface RowSelectEvent {
+export interface RowSelectEvent<T extends object = any> {
   /** Selected rows and their original data-source indices. */
-  rows: { row: Record<string, unknown>; originalIndex: number }[];
+  rows: { row: T; originalIndex: number }[];
 }
 
 /** Emitted when the user clicks a data row. */
-export interface RowClickEvent {
+export interface RowClickEvent<T extends object = any> {
   /** Snapshot of the clicked row. */
-  row: Record<string, unknown>;
+  row: T;
   /** Zero-based index of the row in the data source. */
   originalIndex: number;
 }
 
 /** Emitted after the user saves a row through the sidebar editor. */
-export interface RowUpdateEvent {
+export interface RowUpdateEvent<T extends object = any> {
   /** Updated row data. */
-  row: Record<string, unknown>;
+  row: T;
   /** Zero-based index of the updated row in the data source. */
   originalIndex: number;
 }
@@ -246,9 +265,9 @@ export interface RowUpdateEvent {
  * The grid does **not** reorder data itself — call `dataSource.moveRow(oldIndex, newIndex)`
  * (or your own equivalent) inside the handler.
  */
-export interface RowReorderEvent {
+export interface RowReorderEvent<T extends object = any> {
   /** Snapshot of the row data at drag time. */
-  row: Record<string, unknown>;
+  row: T;
   /** Index of the row in the data source before the move. */
   oldIndex: number;
   /**
@@ -296,13 +315,13 @@ export interface SortChangeEvent {
  * Use this to populate the new row with real defaults via {@link AgridDataSource.updateRow} or
  * {@link AgridDataSource.patchRow}.
  */
-export interface NewRecord {
+export interface NewRecord<T extends object = any> {
   /** Index at which the blank row was inserted in the data source. */
   index: number;
   /** The empty row object the grid created (field values are `''` / `0` by type). */
-  data: Record<string, unknown>;
+  data: T;
   /** Exact provider instance that emitted this event. Useful when rendering multiple grids. */
-  provider: AgridProvider;
+  provider: AgridProvider<T>;
   /** Exact data source containing the inserted row. */
-  datasource: AgridDataSource;
+  datasource: AgridDataSource<T>;
 }

@@ -260,6 +260,40 @@ Call these through `viewChild(AgridComponent)`.
 
 `ColDef` describes one column.
 
+Columns, providers, datasources, and row events accept a row type. Supplying it makes
+column fields and callback values type-safe:
+
+```ts
+interface PersonRow {
+  id: number;
+  name: string;
+  active: boolean;
+}
+
+const columns: ColDef<PersonRow>[] = [
+  { field: 'id', header: 'ID', formatter: value => value.toFixed(0) },
+  { field: 'name', header: 'Name', formatter: value => value.toUpperCase() },
+  {
+    field: 'active',
+    header: 'Active',
+    values: [
+      { value: true, label: 'Yes' },
+      { value: false, label: 'No' },
+    ],
+  },
+];
+
+const datasource = new AgridDataSource<PersonRow>([]);
+const provider = new AgridProvider<PersonRow>({ columns, datasource });
+
+function onRecordEdit(event: RecordEditEvent<PersonRow>): void {
+  console.log(event.data.name);
+}
+```
+
+An invalid field such as `{ field: 'email' }` is rejected by TypeScript. Generic parameters
+are optional, so existing untyped configurations remain compatible.
+
 ```ts
 interface ColDef {
   field: string;
@@ -929,10 +963,19 @@ Override these on the `agrid` host element to theme the grid.
 pnpm install
 pnpm start
 pnpm build
+pnpm test
+pnpm test:e2e
 ```
 
 The TypeScript compile check:
 
 ```bash
 ./node_modules/.bin/tsc --noEmit -p tsconfig.app.json
+```
+
+The Playwright suite starts the Angular demo server automatically and runs the grid interaction
+tests in Chromium. Install its browser once when setting up a new environment:
+
+```bash
+pnpm exec playwright install chromium
 ```

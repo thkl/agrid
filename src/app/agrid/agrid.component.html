@@ -467,7 +467,7 @@
     <div class="ag-context-separator" role="separator"></div>
     } @else {
     <button class="ag-context-item" role="menuitem" [class.ag-context-item--danger]="item.danger" [disabled]="item.disabled"
-      (click)="item.action({ value: menu.value, row: menu.row, field: menu.field, originalIndex: menu.rowIndex }); closeCellContextMenu()">{{
+      (click)="runCellMenuItem(item, menu)">{{
       item.label }}</button>
     }
     }

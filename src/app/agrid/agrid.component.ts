@@ -35,7 +35,7 @@ import { AgridPresentationService } from './agrid-presentation.service';
 import { AgridProvider } from './agrid-provider';
 import { AgridProjectionModel } from './agrid-projection.model';
 import { AgridRangeController } from './agrid-range.controller';
-import { AgridRowController } from './agrid-row.controller';
+import { AgridCellContextMenu, AgridRowController } from './agrid-row.controller';
 import { AgridSidebarController } from './agrid-sidebar.controller';
 import {
   AgridSidebarComponent,
@@ -47,9 +47,9 @@ import {
   isGroupHeaderItem as isGroupHeaderItemFn,
 } from './agrid.utils';
 import {
-  CellContextMenuItem, CellPosition, ColDef, FilterChangeEvent, GridEditEvent, GridItem,
-  GroupAction, NewRecord, PageChangeEvent, RecordEditEvent, RowClickEvent, RowReorderEvent,
-  RowSelectEvent, RowUpdateEvent, SortChangeEvent,
+  AgridField, CellContextMenuItem, CellPosition, ColDef, FilterChangeEvent, GridEditEvent,
+  GridItem, GroupAction, NewRecord, PageChangeEvent, RecordEditEvent, RowClickEvent,
+  RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent,
 } from './agrid.types';
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
@@ -91,12 +91,12 @@ export type { GridItem };
     '[style.max-height]': 'maxHeight()',
   },
 })
-export class AgridComponent {
+export class AgridComponent<T extends object = any> {
 
   // ── Inputs ───────────────────────────────────────────────────────────────────
 
   /** Grid provider containing columns, data source, control, and options. */
-  provider = input<AgridProvider>(new AgridProvider());
+  provider = input<AgridProvider<T>>(new AgridProvider<T>());
 
   // All display / behaviour options are read from the provider.
   readonly rowHeight = computed(() => this.provider().rowHeight);
@@ -121,7 +121,9 @@ export class AgridComponent {
   readonly useSidebarEditor = computed(() => this.provider().useSidebarEditor);
 
   /** Column definitions from the active provider. */
-  readonly colDefs = computed<ColDef[]>(() => this.provider().columns());
+  readonly colDefs = computed<ColDef[]>(
+    () => this.provider().columns() as unknown as ColDef[],
+  );
 
   /** Signal-based data container from the active provider. */
   readonly dataSource = computed<AgridDataSource>(() => this.provider().datasource);
@@ -143,33 +145,33 @@ export class AgridComponent {
   // ── Outputs ──────────────────────────────────────────────────────────────────
 
   /** Emitted after the user commits a cell edit. */
-  cellEdit = output<GridEditEvent>();
+  cellEdit = output<GridEditEvent<T>>();
 
   /**
    * Emitted after an edit changes a row.
    * Includes the row index, current data, provider, and data source.
    */
-  recordEdit = output<RecordEditEvent>();
+  recordEdit = output<RecordEditEvent<T>>();
 
   /** Emitted after a row is removed, with its former index and captured row data. */
-  rowRemoved = output<RecordEditEvent>();
+  rowRemoved = output<RecordEditEvent<T>>();
 
   /** Emitted when the grid inserts a blank row. Use `dataSource.patchRow()` to populate it. */
-  prepareAddRecord = output<NewRecord>();
+  prepareAddRecord = output<NewRecord<T>>();
 
   /** Emitted when the user finishes dragging a row. Call `dataSource.moveRow()` to apply. */
-  rowReorder = output<RowReorderEvent>();
+  rowReorder = output<RowReorderEvent<T>>();
 
   /** Emitted when the row selection changes. `null` = selection cleared. */
-  rowSelect = output<RowSelectEvent | null>();
+  rowSelect = output<RowSelectEvent<T> | null>();
 
-  rowDoubleClicked = output<RowClickEvent>();
+  rowDoubleClicked = output<RowClickEvent<T>>();
 
   /** Emitted when the user single-clicks a data row. */
-  rowClick = output<RowClickEvent>();
+  rowClick = output<RowClickEvent<T>>();
 
   /** Emitted when the user has changed and saved a record via the sidebar editor save button */
-  rowChanged = output<RowUpdateEvent>();
+  rowChanged = output<RowUpdateEvent<T>>();
   /**
    * Emitted when the user navigates to a new page in **server-side pagination mode**
    * (i.e. when `AgridControl.totalRows` is greater than zero).
@@ -715,7 +717,7 @@ export class AgridComponent {
   private readonly _seededControls = new WeakSet<AgridControl>();
 
   private emitEditEvents(event: GridEditEvent): void {
-    this.cellEdit.emit(event);
+    this.cellEdit.emit(event as GridEditEvent<T>);
     this.emitRecordEdit(event.position.rowIndex);
   }
 
@@ -1084,6 +1086,17 @@ export class AgridComponent {
 
   /** @internal */
   closeCellContextMenu(): void { this.rowController.closeCellContextMenu(); }
+
+  /** @internal Runs a typed provider context-menu action against erased controller state. */
+  runCellMenuItem(item: CellContextMenuItem<T>, menu: AgridCellContextMenu): void {
+    item.action({
+      value: menu.value as T[AgridField<T>],
+      row: menu.row as unknown as T,
+      field: menu.field as AgridField<T>,
+      originalIndex: menu.rowIndex,
+    });
+    this.closeCellContextMenu();
+  }
 
   /** @internal Copy the display value of one cell to the clipboard. */
   copyCellToClipboard(value: unknown, col: ColDef): void {

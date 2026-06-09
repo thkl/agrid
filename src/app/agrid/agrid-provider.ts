@@ -5,13 +5,13 @@ import { AgridLocaleTextOverrides } from './agrid-localization';
 import { AGridOptions, CellContextMenuItem, ColDef, GroupAction } from './agrid.types';
 
 /** Configuration used to create an {@link AgridProvider}. */
-export interface AgridProviderConfig<T extends Record<string, unknown> = Record<string, unknown>> extends Partial<AGridOptions> {
+export interface AgridProviderConfig<T extends object = any> extends Partial<AGridOptions> {
   /** Row data source. A new empty data source is created when omitted. */
   datasource?: AgridDataSource<T>;
   /** Stateful grid control. A default control is created when omitted. */
   control?: AgridControl;
   /** Initial column definitions in display order. */
-  columns?: ColDef[];
+  columns?: ColDef<T>[];
   /** Row height in pixels. Must be fixed for CDK virtual scroll. @default 32 */
   rowHeight?: number;
   /** Minimum height of the grid host element (e.g. `'200px'`). */
@@ -55,7 +55,7 @@ export interface AgridProviderConfig<T extends Record<string, unknown> = Record<
    * Extra items appended to the cell right-click context menu.
    * Pass `null` entries to insert separator lines.
    */
-  cellMenuItems?: (CellContextMenuItem | null)[];
+  cellMenuItems?: (CellContextMenuItem<T> | null)[];
   /** Shade every other row slightly for easier reading. @default false */
   zebraStripes?: boolean;
   /** Make the entire grid read-only. @default false */
@@ -76,13 +76,13 @@ export interface AgridProviderConfig<T extends Record<string, unknown> = Record<
  * Create one provider per independent grid instance. A provider may be selected
  * from an array when a component renders multiple grids.
  */
-export class AgridProvider<T extends Record<string, unknown> = Record<string, unknown>> {
+export class AgridProvider<T extends object = any> {
   /** Mutable row data consumed by the grid. */
   datasource: AgridDataSource<T>;
   /** Runtime UI state and imperative grid controls. */
   control: AgridControl;
   /** Reactive column definitions in display order. */
-  readonly columns: WritableSignal<ColDef[]>;
+  readonly columns: WritableSignal<ColDef<T>[]>;
   /** Shared grid options such as locale. */
   options: AGridOptions;
 
@@ -135,7 +135,7 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
   /** Actions available from group headers. */
   groupActions: GroupAction[];
   /** Additional cell context-menu entries. */
-  cellMenuItems: (CellContextMenuItem | null)[];
+  cellMenuItems: (CellContextMenuItem<T> | null)[];
   /** Whether alternating data rows receive stripe styling. */
   zebraStripes: boolean;
   /** Optional empty-state text override. */
