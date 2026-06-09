@@ -3,13 +3,14 @@ import { AgridBrowserAdapter } from './agrid-browser.adapter';
 import { AgridControl } from './agrid-control';
 import { ColDef } from './agrid.types';
 
+/** Dependencies required by {@link AgridColumnReorderController}. @internal */
 export interface AgridColumnReorderControllerOptions {
   control: Signal<AgridControl | null>;
   visibleColDefs: Signal<ColDef[]>;
   getColDef: (field: string) => ColDef | undefined;
 }
 
-/** Owns column header drag/drop state and column reordering. */
+/** Owns column header drag/drop state and column reordering. @internal */
 export class AgridColumnReorderController {
   private readonly dragField = signal<string | null>(null);
   private readonly dragOverField = signal<string | null>(null);
@@ -25,6 +26,7 @@ export class AgridColumnReorderController {
     destroyRef.onDestroy(() => this.cancel());
   }
 
+  /** Arms a column reorder gesture for an unlocked header. */
   start(event: PointerEvent, field: string): void {
     if (!this.opts.control() || event.button !== 0) return;
     if (this.opts.getColDef(field)?.locked) return;
@@ -35,10 +37,12 @@ export class AgridColumnReorderController {
     this.browser.addDocumentListener('pointercancel', this.dragCancel);
   }
 
+  /** Returns whether the field is currently being dragged. */
   isDragging(field: string): boolean {
     return this.dragField() === field;
   }
 
+  /** Returns the active drop-indicator side for a field. */
   getDropSide(field: string): 'before' | 'after' | null {
     if (this.dragOverField() !== field || this.dragField() === field) return null;
     return this.dragInsertBefore() ? 'before' : 'after';

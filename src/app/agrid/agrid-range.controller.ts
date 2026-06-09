@@ -6,6 +6,7 @@ import { AgridDataSource } from './agrid-datasource';
 import { CellPosition, ColDef, GridEditEvent, GridItem } from './agrid.types';
 import { isDataRowItem } from './agrid.utils';
 
+/** Rectangular bounds in projected row and visible column coordinates. @internal */
 export type VisibleCellBounds = {
   rowStart: number;
   rowEnd: number;
@@ -13,6 +14,7 @@ export type VisibleCellBounds = {
   colEnd: number;
 };
 
+/** Dependencies and callbacks required by {@link AgridRangeController}. @internal */
 export interface AgridRangeControllerOptions {
   control: Signal<AgridControl | null>;
   dataSource: Signal<AgridDataSource>;
@@ -27,7 +29,7 @@ export interface AgridRangeControllerOptions {
   onCellEdit: (event: GridEditEvent) => void;
 }
 
-/** Owns cell-range calculations and fill-handle drag/application behavior. */
+/** Owns cell-range calculations and fill-handle drag/application behavior. @internal */
 export class AgridRangeController {
   readonly fillPreviewBounds = signal<VisibleCellBounds | null>(null);
   private fillDragSource: VisibleCellBounds | null = null;
@@ -40,6 +42,7 @@ export class AgridRangeController {
     destroyRef.onDestroy(() => this.cancelFill());
   }
 
+  /** Extends the current range focus to a source row and visible column. */
   extendTo(rowIndex: number, colIndex: number): void {
     const selected = this.opts.selectedCell();
     const anchor = this.opts.selectedRange()?.anchor ?? selected ?? { rowIndex, colIndex };
@@ -48,6 +51,7 @@ export class AgridRangeController {
     this.opts.selectedRange.set({ anchor, focus });
   }
 
+  /** Returns selected range bounds in projected display coordinates. */
   getVisibleRangeBounds(): VisibleCellBounds | null {
     const range = this.opts.selectedRange();
     if (!range) return null;
@@ -62,6 +66,7 @@ export class AgridRangeController {
     };
   }
 
+  /** Returns range bounds, falling back to the active cell. */
   getActiveSelectionBounds(): VisibleCellBounds | null {
     const range = this.getVisibleRangeBounds();
     if (range) return range;
@@ -77,6 +82,7 @@ export class AgridRangeController {
     };
   }
 
+  /** Returns whether a cell is inside the selected range. */
   isRangeSelected(originalIndex: number, colIndex: number): boolean {
     const range = this.getVisibleRangeBounds();
     if (!range) return false;
@@ -85,6 +91,7 @@ export class AgridRangeController {
       && colIndex >= range.colStart && colIndex <= range.colEnd;
   }
 
+  /** Returns whether a cell owns the selection's fill handle. */
   isFillHandleCell(originalIndex: number, colIndex: number): boolean {
     const bounds = this.getActiveSelectionBounds();
     if (!bounds) return false;
@@ -92,6 +99,7 @@ export class AgridRangeController {
     return displayIndex === bounds.rowEnd && colIndex === bounds.colEnd;
   }
 
+  /** Returns whether a cell is inside the pending fill extension. */
   isFillPreviewCell(originalIndex: number, colIndex: number): boolean {
     const source = this.fillDragSource;
     const target = this.fillPreviewBounds();
@@ -104,6 +112,7 @@ export class AgridRangeController {
     return insideTarget && !insideSource;
   }
 
+  /** Starts a fill-handle drag from the active selection corner. */
   startFill(event: PointerEvent, originalIndex: number, colIndex: number): void {
     if (event.button !== 0 || !this.isFillHandleCell(originalIndex, colIndex)) return;
     if (!this.isFillHandleHit(event)) return;
@@ -119,6 +128,7 @@ export class AgridRangeController {
     this.browser.addDocumentListener('pointercancel', this.fillDragCancel);
   }
 
+  /** Repeats source values across the target range as one history operation. */
   applyFill(source: VisibleCellBounds, target: VisibleCellBounds): void {
     const items = this.opts.filteredItems();
     const cols = this.opts.visibleColDefs();

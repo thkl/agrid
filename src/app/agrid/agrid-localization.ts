@@ -1,5 +1,7 @@
+/** Built-in locale identifiers supplied by the grid. */
 export type AgridLocaleKey = 'en' | 'de';
 
+/** Complete set of user-facing strings and label factories used by the grid. */
 export interface AgridLocaleText {
   actions: string;
   addRow: string;
@@ -48,11 +50,13 @@ export interface AgridLocaleText {
   sortDescending: string;
   ungroup: string;
   unpinColumn: string;
-  save:string;
+  save: string;
 }
 
+/** Partial locale text supplied to {@link AgridProvider.addLocalization}. */
 export type AgridLocaleTextOverrides = Partial<AgridLocaleText>;
 
+/** Built-in English and German grid translations. */
 export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
   en: {
     actions: 'Actions',
@@ -102,7 +106,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     sortDescending: 'Sort descending',
     ungroup: 'Ungroup',
     unpinColumn: 'Unpin column',
-    save:'Save'
+    save: 'Save',
   },
   de: {
     actions: 'Aktionen',
@@ -152,7 +156,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     sortDescending: 'Absteigend sortieren',
     ungroup: 'Gruppierung aufheben',
     unpinColumn: 'Fixierung lösen',
-    save:'Speichern'
+    save: 'Speichern',
   },
 };
 
@@ -162,6 +166,11 @@ export function resolveLocale(locale: string): string {
   return (typeof navigator !== 'undefined' ? navigator.language : null) ?? 'en-US';
 }
 
+/**
+ * Resolves built-in locale text and merges the best matching custom overrides.
+ *
+ * Matching prefers an exact locale key, then a primary-language match.
+ */
 export function resolveAgridLocaleText(
   locale: string | undefined,
   localizations: ReadonlyMap<string, AgridLocaleTextOverrides>,

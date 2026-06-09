@@ -48,8 +48,8 @@ import {
 } from './agrid.utils';
 import {
   CellContextMenuItem, CellPosition, ColDef, FilterChangeEvent, GridEditEvent, GridItem,
-  GroupAction, NewRecord, PageChangeEvent, RowClickEvent, RowRemovedEvent, RowReorderEvent,
-  RowSelectEvent, RowUpdateEvent, SortChangeEvent,
+  GroupAction, NewRecord, PageChangeEvent, RecordEditEvent, RowClickEvent, RowRemovedEvent,
+  RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent,
 } from './agrid.types';
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
@@ -145,6 +145,12 @@ export class AgridComponent {
   /** Emitted after the user commits a cell edit. */
   cellEdit = output<GridEditEvent>();
 
+  /**
+   * Emitted after an edit changes a row.
+   * Includes the row index, current data, provider, and data source.
+   */
+  recordEdit = output<RecordEditEvent>();
+
   rowRemoved = output<RowRemovedEvent>();
 
   /** Emitted when the grid inserts a blank row. Use `dataSource.patchRow()` to populate it. */
@@ -214,16 +220,14 @@ export class AgridComponent {
     this.sidebarController.commitEdit(field, col, stringValue);
   }
 
-  onSidebarDetailSave(event: AgridSidebarDetailField[]): void {
+  onSidebarDetailSave(_event: AgridSidebarDetailField[]): void {
     const originalIndex = this.sidebarController.selectedRowIndex();
-    if (originalIndex) {
-      const row = this.displayItems()[originalIndex];
-      if (row && this.isDataRowItem(row)) {
-        const saveEvent: RowUpdateEvent = { row:row.row, originalIndex: originalIndex };
-        this.rowChanged.emit(saveEvent);
-        this.sidebarController.closeSidebar();
-      }
-    }
+    if (originalIndex === null) return;
+    const row = this.dataSource().getRow(originalIndex);
+    const saveEvent: RowUpdateEvent = { row, originalIndex };
+    this.rowChanged.emit(saveEvent);
+    this.emitRecordEdit(originalIndex);
+    this.sidebarController.closeSidebar();
   }
 
   /**
@@ -395,7 +399,7 @@ export class AgridComponent {
     findDisplayIndex: originalIndex => this.findDisplayIndex(originalIndex),
     scrollToCell: (displayIndex, colIndex) => this.scrollToKeepVisible(displayIndex, colIndex),
     focusGrid: () => this.wrapperEl().nativeElement.focus(),
-    onCellEdit: event => this.cellEdit.emit(event),
+    onCellEdit: event => this.emitEditEvents(event),
   });
 
   /** Total filtered row count regardless of current page. */
@@ -533,7 +537,7 @@ export class AgridComponent {
     cancelEdit: () => this.cancelCurrent(),
     findDisplayIndex: originalIndex => this.findDisplayIndex(originalIndex),
     scrollToCell: (displayIndex, colIndex) => this.scrollToKeepVisible(displayIndex, colIndex),
-    onCellEdit: event => this.cellEdit.emit(event),
+    onCellEdit: event => this.emitEditEvents(event),
   }, this.destroyRef);
 
   private readonly columnSizing = new AgridColumnSizingController({
@@ -654,7 +658,7 @@ export class AgridComponent {
     selectedRowIndex: this.selectedRowIndex,
     autoOpenDetail: this.autoOpenDetail,
     useSidebarEditor: this.useSidebarEditor,
-    onCellEdit: event => this.cellEdit.emit(event),
+    onCellEdit: event => this.emitEditEvents(event),
   });
 
   readonly sidebarOpen = this.sidebarController.open;
@@ -671,7 +675,7 @@ export class AgridComponent {
     selectedCell: this.selectedCell,
     selectedRange: this.selectedRange,
     isCellEditable: col => this.isCellEditable(col),
-    onCellEdit: event => this.cellEdit.emit(event),
+    onCellEdit: event => this.emitEditEvents(event),
     scrollToCell: (displayIndex, colIndex) => this.scrollToKeepVisible(displayIndex, colIndex),
   });
 
@@ -708,6 +712,21 @@ export class AgridComponent {
   // ── Setup ─────────────────────────────────────────────────────────────────────
 
   private readonly _seededControls = new WeakSet<AgridControl>();
+
+  private emitEditEvents(event: GridEditEvent): void {
+    this.cellEdit.emit(event);
+    this.emitRecordEdit(event.position.rowIndex);
+  }
+
+  private emitRecordEdit(index: number): void {
+    const datasource = this.dataSource();
+    this.recordEdit.emit({
+      index,
+      data: datasource.getRow(index),
+      provider: this.provider(),
+      datasource,
+    });
+  }
 
   constructor() {
     effect(() => this.sidebarController.syncAutoOpen());

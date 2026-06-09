@@ -5,12 +5,17 @@ import { AgridDataSource } from './agrid-datasource';
 import { CellPosition, ColDef, GridItem, NewRecord } from './agrid.types';
 import { isDataRowItem, isGroupHeaderItem } from './agrid.utils';
 
+/** Minimal vertical viewport API used by grid navigation. @internal */
 export interface AgridVerticalViewport {
+  /** Returns the current vertical scroll offset in pixels. */
   measureScrollOffset(): number;
+  /** Returns the visible viewport height in pixels. */
   getViewportSize(): number;
+  /** Scrolls the viewport to an absolute vertical offset. */
   scrollToOffset(offset: number): void;
 }
 
+/** Dependencies and callbacks required by {@link AgridNavigationController}. @internal */
 export interface AgridNavigationControllerOptions {
   control: Signal<AgridControl | null>;
   dataSource: Signal<AgridDataSource>;
@@ -38,10 +43,14 @@ export interface AgridNavigationControllerOptions {
   onPrepareAddRecord: (event: Pick<NewRecord, 'index' | 'data'>) => void;
 }
 
-/** Owns grid keyboard navigation, cell activation, add-row creation, and visibility scrolling. */
+/**
+ * Owns grid keyboard navigation, cell activation, add-row creation, and visibility scrolling.
+ * @internal
+ */
 export class AgridNavigationController {
   constructor(private readonly opts: AgridNavigationControllerOptions) {}
 
+  /** Activates a cell, optionally extending the current range selection. */
   activateCell(originalIndex: number, colIndex: number, event?: MouseEvent): void {
     if (this.opts.isEditing(originalIndex, colIndex)) return;
     this.opts.cancelEdit();
@@ -57,17 +66,20 @@ export class AgridNavigationController {
     else this.opts.focusGrid();
   }
 
+  /** Creates and selects a row from the add-row placeholder. */
   activateAddRow(): void {
     this.opts.cancelEdit();
     this.addRowAndSelect();
   }
 
+  /** Inserts an initialized blank row and emits the preparation callback. */
   insertRowAt(atIndex: number): void {
     const emptyRow = this.buildEmptyRow();
     const insertedIndex = this.opts.dataSource().addRow(emptyRow, atIndex);
     this.opts.onPrepareAddRecord({ index: insertedIndex, data: emptyRow });
   }
 
+  /** Handles grid-level navigation, editing, history, find, and add-row shortcuts. */
   handleKeyDown(event: KeyboardEvent): void {
     if ((event.target as Element)?.closest('.ag-sidebar')) return;
 
@@ -152,12 +164,14 @@ export class AgridNavigationController {
     }
   }
 
+  /** Finds a data row's current index in the projected display items. */
   findDisplayIndex(originalIndex: number): number {
     return this.opts.filteredItems().findIndex(
       item => isDataRowItem(item) && item.originalIndex === originalIndex,
     );
   }
 
+  /** Navigates client pagination as needed and reveals a data-source row. */
   revealRow(originalIndex: number): void {
     const filteredIndex = this.opts.filteredSortedIndices().indexOf(originalIndex);
     if (filteredIndex < 0) return;
@@ -174,6 +188,7 @@ export class AgridNavigationController {
     });
   }
 
+  /** Scrolls a display row and optional column into the visible viewport. */
   scrollToKeepVisible(displayIndex: number, colIndex: number | null = null): void {
     const viewport = this.opts.viewport();
     const itemSize = this.opts.rowHeight();

@@ -141,6 +141,7 @@ The `AgridLocaleTextOverrides` type covers all overridable labels.
 | Output | Type | Description |
 | --- | --- | --- |
 | `cellEdit` | `GridEditEvent` | Emitted after a committed cell edit, paste, fill, undo, or redo changes a cell. |
+| `recordEdit` | `RecordEditEvent` | Emitted after an edit changes a row. Includes the row `index`, current `data`, exact `provider`, and `datasource`. |
 | `rowRemoved` | `RowRemovedEvent` | Emitted after deleting a row through the control column context menu. |
 | `prepareAddRecord` | `NewRecord` | Emitted after the grid inserts a blank row. Patch `event.datasource` to target the correct grid when multiple providers are rendered. |
 | `rowReorder` | `RowReorderEvent` | Emitted after the user drops a reordered row. The host must call `dataSource.moveRow()`. |

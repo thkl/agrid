@@ -4,9 +4,13 @@ import { AgridDataSource } from './agrid-datasource';
 import { AgridLocaleTextOverrides } from './agrid-localization';
 import { AGridOptions, CellContextMenuItem, ColDef, GroupAction } from './agrid.types';
 
+/** Configuration used to create an {@link AgridProvider}. */
 export interface AgridProviderConfig<T extends Record<string, unknown> = Record<string, unknown>> extends Partial<AGridOptions> {
+  /** Row data source. A new empty data source is created when omitted. */
   datasource?: AgridDataSource<T>;
+  /** Stateful grid control. A default control is created when omitted. */
   control?: AgridControl;
+  /** Initial column definitions in display order. */
   columns?: ColDef[];
   /** Row height in pixels. Must be fixed for CDK virtual scroll. @default 32 */
   rowHeight?: number;
@@ -57,8 +61,8 @@ export interface AgridProviderConfig<T extends Record<string, unknown> = Record<
   /** Make the entire grid read-only. @default false */
   readonly?: boolean;
 
-  /** allow the user only to edit data in the sidebar editor */
-  useSidebarEditor?:boolean;
+  /** Restrict editing to the sidebar editor instead of inline cells. */
+  useSidebarEditor?: boolean;
 
   /** Show a loading overlay over the grid body. @default false */
   loading?: boolean;
@@ -66,10 +70,20 @@ export interface AgridProviderConfig<T extends Record<string, unknown> = Record<
   emptyText?: string;
 }
 
+/**
+ * Bundles a grid's data source, control state, columns, and display options.
+ *
+ * Create one provider per independent grid instance. A provider may be selected
+ * from an array when a component renders multiple grids.
+ */
 export class AgridProvider<T extends Record<string, unknown> = Record<string, unknown>> {
+  /** Mutable row data consumed by the grid. */
   datasource: AgridDataSource<T>;
+  /** Runtime UI state and imperative grid controls. */
   control: AgridControl;
+  /** Reactive column definitions in display order. */
   readonly columns: WritableSignal<ColDef[]>;
+  /** Shared grid options such as locale. */
   options: AGridOptions;
 
   private readonly _localizations = new Map<string, AgridLocaleTextOverrides>();
@@ -92,32 +106,49 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
     return this;
   }
 
-  // Static display / behaviour options
+  /** Fixed virtual-scroll row height in pixels. */
   rowHeight: number;
+  /** Minimum CSS height of the grid host. */
   minHeight?: string;
+  /** Maximum CSS height of the grid host. */
   maxHeight?: string;
+  /** Whether the add-row placeholder is shown. */
   allowAddRows: boolean;
+  /** Whether the control column is rendered. */
   showControlColumn: boolean;
+  /** Whether the sidebar is available. */
   showSidebar: boolean;
+  /** Whether selecting a row automatically opens its detail panel. */
   autoOpenDetail: boolean;
+  /** Whether filter and sort operations are delegated to the host. */
   serverSideFiltering: boolean;
+  /** Delay before server-side filter events are emitted. */
   filterDebounceMs: number;
+  /** Enabled sorting mode. */
   sortOption: 'single' | 'multi' | 'none';
   /** Toggle auto-add-rows without recreating the provider. @default signal(false) */
   readonly autoAddRows: WritableSignal<boolean>;
+  /** Enabled row-selection mode. */
   rowSelection: 'single' | 'multi' | 'none';
+  /** Optional description shown beside each group heading. */
   groupDescription: ((label: string) => string) | null;
+  /** Actions available from group headers. */
   groupActions: GroupAction[];
+  /** Additional cell context-menu entries. */
   cellMenuItems: (CellContextMenuItem | null)[];
+  /** Whether alternating data rows receive stripe styling. */
   zebraStripes: boolean;
+  /** Optional empty-state text override. */
   emptyText?: string;
+  /** Whether edits are restricted to the sidebar editor. */
   useSidebarEditor: boolean;
 
-  // Dynamic options exposed as signals so callers can update them without recreating the provider
   /** Toggle the loading overlay without recreating the provider. @default signal(false) */
   readonly loading: WritableSignal<boolean>;
   /** Toggle readonly mode without recreating the provider. @default signal(false) */
   readonly readonlyGrid: WritableSignal<boolean>;
+
+  /** Creates a provider from the supplied data, state, columns, and display options. */
   constructor(config: AgridProviderConfig<T> = {}) {
     this.options      = { locale: config.locale ?? 'auto' };
     this.datasource   = config.datasource ?? new AgridDataSource<T>([]);
@@ -146,7 +177,8 @@ export class AgridProvider<T extends Record<string, unknown> = Record<string, un
     this.useSidebarEditor = config.useSidebarEditor ?? false;
   }
 
-  getGridData() {
+  /** Returns the current reactive row array. */
+  getGridData(): T[] {
     return this.datasource.rows();
   }
 }

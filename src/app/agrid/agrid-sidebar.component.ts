@@ -3,22 +3,35 @@ import { AgridLocaleText, AGRID_LOCALE_TEXT } from './agrid-localization';
 import { getDisplayForField, looksLikeDate } from './agrid.utils';
 import { ColDef } from './agrid.types';
 
+/** Field edit emitted by the sidebar detail form. @internal */
 export interface AgridSidebarEdit {
+  /** Data field being edited. */
   field: string;
+  /** Column definition controlling value coercion and editability. */
   col: ColDef;
+  /** Raw string value produced by the form control. */
   value: string;
 }
 
+/** Display and edit model for one sidebar detail field. @internal */
 export interface AgridSidebarDetailField {
+  /** Human-readable field label. */
   label: string;
+  /** Formatted read-only display value. */
   value: string;
+  /** Original value stored in the row. */
   rawValue: unknown;
+  /** String value supplied to the field editor. */
   inputValue: string;
+  /** Whether the corresponding grid column is hidden. */
   hidden: boolean;
+  /** Whether the field can be edited in the current grid state. */
   editable: boolean;
+  /** Column definition associated with the field. */
   col: ColDef;
 }
 
+/** Sidebar view for column visibility and selected-row details. @internal */
 @Component({
   selector: 'agrid-sidebar',
   changeDetection: ChangeDetectionStrategy.OnPush,

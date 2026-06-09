@@ -4,6 +4,7 @@ import { AgridControl } from './agrid-control';
 import { ColDef, GridItem } from './agrid.types';
 import { getDisplayForField, isDataRowItem } from './agrid.utils';
 
+/** Reactive display state required by {@link AgridPresentationService}. @internal */
 export interface AgridPresentationOptions {
   control: Signal<AgridControl | null>;
   visibleColDefs: Signal<ColDef[]>;
@@ -11,31 +12,39 @@ export interface AgridPresentationOptions {
   locale: Signal<string>;
 }
 
-/** Provides display formatting and CSV export without coupling them to the grid component. */
+/**
+ * Provides display formatting and CSV export without coupling them to the grid component.
+ * @internal
+ */
 export class AgridPresentationService {
   constructor(
     private readonly opts: AgridPresentationOptions,
     private readonly browser = new AgridBrowserAdapter(),
   ) {}
 
+  /** Returns the formatted tooltip text for a cell value. */
   getCellTitle(col: ColDef, value: unknown): string {
     return getDisplayForField(col, value, this.opts.locale());
   }
 
+  /** Resolves dynamic CSS classes configured for a cell. */
   getCellClass(col: ColDef, value: unknown, row: Record<string, unknown>): string {
     return col.cellClass?.({ value, row }) ?? '';
   }
 
+  /** Returns the compact label for a built-in aggregate. */
   getAggregateLabel(col: ColDef): string {
     const aggregate = this.opts.control()?.aggregates()[col.field] ?? col.aggregate;
     if (!aggregate || typeof aggregate === 'function') return '';
     return { sum: 'Σ', avg: 'Ø', min: '↓', max: '↑', count: '#' }[aggregate] ?? '';
   }
 
+  /** Returns whether a column has a static or runtime aggregate. */
   hasAggregate(col: ColDef): boolean {
     return this.opts.control()?.aggregates()[col.field] !== undefined || !!col.aggregate;
   }
 
+  /** Formats a computed footer value for display. */
   getFooterDisplay(col: ColDef, value: unknown): string {
     if (value == null || value === '') return '';
     if (col.formatter) return col.formatter(value);
@@ -43,6 +52,7 @@ export class AgridPresentationService {
     return String(value);
   }
 
+  /** Downloads the currently projected rows and visible columns as CSV. */
   exportCsv(filename: string): void {
     const cols = this.opts.visibleColDefs();
     const rows = this.opts.filteredItems()

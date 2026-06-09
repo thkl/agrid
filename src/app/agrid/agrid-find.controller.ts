@@ -3,12 +3,14 @@ import { CellRange } from './agrid-clipboard.handler';
 import { CellPosition, ColDef, GridItem } from './agrid.types';
 import { getDisplayForField, isDataRowItem } from './agrid.utils';
 
+/** Location of a formatted-value match in source and display coordinates. @internal */
 export type AgridFindMatch = {
   rowIndex: number;
   displayIndex: number;
   colIndex: number;
 };
 
+/** Dependencies and callbacks required by {@link AgridFindController}. @internal */
 export interface AgridFindControllerOptions {
   filteredItems: Signal<GridItem[]>;
   visibleColDefs: Signal<ColDef[]>;
@@ -19,7 +21,7 @@ export interface AgridFindControllerOptions {
   focusGrid: () => void;
 }
 
-/** Owns in-grid find state, formatted-value matching, and match navigation. */
+/** Owns in-grid find state, formatted-value matching, and match navigation. @internal */
 export class AgridFindController {
   readonly open = signal(false);
   readonly query = signal('');
@@ -45,21 +47,25 @@ export class AgridFindController {
 
   constructor(private readonly opts: AgridFindControllerOptions) {}
 
+  /** Opens the find panel. */
   show(): void {
     this.open.set(true);
   }
 
+  /** Closes the find panel and returns focus to the grid. */
   close(): void {
     this.open.set(false);
     this.opts.focusGrid();
   }
 
+  /** Replaces the search query and selects its first match. */
   setQuery(value: string): void {
     this.query.set(value);
     this.activeIndex.set(-1);
     this.goToMatch(1);
   }
 
+  /** Selects the next or previous match, wrapping at either end. */
   goToMatch(direction: 1 | -1): void {
     const matches = this.matches();
     if (matches.length === 0) {
@@ -77,12 +83,14 @@ export class AgridFindController {
     this.opts.scrollToCell(match.displayIndex, match.colIndex);
   }
 
+  /** Returns whether a cell matches the current query. */
   isMatchCell(originalIndex: number, colIndex: number): boolean {
     return this.matches().some(
       match => match.rowIndex === originalIndex && match.colIndex === colIndex,
     );
   }
 
+  /** Returns whether a cell is the currently active match. */
   isActiveMatchCell(originalIndex: number, colIndex: number): boolean {
     const match = this.matches()[this.activeIndex()];
     return !!match && match.rowIndex === originalIndex && match.colIndex === colIndex;

@@ -4,6 +4,7 @@ import { AgridControl, HistoryEntry, HistoryItem } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { CellPosition, ColDef, GridEditEvent } from './agrid.types';
 
+/** Dependencies and callbacks required by {@link AgridEditController}. @internal */
 export interface AgridEditControllerOptions {
   control: Signal<AgridControl | null>;
   dataSource: Signal<AgridDataSource>;
@@ -17,7 +18,10 @@ export interface AgridEditControllerOptions {
   onCellEdit: (event: GridEditEvent) => void;
 }
 
-/** Owns cell edit state, commit/cancel transitions, and undo/redo application. */
+/**
+ * Owns cell edit state, commit/cancel transitions, and undo/redo application.
+ * @internal
+ */
 export class AgridEditController {
   readonly editingCell = signal<CellPosition | null>(null);
   readonly currentDraft = signal<unknown>(null);
@@ -25,14 +29,17 @@ export class AgridEditController {
 
   constructor(private readonly opts: AgridEditControllerOptions) {}
 
+  /** Returns whether a column can be edited in the current grid state. */
   isCellEditable(col: ColDef | undefined): boolean {
     return !!col && !this.opts.readonlyGrid() && col.editable !== false;
   }
 
+  /** Replaces the value currently staged by the active editor. */
   setDraft(value: unknown): void {
     this.currentDraft.set(value);
   }
 
+  /** Starts editing a cell, optionally seeded by a typed character. */
   start(originalIndex: number, colIndex: number, seedChar: string): void {
     const col = this.opts.visibleColDefs()[colIndex];
     if (!this.isCellEditable(col)) return;
@@ -46,6 +53,7 @@ export class AgridEditController {
     if (displayIndex >= 0) this.opts.scrollToCell(displayIndex, colIndex);
   }
 
+  /** Commits the staged value and records the edit in history. */
   commit(): void {
     const position = this.editingCell();
     if (!position) return;
@@ -71,20 +79,24 @@ export class AgridEditController {
     this.opts.focusGrid();
   }
 
+  /** Discards the active edit without changing row data. */
   cancel(): void {
     this.clearEditState();
   }
 
+  /** Applies the previous edit-history value to the data source. */
   undo(): void {
     const item = this.opts.control()?.undo();
     if (item) this.applyHistoryItem(item, 'oldValue');
   }
 
+  /** Reapplies the next edit-history value to the data source. */
   redo(): void {
     const item = this.opts.control()?.redo();
     if (item) this.applyHistoryItem(item, 'newValue');
   }
 
+  /** Reconciles active edit coordinates after a row is removed. */
   onRowRemoved(originalIndex: number): void {
     const editing = this.editingCell();
     if (editing?.rowIndex === originalIndex) {

@@ -1,7 +1,12 @@
 import type { AgridDataSource } from './agrid-datasource';
 import type { AgridProvider } from './agrid-provider';
 
+/** Global options shared by grid providers. */
 export interface AGridOptions {
+  /**
+   * Locale used for built-in labels, date formatting, and comparisons.
+   * Use `'auto'` to resolve the browser locale.
+   */
   locale: string;
 }
 
@@ -39,7 +44,8 @@ export interface ValueOption {
   label: string;
 }
 
-export const ColDefAutoSize = -1
+/** Width sentinel that makes a column fill the remaining horizontal space. */
+export const ColDefAutoSize = -1;
 
 /** Defines a single column in the grid. */
 export interface ColDef {
@@ -187,8 +193,26 @@ export interface GridEditEvent {
   newValue: unknown;
 }
 
+/**
+ * Emitted after an edit changes a row.
+ *
+ * Unlike {@link GridEditEvent}, this row-level event identifies the provider and
+ * data source that own the edited record, which is useful when rendering multiple grids.
+ */
+export interface RecordEditEvent {
+  /** Zero-based index of the edited row in the data source. */
+  index: number;
+  /** Current row data after the edit has been applied. */
+  data: Record<string, unknown>;
+  /** Exact provider instance that emitted the event. */
+  provider: AgridProvider;
+  /** Exact data source containing the edited row. */
+  datasource: AgridDataSource;
+}
 
+/** Emitted after a row is removed from the data source. */
 export interface RowRemovedEvent {
+  /** Zero-based data-source index occupied by the row before removal. */
   oldIndex: number;
 }
 
@@ -197,19 +221,24 @@ export interface RowRemovedEvent {
  * In `'single'` mode `rows` always has at most one entry.
  */
 export interface RowSelectEvent {
+  /** Selected rows and their original data-source indices. */
   rows: { row: Record<string, unknown>; originalIndex: number }[];
 }
 
+/** Emitted when the user clicks a data row. */
 export interface RowClickEvent {
-   row: Record<string, unknown>; originalIndex: number ;
+  /** Snapshot of the clicked row. */
+  row: Record<string, unknown>;
+  /** Zero-based index of the row in the data source. */
+  originalIndex: number;
 }
 
-/**
- * Event type for updating a row via the sidebar editor
- */
+/** Emitted after the user saves a row through the sidebar editor. */
 export interface RowUpdateEvent {
-   row: Record<string, unknown>;
-   originalIndex: number ;
+  /** Updated row data. */
+  row: Record<string, unknown>;
+  /** Zero-based index of the updated row in the data source. */
+  originalIndex: number;
 }
 
 /**

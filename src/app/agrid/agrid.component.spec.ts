@@ -3,7 +3,7 @@ import { AgridComponent } from './agrid.component';
 import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridProvider } from './agrid-provider';
-import { GridItem, NewRecord, RowSelectEvent } from './agrid.types';
+import { GridItem, NewRecord, RecordEditEvent, RowSelectEvent } from './agrid.types';
 
 describe('AgridComponent grouped control column selection', () => {
   let fixture: ComponentFixture<AgridComponent>;
@@ -140,6 +140,55 @@ describe('AgridComponent Tab navigation', () => {
     expect(provider.datasource.getRow(0)['department']).toBe('Sales');
     expect(provider.datasource.length).toBe(2);
     expect(component.selectedCell()).toEqual({ rowIndex: 1, colIndex: 0 });
+  });
+
+  it('emits the edited record with its provider and datasource', () => {
+    const emitted: RecordEditEvent[] = [];
+    component.recordEdit.subscribe(event => emitted.push(event));
+    component.selectedCell.set({ rowIndex: 0, colIndex: 1 });
+    component.onStartEdit(0, 1);
+    component.onDraftChange('Sales');
+
+    component.onKeyDown(new KeyboardEvent('keydown', {
+      key: 'Enter',
+      cancelable: true,
+    }));
+
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0]).toEqual({
+      index: 0,
+      data: { name: 'Alice', department: 'Sales' },
+      provider,
+      datasource: provider.datasource,
+    });
+  });
+
+  it('emits recordEdit for row zero when sidebar-only edits are saved', () => {
+    const sidebarProvider = new AgridProvider({
+      columns: provider.columns(),
+      datasource: new AgridDataSource([
+        { name: 'Alice', department: 'Engineering' },
+      ]),
+      showSidebar: true,
+      useSidebarEditor: true,
+    });
+    const sidebarFixture = TestBed.createComponent(AgridComponent);
+    sidebarFixture.componentRef.setInput('provider', sidebarProvider);
+    sidebarFixture.detectChanges();
+    const sidebarComponent = sidebarFixture.componentInstance;
+    const emitted: RecordEditEvent[] = [];
+    sidebarComponent.recordEdit.subscribe(event => emitted.push(event));
+    sidebarComponent['rowController'].selectedIndices.set(new Set([0]));
+    sidebarComponent.commitDetailEdit('department', sidebarProvider.columns()[1], 'Sales');
+
+    sidebarComponent.onSidebarDetailSave([]);
+
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].index).toBe(0);
+    expect(emitted[0].data).toEqual({ name: 'Alice', department: 'Sales' });
+    expect(emitted[0].provider).toBe(sidebarProvider);
+    expect(emitted[0].datasource).toBe(sidebarProvider.datasource);
+    sidebarFixture.destroy();
   });
 
   it('identifies the source datasource when multiple grids auto-add rows', async () => {

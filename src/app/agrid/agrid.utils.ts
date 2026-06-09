@@ -1,7 +1,7 @@
 import { ColumnFilter } from './agrid-control';
 import { ColDef, GridItem, ValueOption } from './agrid.types';
 
-// ── Display resolution ─────────────────────────────────────────────────────────
+// Display resolution
 
 // Matches YYYY-MM-DD with optional time component — strict enough to avoid false positives.
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
@@ -39,17 +39,17 @@ export function getDisplayForField(col: ColDef | undefined, raw: unknown, locale
   return String(raw ?? '');
 }
 
-// ── Type guards ────────────────────────────────────────────────────────────────
-
+/** Returns whether a virtual-scroll item represents a data row. */
 export function isDataRowItem(item: GridItem): item is { row: Record<string, unknown>; originalIndex: number } {
   return typeof item === 'object' && item !== null && 'row' in item;
 }
 
+/** Returns whether a virtual-scroll item represents a group header. */
 export function isGroupHeaderItem(item: GridItem): item is { groupLabel: string; count: number; collapsed: boolean } {
   return typeof item === 'object' && item !== null && 'groupLabel' in item;
 }
 
-// ── Filtering ──────────────────────────────────────────────────────────────────
+// Filtering
 
 /** Apply text substring and value-set filters, returning the surviving row indices. */
 export function applyTextAndValueFilters(
@@ -74,7 +74,7 @@ export function applyTextAndValueFilters(
   return result;
 }
 
-// ── Sorting ────────────────────────────────────────────────────────────────────
+// Sorting
 
 /**
  * Sort indices by one or more columns in priority order.
@@ -110,7 +110,7 @@ export function applySortToIndices(
   });
 }
 
-// ── Grouping ───────────────────────────────────────────────────────────────────
+// Grouping
 
 /**
  * Bucket rows by the display value of `groupField`, sort group keys alphabetically,
@@ -159,7 +159,7 @@ export function buildGroupedItems(
   return items;
 }
 
-// ── Selection range ────────────────────────────────────────────────────────────
+// Selection range
 
 /** Build the set of original indices spanning from `fromOrig` to `toOrig` in display order. */
 export function buildSelectionRange(fromOrig: number, toOrig: number, items: GridItem[]): Set<number> {

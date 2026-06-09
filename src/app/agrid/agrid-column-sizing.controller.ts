@@ -4,6 +4,7 @@ import { AgridControl } from './agrid-control';
 import { ColDef, GridItem } from './agrid.types';
 import { getDisplayForField, isDataRowItem } from './agrid.utils';
 
+/** Dependencies required by {@link AgridColumnSizingController}. @internal */
 export interface AgridColumnSizingOptions {
   control: Signal<AgridControl | null>;
   filteredItems: Signal<GridItem[]>;
@@ -15,7 +16,10 @@ export interface AgridColumnSizingOptions {
   scrollerElement: () => HTMLElement;
 }
 
-/** Owns column widths, resize interactions, autosizing, and horizontal visibility. */
+/**
+ * Owns column widths, resize interactions, autosizing, and horizontal visibility.
+ * @internal
+ */
 export class AgridColumnSizingController {
   private readonly localWidths = signal<Record<string, number>>({});
   private resizeState: { field: string; startX: number; startWidth: number } | null = null;
@@ -28,18 +32,21 @@ export class AgridColumnSizingController {
     destroyRef.onDestroy(() => this.finishResize());
   }
 
+  /** Returns a column's effective fixed width, or `0` for flexible columns. */
   getWidth(col: ColDef): number {
     const override = this.widthOverride(col.field);
     if (override !== undefined) return override;
     return col.width == null || col.width === -1 ? 0 : col.width;
   }
 
+  /** Returns the CSS grid width token for a column. */
   getWidthToken(col: ColDef): string {
     const override = this.widthOverride(col.field);
     if (override !== undefined) return `${override}px`;
     return col.width == null || col.width === -1 ? '1fr' : `${col.width}px`;
   }
 
+  /** Stores a clamped runtime width in the control or local fallback state. */
   setWidth(field: string, width: number): void {
     const control = this.opts.control();
     if (control) {
@@ -52,6 +59,7 @@ export class AgridColumnSizingController {
     }
   }
 
+  /** Starts pointer-driven resizing for an unlocked column. */
   startResize(event: MouseEvent, col: ColDef): void {
     if (col.locked) return;
     event.preventDefault();
@@ -69,6 +77,7 @@ export class AgridColumnSizingController {
     this.browser.addDocumentListener('mouseup', this.resizeUp);
   }
 
+  /** Adjusts an unlocked column width with keyboard arrow keys. */
   resizeFromKeyboard(event: KeyboardEvent, col: ColDef): void {
     if (col.locked || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
     event.preventDefault();
@@ -76,6 +85,7 @@ export class AgridColumnSizingController {
     this.setWidth(col.field, this.getWidth(col) + delta);
   }
 
+  /** Sizes one unlocked column to fit its header and visible values. */
   autosizeColumn(col: ColDef): void {
     if (col.locked) return;
     const context = this.getAutosizeContext();
@@ -83,6 +93,7 @@ export class AgridColumnSizingController {
     this.setWidth(col.field, this.measureAutosizeWidth(col, context));
   }
 
+  /** Sizes every unlocked visible column to its current content. */
   autosizeAllColumns(): void {
     const context = this.getAutosizeContext();
     if (!context) return;
@@ -91,6 +102,7 @@ export class AgridColumnSizingController {
     }
   }
 
+  /** Horizontally scrolls an unpinned column into view. */
   scrollColumnToKeepVisible(colIndex: number): void {
     const col = this.opts.visibleColDefs()[colIndex];
     if (!col || this.opts.isColumnPinned(col.field)) return;

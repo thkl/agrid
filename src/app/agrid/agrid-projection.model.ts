@@ -8,11 +8,13 @@ import {
   buildGroupedItems,
 } from './agrid.utils';
 
+/** Expanded labels associated with the current grouping field. @internal */
 export interface AgridGroupExpansionState {
   field: string | null;
   labels: Set<string>;
 }
 
+/** Reactive inputs required by {@link AgridProjectionModel}. @internal */
 export interface AgridProjectionOptions {
   dataSource: Signal<AgridDataSource>;
   control: Signal<AgridControl | null>;
@@ -26,7 +28,10 @@ export interface AgridProjectionOptions {
   expandedGroups: Signal<AgridGroupExpansionState>;
 }
 
-/** Computes the visible row projection and aggregate state from grid data and controls. */
+/**
+ * Computes the visible row projection and aggregate state from grid data and controls.
+ * @internal
+ */
 export class AgridProjectionModel {
   constructor(private readonly opts: AgridProjectionOptions) {}
 
@@ -69,11 +74,13 @@ export class AgridProjectionModel {
     return Math.max(1, Math.ceil(count / pageSize));
   });
 
+  /** Whether client or server pagination controls should be rendered. */
   readonly showPagination = computed(() => {
     const control = this.opts.control();
     return (control?.pageSize() ?? 0) > 0 && !control?.groupByField();
   });
 
+  /** Whether at least one visible column has an aggregate footer. */
   readonly showFooter = computed(() => {
     const aggregates = this.opts.control()?.aggregates() ?? {};
     return this.opts.visibleColDefs().some(col => col.aggregate || aggregates[col.field]);
@@ -165,6 +172,7 @@ export class AgridProjectionModel {
     return items;
   });
 
+  /** Returns sorted fields after applying the configured sorting mode. */
   effectiveSortOrder(): string[] {
     const option = this.opts.sortOption();
     if (option === 'none') return [];

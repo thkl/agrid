@@ -4,6 +4,7 @@ import { AgridDataSource } from './agrid-datasource';
 import { CellPosition, ColDef, GridEditEvent, GridItem } from './agrid.types';
 import { getDisplayForField, isDataRowItem } from './agrid.utils';
 
+/** Rectangular selection represented by source row and visible column positions. @internal */
 export type CellRange = { anchor: CellPosition; focus: CellPosition };
 
 type VisibleCellBounds = {
@@ -13,6 +14,7 @@ type VisibleCellBounds = {
   colEnd: number;
 };
 
+/** Dependencies and callbacks required by {@link AgridClipboardHandler}. @internal */
 export interface AgridClipboardHandlerOptions {
   control: Signal<AgridControl | null>;
   dataSource: Signal<AgridDataSource>;
@@ -26,10 +28,11 @@ export interface AgridClipboardHandlerOptions {
   scrollToCell: (displayIndex: number, colIndex: number) => void;
 }
 
-/** Handles selection serialization and spreadsheet-style clipboard paste operations. */
+/** Handles selection serialization and spreadsheet-style clipboard paste operations. @internal */
 export class AgridClipboardHandler {
   constructor(private readonly opts: AgridClipboardHandlerOptions) {}
 
+  /** Writes the current cell or range selection to a clipboard event as TSV. */
   copy(event: ClipboardEvent): void {
     const text = this.getSelectedTsv();
     if (!text) return;
@@ -37,6 +40,7 @@ export class AgridClipboardHandler {
     event.preventDefault();
   }
 
+  /** Reads plain text from a clipboard event and pastes it at the selection. */
   paste(event: ClipboardEvent): void {
     const text = event.clipboardData?.getData('text/plain');
     if (!text || !this.opts.selectedCell()) return;
@@ -44,6 +48,7 @@ export class AgridClipboardHandler {
     this.pasteTextAtSelection(text);
   }
 
+  /** Serializes the current cell or range selection as tab-separated text. */
   getSelectedTsv(): string {
     const bounds = this.getVisibleRangeBounds();
     const selected = this.opts.selectedCell();
@@ -73,6 +78,7 @@ export class AgridClipboardHandler {
     return lines.join('\n');
   }
 
+  /** Applies delimited text to editable cells beginning at the active selection. */
   pasteTextAtSelection(text: string): void {
     const bounds = this.getActiveSelectionBounds();
     if (!bounds) return;

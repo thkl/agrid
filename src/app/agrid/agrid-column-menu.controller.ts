@@ -5,12 +5,14 @@ import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { ColDef, FilterChangeEvent, SortChangeEvent, ValueOption } from './agrid.types';
 
+/** Position and target field of the open column menu. @internal */
 export type AgridColumnMenuState = {
   field: string;
   x: number;
   y: number;
 };
 
+/** Dependencies and callbacks required by {@link AgridColumnMenuController}. @internal */
 export interface AgridColumnMenuControllerOptions {
   control: Signal<AgridControl | null>;
   dataSource: Signal<AgridDataSource>;
@@ -24,7 +26,7 @@ export interface AgridColumnMenuControllerOptions {
   onSortChange: (event: SortChangeEvent) => void;
 }
 
-/** Owns column-menu state, filters, sorting, and menu-triggered column mutations. */
+/** Owns column-menu state, filters, sorting, and menu-triggered column mutations. @internal */
 export class AgridColumnMenuController {
   readonly menu = signal<AgridColumnMenuState | null>(null);
   readonly search = signal('');
@@ -109,41 +111,50 @@ export class AgridColumnMenuController {
     });
   }
 
+  /** Returns the active text filter for a field. */
   getTextFilter(field: string): string {
     return this.opts.control()?.getFilter(field).text ?? '';
   }
 
+  /** Returns the active sort direction, respecting disabled sorting. */
   getSort(field: string): 'asc' | 'desc' | null {
     return this.opts.sortOption() === 'none'
       ? null
       : this.opts.control()?.getFilter(field).sort ?? null;
   }
 
+  /** Returns a field's one-based position in the sort stack. */
   getSortPriority(field: string): number {
     return this.opts.control()?.getSortPriority(field) ?? 0;
   }
 
+  /** Returns whether multiple sort fields are currently active. */
   hasMultiSort(): boolean {
     return this.opts.sortOption() === 'multi' && this.opts.effectiveSortOrder().length > 1;
   }
 
+  /** Returns whether the value filter currently includes every value. */
   isAllSelected(field: string): boolean {
     return this.opts.control()?.getFilter(field).selectedValues === null;
   }
 
+  /** Returns whether a raw value survives filters on other columns. */
   isValueActive(rawStr: string): boolean {
     return this.activeValues().has(rawStr);
   }
 
+  /** Returns whether a raw value is selected by the field's value filter. */
   isValueSelected(field: string, value: string): boolean {
     const selected = this.opts.control()?.getFilter(field).selectedValues;
     return selected == null || selected.includes(value);
   }
 
+  /** Returns whether a field has active filter or sort state. */
   hasActiveFilter(field: string): boolean {
     return this.opts.control()?.hasActiveFilter(field) ?? false;
   }
 
+  /** Updates a text filter and emits its debounced server-side event. */
   onTextFilterChange(event: Event, field: string): void {
     const value = (event.target as HTMLInputElement).value;
     this.opts.control()?.setTextFilter(field, value);
@@ -161,6 +172,7 @@ export class AgridColumnMenuController {
     }, delay));
   }
 
+  /** Opens the column menu at a viewport position. */
   open(event: MouseEvent, field: string): void {
     event.stopPropagation();
     this.search.set('');
@@ -171,14 +183,17 @@ export class AgridColumnMenuController {
     });
   }
 
+  /** Closes the column menu. */
   close(): void {
     this.menu.set(null);
   }
 
+  /** Updates the distinct-value search text. */
   setSearch(value: string): void {
     this.search.set(value);
   }
 
+  /** Applies or clears a sort according to the configured sorting mode. */
   sort(field: string, direction: 'asc' | 'desc'): void {
     const control = this.opts.control();
     if (!control || this.opts.sortOption() === 'none') return;
@@ -210,6 +225,7 @@ export class AgridColumnMenuController {
     this.close();
   }
 
+  /** Clears filter and sort state for one field. */
   clearFilter(field: string): void {
     const control = this.opts.control();
     if (!control) return;
@@ -223,6 +239,7 @@ export class AgridColumnMenuController {
     this.close();
   }
 
+  /** Replaces the multi-sort stack with one field and direction. */
   resetSort(field: string, direction: 'asc' | 'desc'): void {
     const control = this.opts.control();
     if (!control || this.opts.sortOption() !== 'multi') return;
@@ -237,6 +254,7 @@ export class AgridColumnMenuController {
     this.close();
   }
 
+  /** Toggles grouping by a field. */
   toggleGroupBy(field: string): void {
     const control = this.opts.control();
     if (!control) return;
@@ -244,6 +262,7 @@ export class AgridColumnMenuController {
     this.close();
   }
 
+  /** Clears filter and sort state for every field. */
   clearAll(): void {
     const control = this.opts.control();
     if (!control) return;
@@ -259,6 +278,7 @@ export class AgridColumnMenuController {
     this.close();
   }
 
+  /** Selects or deselects every distinct value for a field. */
   toggleAll(field: string): void {
     const control = this.opts.control();
     if (!control) return;
@@ -268,6 +288,7 @@ export class AgridColumnMenuController {
     );
   }
 
+  /** Toggles one raw value in a field's value filter. */
   toggleValue(field: string, rawStr: string): void {
     const control = this.opts.control();
     if (!control) return;
@@ -279,16 +300,19 @@ export class AgridColumnMenuController {
     control.setSelectedValues(field, next.length === allValues.length ? null : next);
   }
 
+  /** Toggles left pinning for a field. */
   togglePin(field: string): void {
     this.opts.control()?.togglePinned(field);
     this.close();
   }
 
+  /** Toggles right pinning for a field. */
   togglePinRight(field: string): void {
     this.opts.control()?.togglePinnedRight(field);
     this.close();
   }
 
+  /** Autosizes a field and closes the menu. */
   autosize(field: string): void {
     const col = this.getColDef(field);
     if (!col) return;
@@ -296,6 +320,7 @@ export class AgridColumnMenuController {
     this.close();
   }
 
+  /** Sets a built-in aggregate for a field. */
   setAggregate(
     field: string,
     aggregate: 'sum' | 'avg' | 'min' | 'max' | 'count' | null,
@@ -304,11 +329,13 @@ export class AgridColumnMenuController {
     this.close();
   }
 
+  /** Hides a field and closes the menu. */
   hideColumn(field: string): void {
     this.opts.control()?.setColumnVisibility(field, false);
     this.close();
   }
 
+  /** Toggles field visibility from the sidebar column list. */
   toggleColumnVisibility(field: string): void {
     this.opts.control()?.toggleColumnVisibility(field);
   }

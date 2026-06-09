@@ -4,6 +4,7 @@ import { AgridDataSource } from './agrid-datasource';
 import { CellPosition, ColDef, GridItem, RowClickEvent, RowRemovedEvent, RowSelectEvent } from './agrid.types';
 import { buildSelectionRange, getDisplayForField, isDataRowItem } from './agrid.utils';
 
+/** Dependencies and callbacks required by {@link AgridRowController}. @internal */
 export interface AgridRowControllerOptions {
   dataSource: Signal<AgridDataSource>;
   filteredItems: Signal<GridItem[]>;
@@ -21,8 +22,10 @@ export interface AgridRowControllerOptions {
   closeGroupActionsMenu: () => void;
 }
 
+/** Screen position and row targeted by the row context menu. @internal */
 export type AgridRowContextMenu = { x: number; y: number; rowIndex: number };
 
+/** Screen position and cell data targeted by the cell context menu. @internal */
 export type AgridCellContextMenu = {
   x: number;
   y: number;
@@ -33,7 +36,10 @@ export type AgridCellContextMenu = {
   row: Record<string, unknown>;
 };
 
-/** Owns row selection, row/cell context menus, and row-level operations. */
+/**
+ * Owns row selection, row/cell context menus, and row-level operations.
+ * @internal
+ */
 export class AgridRowController {
   readonly contextMenu = signal<AgridRowContextMenu | null>(null);
   readonly cellContextMenu = signal<AgridCellContextMenu | null>(null);
@@ -52,20 +58,24 @@ export class AgridRowController {
     private readonly browser = new AgridBrowserAdapter(),
   ) {}
 
+  /** Returns whether the data-source row is currently selected. */
   isRowSelected(originalIndex: number): boolean {
     return this.selectedIndices().has(originalIndex);
   }
 
+  /** Returns whether a virtual item is a selected data row. */
   isPinnedPaneRowSelected(item: GridItem): boolean {
     return isDataRowItem(item) && this.isRowSelected(item.originalIndex);
   }
 
+  /** Clears all selected rows and emits the selection change. */
   clearSelection(): void {
     if (this.selectedIndices().size === 0) return;
     this.selectedIndices.set(new Set());
     this.opts.onRowSelect(null);
   }
 
+  /** Applies pointer selection semantics for the configured selection mode. */
   selectFromPointer(event: PointerEvent, originalIndex: number, allowDragSelect: boolean): void {
     const mode = this.opts.rowSelection();
     if (mode === 'none' || event.button !== 0) return;
@@ -101,21 +111,25 @@ export class AgridRowController {
     }
   }
 
+  /** Emits a row click unless a cell edit is active. */
   clickRow(item: { row: Record<string, unknown>; originalIndex: number }): void {
     if (this.opts.editingCell()) return;
     this.opts.onRowClick({ row: item.row, originalIndex: item.originalIndex });
   }
 
+  /** Opens the row context menu at the pointer position. */
   openRowContextMenu(event: MouseEvent, originalIndex: number): void {
     event.preventDefault();
     event.stopPropagation();
     this.contextMenu.set({ x: event.clientX, y: event.clientY, rowIndex: originalIndex });
   }
 
+  /** Closes the row context menu. */
   closeContextMenu(): void {
     this.contextMenu.set(null);
   }
 
+  /** Opens the cell context menu and closes conflicting menus. */
   openCellContextMenu(
     event: MouseEvent,
     rowIndex: number,
@@ -139,15 +153,18 @@ export class AgridRowController {
     });
   }
 
+  /** Closes the cell context menu. */
   closeCellContextMenu(): void {
     this.cellContextMenu.set(null);
   }
 
+  /** Copies a cell's formatted display value to the clipboard. */
   copyCellToClipboard(value: unknown, col: ColDef): void {
     void this.browser.writeClipboard(getDisplayForField(col, value));
     this.closeCellContextMenu();
   }
 
+  /** Copies the visible values of a row as tab-separated text. */
   copyRowToClipboard(row: Record<string, unknown>): void {
     const text = this.opts.visibleColDefs()
       .map(col => getDisplayForField(col, row[col.field]))
@@ -156,11 +173,13 @@ export class AgridRowController {
     this.closeCellContextMenu();
   }
 
+  /** Inserts a row through the grid's central insertion callback. */
   insertRowAt(index: number): void {
     this.opts.insertRowAt(index);
     this.closeCellContextMenu();
   }
 
+  /** Removes a row and reconciles selection and editing indices. */
   deleteRow(originalIndex: number): void {
     this.opts.dataSource().removeRow(originalIndex);
 
@@ -185,6 +204,7 @@ export class AgridRowController {
     this.opts.onRowRemoved({ oldIndex: originalIndex });
   }
 
+  /** Emits the current selected rows, or `null` when selection is empty. */
   emitSelection(): void {
     const indices = this.selectedIndices();
     if (indices.size === 0) {

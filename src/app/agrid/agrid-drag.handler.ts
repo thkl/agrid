@@ -4,6 +4,7 @@ import { AgridDataSource } from './agrid-datasource';
 import { ColDef, GridItem, RowReorderEvent } from './agrid.types';
 import { buildSelectionRange, getDisplayForField } from './agrid.utils';
 
+/** Dependencies and callbacks required by {@link AgridDragHandler}. @internal */
 export interface AgridDragHandlerOptions {
   dataSource: Signal<AgridDataSource>;
   filteredItems: () => GridItem[];
@@ -19,6 +20,8 @@ export interface AgridDragHandlerOptions {
  *
  * Signals exposed here are read by the component's `displayItems` computed
  * to render the ghost row during a reorder drag.
+ *
+ * @internal
  */
 export class AgridDragHandler {
   readonly reorderOriginalIndex = signal<number | null>(null);
@@ -39,8 +42,7 @@ export class AgridDragHandler {
     destroyRef.onDestroy(() => this._cancelDragSelect());
   }
 
-  // ── Row reorder ──────────────────────────────────────────────────────────────
-
+  /** Starts a row reorder gesture and creates its floating preview. */
   startReorder(event: PointerEvent, originalIndex: number): void {
     event.preventDefault();
     event.stopPropagation();
@@ -71,6 +73,7 @@ export class AgridDragHandler {
     this.browser.addDocumentListener('pointercancel', this._reorderCancel);
   }
 
+  /** Returns the formatted value shown in a reorder ghost cell. */
   getGhostDisplay(col: ColDef): string {
     const idx = this.reorderOriginalIndex();
     if (idx === null) return '';
@@ -135,8 +138,7 @@ export class AgridDragHandler {
     this.reorderInsertBefore.set(true);
   }
 
-  // ── Drag select ──────────────────────────────────────────────────────────────
-
+  /** Starts pointer-driven multi-row selection from an anchor row. */
   startDragSelect(originalIndex: number): void {
     this._dragSelAnchor = originalIndex;
     this.browser.addDocumentListener('pointermove', this._dragSelMove);
@@ -172,8 +174,6 @@ export class AgridDragHandler {
     this.browser.removeDocumentListener('pointerup', this._dragSelUp);
     this.browser.removeDocumentListener('pointercancel', this._dragSelCancel);
   }
-
-  // ── Shared ───────────────────────────────────────────────────────────────────
 
   private _getHoveredRow(x: number, y: number): { originalIndex: number; insertBefore: boolean } | null {
     for (const el of this.browser.elementsFromPoint(x, y)) {

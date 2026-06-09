@@ -4,6 +4,7 @@ import { AgridDataSource } from './agrid-datasource';
 import { AgridSidebarEdit } from './agrid-sidebar.component';
 import { ColDef, GridEditEvent, ValueOption } from './agrid.types';
 
+/** Dependencies and callbacks required by {@link AgridSidebarController}. @internal */
 export interface AgridSidebarControllerOptions {
   control: Signal<AgridControl | null>;
   dataSource: Signal<AgridDataSource>;
@@ -15,7 +16,7 @@ export interface AgridSidebarControllerOptions {
   onCellEdit: (event: GridEditEvent) => void;
 }
 
-/** Owns sidebar visibility, selected-row projection, and detail-panel edits. */
+/** Owns sidebar visibility, selected-row projection, and detail-panel edits. @internal */
 export class AgridSidebarController {
   readonly open = signal(false);
   readonly tab = signal<'columns' | 'detail'>('columns');
@@ -27,8 +28,9 @@ export class AgridSidebarController {
     () => this.opts.control()?.hiddenColumns() ?? new Set<string>(),
   );
 
-  constructor(private readonly opts: AgridSidebarControllerOptions) { }
+  constructor(private readonly opts: AgridSidebarControllerOptions) {}
 
+  /** Opens the detail tab when automatic detail display is enabled. */
   syncAutoOpen(): void {
     if (this.opts.autoOpenDetail() && this.opts.selectedRowIndex() !== null) {
       this.open.set(true);
@@ -36,19 +38,22 @@ export class AgridSidebarController {
     }
   }
 
+  /** Toggles sidebar visibility without changing the active tab. */
   toggle(): void {
     this.open.update(value => !value);
   }
 
+  /** Opens the sidebar. */
   openSidebar(): void {
     this.open.set(true);
   }
 
+  /** Closes the sidebar. */
   closeSidebar(): void {
     this.open.set(false);
   }
 
-
+  /** Selects a tab, or closes the sidebar when selecting its active tab. */
   selectTab(tab: 'columns' | 'detail'): void {
     if (this.open() && this.tab() === tab) {
       this.open.set(false);
@@ -58,14 +63,17 @@ export class AgridSidebarController {
     }
   }
 
+  /** Commits an edit emitted by the sidebar component. */
   edit(event: AgridSidebarEdit): void {
     this.commitEdit(event.field, event.col, event.value);
   }
 
-  selectedRowIndex() {
+  /** Returns the currently selected data-source row index. */
+  selectedRowIndex(): number | null {
     return this.opts.selectedRowIndex();
   }
 
+  /** Coerces and commits a sidebar field value to the selected row. */
   commitEdit(field: string, col: ColDef, stringValue: string): void {
     const index = this.opts.selectedRowIndex();
     if (index === null) return;
