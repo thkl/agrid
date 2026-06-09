@@ -3,7 +3,7 @@ import { AgridComponent } from './agrid.component';
 import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridProvider } from './agrid-provider';
-import { GridItem, RowSelectEvent } from './agrid.types';
+import { GridItem, NewRecord, RowSelectEvent } from './agrid.types';
 
 describe('AgridComponent grouped control column selection', () => {
   let fixture: ComponentFixture<AgridComponent>;
@@ -176,6 +176,41 @@ describe('AgridComponent Tab navigation', () => {
     expect(secondFixture.nativeElement.textContent).toContain('2');
     expect(secondFixture.nativeElement.textContent).toContain('New row');
     secondFixture.destroy();
+  });
+
+  it('emits prepareAddRecord when auto-add creates the first row in an empty grid', async () => {
+    const emptyProvider = new AgridProvider({
+      columns: [
+        { field: 'id', header: 'ID', type: 'number' },
+        { field: 'name', header: 'Name' },
+      ],
+      datasource: new AgridDataSource([]),
+      allowAddRows: true,
+      autoAddRows: true,
+    });
+    const emptyFixture = TestBed.createComponent(AgridComponent);
+    emptyFixture.componentRef.setInput('provider', emptyProvider);
+    emptyFixture.detectChanges();
+    const emptyComponent = emptyFixture.componentInstance;
+    const emitted: NewRecord[] = [];
+    emptyComponent.prepareAddRecord.subscribe(event => {
+      emitted.push(event);
+      event.datasource.patchRow(event.index, { id: 1, name: 'First row' });
+    });
+
+    emptyComponent.onKeyDown(new KeyboardEvent('keydown', {
+      key: 'Tab',
+      cancelable: true,
+    }));
+    emptyFixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    emptyFixture.detectChanges();
+
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].index).toBe(0);
+    expect(emptyProvider.datasource.getRow(0)).toEqual({ id: 1, name: 'First row' });
+    expect(emptyFixture.nativeElement.textContent).toContain('First row');
+    emptyFixture.destroy();
   });
 
   it('refreshes the virtual viewport when a row is added externally', async () => {

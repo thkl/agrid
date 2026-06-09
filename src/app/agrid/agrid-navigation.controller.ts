@@ -190,7 +190,16 @@ export class AgridNavigationController {
 
   private moveSelection(dRow: number, dCol: number, extendRange = false): void {
     const items = this.opts.filteredItems();
-    if (items.length === 0) return;
+    if (items.length === 0) {
+      if (
+        this.opts.allowAddRows()
+        && this.opts.autoAddRows()
+        && this.opts.dataSource().length === 0
+      ) {
+        this.addRowAndSelect();
+      }
+      return;
+    }
     const cols = this.opts.visibleColDefs().length;
     let di = this.selectedDisplayIndex();
     let ci = this.opts.selectedCell()?.colIndex ?? 0;

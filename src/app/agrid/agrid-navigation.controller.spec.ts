@@ -65,6 +65,23 @@ describe('AgridNavigationController', () => {
     expect(prepared).toEqual([{ index: 1, data: { name: '', amount: 0, hidden: '' } }]);
   });
 
+  it('emits prepareAddRecord when navigation creates the first row', () => {
+    const { controller, dataSource, selectedCell, prepared } = setup({
+      filteredItems: [],
+      autoAddRows: true,
+      initialRows: [],
+    });
+
+    controller.handleKeyDown(keyboardEvent('Tab'));
+
+    expect(dataSource.length).toBe(1);
+    expect(selectedCell()).toEqual({ rowIndex: 0, colIndex: 0 });
+    expect(prepared).toEqual([{
+      index: 0,
+      data: { name: '', amount: 0, hidden: '' },
+    }]);
+  });
+
   it('scrolls rows into view and delegates horizontal visibility', () => {
     const viewport = createViewport(40, 40);
     const scrollColumn = vi.fn();
@@ -82,6 +99,7 @@ describe('AgridNavigationController', () => {
 function setup(overrides: {
   filteredItems?: GridItem[];
   autoAddRows?: boolean;
+  initialRows?: Record<string, unknown>[];
   editingCell?: WritableSignal<CellPosition | null>;
   viewport?: AgridVerticalViewport & { scrollToOffset: Mock<(offset: number) => void> };
   scrollColumn?: Mock<(colIndex: number) => void>;
@@ -91,9 +109,9 @@ function setup(overrides: {
     { field: 'amount', header: 'Amount', type: 'number' },
     { field: 'hidden', header: 'Hidden', hidden: true },
   ];
-  const dataSource = new AgridDataSource([
-    { name: 'Alice', amount: 1, hidden: 'x' },
-  ]);
+  const dataSource = new AgridDataSource(
+    overrides.initialRows ?? [{ name: 'Alice', amount: 1, hidden: 'x' }],
+  );
   const selectedCell = signal<CellPosition | null>(null);
   const selectedRange = signal<CellRange | null>(null);
   const editingCell = overrides.editingCell ?? signal<CellPosition | null>(null);
