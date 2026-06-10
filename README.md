@@ -991,7 +991,8 @@ and 250k rows. It reports initial render, filtering, sorting, grouping, aggregat
 and virtual-scroll timings without enforcing machine-dependent thresholds. The same operations can
 be run manually at `/performance`.
 
-`pnpm build:lib` creates the publishable Angular package in `dist/agrid-package`. Inspect the package
+`pnpm build:lib` increments the package patch version and creates the publishable Angular package
+in `dist/agrid-package`. Inspect the package
 contents with:
 
 ```bash
