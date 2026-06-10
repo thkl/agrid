@@ -10,6 +10,10 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/agrid-demo.component').then(m => m.AgridDemoComponent),
   },
   {
+    path: 'documentation',
+    loadComponent: () => import('./documentation/documentation.component').then(m => m.DocumentationComponent),
+  },
+  {
     path: 'custom-cells',
     loadComponent: () => import('./demos/custom-cells.component').then(m => m.CustomCellsDemoComponent),
   },

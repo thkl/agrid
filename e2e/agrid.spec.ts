@@ -4,6 +4,16 @@ const cell = (row: number, col: number) =>
   `agrid-cell[data-cell-row="${row}"][data-cell-col="${col}"]`;
 
 test.describe('agrid browser interactions', () => {
+  test('opens the published documentation from the application navigation', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('link', { name: 'Documentation', exact: true }).first().click();
+
+    await expect(page).toHaveURL(/\/documentation$/);
+    await expect(page.getByRole('heading', { name: 'agrid documentation' })).toBeVisible();
+    await expect(page.getByText('pnpm add @thkl/agrid @angular/cdk')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'AgridProvider' })).toBeVisible();
+  });
+
   test('supports keyboard editing and navigation', async ({ page }) => {
     await page.goto('/demo');
     const grid = page.getByRole('grid');

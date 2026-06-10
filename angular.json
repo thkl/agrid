@@ -6,7 +6,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "agrid-demo": {
+    "agrid": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -16,7 +16,6 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
-            "outputPath": "dist/agrid-demo",
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "assets": [
@@ -57,10 +56,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "agrid-demo:build:production"
+              "buildTarget": "agrid:build:production"
             },
             "development": {
-              "buildTarget": "agrid-demo:build:development"
+              "buildTarget": "agrid:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -70,7 +69,7 @@
         }
       }
     },
-    "agrid": {
+    "agrid-package": {
       "projectType": "library",
       "root": "src/app/agrid",
       "sourceRoot": "src/app/agrid",

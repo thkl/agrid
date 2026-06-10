@@ -15,7 +15,7 @@ import {
   AgridDataSource,
   AgridProvider,
   ColDef,
-} from '@thkl/agrid';
+} from '../agrid';
 
 interface PerformanceRow {
   id: number;

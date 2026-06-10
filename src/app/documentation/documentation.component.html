@@ -1,0 +1,328 @@
+<div class="docs-page">
+  <aside class="docs-toc" aria-label="Documentation sections">
+    <div class="docs-toc-title">On this page</div>
+    <a href="#quick-start">Quick start</a>
+    <a href="#features">Features</a>
+    <a href="#component-api">Component API</a>
+    <a href="#provider">Provider</a>
+    <a href="#columns">Columns</a>
+    <a href="#datasource">Data source</a>
+    <a href="#control">Control</a>
+    <a href="#events">Events</a>
+    <a href="#behavior">Keyboard and mouse</a>
+    <a href="#styling">Styling and layout</a>
+  </aside>
+
+  <article class="docs-content">
+    <header class="docs-hero">
+      <div>
+        <div class="eyebrow">Angular data grid</div>
+        <h1>agrid documentation</h1>
+        <p>
+          A signal-based Angular grid with virtual scrolling, editing, filtering, sorting,
+          grouping, pinned columns, selection, pagination, and clipboard workflows.
+        </p>
+      </div>
+      <div class="hero-links">
+        <a class="primary-link" routerLink="/demo">Open demo</a>
+        <a href="https://github.com/thkl/agrid" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </header>
+
+    <section id="quick-start">
+      <h2>Quick start</h2>
+      <p>Install the package and its Angular CDK peer dependency.</p>
+      <pre><code>{{ installCode }}</code></pre>
+      <p>
+        Create typed columns, a data source, optional control state, and one provider. The
+        standalone component can then be imported directly by the host component.
+      </p>
+      <pre><code>{{ quickStartCode }}</code></pre>
+    </section>
+
+    <section id="features">
+      <h2>Features</h2>
+      <div class="feature-list">
+        <span>Angular standalone component</span>
+        <span>CDK virtual scrolling</span>
+        <span>Signal-based state</span>
+        <span>Inline editing</span>
+        <span>Undo and redo</span>
+        <span>Filtering and sorting</span>
+        <span>Grouping</span>
+        <span>Pagination</span>
+        <span>Pinned columns</span>
+        <span>Range selection</span>
+        <span>Copy, paste, and fill</span>
+        <span>Custom cell renderers</span>
+        <span>CSV export</span>
+        <span>Localization</span>
+        <span>Column state persistence</span>
+        <span>Large dataset support</span>
+      </div>
+    </section>
+
+    <section id="component-api">
+      <h2>Component API</h2>
+      <pre><code>&lt;agrid [provider]="provider" (cellEdit)="onEdit($event)" /&gt;</code></pre>
+
+      <h3>Input</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Input</th><th>Type</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>provider</code></td>
+              <td><code>AgridProvider&lt;T&gt;</code></td>
+              <td>Supplies columns, rows, control state, localization, and grid options.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Public methods</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Method</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>exportCsv(filename?)</code></td><td>Downloads visible filtered data as CSV.</td></tr>
+            <tr><td><code>autosizeAllColumns()</code></td><td>Fits every visible column to its current content.</td></tr>
+            <tr><td><code>expandGroups()</code></td><td>Expands all groups.</td></tr>
+            <tr><td><code>collapseGroups()</code></td><td>Collapses all groups.</td></tr>
+            <tr><td><code>toggleSidebar()</code></td><td>Opens or closes the column sidebar.</td></tr>
+            <tr><td><code>openFind()</code></td><td>Opens and focuses the find panel.</td></tr>
+            <tr><td><code>deleteRow(index)</code></td><td>Removes a row and emits <code>rowRemoved</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Public state</h3>
+      <p>
+        The component exposes readonly signals including <code>selectedCell</code>,
+        <code>editingCell</code>, <code>selectedRowIndices</code>, <code>sidebarOpen</code>,
+        <code>canUndo</code>, <code>canRedo</code>, <code>filteredRowCount</code>, and
+        <code>totalPages</code>.
+      </p>
+    </section>
+
+    <section id="provider">
+      <h2>AgridProvider</h2>
+      <p>
+        The provider is the grid's configuration boundary. It lets the same component API serve
+        simple grids, repeated grids, and grids whose data or behavior changes at runtime.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Option</th><th>Default</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>columns</code></td><td><code>[]</code></td><td>Typed column definitions.</td></tr>
+            <tr><td><code>datasource</code></td><td>Empty</td><td>Signal-based row container.</td></tr>
+            <tr><td><code>control</code></td><td>New control</td><td>Filters, sorting, grouping, pagination, and history.</td></tr>
+            <tr><td><code>locale</code></td><td><code>'auto'</code></td><td>BCP-47 locale for labels and date formatting.</td></tr>
+            <tr><td><code>rowHeight</code></td><td><code>32</code></td><td>Virtual-scroll row height in pixels.</td></tr>
+            <tr><td><code>allowAddRows</code></td><td><code>false</code></td><td>Shows an add-row placeholder.</td></tr>
+            <tr><td><code>autoAddRows</code></td><td><code>false</code></td><td>Adds a row when navigation leaves the last row.</td></tr>
+            <tr><td><code>showControlColumn</code></td><td><code>false</code></td><td>Shows row actions and reorder handles.</td></tr>
+            <tr><td><code>showSidebar</code></td><td><code>false</code></td><td>Shows the column visibility sidebar.</td></tr>
+            <tr><td><code>serverSideFiltering</code></td><td><code>false</code></td><td>Emits filter and sort requests instead of applying them locally.</td></tr>
+            <tr><td><code>sortOption</code></td><td><code>'multi'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
+            <tr><td><code>rowSelection</code></td><td><code>'none'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
+            <tr><td><code>zebraStripes</code></td><td><code>false</code></td><td>Alternates data-row backgrounds.</td></tr>
+            <tr><td><code>readonly</code></td><td><code>false</code></td><td>Disables all cell editing.</td></tr>
+            <tr><td><code>loading</code></td><td><code>false</code></td><td>Shows the loading overlay.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Dynamic options</h3>
+      <p>
+        <code>provider.loading</code>, <code>provider.readonlyGrid</code>, and
+        <code>provider.autoAddRows</code> are writable signals. Update them without recreating
+        the provider.
+      </p>
+
+      <h3>Localization</h3>
+      <p>
+        English and German labels are built in. The default <code>'auto'</code> locale uses the
+        browser language. Register partial overrides for additional locales:
+      </p>
+      <pre><code>{{ localizationCode }}</code></pre>
+    </section>
+
+    <section id="columns">
+      <h2>Column definitions</h2>
+      <p>
+        Use <code>ColDef&lt;T&gt;</code> to make field names and callbacks type-safe. Generic
+        parameters are optional for existing untyped configurations.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Property</th><th>Required</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>field</code></td><td>Yes</td><td>Key in the row object.</td></tr>
+            <tr><td><code>header</code></td><td>Yes</td><td>Displayed header label.</td></tr>
+            <tr><td><code>width</code></td><td>No</td><td>Pixel width or <code>ColDefAutoSize</code>.</td></tr>
+            <tr><td><code>type</code></td><td>No</td><td><code>'text'</code>, <code>'number'</code>, or <code>'date'</code>.</td></tr>
+            <tr><td><code>editable</code></td><td>No</td><td>Set to false for readonly cells.</td></tr>
+            <tr><td><code>locked</code></td><td>No</td><td>Prevents hiding, reordering, and unpinning.</td></tr>
+            <tr><td><code>values</code></td><td>No</td><td>Fixed editor and filter values or value-label pairs.</td></tr>
+            <tr><td><code>formatter</code></td><td>No</td><td>Formats the displayed value.</td></tr>
+            <tr><td><code>filterable</code></td><td>No</td><td>Enables the column filter UI.</td></tr>
+            <tr><td><code>groupable</code></td><td>No</td><td>Enables grouping from the column menu.</td></tr>
+            <tr><td><code>hidden</code></td><td>No</td><td>Hides the column initially.</td></tr>
+            <tr><td><code>pinned</code></td><td>No</td><td>Pins to <code>'left'</code> or <code>'right'</code>.</td></tr>
+            <tr><td><code>aggregate</code></td><td>No</td><td><code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, or <code>count</code>.</td></tr>
+            <tr><td><code>cellRenderer</code></td><td>No</td><td>Returns sanitized HTML for the cell.</td></tr>
+            <tr><td><code>cellClass</code></td><td>No</td><td>Returns a CSS class for the cell.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        ISO date strings and <code>Date</code> objects are automatically formatted and sorted
+        chronologically. A custom <code>formatter</code> takes precedence.
+      </div>
+    </section>
+
+    <section id="datasource">
+      <h2>AgridDataSource</h2>
+      <p>
+        <code>AgridDataSource&lt;T&gt;</code> owns the row signal used by both the host and the
+        grid. It can also link directly to an existing Angular signal.
+      </p>
+      <pre><code>{{ signalCode }}</code></pre>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Member</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>rows</code></td><td>Readonly signal containing current rows.</td></tr>
+            <tr><td><code>linkSignal(source)</code></td><td>Links a readonly or writable external signal.</td></tr>
+            <tr><td><code>setData(rows)</code></td><td>Replaces all rows.</td></tr>
+            <tr><td><code>updateRow(index, row)</code></td><td>Replaces one row.</td></tr>
+            <tr><td><code>patchRow(index, patch)</code></td><td>Merges a partial row update.</td></tr>
+            <tr><td><code>addRow(row, atIndex?)</code></td><td>Inserts a row and returns its index.</td></tr>
+            <tr><td><code>removeRow(index)</code></td><td>Removes a row.</td></tr>
+            <tr><td><code>moveRow(from, to)</code></td><td>Moves a row using insert-before semantics.</td></tr>
+            <tr><td><code>getRow(index)</code></td><td>Returns a non-reactive snapshot.</td></tr>
+            <tr><td><code>length</code></td><td>Current row count.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="control">
+      <h2>AgridControl</h2>
+      <p>
+        The control stores UI state and enables filters, sorting, grouping, column state,
+        pagination, row reorder, and undo/redo.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Area</th><th>Important methods and signals</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Columns</td><td><code>setColumnVisibility</code>, <code>setColumnOrder</code>, <code>setPinned</code>, <code>setColumnWidth</code></td></tr>
+            <tr><td>Filters</td><td><code>setTextFilter</code>, <code>setSelectedValues</code>, <code>clearFilter</code>, <code>clearAllFilters</code></td></tr>
+            <tr><td>Sorting</td><td><code>setSort</code>, <code>filters</code></td></tr>
+            <tr><td>Grouping</td><td><code>setGroupBy</code>, <code>groupByField</code></td></tr>
+            <tr><td>Pagination</td><td><code>setPageSize</code>, <code>setPage</code>, <code>pageSize</code>, <code>currentPage</code></td></tr>
+            <tr><td>History</td><td><code>undo</code>, <code>redo</code>, <code>clearHistory</code>, <code>canUndo</code>, <code>canRedo</code></td></tr>
+            <tr><td>Persistence</td><td><code>toJSON</code>, <code>AgridControl.fromJSON</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <pre><code>{{ persistenceCode }}</code></pre>
+    </section>
+
+    <section id="events">
+      <h2>Events</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Output</th><th>Type</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>cellEdit</code></td><td><code>GridEditEvent</code></td><td>Committed edit, paste, fill, undo, or redo.</td></tr>
+            <tr><td><code>recordEdit</code></td><td><code>RecordEditEvent&lt;T&gt;</code></td><td>Emitted after the datasource row has been updated.</td></tr>
+            <tr><td><code>rowRemoved</code></td><td><code>RecordEditEvent&lt;T&gt;</code></td><td>Includes the former index, removed row, provider, and datasource.</td></tr>
+            <tr><td><code>prepareAddRecord</code></td><td><code>NewRecord&lt;T&gt;</code></td><td>Emitted after inserting a blank row so defaults can be patched.</td></tr>
+            <tr><td><code>rowReorder</code></td><td><code>RowReorderEvent&lt;T&gt;</code></td><td>The host applies the move with <code>datasource.moveRow()</code>.</td></tr>
+            <tr><td><code>rowSelect</code></td><td><code>RowSelectEvent&lt;T&gt; | null</code></td><td>Selected rows or null when selection clears.</td></tr>
+            <tr><td><code>filterChange</code></td><td><code>FilterChangeEvent</code></td><td>Server-side filter request.</td></tr>
+            <tr><td><code>sortChange</code></td><td><code>SortChangeEvent</code></td><td>Server-side sort request.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Adding defaults in repeated grids</h3>
+      <p>
+        Use the provider and datasource carried by the event. This avoids coupling the event to
+        the surrounding loop index.
+      </p>
+      <pre><code>{{ addRecordCode }}</code></pre>
+    </section>
+
+    <section id="behavior">
+      <h2>Keyboard and mouse behavior</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Action</th><th>Behavior</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Arrow keys</td><td>Move the active cell.</td></tr>
+            <tr><td>Shift + arrow/click</td><td>Extend the cell range.</td></tr>
+            <tr><td>Tab / Shift + Tab</td><td>Move horizontally and wrap rows.</td></tr>
+            <tr><td>Enter / F2 / printable key</td><td>Start editing.</td></tr>
+            <tr><td>Escape</td><td>Cancel editing or close find.</td></tr>
+            <tr><td>Ctrl/Cmd + Z</td><td>Undo.</td></tr>
+            <tr><td>Ctrl/Cmd + Y or Shift + Z</td><td>Redo.</td></tr>
+            <tr><td>Ctrl/Cmd + F</td><td>Open the find panel.</td></tr>
+            <tr><td>Double-click resize handle</td><td>Autosize the column.</td></tr>
+            <tr><td>Drag header</td><td>Reorder the column.</td></tr>
+            <tr><td>Drag fill handle</td><td>Fill the selected range.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="styling">
+      <h2>Styling and layout</h2>
+      <p>
+        The grid host is a flex column. Give it a defined height and ensure its flex ancestors
+        have <code>min-height: 0</code>.
+      </p>
+      <pre><code>{{ layoutCode }}</code></pre>
+      <h3>CSS custom properties</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Property</th><th>Default</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>--agrid-color-text</code></td><td><code>#24292f</code></td><td>Primary text.</td></tr>
+            <tr><td><code>--agrid-color-text-muted</code></td><td><code>#57606a</code></td><td>Secondary text.</td></tr>
+            <tr><td><code>--agrid-color-accent</code></td><td><code>#1a73e8</code></td><td>Focus and selection.</td></tr>
+            <tr><td><code>--agrid-color-border</code></td><td><code>#d0d7de</code></td><td>Grid borders.</td></tr>
+            <tr><td><code>--agrid-color-bg</code></td><td><code>#ffffff</code></td><td>Cell background.</td></tr>
+            <tr><td><code>--agrid-color-bg-muted</code></td><td><code>#f6f8fa</code></td><td>Header and hover background.</td></tr>
+            <tr><td><code>--agrid-color-bg-stripe</code></td><td><code>#f0f2f5</code></td><td>Zebra stripe background.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="docs-footer">
+        The repository README contains development and contributor commands.
+        <a href="https://github.com/thkl/agrid#readme" target="_blank" rel="noopener">View the README</a>.
+      </div>
+    </section>
+  </article>
+</div>

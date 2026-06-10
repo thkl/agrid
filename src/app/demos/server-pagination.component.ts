@@ -6,9 +6,10 @@ import {
   viewChild,
 } from '@angular/core';
 import {
-  AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef, FilterChangeEvent,
+  AgridComponent, AgridControl, AgridDataSource, ColDef, FilterChangeEvent,
   PageChangeEvent, SortChangeEvent,
-} from '@thkl/agrid';
+} from '../agrid';
+import { AgridProvider } from '../agrid/agrid-provider';
 import { escapeRendererText, rendererClassSuffix } from './demo-renderer.utils';
 
 const TOTAL_ROWS = 1_000;

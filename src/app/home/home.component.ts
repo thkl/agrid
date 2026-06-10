@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef, ColDefAutoSize } from '@thkl/agrid';
+import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef } from '../agrid';
+import { ColDefAutoSize } from '../agrid/agrid.types';
 
 const PREVIEW_COLUMNS: ColDef[] = [
   { field: 'name',       header: 'Name',       width: ColDefAutoSize, filterable: true },
@@ -63,6 +64,7 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
           </p>
           <div class="hero-actions">
             <a class="btn btn-white" routerLink="/demo">Explore demos →</a>
+            <a class="btn btn-outline" routerLink="/documentation">Documentation</a>
             <a class="btn btn-outline" href="https://github.com/thkl/agrid" target="_blank" rel="noopener">
               <svg class="github-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                 <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38

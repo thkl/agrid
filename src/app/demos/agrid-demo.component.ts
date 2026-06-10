@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, signal, viewChild } from '@angular/core';
-import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef, ColDefAutoSize, GridEditEvent, GroupAction, NewRecord, RowReorderEvent, RowSelectEvent } from '@thkl/agrid';
+import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef, GridEditEvent, GroupAction, NewRecord, RowReorderEvent, RowSelectEvent } from '../agrid';
+import { ColDefAutoSize } from '../agrid/agrid.types';
 
 const COLUMNS: ColDef[] = [
   { field: 'id', header: 'ID', width: ColDefAutoSize, editable: false},

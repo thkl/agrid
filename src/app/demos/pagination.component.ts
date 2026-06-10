@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, viewChild } from '@angular/core';
-import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef } from '@thkl/agrid';
+import { AgridComponent, AgridControl, AgridDataSource, ColDef } from '../agrid';
+import { AgridProvider } from '../agrid/agrid-provider';
 
 const COLUMNS: ColDef[] = [
   { field: 'id',       header: 'ID',       width: 70,  editable: false },

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, viewChild } from '@angular/core';
-import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef } from '@thkl/agrid';
+import { AgridComponent, AgridControl, AgridDataSource, ColDef } from '../agrid';
+import { AgridProvider } from '../agrid/agrid-provider';
 
 const REGIONS  = ['North','South','East','West','Central'];
 const PRODUCTS = ['Widget A','Widget B','Gadget Pro','Service Pack','Support Plan','Add-on Kit'];
