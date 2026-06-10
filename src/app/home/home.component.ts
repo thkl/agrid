@@ -167,7 +167,15 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
     </div>
   `,
   styles: `
-    :host { display: block; }
+    :host { display: block; 
+      overflow:auto, 
+      scrollbar-width: thin,
+    }
+
+    :host::-webkit-scrollbar {
+      height:8px
+    }
+
 
     .page {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
