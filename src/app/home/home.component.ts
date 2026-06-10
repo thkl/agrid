@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef } from '../agrid';
-import { ColDefAutoSize } from '../agrid/agrid.types';
+import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef, ColDefAutoSize } from '@thkl/agrid';
 
 const PREVIEW_COLUMNS: ColDef[] = [
   { field: 'name',       header: 'Name',       width: ColDefAutoSize, filterable: true },

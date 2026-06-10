@@ -56,7 +56,7 @@ export interface ValueOption<TValue = unknown> {
 export const ColDefAutoSize = -1;
 
 /** Defines the behavior shared by every typed column. */
-interface ColDefBase<T extends object, K extends AgridField<T>> {
+export interface ColDefBase<T extends object, K extends AgridField<T>> {
   /** Data field name — must match a key in the row object. */
   field: K;
   /** Text displayed in the column header. */

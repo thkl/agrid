@@ -13,7 +13,7 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: './node_modules/.bin/ng serve --host 127.0.0.1 --port 4207',
+    command: './node_modules/.bin/ng serve agrid-demo --host 127.0.0.1 --port 4207',
     url: 'http://127.0.0.1:4207',
     reuseExistingServer: !process.env['CI'],
     timeout: 120_000,

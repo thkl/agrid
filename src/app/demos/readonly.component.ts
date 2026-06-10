@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, effect, signal, viewChild } from '@angular/core';
-import { AgridComponent, AgridControl, AgridDataSource, CellContextMenuItem, ColDef } from '../agrid';
-import { AgridProvider } from '../agrid/agrid-provider';
+import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, CellContextMenuItem, ColDef } from '@thkl/agrid';
 import { escapeRendererText, rendererClassSuffix } from './demo-renderer.utils';
 
 const PRIORITIES = ['Critical','High','Medium','Low'];

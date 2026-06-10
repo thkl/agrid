@@ -47,3 +47,4 @@ docs/
 graphify-out/
 .codex
 AGENTS.md
+.pnpm-store/

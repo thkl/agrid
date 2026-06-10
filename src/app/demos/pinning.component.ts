@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, viewChild } from '@angular/core';
-import { AgridComponent, AgridControl, AgridDataSource, ColDef } from '../agrid';
-import { AgridProvider } from '../agrid/agrid-provider';
+import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef } from '@thkl/agrid';
 import { escapeRendererText, rendererClassSuffix } from './demo-renderer.utils';
 
 const COLUMNS: ColDef[] = [

@@ -8,9 +8,13 @@
 
 ## Quick Start
 
+```bash
+npm install @thkl/agrid @angular/cdk
+```
+
 ```ts
 import { Component } from '@angular/core';
-import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef, GridEditEvent } from './agrid';
+import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef, GridEditEvent } from '@thkl/agrid';
 
 const columns: ColDef[] = [
   { field: 'id', header: 'ID', width: 70, editable: false, pinned: 'left' },
@@ -962,7 +966,8 @@ Override these on the `agrid` host element to theme the grid.
 ```bash
 pnpm install
 pnpm start
-pnpm build
+pnpm build          # publishable package
+pnpm build:demo
 pnpm test
 pnpm test:e2e
 pnpm test:performance
@@ -981,7 +986,15 @@ tests in Chromium. Install its browser once when setting up a new environment:
 pnpm exec playwright install chromium
 ```
 
-`pnpm test:performance` runs the isolated large-dataset suite serially against 10k, 50k, and
-100k rows. It reports initial render, filtering, sorting, grouping, aggregation, row updates, and
-virtual-scroll timings without enforcing machine-dependent thresholds. The same operations can be
-run manually at `/performance`.
+`pnpm test:performance` runs the isolated large-dataset suite serially against 10k, 50k, 100k,
+and 250k rows. It reports initial render, filtering, sorting, grouping, aggregation, row updates,
+and virtual-scroll timings without enforcing machine-dependent thresholds. The same operations can
+be run manually at `/performance`.
+
+`pnpm build:lib` creates the publishable Angular package in `dist/agrid`. Inspect the package
+contents with:
+
+```bash
+cd dist/agrid
+npm pack --dry-run
+```
