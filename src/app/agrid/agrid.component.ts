@@ -14,34 +14,35 @@ import {
   viewChild,
 } from '@angular/core';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
-import { AgridCellComponent } from './agrid-cell.component';
-import { AgridBrowserAdapter } from './agrid-browser.adapter';
-import { AgridClipboardHandler, CellRange } from './agrid-clipboard.handler';
-import { AgridColumnMenuController } from './agrid-column-menu.controller';
-import { AgridColumnReorderController } from './agrid-column-reorder.controller';
-import { AgridColumnSizingController } from './agrid-column-sizing.controller';
-import { AgridColumnStateService } from './agrid-column-state.service';
-import { AgridColumnMenuComponent } from './agrid-column-menu.component';
+import { AgridCellComponent } from './rendering/agrid-cell.component';
+import { AgridBrowserAdapter } from './infrastructure/agrid-browser.adapter';
+import { AgridClipboardHandler, CellRange } from './selection/agrid-clipboard.handler';
+import { AgridColumnLayoutModel } from './columns/agrid-column-layout.model';
+import { AgridColumnMenuComponent } from './columns/agrid-column-menu.component';
+import { AgridColumnMenuController } from './columns/agrid-column-menu.controller';
+import { AgridColumnReorderController } from './columns/agrid-column-reorder.controller';
+import { AgridColumnSizingController } from './columns/agrid-column-sizing.controller';
+import { AgridColumnStateService } from './columns/agrid-column-state.service';
 import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
-import { AgridDragHandler } from './agrid-drag.handler';
-import { AgridEditController } from './agrid-edit.controller';
-import { AgridFindController } from './agrid-find.controller';
-import { AgridFindPanelComponent } from './agrid-find-panel.component';
-import { AgridGroupController } from './agrid-group.controller';
+import { AgridDragHandler } from './rows/agrid-drag.handler';
+import { AgridEditController } from './editing/agrid-edit.controller';
+import { AgridFindController } from './selection/agrid-find.controller';
+import { AgridFindPanelComponent } from './selection/agrid-find-panel.component';
+import { AgridGroupController } from './rows/agrid-group.controller';
 import { AgridLocaleText, resolveAgridLocaleText, resolveLocale } from './agrid-localization';
-import { AgridNavigationController } from './agrid-navigation.controller';
-import { AgridPresentationService } from './agrid-presentation.service';
+import { AgridNavigationController } from './selection/agrid-navigation.controller';
+import { AgridPresentationService } from './rendering/agrid-presentation.service';
 import { AgridProvider } from './agrid-provider';
-import { AgridProjectionModel } from './agrid-projection.model';
-import { AgridRangeController } from './agrid-range.controller';
-import { AgridCellContextMenu, AgridRowController } from './agrid-row.controller';
-import { AgridSidebarController } from './agrid-sidebar.controller';
+import { AgridProjectionModel } from './rows/agrid-projection.model';
+import { AgridRangeController } from './selection/agrid-range.controller';
+import { AgridCellContextMenu, AgridRowController } from './rows/agrid-row.controller';
+import { AgridSidebarController } from './editing/agrid-sidebar.controller';
 import {
   AgridSidebarComponent,
   AgridSidebarDetailField,
   AgridSidebarEdit,
-} from './agrid-sidebar.component';
+} from './editing/agrid-sidebar.component';
 import {
   isDataRowItem as isDataRowItemFn,
   isGroupHeaderItem as isGroupHeaderItemFn,
@@ -298,77 +299,27 @@ export class AgridComponent<T extends object = any> {
   /** `true` when there is a previously undone edit that can be re-applied (Ctrl+Y / Ctrl+Shift+Z). */
   readonly canRedo = computed(() => this.control()?.canRedo() ?? false);
 
-  /**
-   * Columns currently visible (hidden ones still participate in filter/sort/group logic).
-   * Seeded from `ColDef.hidden` on first render via the constructor effect.
-   */
-  readonly visibleColDefs = computed(() => {
-    const ctrl = this.control();
-    let cols = ctrl
-      ? this.colDefs().filter(c => !ctrl.hiddenColumns().has(c.field))
-      : this.colDefs().filter(c => !c.hidden);
-
-    if (ctrl) {
-      const order = ctrl.columnOrder();
-      if (order.length > 0) {
-        const orderMap = new Map(order.map((f, i) => [f, i]));
-        cols = [...cols].sort((a, b) =>
-          (orderMap.get(a.field) ?? Infinity) - (orderMap.get(b.field) ?? Infinity)
-        );
-      }
-      const pinned = ctrl.pinnedColumns();
-      if (pinned.size > 0) {
-        cols = [...cols.filter(c => pinned.has(c.field)), ...cols.filter(c => !pinned.has(c.field))];
-      }
-    } else {
-      const pinnedCols = cols.filter(c => c.pinned === 'left');
-      if (pinnedCols.length > 0) {
-        cols = [...pinnedCols, ...cols.filter(c => c.pinned !== 'left')];
-      }
-    }
-    return cols;
+  private readonly columnLayout = new AgridColumnLayoutModel({
+    control: this.control,
+    colDefs: this.colDefs,
+    showControlColumn: this.showControlColumn,
+    getColumnWidth: col => this.getColumnWidth(col),
+    getColumnWidthToken: col => this.getColumnWidthToken(col),
   });
 
-  /** Columns currently pinned to the left (in display order). */
-  readonly pinnedColDefs = computed(() => {
-    const ctrl = this.control();
-    if (ctrl) {
-      const pinned = ctrl.pinnedColumns();
-      return pinned.size > 0 ? this.visibleColDefs().filter(c => pinned.has(c.field)) : [];
-    }
-    return this.visibleColDefs().filter(c => c.pinned === 'left');
-  });
-
-  /** Columns pinned to the right edge. */
-  readonly rightPinnedColDefs = computed(() => {
-    const ctrl = this.control();
-    if (ctrl) {
-      const pinned = ctrl.pinnedRightColumns();
-      return pinned.size > 0 ? this.visibleColDefs().filter(c => pinned.has(c.field)) : [];
-    }
-    return this.visibleColDefs().filter(c => c.pinned === 'right');
-  });
-
-  readonly rightGridTemplateColumns = computed(() =>
-    this.rightPinnedColDefs().map(c => this.getColumnWidthToken(c)).join(' ')
-  );
-
-  readonly rightPinnedPaneWidth = computed(() =>
-    this.rightPinnedColDefs().reduce((sum, c) => sum + this.getColumnWidth(c), 0)
-  );
-
-  readonly hasRightPinnedPane = computed(() => this.rightPinnedColDefs().length > 0);
-
+  /** Columns currently visible after hidden state, ordering, and pinning are applied. */
+  readonly visibleColDefs = this.columnLayout.visibleColDefs;
+  /** Columns currently pinned to the left in display order. */
+  readonly pinnedColDefs = this.columnLayout.pinnedColDefs;
+  /** Columns currently pinned to the right in display order. */
+  readonly rightPinnedColDefs = this.columnLayout.rightPinnedColDefs;
   /** Columns rendered in the horizontally scrollable pane. */
-  readonly scrollableColDefs = computed(() =>
-    this.visibleColDefs().filter(c => !this.isColumnPinned(c.field) && !this.isColumnPinnedRight(c.field))
-  );
-
-  readonly hasPinnedPane = computed(() =>
-    this.showControlColumn() || this.pinnedColDefs().length > 0
-  );
-
-  readonly hasFilterableColumns = computed(() => this.visibleColDefs().some(c => c.filterable));
+  readonly scrollableColDefs = this.columnLayout.scrollableColDefs;
+  readonly rightGridTemplateColumns = this.columnLayout.rightGridTemplateColumns;
+  readonly rightPinnedPaneWidth = this.columnLayout.rightPinnedPaneWidth;
+  readonly hasRightPinnedPane = this.columnLayout.hasRightPinnedPane;
+  readonly hasPinnedPane = this.columnLayout.hasPinnedPane;
+  readonly hasFilterableColumns = this.columnLayout.hasFilterableColumns;
 
   private readonly columnState = new AgridColumnStateService({
     control: this.control,
@@ -445,34 +396,12 @@ export class AgridComponent<T extends object = any> {
   /** Computed aggregate value per column field, over currently filtered rows. */
   readonly footerValues = this.projection.footerValues;
 
-  readonly gridTemplateColumns = computed(() => {
-    const cols = this.visibleColDefs().map(c => this.getColumnWidthToken(c)).join(' ');
-    return this.showControlColumn() ? `24px ${cols}` : cols;
-  });
-
-  readonly pinnedGridTemplateColumns = computed(() => {
-    const cols = this.pinnedColDefs().map(c => this.getColumnWidthToken(c)).join(' ');
-    if (this.showControlColumn()) return cols ? `24px ${cols}` : '24px';
-    return cols;
-  });
-
-  readonly scrollableGridTemplateColumns = computed(() =>
-    this.scrollableColDefs().map(c => this.getColumnWidthToken(c)).join(' ')
-  );
-
-  readonly totalWidth = computed(() => {
-    const w = this.visibleColDefs().reduce((sum, c) => sum + this.getColumnWidth(c), 0);
-    return this.showControlColumn() ? w + 24 : w;
-  });
-
-  readonly pinnedPaneWidth = computed(() =>
-    (this.showControlColumn() ? 24 : 0)
-    + this.pinnedColDefs().reduce((sum, c) => sum + this.getColumnWidth(c), 0)
-  );
-
-  readonly scrollableTotalWidth = computed(() =>
-    this.scrollableColDefs().reduce((sum, c) => sum + this.getColumnWidth(c), 0)
-  );
+  readonly gridTemplateColumns = this.columnLayout.gridTemplateColumns;
+  readonly pinnedGridTemplateColumns = this.columnLayout.pinnedGridTemplateColumns;
+  readonly scrollableGridTemplateColumns = this.columnLayout.scrollableGridTemplateColumns;
+  readonly totalWidth = this.columnLayout.totalWidth;
+  readonly pinnedPaneWidth = this.columnLayout.pinnedPaneWidth;
+  readonly scrollableTotalWidth = this.columnLayout.scrollableTotalWidth;
 
   /**
    * Filtered, sorted, and optionally grouped row list for `*cdkVirtualFor`.
