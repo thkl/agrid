@@ -167,8 +167,9 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
     </div>
   `,
   styles: `
-    :host { display: block; 
-      overflow:auto, 
+    :host { 
+      display: block; 
+      overflow:auto;
       scrollbar-width: thin,
     }
 
