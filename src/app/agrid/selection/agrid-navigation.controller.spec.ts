@@ -36,6 +36,32 @@ describe('AgridNavigationController', () => {
     expect(extendRangeTo).toHaveBeenCalledWith(1, 0);
   });
 
+  it('clears cell and range navigation when a grid control takes focus', () => {
+    const { controller, selectedCell, selectedRange, cancelEdit } = setup();
+    selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    selectedRange.set({
+      anchor: { rowIndex: 0, colIndex: 0 },
+      focus: { rowIndex: 1, colIndex: 1 },
+    });
+
+    controller.deactivateCell();
+
+    expect(selectedCell()).toBeNull();
+    expect(selectedRange()).toBeNull();
+    expect(cancelEdit).toHaveBeenCalledOnce();
+  });
+
+  it('does not route filter input keys into cell editing', () => {
+    const { controller, selectedCell, startEdit } = setup();
+    selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    const filter = document.createElement('input');
+    filter.className = 'ag-filter-input';
+
+    controller.handleKeyDown(keyboardEvent('a', { target: filter }));
+
+    expect(startEdit).not.toHaveBeenCalled();
+  });
+
   it('commits edits before moving and routes undo and redo shortcuts', () => {
     const editingCell = signal<CellPosition | null>({ rowIndex: 0, colIndex: 0 });
     const { controller, commitEdit, undoEdit, redoEdit } = setup({ editingCell });
@@ -169,9 +195,12 @@ function setup(overrides: {
     controller: new AgridNavigationController(options),
     dataSource,
     selectedCell,
+    selectedRange,
     prepared,
     focusGrid,
+    startEdit,
     commitEdit,
+    cancelEdit,
     undoEdit,
     redoEdit,
     extendRangeTo,
@@ -187,9 +216,12 @@ function dataItem(originalIndex: number): GridItem {
 
 function keyboardEvent(
   key: string,
-  init: KeyboardEventInit = {},
+  init: KeyboardEventInit & { target?: EventTarget } = {},
 ): KeyboardEvent {
-  return new KeyboardEvent('keydown', { key, cancelable: true, ...init });
+  const { target, ...eventInit } = init;
+  const event = new KeyboardEvent('keydown', { key, cancelable: true, ...eventInit });
+  if (target) Object.defineProperty(event, 'target', { value: target });
+  return event;
 }
 
 function createViewport(

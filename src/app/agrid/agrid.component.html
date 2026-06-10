@@ -3,6 +3,7 @@
   [attr.aria-multiselectable]="rowSelection() === 'multi' ? 'true' : null"
   [attr.aria-readonly]="readonlyGrid() ? 'true' : null"
   [attr.aria-busy]="loading() ? 'true' : null" (copy)="onCopy($event)" (paste)="onPaste($event)"
+  (focusin)="onGridFocusIn($event)"
   (click)="closeContextMenu(); closeCellContextMenu(); closeFilterMenu(); closeGroupActionsMenu()">
   <div class="ag-main-area">
     <div class="ag-grid-split" [class.ag-has-right-pane]="hasRightPinnedPane()">

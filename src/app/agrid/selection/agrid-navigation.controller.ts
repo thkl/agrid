@@ -72,6 +72,13 @@ export class AgridNavigationController {
     this.addRowAndSelect();
   }
 
+  /** Clears cell and range navigation when focus moves to a grid control. */
+  deactivateCell(): void {
+    this.opts.cancelEdit();
+    this.opts.selectedCell.set(null);
+    this.opts.selectedRange.set(null);
+  }
+
   /** Inserts an initialized blank row and emits the preparation callback. */
   insertRowAt(atIndex: number): void {
     const emptyRow = this.buildEmptyRow();
@@ -81,7 +88,7 @@ export class AgridNavigationController {
 
   /** Handles grid-level navigation, editing, history, find, and add-row shortcuts. */
   handleKeyDown(event: KeyboardEvent): void {
-    if ((event.target as Element)?.closest('.ag-sidebar')) return;
+    if ((event.target as Element)?.closest('.ag-sidebar, .ag-filter-input, .ag-filter-menu')) return;
 
     if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'f') {
       event.preventDefault();

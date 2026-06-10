@@ -924,6 +924,13 @@ export class AgridComponent<T extends object = any> {
     this.navigationController.handleKeyDown(event);
   }
 
+  /** @internal Clears cell navigation while a header filter control owns focus. */
+  onGridFocusIn(event: FocusEvent): void {
+    if ((event.target as Element | null)?.closest('.ag-filter-input, .ag-filter-menu')) {
+      this.navigationController.deactivateCell();
+    }
+  }
+
   /** Open the find panel and focus its input. */
   openFind(): void {
     this.findController.show();

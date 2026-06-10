@@ -31,6 +31,33 @@ test.describe('agrid browser interactions', () => {
     await expect(page.locator('.edit-log')).toContainText('"firstName": "Alice" → "Alicia"');
   });
 
+  test('keeps typing in header filters instead of reopening the selected cell editor', async ({ page }) => {
+    await page.goto('/demo');
+    const selectedCell = page.locator(cell(0, 1)).first();
+    await selectedCell.click();
+
+    const headerFilter = page.locator(
+      '.ag-header-cell[data-col-field="firstName"] .ag-filter-input',
+    );
+    await headerFilter.click();
+    await headerFilter.pressSequentially('Al');
+
+    await expect(headerFilter).toHaveValue('Al');
+    await expect(page.locator('.ag-cell-input')).toHaveCount(0);
+    await expect(selectedCell).not.toHaveAttribute('aria-selected', 'true');
+
+    await headerFilter.fill('');
+    await page.locator(
+      '.ag-header-cell[data-col-field="firstName"] .ag-header-menu-btn',
+    ).click();
+    const menuFilter = page.locator('.ag-filter-menu-search');
+    await menuFilter.click();
+    await menuFilter.pressSequentially('Bo');
+
+    await expect(menuFilter).toHaveValue('Bo');
+    await expect(page.locator('.ag-cell-input')).toHaveCount(0);
+  });
+
   test('edits date columns with a native date input', async ({ page }) => {
     await page.goto('/demo');
     const grid = page.getByRole('grid');
