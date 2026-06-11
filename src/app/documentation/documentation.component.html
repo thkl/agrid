@@ -96,6 +96,7 @@
             <tr><td><code>toggleSidebar()</code></td><td>Opens or closes the column sidebar.</td></tr>
             <tr><td><code>openFind()</code></td><td>Opens and focuses the find panel.</td></tr>
             <tr><td><code>deleteRow(index)</code></td><td>Removes a row and emits <code>rowRemoved</code>.</td></tr>
+            <tr><td><code>clearChangedCells(index?, fields?)</code></td><td>Clears all markers, one row, or selected fields.</td></tr>
           </tbody>
         </table>
       </div>
@@ -134,6 +135,7 @@
             <tr><td><code>sortOption</code></td><td><code>'multi'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
             <tr><td><code>rowSelection</code></td><td><code>'none'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
             <tr><td><code>zebraStripes</code></td><td><code>false</code></td><td>Alternates data-row backgrounds.</td></tr>
+            <tr><td><code>showChangedCellIndicator</code></td><td><code>false</code></td><td>Marks changed cells until persistence clears them.</td></tr>
             <tr><td><code>readonly</code></td><td><code>false</code></td><td>Disables all cell editing.</td></tr>
             <tr><td><code>loading</code></td><td><code>false</code></td><td>Shows the loading overlay.</td></tr>
           </tbody>
@@ -254,6 +256,7 @@
           <tbody>
             <tr><td><code>cellEdit</code></td><td><code>GridEditEvent</code></td><td>Committed edit, paste, fill, undo, or redo.</td></tr>
             <tr><td><code>recordEdit</code></td><td><code>RecordEditEvent&lt;T&gt;</code></td><td>Emitted after the datasource row has been updated.</td></tr>
+            <tr><td><code>rowChanged</code></td><td><code>RowUpdateEvent&lt;T&gt;</code></td><td>Emitted once with the latest row after inline editing leaves it, or after sidebar Save.</td></tr>
             <tr><td><code>rowRemoved</code></td><td><code>RecordEditEvent&lt;T&gt;</code></td><td>Includes the former index, removed row, provider, and datasource.</td></tr>
             <tr><td><code>prepareAddRecord</code></td><td><code>NewRecord&lt;T&gt;</code></td><td>Emitted after inserting a blank row so defaults can be patched.</td></tr>
             <tr><td><code>rowReorder</code></td><td><code>RowReorderEvent&lt;T&gt;</code></td><td>The host applies the move with <code>datasource.moveRow()</code>.</td></tr>
@@ -263,6 +266,19 @@
           </tbody>
         </table>
       </div>
+      <h3>Saving a complete row</h3>
+      <p>
+        Use <code>rowChanged</code> when several field edits should become one API request.
+        Moving between cells in the same row does not emit it. The event fires when navigation
+        enters another row, filter focus clears the active cell, focus leaves the grid, or the
+        sidebar Save button is used.
+      </p>
+      <pre><code>{{ saveRowCode }}</code></pre>
+      <p>
+        Enable <code>showChangedCellIndicator</code> on the provider to display a corner marker
+        after each committed change. Call <code>clearChangedCells(event.originalIndex)</code> only
+        after the request succeeds. You can also clear selected fields or every marker.
+      </p>
       <h3>Adding defaults in repeated grids</h3>
       <p>
         Use the provider and datasource carried by the event. This avoids coupling the event to
@@ -316,6 +332,7 @@
             <tr><td><code>--agrid-color-bg</code></td><td><code>#ffffff</code></td><td>Cell background.</td></tr>
             <tr><td><code>--agrid-color-bg-muted</code></td><td><code>#f6f8fa</code></td><td>Header and hover background.</td></tr>
             <tr><td><code>--agrid-color-bg-stripe</code></td><td><code>#f0f2f5</code></td><td>Zebra stripe background.</td></tr>
+            <tr><td><code>--agrid-color-cell-changed</code></td><td><code>#f59e0b</code></td><td>Changed-cell corner marker.</td></tr>
           </tbody>
         </table>
       </div>

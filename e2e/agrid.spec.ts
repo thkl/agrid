@@ -121,9 +121,11 @@ test.describe('agrid browser interactions', () => {
   test('keeps left and right pinned columns fixed during horizontal scrolling', async ({ page }) => {
     await page.goto('/pinning');
     const leftHeader = page.locator(
-      '.ag-pinned-pane:not(.ag-pinned-pane--right) [data-col-field="id"]',
+      '.ag-pinned-pane:not(.ag-pinned-pane--right) .ag-header-cell[data-col-field="id"]',
     );
-    const rightHeader = page.locator('.ag-pinned-pane--right [data-col-field="status"]');
+    const rightHeader = page.locator(
+      '.ag-pinned-pane--right .ag-header-cell[data-col-field="status"]',
+    );
     const scroller = page.locator('.ag-horizontal-scroll');
 
     const leftBefore = await leftHeader.boundingBox();
@@ -142,6 +144,8 @@ test.describe('agrid browser interactions', () => {
     await page.goto('/pinning');
     const nameHeader = page.locator('.ag-horizontal-scroll > .ag-header [data-col-field="name"]');
     const emailHeader = page.locator('.ag-horizontal-scroll > .ag-header [data-col-field="email"]');
+    const nameCell = page.locator('.ag-horizontal-scroll agrid-cell[data-col-field="name"]').first();
+    const emailCell = page.locator('.ag-horizontal-scroll agrid-cell[data-col-field="email"]').first();
 
     const nameBox = await nameHeader.boundingBox();
     const emailBox = await emailHeader.boundingBox();
@@ -152,7 +156,27 @@ test.describe('agrid browser interactions', () => {
     await page.mouse.move(emailBox.x + emailBox.width - 4, emailBox.y + emailBox.height / 2, {
       steps: 8,
     });
+
+    const preview = page.locator('.ag-column-drag-preview');
+    await expect(preview).toBeVisible();
+    await expect(preview).toContainText('Name');
+    await expect(nameHeader).toHaveCSS('opacity', '0.12');
+    await expect.poll(async () => emailHeader.evaluate(element =>
+      getComputedStyle(element).transform,
+    )).not.toBe('none');
+    await expect(nameCell).toHaveCSS('opacity', '0.12');
+    await expect.poll(async () => emailCell.evaluate(element =>
+      getComputedStyle(element).transform,
+    )).not.toBe('none');
+
+    await page.mouse.move(emailBox.x + emailBox.width - 4, emailBox.y + emailBox.height + 80);
+    await expect(preview).toBeVisible();
+    await expect.poll(async () => emailCell.evaluate(element =>
+      getComputedStyle(element).transform,
+    )).not.toBe('none');
+
     await page.mouse.up();
+    await expect(preview).toHaveCount(0);
 
     const headers = page.locator(
       '.ag-horizontal-scroll > .ag-header > .ag-header-cell[data-col-field]',

@@ -28,6 +28,7 @@
             [class.ag-header-cell--dragging]="isColDragging(col.field)"
             [class.ag-header-cell--drop-before]="getColDropSide(col.field) === 'before'"
             [class.ag-header-cell--drop-after]="getColDropSide(col.field) === 'after'"
+            [style.transform]="'translateX(' + getColReorderOffset(col.field) + 'px)'"
             [class.ag-header-cell--pinned-last]="isLastPinnedColumn(col.field)" [attr.data-col-field]="col.field"
             (pointerdown)="onColHeaderPointerDown($event, col.field)">
             <div class="ag-header-cell-top">
@@ -88,6 +89,7 @@
             <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
               [row]="item.row" [locale]="locale()" [attr.title]="getCellTitle(col, item.row[col.field])"
               [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
+              [attr.data-col-field]="col.field"
               [attr.aria-colindex]="getAriaColIndex(ci)"
               [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
               [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
@@ -97,6 +99,9 @@
               [class.ag-cell--fill-handle]="isFillHandleCell(item.originalIndex, ci)"
               [class.ag-cell--find-match]="isFindMatchCell(item.originalIndex, ci)"
               [class.ag-cell--find-active]="isActiveFindMatchCell(item.originalIndex, ci)"
+              [class.ag-cell--changed]="isCellChanged(item.originalIndex, col.field)"
+              [class.ag-column-reorder-item--dragging]="isColDragging(col.field)"
+              [style.transform]="'translateX(' + getColReorderOffset(col.field) + 'px)'"
               [class]="getCellClass(col, item.row[col.field], item.row)" [class.ag-cell--pinned]="true"
               [class.ag-cell--pinned-last]="isLastPinnedColumn(col.field)"
               (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
@@ -111,7 +116,10 @@
             <div class="ag-control-cell ag-control-cell--reorder ag-ghost-handle"></div>
             }
             @for (col of pinnedColDefs(); track col.field) {
-            <div class="ag-ghost-cell ag-cell--pinned" [class.ag-cell--pinned-last]="isLastPinnedColumn(col.field)">{{
+            <div class="ag-ghost-cell ag-cell--pinned"
+              [class.ag-column-reorder-item--dragging]="isColDragging(col.field)"
+              [style.transform]="'translateX(' + getColReorderOffset(col.field) + 'px)'"
+              [class.ag-cell--pinned-last]="isLastPinnedColumn(col.field)">{{
               getGhostCellDisplay(col) }}</div>
             }
             } @else {
@@ -128,6 +136,8 @@
           }
           @for (col of pinnedColDefs(); track col.field) {
           <div class="ag-footer-cell" role="gridcell"
+            [class.ag-column-reorder-item--dragging]="isColDragging(col.field)"
+            [style.transform]="'translateX(' + getColReorderOffset(col.field) + 'px)'"
             [attr.aria-colindex]="getAriaColIndex(getVisibleColIndex(col.field))"
             [class.ag-footer-cell--pinned-last]="isLastPinnedColumn(col.field)">
             @if (hasAggregate(col)) {
@@ -155,6 +165,7 @@
               [class.ag-header-cell--dragging]="isColDragging(col.field)"
               [class.ag-header-cell--drop-before]="getColDropSide(col.field) === 'before'"
               [class.ag-header-cell--drop-after]="getColDropSide(col.field) === 'after'"
+              [style.transform]="'translateX(' + getColReorderOffset(col.field) + 'px)'"
               [attr.data-col-field]="col.field" (pointerdown)="onColHeaderPointerDown($event, col.field)">
               <div class="ag-header-cell-top">
                 <span class="ag-header-cell-label">{{ col.header }}</span>
@@ -211,6 +222,7 @@
               <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
                 [row]="item.row" [locale]="locale()" [attr.title]="getCellTitle(col, item.row[col.field])"
                 [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
+                [attr.data-col-field]="col.field"
                 [attr.aria-colindex]="getAriaColIndex(ci)"
                 [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
                 [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
@@ -219,6 +231,9 @@
                 [class.ag-cell--fill-preview]="isFillPreviewCell(item.originalIndex, ci)"
                 [class.ag-cell--fill-handle]="isFillHandleCell(item.originalIndex, ci)"
                 [class]="getCellClass(col, item.row[col.field], item.row)"
+                [class.ag-cell--changed]="isCellChanged(item.originalIndex, col.field)"
+                [class.ag-column-reorder-item--dragging]="isColDragging(col.field)"
+                [style.transform]="'translateX(' + getColReorderOffset(col.field) + 'px)'"
                 [class.ag-cell--find-match]="isFindMatchCell(item.originalIndex, ci)"
                 [class.ag-cell--find-active]="isActiveFindMatchCell(item.originalIndex, ci)"
                 (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
@@ -232,7 +247,10 @@
               </div>
               } @else if (item === 'ghost') {
               @for (col of scrollableColDefs(); track col.field) {
-              <div class="ag-ghost-cell">{{ getGhostCellDisplay(col) }}</div>
+              <div class="ag-ghost-cell"
+                [class.ag-column-reorder-item--dragging]="isColDragging(col.field)"
+                [style.transform]="'translateX(' + getColReorderOffset(col.field) + 'px)'">{{
+                getGhostCellDisplay(col) }}</div>
               }
               } @else {
               <div class="ag-group-header-content" [style.min-width.px]="scrollableTotalWidth()">
@@ -260,6 +278,8 @@
             [style.min-width.px]="scrollableTotalWidth()">
             @for (col of scrollableColDefs(); track col.field) {
             <div class="ag-footer-cell" role="gridcell"
+              [class.ag-column-reorder-item--dragging]="isColDragging(col.field)"
+              [style.transform]="'translateX(' + getColReorderOffset(col.field) + 'px)'"
               [attr.aria-colindex]="getAriaColIndex(getVisibleColIndex(col.field))">
               @if (hasAggregate(col)) {
               <span class="ag-footer-label">{{ getAggregateLabel(col) }}</span>
@@ -282,6 +302,10 @@
             [attr.aria-colindex]="getAriaColIndex(getVisibleColIndex(col.field))"
             [attr.aria-sort]="getSort(col.field) === 'asc' ? 'ascending' : getSort(col.field) === 'desc' ? 'descending' : 'none'"
             [class.ag-header-cell--filtered]="hasActiveFilter(col.field)"
+            [class.ag-header-cell--dragging]="isColDragging(col.field)"
+            [class.ag-header-cell--drop-before]="getColDropSide(col.field) === 'before'"
+            [class.ag-header-cell--drop-after]="getColDropSide(col.field) === 'after'"
+            [style.transform]="'translateX(' + getColReorderOffset(col.field) + 'px)'"
             [class.ag-header-cell--pinned-first]="isFirstRightPinnedColumn(col.field)" [attr.data-col-field]="col.field"
             (pointerdown)="onColHeaderPointerDown($event, col.field)">
             <div class="ag-header-cell-top">
@@ -336,6 +360,7 @@
             <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
               [row]="item.row" [locale]="locale()" [attr.title]="getCellTitle(col, item.row[col.field])"
               [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
+              [attr.data-col-field]="col.field"
               [attr.aria-colindex]="getAriaColIndex(ci)"
               [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
               [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
@@ -344,6 +369,9 @@
               [class.ag-cell--range-selected]="isRangeSelected(item.originalIndex, ci)"
               [class.ag-cell--fill-preview]="isFillPreviewCell(item.originalIndex, ci)"
               [class.ag-cell--fill-handle]="isFillHandleCell(item.originalIndex, ci)"
+              [class.ag-cell--changed]="isCellChanged(item.originalIndex, col.field)"
+              [class.ag-column-reorder-item--dragging]="isColDragging(col.field)"
+              [style.transform]="'translateX(' + getColReorderOffset(col.field) + 'px)'"
               [class.ag-cell--find-match]="isFindMatchCell(item.originalIndex, ci)"
               [class.ag-cell--find-active]="isActiveFindMatchCell(item.originalIndex, ci)"
               [class.ag-cell--pinned]="true" [class.ag-cell--pinned-first]="isFirstRightPinnedColumn(col.field)"
@@ -357,6 +385,8 @@
             } @else if (item === 'ghost') {
             @for (col of rightPinnedColDefs(); track col.field) {
             <div class="ag-ghost-cell ag-cell--pinned"
+              [class.ag-column-reorder-item--dragging]="isColDragging(col.field)"
+              [style.transform]="'translateX(' + getColReorderOffset(col.field) + 'px)'"
               [class.ag-cell--pinned-first]="isFirstRightPinnedColumn(col.field)">{{ getGhostCellDisplay(col) }}</div>
             }
             } @else {
@@ -370,6 +400,8 @@
           [style.grid-template-columns]="rightGridTemplateColumns()">
           @for (col of rightPinnedColDefs(); track col.field) {
           <div class="ag-footer-cell" role="gridcell"
+            [class.ag-column-reorder-item--dragging]="isColDragging(col.field)"
+            [style.transform]="'translateX(' + getColReorderOffset(col.field) + 'px)'"
             [attr.aria-colindex]="getAriaColIndex(getVisibleColIndex(col.field))"
             [class.ag-footer-cell--pinned-first]="isFirstRightPinnedColumn(col.field)">
             @if (hasAggregate(col)) {
@@ -507,5 +539,13 @@
     (searchChange)="onFilterMenuSearch($event)" (toggleAll)="onMenuToggleAll(menu.field)"
     (toggleValue)="onMenuToggleValue(menu.field, $event)" [aggregate]="getEffectiveAggregate(getColDef(menu.field)!)"
     (setAggregate)="onMenuSetAggregate(menu.field, $event)" />
+  }
+
+  @if (columnDragPreview(); as preview) {
+  <div class="ag-column-drag-preview"
+    [style.left.px]="preview.x" [style.top.px]="preview.y"
+    [style.width.px]="preview.width" [style.height.px]="preview.height">
+    <span>{{ preview.label }}</span>
+  </div>
   }
 </div>

@@ -36,33 +36,135 @@ describe('AgridColumnReorderController', () => {
       visibleColDefs: signal(columns),
       getColDef: field => columns.find(col => col.field === field),
     }, destroyRef());
-    const header = document.createElement('div');
-    header.className = 'ag-header-cell';
-    header.dataset['colField'] = 'amount';
-    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue({
-      x: 20, y: 0, top: 0, left: 20, right: 120, bottom: 40,
-      width: 100, height: 40, toJSON: () => ({}),
-    });
-    Object.defineProperty(document, 'elementsFromPoint', {
-      configurable: true,
-      value: vi.fn().mockReturnValue([header]),
-    });
-
-    controller.start(pointerEvent(), 'name');
+    const [source] = headerGrid([
+      ['name', 0],
+      ['amount', 100],
+    ]);
+    controller.start(pointerEvent(source), 'name');
     document.dispatchEvent(new MouseEvent('pointermove', { clientX: 30, clientY: 10 }));
     expect(controller.isDragging('name')).toBe(true);
+    expect(controller.preview()?.label).toBe('Name');
 
     document.dispatchEvent(new Event('pointercancel'));
 
     expect(controller.isDragging('name')).toBe(false);
+    expect(controller.preview()).toBeNull();
     expect(control.columnOrder()).toEqual([]);
-    delete (document as unknown as { elementsFromPoint?: Document['elementsFromPoint'] })
-      .elementsFromPoint;
+  });
+
+  it('shifts intervening headers to create an animated insertion gap', () => {
+    const control = new AgridControl();
+    const columns = [
+      { field: 'a', header: 'A' },
+      { field: 'b', header: 'B' },
+      { field: 'c', header: 'C' },
+      { field: 'd', header: 'D' },
+    ];
+    const controller = new AgridColumnReorderController({
+      control: signal(control),
+      visibleColDefs: signal(columns),
+      getColDef: field => columns.find(col => col.field === field),
+    }, destroyRef());
+    const [source] = headerGrid([
+      ['a', 0],
+      ['b', 100],
+      ['c', 200],
+      ['d', 300],
+    ]);
+    controller.start(pointerEvent(source), 'a');
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: 360, clientY: 10 }));
+
+    expect(controller.getHeaderOffset('b')).toBe(-100);
+    expect(controller.getHeaderOffset('c')).toBe(-100);
+    expect(controller.getHeaderOffset('d')).toBe(-100);
+    expect(controller.preview()).toMatchObject({ field: 'a', x: 350, width: 100 });
+
+    document.dispatchEvent(new Event('pointercancel'));
+  });
+
+  it('shifts headers right when dragging a column toward the start', () => {
+    const control = new AgridControl();
+    const columns = [
+      { field: 'a', header: 'A' },
+      { field: 'b', header: 'B' },
+      { field: 'c', header: 'C' },
+    ];
+    const controller = new AgridColumnReorderController({
+      control: signal(control),
+      visibleColDefs: signal(columns),
+      getColDef: field => columns.find(col => col.field === field),
+    }, destroyRef());
+    const headers = headerGrid([
+      ['a', 0],
+      ['b', 100],
+      ['c', 200],
+    ]);
+    controller.start(pointerEvent(headers[2], 250), 'c');
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: 10, clientY: 10 }));
+
+    expect(controller.getHeaderOffset('a')).toBe(100);
+    expect(controller.getHeaderOffset('b')).toBe(100);
+
+    document.dispatchEvent(new Event('pointercancel'));
+  });
+
+  it('keeps the captured drop target stable after headers are visually translated', () => {
+    const control = new AgridControl();
+    const columns = [
+      { field: 'a', header: 'A' },
+      { field: 'b', header: 'B' },
+      { field: 'c', header: 'C' },
+    ];
+    const controller = new AgridColumnReorderController({
+      control: signal(control),
+      visibleColDefs: signal(columns),
+      getColDef: field => columns.find(col => col.field === field),
+    }, destroyRef());
+    const headers = headerGrid([
+      ['a', 0],
+      ['b', 100],
+      ['c', 200],
+    ]);
+
+    controller.start(pointerEvent(headers[0]), 'a');
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: 250, clientY: 10 }));
+    expect(controller.getHeaderOffset('b')).toBe(-100);
+
+    vi.spyOn(headers[2], 'getBoundingClientRect').mockReturnValue({
+      x: 100, y: 0, top: 0, left: 100, right: 200, bottom: 40,
+      width: 100, height: 40, toJSON: () => ({}),
+    });
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: 250, clientY: 80 }));
+
+    expect(controller.getHeaderOffset('b')).toBe(-100);
+    expect(controller.getHeaderOffset('c')).toBe(-100);
+    document.dispatchEvent(new Event('pointercancel'));
   });
 });
 
-function pointerEvent(): PointerEvent {
-  return { button: 0, clientX: 10 } as PointerEvent;
+function pointerEvent(currentTarget?: HTMLElement, clientX = 10): PointerEvent {
+  return { button: 0, clientX, clientY: 10, currentTarget } as unknown as PointerEvent;
+}
+
+function headerFor(field: string, left: number): HTMLElement {
+  const header = document.createElement('div');
+  header.className = 'ag-header-cell';
+  header.dataset['colField'] = field;
+  vi.spyOn(header, 'getBoundingClientRect').mockReturnValue({
+    x: left, y: 0, top: 0, left, right: left + 100, bottom: 40,
+    width: 100, height: 40, toJSON: () => ({}),
+  });
+  return header;
+}
+
+function headerGrid(definitions: [field: string, left: number][]): HTMLElement[] {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'ag-wrapper';
+  const headerRow = document.createElement('div');
+  wrapper.append(headerRow);
+  const headers = definitions.map(([field, left]) => headerFor(field, left));
+  headerRow.append(...headers);
+  return headers;
 }
 
 function destroyRef(): DestroyRef {

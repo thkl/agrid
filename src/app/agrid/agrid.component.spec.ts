@@ -3,7 +3,13 @@ import { AgridComponent } from './agrid.component';
 import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridProvider } from './agrid-provider';
-import { GridItem, NewRecord, RecordEditEvent, RowSelectEvent } from './agrid.types';
+import {
+  GridItem,
+  NewRecord,
+  RecordEditEvent,
+  RowSelectEvent,
+  RowUpdateEvent,
+} from './agrid.types';
 
 describe('AgridComponent grouped control column selection', () => {
   let fixture: ComponentFixture<AgridComponent>;
@@ -94,6 +100,7 @@ describe('AgridComponent Tab navigation', () => {
       allowAddRows: true,
       autoAddRows: true,
       showSidebar: true,
+      showChangedCellIndicator: true,
     });
 
     await TestBed.configureTestingModule({
@@ -170,6 +177,131 @@ describe('AgridComponent Tab navigation', () => {
     });
   });
 
+  it('marks changed cells when enabled and clears markers after persistence', async () => {
+    provider.datasource.addRow({ name: 'Bob', department: 'Support' });
+    fixture.detectChanges();
+
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    component.onStartEdit(0, 0);
+    component.onDraftChange('Alicia');
+    component.onKeyDown(new KeyboardEvent('keydown', {
+      key: 'Tab',
+      cancelable: true,
+    }));
+    component.onStartEdit(0, 1);
+    component.onDraftChange('Sales');
+    component.onKeyDown(new KeyboardEvent('keydown', {
+      key: 'Enter',
+      cancelable: true,
+    }));
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    expect(component.isCellChanged(0, 'name')).toBe(true);
+    expect(component.isCellChanged(0, 'department')).toBe(true);
+    expect(fixture.nativeElement.querySelectorAll('.ag-cell--changed')).toHaveLength(2);
+
+    component.clearChangedCells(0, ['name']);
+    fixture.detectChanges();
+    expect(component.isCellChanged(0, 'name')).toBe(false);
+    expect(component.isCellChanged(0, 'department')).toBe(true);
+
+    component.clearChangedCells(0);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.ag-cell--changed')).toHaveLength(0);
+
+    component.selectedCell.set({ rowIndex: 1, colIndex: 0 });
+    component.onStartEdit(1, 0);
+    component.onDraftChange('Bobby');
+    component.onKeyDown(new KeyboardEvent('keydown', {
+      key: 'Tab',
+      cancelable: true,
+    }));
+    component.clearChangedCells();
+    expect(component.isCellChanged(1, 'name')).toBe(false);
+  });
+
+  it('does not mark changed cells unless the indicator is enabled', () => {
+    const plainProvider = new AgridProvider({
+      columns: provider.columns(),
+      datasource: new AgridDataSource([
+        { name: 'Alice', department: 'Engineering' },
+      ]),
+    });
+    const plainFixture = TestBed.createComponent(AgridComponent);
+    plainFixture.componentRef.setInput('provider', plainProvider);
+    plainFixture.detectChanges();
+    const plainComponent = plainFixture.componentInstance;
+    plainComponent.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    plainComponent.onStartEdit(0, 0);
+    plainComponent.onDraftChange('Alicia');
+    plainComponent.onKeyDown(new KeyboardEvent('keydown', {
+      key: 'Tab',
+      cancelable: true,
+    }));
+
+    expect(plainComponent.isCellChanged(0, 'name')).toBe(false);
+    plainFixture.destroy();
+  });
+
+  it('emits rowChanged once with the latest row after inline editing leaves the row', async () => {
+    provider.datasource.addRow({ name: 'Bob', department: 'Support' });
+    const emitted: RowUpdateEvent[] = [];
+    component.rowChanged.subscribe(event => emitted.push(event));
+
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    component.onStartEdit(0, 0);
+    component.onDraftChange('Alicia');
+    component.onKeyDown(new KeyboardEvent('keydown', {
+      key: 'Tab',
+      cancelable: true,
+    }));
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    expect(component.selectedCell()).toEqual({ rowIndex: 0, colIndex: 1 });
+    expect(emitted).toHaveLength(0);
+
+    component.onStartEdit(0, 1);
+    component.onDraftChange('Sales');
+    component.onKeyDown(new KeyboardEvent('keydown', {
+      key: 'Enter',
+      cancelable: true,
+    }));
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    expect(component.selectedCell()).toEqual({ rowIndex: 1, colIndex: 1 });
+    expect(emitted).toEqual([{
+      row: { name: 'Alicia', department: 'Sales' },
+      originalIndex: 0,
+    }]);
+  });
+
+  it('emits rowChanged when filter focus clears an edited cell selection', async () => {
+    const emitted: RowUpdateEvent[] = [];
+    component.rowChanged.subscribe(event => emitted.push(event));
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    component.onStartEdit(0, 0);
+    component.onDraftChange('Alicia');
+    component.onKeyDown(new KeyboardEvent('keydown', {
+      key: 'Tab',
+      cancelable: true,
+    }));
+
+    const filter = document.createElement('input');
+    filter.className = 'ag-filter-input';
+    component.onGridFocusIn(focusEvent(filter));
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    expect(component.selectedCell()).toBeNull();
+    expect(emitted).toEqual([{
+      row: { name: 'Alicia', department: 'Engineering' },
+      originalIndex: 0,
+    }]);
+  });
+
   it('emits recordEdit for row zero after sidebar-only edits are saved', async () => {
     const sidebarProvider = new AgridProvider({
       columns: provider.columns(),
@@ -184,7 +316,9 @@ describe('AgridComponent Tab navigation', () => {
     sidebarFixture.detectChanges();
     const sidebarComponent = sidebarFixture.componentInstance;
     const emitted: RecordEditEvent[] = [];
+    const changed: RowUpdateEvent[] = [];
     sidebarComponent.recordEdit.subscribe(event => emitted.push(event));
+    sidebarComponent.rowChanged.subscribe(event => changed.push(event));
     sidebarComponent['rowController'].selectedIndices.set(new Set([0]));
     sidebarComponent.commitDetailEdit('department', sidebarProvider.columns()[1], 'Sales');
 
@@ -202,6 +336,10 @@ describe('AgridComponent Tab navigation', () => {
     expect(emitted[0].data).toEqual({ name: 'Alice', department: 'Sales' });
     expect(emitted[0].provider).toBe(sidebarProvider);
     expect(emitted[0].datasource).toBe(sidebarProvider.datasource);
+    expect(changed).toEqual([{
+      row: { name: 'Alice', department: 'Sales' },
+      originalIndex: 0,
+    }]);
     sidebarFixture.destroy();
   });
 
@@ -575,4 +713,10 @@ function clipboardEvent(text: string): ClipboardEvent {
     },
     preventDefault: () => undefined,
   } as unknown as ClipboardEvent;
+}
+
+function focusEvent(target: Element): FocusEvent {
+  const event = new FocusEvent('focusin');
+  Object.defineProperty(event, 'target', { value: target });
+  return event;
 }

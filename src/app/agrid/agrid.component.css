@@ -14,6 +14,7 @@
     --agrid-color-bg-muted:       #f6f8fa;
     --agrid-color-shadow:         rgba(140, 149, 159, 0.2);
     --agrid-color-bg-stripe:      #f0f2f5;
+    --agrid-color-cell-changed:   #f59e0b;
   }
 }
 
@@ -112,19 +113,50 @@
 
 .ag-header-cell {
   cursor: grab;
+  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1), opacity 100ms ease;
+  will-change: transform;
+}
+
+.ag-row > agrid-cell,
+.ag-ghost-cell,
+.ag-footer-cell {
+  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1), opacity 100ms ease;
+  will-change: transform;
 }
 
 .ag-header-cell--dragging {
-  opacity: 0.45;
+  opacity: 0.12;
   cursor: grabbing;
 }
 
+.ag-column-reorder-item--dragging {
+  opacity: 0.12;
+}
+
 .ag-header-cell--drop-before {
-  box-shadow: inset 2px 0 0 var(--agrid-color-accent);
+  z-index: 1;
 }
 
 .ag-header-cell--drop-after {
-  box-shadow: inset -2px 0 0 var(--agrid-color-accent);
+  z-index: 1;
+}
+
+.ag-column-drag-preview {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border: 1px solid var(--agrid-color-accent);
+  border-radius: 5px;
+  color: var(--agrid-color-text);
+  background: color-mix(in srgb, var(--agrid-color-bg) 94%, var(--agrid-color-accent));
+  box-shadow: 0 10px 28px var(--agrid-color-shadow);
+  font-weight: 600;
+  line-height: 16px;
+  box-sizing: border-box;
+  pointer-events: none;
+  opacity: 0.96;
 }
 
 .ag-sort-badge {

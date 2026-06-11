@@ -14,6 +14,7 @@ export interface AgridSidebarControllerOptions {
   selectedRowIndex: Signal<number | null>;
   autoOpenDetail: Signal<boolean>;
   useSidebarEditor: Signal<boolean>;
+  onFieldChange: (event: GridEditEvent) => void;
   onCellEdit: (event: GridEditEvent) => void;
 }
 
@@ -102,13 +103,15 @@ export class AgridSidebarController {
     this.opts.dataSource().patchRow(index, { [field]: newValue });
     const colIndex = this.opts.visibleColDefs().findIndex(column => column.field === field);
     this.opts.control()?.pushEdit({ rowIndex: index, field, oldValue, newValue });
+    const event = {
+      position: { rowIndex: index, colIndex },
+      field,
+      oldValue,
+      newValue,
+    };
+    this.opts.onFieldChange(event);
     if (!this.opts.useSidebarEditor()) {
-      this.opts.onCellEdit({
-        position: { rowIndex: index, colIndex },
-        field,
-        oldValue,
-        newValue,
-      });
+      this.opts.onCellEdit(event);
     }
   }
 }

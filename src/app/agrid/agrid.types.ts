@@ -252,7 +252,9 @@ export interface RowClickEvent<T extends object = any> {
   originalIndex: number;
 }
 
-/** Emitted after the user saves a row through the sidebar editor. */
+/**
+ * Emitted after an inline-edited row is left, or after the user saves through the sidebar editor.
+ */
 export interface RowUpdateEvent<T extends object = any> {
   /** Updated row data. */
   row: T;

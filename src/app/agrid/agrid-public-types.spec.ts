@@ -11,6 +11,7 @@ import {
   RowClickEvent,
   RowReorderEvent,
   RowSelectEvent,
+  RowUpdateEvent,
 } from './agrid.types';
 
 interface PersonRow {
@@ -21,7 +22,13 @@ interface PersonRow {
 
 @Component({
   imports: [AgridComponent],
-  template: '<agrid [provider]="provider" (recordEdit)="onRecordEdit($event)" />',
+  template: `
+    <agrid
+      [provider]="provider"
+      (recordEdit)="onRecordEdit($event)"
+      (rowChanged)="onRowChanged($event)"
+    />
+  `,
 })
 class TypedGridHost {
   readonly provider = new AgridProvider<PersonRow>({
@@ -31,6 +38,10 @@ class TypedGridHost {
 
   onRecordEdit(event: RecordEditEvent<PersonRow>): void {
     expectTypeOf(event.data).toEqualTypeOf<PersonRow>();
+  }
+
+  onRowChanged(event: RowUpdateEvent<PersonRow>): void {
+    expectTypeOf(event.row).toEqualTypeOf<PersonRow>();
   }
 }
 

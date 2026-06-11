@@ -18,6 +18,7 @@ describe('AgridSidebarController', () => {
       selectedRowIndex: signal(0),
       autoOpenDetail: signal(false),
       useSidebarEditor: signal(false),
+      onFieldChange: () => undefined,
       onCellEdit: event => events.push(event),
     });
 
@@ -40,6 +41,7 @@ describe('AgridSidebarController', () => {
       selectedRowIndex: signal(0),
       autoOpenDetail: signal(false),
       useSidebarEditor: signal(false),
+      onFieldChange: () => undefined,
       onCellEdit: () => undefined,
     });
 

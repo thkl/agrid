@@ -116,6 +116,9 @@ export class AgridComponent<T extends object = any> {
   readonly groupActions = computed(() => this.provider().groupActions);
   readonly cellMenuItems = computed(() => this.provider().cellMenuItems);
   readonly zebraStripes = computed(() => this.provider().zebraStripes);
+  readonly showChangedCellIndicator = computed(
+    () => this.provider().showChangedCellIndicator,
+  );
   readonly readonlyGrid = computed(() => this.provider().readonlyGrid());
   readonly loading = computed(() => this.provider().loading());
   readonly emptyText = computed(() => this.provider().emptyText);
@@ -171,7 +174,10 @@ export class AgridComponent<T extends object = any> {
   /** Emitted when the user single-clicks a data row. */
   rowClick = output<RowClickEvent<T>>();
 
-  /** Emitted when the user has changed and saved a record via the sidebar editor save button */
+  /**
+   * Emitted once after a changed row is left during inline editing, or when the sidebar editor
+   * save button is used.
+   */
   rowChanged = output<RowUpdateEvent<T>>();
   /**
    * Emitted when the user navigates to a new page in **server-side pagination mode**
@@ -227,9 +233,7 @@ export class AgridComponent<T extends object = any> {
   onSidebarDetailSave(_event: AgridSidebarDetailField[]): void {
     const originalIndex = this.sidebarController.selectedRowIndex();
     if (originalIndex === null) return;
-    const row = this.dataSource().getRow(originalIndex);
-    const saveEvent: RowUpdateEvent = { row, originalIndex };
-    this.rowChanged.emit(saveEvent);
+    this.emitRowChanged(originalIndex);
     this.emitRecordEdit(originalIndex);
     this.sidebarController.closeSidebar();
   }
@@ -253,6 +257,34 @@ export class AgridComponent<T extends object = any> {
   /** Resize every visible column to fit its header and current row values. */
   autosizeAllColumns(): void {
     this.columnSizing.autosizeAllColumns();
+  }
+
+  /**
+   * Clears changed-cell markers after persistence succeeds.
+   * Omit `originalIndex` to clear every marker; omit `fields` to clear the whole row.
+   */
+  clearChangedCells(originalIndex?: number, fields?: readonly string[]): void {
+    if (originalIndex === undefined) {
+      this.changedCells.set(new Set());
+      return;
+    }
+
+    const fieldSet = fields ? new Set(fields) : null;
+    this.changedCells.update(current => {
+      const next = new Set(current);
+      for (const key of current) {
+        const marker = this.parseChangedCellKey(key);
+        if (marker.rowIndex === originalIndex && (!fieldSet || fieldSet.has(marker.field))) {
+          next.delete(key);
+        }
+      }
+      return next;
+    });
+  }
+
+  /** @internal Whether a cell has an unsaved-change marker. */
+  isCellChanged(originalIndex: number, field: string): boolean {
+    return this.changedCells().has(this.changedCellKey(originalIndex, field));
   }
 
   /** @internal Full display value for a cell — used as the `title` tooltip attribute. */
@@ -571,7 +603,10 @@ export class AgridComponent<T extends object = any> {
     startDragSelect: originalIndex => this.dragHandler.startDragSelect(originalIndex),
     onRowSelect: event => this.rowSelect.emit(event),
     onRowClick: event => this.rowClick.emit(event),
-    onRowRemoved: event => this.rowRemoved.emit(this.createRecordEvent(event.index, event.data)),
+    onRowRemoved: event => {
+      this.reconcileDirtyInlineRowsAfterRemoval(event.index);
+      this.rowRemoved.emit(this.createRecordEvent(event.index, event.data));
+    },
     onEditRowRemoved: originalIndex => this.editController.onRowRemoved(originalIndex),
     closeFilterMenu: () => this.columnMenuController.close(),
     closeGroupActionsMenu: () => this.closeGroupActionsMenu(),
@@ -590,7 +625,8 @@ export class AgridComponent<T extends object = any> {
     selectedRowIndex: this.selectedRowIndex,
     autoOpenDetail: this.autoOpenDetail,
     useSidebarEditor: this.useSidebarEditor,
-    onCellEdit: event => this.emitEditEvents(event),
+    onFieldChange: event => this.markCellChanged(event),
+    onCellEdit: event => this.emitSidebarEditEvents(event),
   });
 
   readonly sidebarOpen = this.sidebarController.open;
@@ -626,6 +662,8 @@ export class AgridComponent<T extends object = any> {
     getColDef: field => this.getColDef(field),
   }, this.destroyRef);
 
+  readonly columnDragPreview = this.columnReorder.preview;
+
   /** @internal Start a column header drag. */
   onColHeaderPointerDown(event: PointerEvent, field: string): void {
     this.columnReorder.start(event, field);
@@ -641,11 +679,27 @@ export class AgridComponent<T extends object = any> {
     return this.columnReorder.getDropSide(field);
   }
 
+  /** @internal Horizontal animation offset for a header during column reordering. */
+  getColReorderOffset(field: string): number {
+    return this.columnReorder.getHeaderOffset(field);
+  }
+
   // ── Setup ─────────────────────────────────────────────────────────────────────
 
   private readonly _seededControls = new WeakSet<AgridControl>();
+  private readonly dirtyInlineRows = new Set<number>();
+  private dirtyRowsDataSource: AgridDataSource | null = null;
+  private readonly changedCells = signal<ReadonlySet<string>>(new Set());
+  private changedCellsDataSource: AgridDataSource | null = null;
 
   private emitEditEvents(event: GridEditEvent): void {
+    this.cellEdit.emit(event as GridEditEvent<T>);
+    this.emitRecordEdit(event.position.rowIndex);
+    this.markInlineRowDirty(event.position.rowIndex);
+    this.markCellChanged(event);
+  }
+
+  private emitSidebarEditEvents(event: GridEditEvent): void {
     this.cellEdit.emit(event as GridEditEvent<T>);
     this.emitRecordEdit(event.position.rowIndex);
   }
@@ -654,6 +708,83 @@ export class AgridComponent<T extends object = any> {
     const datasource = this.dataSource();
     const event = this.createRecordEvent(index, datasource.getRow(index));
     queueMicrotask(() => this.recordEdit.emit(event));
+  }
+
+  private markInlineRowDirty(index: number): void {
+    const datasource = this.dataSource();
+    if (this.dirtyRowsDataSource !== datasource) {
+      this.dirtyInlineRows.clear();
+      this.dirtyRowsDataSource = datasource;
+    }
+    this.dirtyInlineRows.add(index);
+  }
+
+  private markCellChanged(event: GridEditEvent): void {
+    if (!this.showChangedCellIndicator()) return;
+    const datasource = this.dataSource();
+    if (this.changedCellsDataSource !== datasource) {
+      this.changedCells.set(new Set());
+      this.changedCellsDataSource = datasource;
+    }
+    this.changedCells.update(current => {
+      const next = new Set(current);
+      next.add(this.changedCellKey(event.position.rowIndex, event.field));
+      return next;
+    });
+  }
+
+  private changedCellKey(rowIndex: number, field: string): string {
+    return JSON.stringify([rowIndex, field]);
+  }
+
+  private parseChangedCellKey(key: string): { rowIndex: number; field: string } {
+    const [rowIndex, field] = JSON.parse(key) as [number, string];
+    return { rowIndex, field };
+  }
+
+  private flushDirtyInlineRows(activeRowIndex: number | null = null): void {
+    const datasource = this.dataSource();
+    if (this.dirtyRowsDataSource !== datasource) {
+      this.dirtyInlineRows.clear();
+      this.dirtyRowsDataSource = datasource;
+      return;
+    }
+
+    for (const index of [...this.dirtyInlineRows].sort((a, b) => a - b)) {
+      if (index === activeRowIndex) continue;
+      this.dirtyInlineRows.delete(index);
+      if (index >= 0 && index < datasource.length) this.emitRowChanged(index);
+    }
+  }
+
+  private reconcileDirtyInlineRowsAfterRemoval(removedIndex: number): void {
+    const shifted = new Set<number>();
+    for (const index of this.dirtyInlineRows) {
+      if (index < removedIndex) shifted.add(index);
+      else if (index > removedIndex) shifted.add(index - 1);
+    }
+    this.dirtyInlineRows.clear();
+    for (const index of shifted) this.dirtyInlineRows.add(index);
+    this.reconcileChangedCellsAfterRemoval(removedIndex);
+  }
+
+  private reconcileChangedCellsAfterRemoval(removedIndex: number): void {
+    const shifted = new Set<string>();
+    for (const key of this.changedCells()) {
+      const marker = this.parseChangedCellKey(key);
+      if (marker.rowIndex < removedIndex) shifted.add(key);
+      else if (marker.rowIndex > removedIndex) {
+        shifted.add(this.changedCellKey(marker.rowIndex - 1, marker.field));
+      }
+    }
+    this.changedCells.set(shifted);
+  }
+
+  private emitRowChanged(originalIndex: number): void {
+    this.rowChanged.emit({
+      row: this.dataSource().getRow(originalIndex),
+      originalIndex,
+    } as RowUpdateEvent<T>);
   }
 
   private createRecordEvent(index: number, data: Record<string, unknown>): RecordEditEvent {
@@ -668,6 +799,18 @@ export class AgridComponent<T extends object = any> {
 
   constructor() {
     effect(() => this.sidebarController.syncAutoOpen());
+
+    effect(() => {
+      const datasource = this.dataSource();
+      if (this.changedCellsDataSource === datasource) return;
+      this.changedCellsDataSource = datasource;
+      this.changedCells.set(new Set());
+    });
+
+    effect(() => {
+      const activeRowIndex = this.selectedCell()?.rowIndex ?? null;
+      this.flushDirtyInlineRows(activeRowIndex);
+    });
 
     afterNextRender(() => {
       const wrapper = this.wrapperEl().nativeElement;
@@ -698,6 +841,9 @@ export class AgridComponent<T extends object = any> {
 
     // Deselect when clicking outside the grid.
     const onOutsidePointerDown = (e: PointerEvent) => {
+      if (!this._hostEl.nativeElement.contains(e.target as Node)) {
+        queueMicrotask(() => this.flushDirtyInlineRows());
+      }
       if (this.rowSelection() === 'none') return;
       if (this.selectedRowIndices().size === 0) return;
       if (this._hostEl.nativeElement.contains(e.target as Node)) return;

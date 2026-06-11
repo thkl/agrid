@@ -58,6 +58,8 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   cellMenuItems?: (CellContextMenuItem<T> | null)[];
   /** Shade every other row slightly for easier reading. @default false */
   zebraStripes?: boolean;
+  /** Show a color marker on cells changed through grid editing. @default false */
+  showChangedCellIndicator?: boolean;
   /** Make the entire grid read-only. @default false */
   readonly?: boolean;
 
@@ -138,6 +140,8 @@ export class AgridProvider<T extends object = any> {
   cellMenuItems: (CellContextMenuItem<T> | null)[];
   /** Whether alternating data rows receive stripe styling. */
   zebraStripes: boolean;
+  /** Whether committed cell changes receive a visual marker. */
+  showChangedCellIndicator: boolean;
   /** Optional empty-state text override. */
   emptyText?: string;
   /** Whether edits are restricted to the sidebar editor. */
@@ -171,6 +175,7 @@ export class AgridProvider<T extends object = any> {
     this.groupActions     = config.groupActions ?? [];
     this.cellMenuItems    = config.cellMenuItems ?? [];
     this.zebraStripes     = config.zebraStripes ?? false;
+    this.showChangedCellIndicator = config.showChangedCellIndicator ?? false;
     this.emptyText        = config.emptyText;
     this.loading          = signal(config.loading ?? false);
     this.readonlyGrid     = signal(config.readonly ?? false);

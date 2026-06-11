@@ -107,6 +107,15 @@ constructor() {
   });
 }`;
 
+  readonly saveRowCode = `saveRow(event: RowUpdateEvent<Person>): void {
+  this.http.patch(
+    \`/api/people/\${event.row.id}\`,
+    event.row,
+  ).subscribe(() => {
+    this.grid()?.clearChangedCells(event.originalIndex);
+  });
+}`;
+
   readonly persistenceCode = `const saved = localStorage.getItem('agrid-state');
 const control = AgridControl.fromJSON(saved ? JSON.parse(saved) : {});
 

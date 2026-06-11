@@ -146,12 +146,46 @@ The `AgridLocaleTextOverrides` type covers all overridable labels.
 | --- | --- | --- |
 | `cellEdit` | `GridEditEvent` | Emitted after a committed cell edit, paste, fill, undo, or redo changes a cell. |
 | `recordEdit` | `RecordEditEvent` | Emitted on the next microtask after an edit updates a row. Includes the row `index`, current `data`, exact `provider`, and `datasource`. |
+| `rowChanged` | `RowUpdateEvent` | Emitted once with the latest row after inline editing leaves that row, or when the sidebar editor Save button is used. Use this for one API request after several field edits. |
 | `rowRemoved` | `RecordEditEvent` | Emitted after deleting a row. Includes its former `index`, captured `data`, exact `provider`, and `datasource`. |
 | `prepareAddRecord` | `NewRecord` | Emitted after the grid inserts a blank row. Patch `event.datasource` to target the correct grid when multiple providers are rendered. |
 | `rowReorder` | `RowReorderEvent` | Emitted after the user drops a reordered row. The host must call `dataSource.moveRow()`. |
 | `rowSelect` | `RowSelectEvent \| null` | Emitted when row selection changes. `null` means selection was cleared. |
 | `filterChange` | `FilterChangeEvent` | Emitted for text filter changes when `serverSideFiltering` is enabled. |
 | `sortChange` | `SortChangeEvent` | Emitted for sort changes when `serverSideFiltering` is enabled. |
+
+Use `rowChanged` instead of `cellEdit` when an API should receive the complete row only after the
+user finishes editing it:
+
+```html
+<agrid [provider]="provider" (rowChanged)="saveRow($event)" />
+```
+
+```ts
+saveRow(event: RowUpdateEvent<PersonRow>): void {
+  this.http.patch(`/api/people/${event.row.id}`, event.row).subscribe(() => {
+    this.grid()?.clearChangedCells(event.originalIndex);
+  });
+}
+```
+
+During inline editing, moving between fields in the same row does not emit `rowChanged`. The event
+fires when navigation enters another row, filter focus clears the active cell, or focus leaves the
+grid. `recordEdit` and `cellEdit` continue to fire for each committed field mutation.
+
+Enable changed-cell markers when the user should see which values are waiting to be persisted:
+
+```ts
+readonly provider = new AgridProvider<PersonRow>({
+  columns,
+  datasource,
+  showChangedCellIndicator: true,
+});
+```
+
+After a successful API request, call `clearChangedCells(index)` for the complete row,
+`clearChangedCells(index, ['name', 'email'])` for selected fields, or
+`clearChangedCells()` for every marker.
 
 ## AgridProvider Configuration
 
@@ -194,6 +228,7 @@ readonly gridProvider = new AgridProvider({
 | `groupActions` | `GroupAction[]` | `[]` | Actions shown in each group header menu. |
 | `cellMenuItems` | `(CellContextMenuItem \| null)[]` | `[]` | Additional items in the cell right-click context menu. `null` inserts a divider. |
 | `zebraStripes` | `boolean` | `false` | Shades every other row. Override `--agrid-color-bg-stripe` to change the shade. |
+| `showChangedCellIndicator` | `boolean` | `false` | Marks committed cell changes until `clearChangedCells()` is called. |
 | `emptyText` | `string` | `undefined` | Text shown when the grid has no rows. Falls back to the locale default. |
 | `readonly` | `boolean` | `false` | Initial value for the readonly signal. Makes all cells non-editable. |
 | `loading` | `boolean` | `false` | Initial value for the loading signal. Shows a loading overlay over the grid body. |
@@ -244,6 +279,7 @@ Call these through `viewChild(AgridComponent)`.
 | `closeFind()` | Closes the find panel. |
 | `goToFindMatch(direction)` | Moves to the next (`1`) or previous (`-1`) find match. |
 | `deleteRow(originalIndex)` | Removes a row and emits `rowRemoved`. |
+| `clearChangedCells(originalIndex?, fields?)` | Clears every changed-cell marker, one row, or selected fields in one row. |
 
 ### Public Component State
 
@@ -822,6 +858,19 @@ onPrepareAdd(event: NewRecord): void {
 
 Emitted after the grid inserts a blank row. Patch defaults from the host if needed.
 
+### RowUpdateEvent
+
+```ts
+interface RowUpdateEvent<T extends object = Record<string, unknown>> {
+  row: T;
+  originalIndex: number;
+}
+```
+
+`rowChanged` carries the latest complete datasource row and its current zero-based index. Inline
+edits are grouped until the active row is left. Sidebar-only editing emits the same event when the
+Save button is clicked.
+
 ### GroupAction
 
 ```ts
@@ -960,6 +1009,7 @@ Override these on the `agrid` host element to theme the grid.
 | `--agrid-color-bg-subtle` | `#fafbfc` | Control column background. |
 | `--agrid-color-bg-muted` | `#f6f8fa` | Header and hover background. |
 | `--agrid-color-bg-stripe` | `#f0f2f5` | Zebra stripe background (even rows). |
+| `--agrid-color-cell-changed` | `#f59e0b` | Corner marker for changed cells. |
 
 ## Development
 
