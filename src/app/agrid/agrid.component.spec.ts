@@ -358,6 +358,102 @@ describe('AgridComponent Tab navigation', () => {
     }]);
   });
 
+  it('shows an in-row confirmation before deleting an opted-in row', async () => {
+    const confirmProvider = new AgridProvider({
+      columns: provider.columns(),
+      datasource: new AgridDataSource([
+        { name: 'Alice', department: 'Engineering' },
+      ]),
+      confirmRowDelete: true,
+    });
+    const confirmFixture = TestBed.createComponent(AgridComponent);
+    confirmFixture.componentRef.setInput('provider', confirmProvider);
+    confirmFixture.detectChanges();
+    const confirmComponent = confirmFixture.componentInstance;
+    const emitted: RecordEditEvent[] = [];
+    confirmComponent.rowRemoved.subscribe(event => emitted.push(event));
+
+    confirmComponent.deleteRow(0);
+    confirmFixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    confirmFixture.detectChanges();
+
+    const pendingRow = confirmFixture.nativeElement.querySelector(
+      '.ag-scroll-pane [data-original-index="0"]',
+    ) as HTMLElement;
+    const overlay = pendingRow.querySelector('.ag-delete-confirmation') as HTMLElement;
+    expect(confirmComponent.pendingDeleteRow()).toBe(0);
+    expect(pendingRow.classList.contains('ag-row--pending-delete')).toBe(true);
+    expect(overlay.textContent).toContain(confirmComponent.localeText().confirmDeleteRow);
+    expect(overlay.textContent).toContain(confirmComponent.localeText().confirmYes);
+    expect(overlay.textContent).toContain(confirmComponent.localeText().confirmNo);
+    expect(confirmProvider.datasource.length).toBe(1);
+    expect(emitted).toEqual([]);
+
+    confirmComponent.cancelRowDelete();
+
+    expect(confirmComponent.pendingDeleteRow()).toBeNull();
+    expect(confirmProvider.datasource.length).toBe(1);
+    confirmFixture.destroy();
+  });
+
+  it('removes the row when its in-row confirmation is accepted', () => {
+    const confirmProvider = new AgridProvider({
+      columns: provider.columns(),
+      datasource: new AgridDataSource([
+        { name: 'Alice', department: 'Engineering' },
+      ]),
+      confirmRowDelete: true,
+    });
+    const confirmFixture = TestBed.createComponent(AgridComponent);
+    confirmFixture.componentRef.setInput('provider', confirmProvider);
+    confirmFixture.detectChanges();
+    const confirmComponent = confirmFixture.componentInstance;
+    const emitted: RecordEditEvent[] = [];
+    confirmComponent.rowRemoved.subscribe(event => emitted.push(event));
+
+    confirmComponent.deleteRow(0);
+    expect(confirmProvider.datasource.length).toBe(1);
+
+    confirmComponent.confirmPendingRowDelete();
+
+    expect(confirmComponent.pendingDeleteRow()).toBeNull();
+    expect(confirmProvider.datasource.length).toBe(0);
+    expect(emitted).toEqual([{
+      index: 0,
+      data: { name: 'Alice', department: 'Engineering' },
+      provider: confirmProvider,
+      datasource: confirmProvider.datasource,
+    }]);
+    confirmFixture.destroy();
+  });
+
+  it('cancels pending row deletion with Escape', () => {
+    const confirmProvider = new AgridProvider({
+      columns: provider.columns(),
+      datasource: new AgridDataSource([
+        { name: 'Alice', department: 'Engineering' },
+      ]),
+      confirmRowDelete: true,
+    });
+    const confirmFixture = TestBed.createComponent(AgridComponent);
+    confirmFixture.componentRef.setInput('provider', confirmProvider);
+    confirmFixture.detectChanges();
+    const confirmComponent = confirmFixture.componentInstance;
+    confirmComponent.deleteRow(0);
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      cancelable: true,
+    });
+
+    confirmComponent.onKeyDown(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(confirmComponent.pendingDeleteRow()).toBeNull();
+    expect(confirmProvider.datasource.length).toBe(1);
+    confirmFixture.destroy();
+  });
+
   it('identifies the source datasource when multiple grids auto-add rows', async () => {
     const secondProvider = new AgridProvider({
       columns: [

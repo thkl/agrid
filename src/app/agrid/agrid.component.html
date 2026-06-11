@@ -73,6 +73,7 @@
             [class.ag-group-header-row]="isGroupHeaderItem(item)"
             [class.ag-row--odd]="isDataRowItem(item) && dataRowIsOdd().get(item.originalIndex) === true"
             [class.ag-row--selected]="isPinnedPaneRowSelected(item)"
+            [class.ag-row--pending-delete]="isDataRowItem(item) && isRowPendingDelete(item.originalIndex)"
             [attr.data-original-index]="getItemOriginalIndex(item)" [style.height.px]="rowHeight()"
             [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? pinnedGridTemplateColumns() : null"
             (pointerdown)="isDataRowItem(item) && onRowPointerDown($event, item.originalIndex)"
@@ -152,7 +153,7 @@
       }
 
       <div class="ag-scroll-pane">
-        <div #horizontalScroller class="ag-horizontal-scroll">
+        <div #horizontalScroller class="ag-horizontal-scroll" (scroll)="onHorizontalScroll()">
           <div class="ag-header" role="row" aria-rowindex="1"
             [class.ag-header--with-filters]="hasFilterableColumns()"
             [style.grid-template-columns]="scrollableGridTemplateColumns()"
@@ -212,6 +213,7 @@
               [class.ag-group-header-row]="isGroupHeaderItem(item)"
               [class.ag-row--odd]="isDataRowItem(item) && dataRowIsOdd().get(item.originalIndex) === true"
               [class.ag-row--selected]="isDataRowItem(item) && isRowSelected(item.originalIndex)"
+              [class.ag-row--pending-delete]="isDataRowItem(item) && isRowPendingDelete(item.originalIndex)"
               [attr.data-original-index]="getItemOriginalIndex(item)" [style.height.px]="rowHeight()"
               [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? scrollableGridTemplateColumns() : null"
               (pointerdown)="isDataRowItem(item) && onRowPointerDown($event, item.originalIndex)"
@@ -267,6 +269,19 @@
                   <span class="ag-group-description">{{ desc }}</span>
                   }
                 </div>
+              </div>
+              }
+              @if (isDataRowItem(item) && isRowPendingDelete(item.originalIndex)) {
+              <div class="ag-delete-confirmation" role="alertdialog"
+                [attr.aria-label]="localeText().confirmDeleteRow"
+                [style.left.px]="deleteConfirmationLeft()"
+                [style.width.px]="deleteConfirmationWidth() || null"
+                (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
+                <span class="ag-delete-confirmation-text">{{ localeText().confirmDeleteRow }}</span>
+                <button class="ag-delete-confirmation-btn ag-delete-confirmation-btn--yes"
+                  type="button" (click)="confirmPendingRowDelete()">{{ localeText().confirmYes }}</button>
+                <button class="ag-delete-confirmation-btn" type="button" data-delete-confirm-no
+                  (click)="cancelRowDelete()">{{ localeText().confirmNo }}</button>
               </div>
               }
             </div>
@@ -352,6 +367,7 @@
             [class.ag-ghost-row]="item === 'ghost'" [class.ag-group-header-row]="isGroupHeaderItem(item)"
             [class.ag-row--odd]="isDataRowItem(item) && dataRowIsOdd().get(item.originalIndex) === true"
             [class.ag-row--selected]="isDataRowItem(item) && isRowSelected(item.originalIndex)"
+            [class.ag-row--pending-delete]="isDataRowItem(item) && isRowPendingDelete(item.originalIndex)"
             [style.height.px]="rowHeight()"
             [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? rightGridTemplateColumns() : null">
             @if (isDataRowItem(item)) {
@@ -491,7 +507,7 @@
     @if (!readonlyGrid()) {
     <div class="ag-context-separator" role="separator"></div>
     <button class="ag-context-item ag-context-item--danger" role="menuitem"
-      (click)="deleteRow(menu.rowIndex); closeCellContextMenu()">{{ localeText().deleteRow }}</button>
+      (click)="deleteRow(menu.rowIndex)">{{ localeText().deleteRow }}</button>
     }
     @if (cellMenuItems().length) {
     <div class="ag-context-separator" role="separator"></div>

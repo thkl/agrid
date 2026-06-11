@@ -23,6 +23,9 @@ export interface AgridLocaleText {
   hiddenColumn: string;
   copyCellValue: string;
   copyRow: string;
+  confirmDeleteRow: string;
+  confirmNo: string;
+  confirmYes: string;
   deleteRow: string;
   filterPlaceholder: string;
   findPlaceholder: string;
@@ -79,6 +82,9 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     hiddenColumn: '(hidden)',
     copyCellValue: 'Copy cell',
     copyRow: 'Copy row',
+    confirmDeleteRow: 'Sure to delete?',
+    confirmNo: 'No',
+    confirmYes: 'Yes',
     deleteRow: 'Delete row',
     filterPlaceholder: 'Filter...',
     findPlaceholder: 'Find',
@@ -129,6 +135,9 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     hiddenColumn: '(ausgeblendet)',
     copyCellValue: 'Zelle kopieren',
     copyRow: 'Zeile kopieren',
+    confirmDeleteRow: 'Wirklich löschen?',
+    confirmNo: 'Nein',
+    confirmYes: 'Ja',
     deleteRow: 'Zeile löschen',
     filterPlaceholder: 'Filtern...',
     findPlaceholder: 'Suchen',

@@ -201,6 +201,7 @@ readonly gridProvider = new AgridProvider({
   showControlColumn: true,
   rowSelection: 'multi',
   allowAddRows: true,
+  confirmRowDelete: true,
   readonly: false,
 });
 ```
@@ -229,6 +230,7 @@ readonly gridProvider = new AgridProvider({
 | `cellMenuItems` | `(CellContextMenuItem \| null)[]` | `[]` | Additional items in the cell right-click context menu. `null` inserts a divider. |
 | `zebraStripes` | `boolean` | `false` | Shades every other row. Override `--agrid-color-bg-stripe` to change the shade. |
 | `showChangedCellIndicator` | `boolean` | `false` | Marks committed cell changes until `clearChangedCells()` is called. |
+| `confirmRowDelete` | `boolean` | `false` | Fades the target row and shows a localized in-row Yes/No confirmation. |
 | `emptyText` | `string` | `undefined` | Text shown when the grid has no rows. Falls back to the locale default. |
 | `readonly` | `boolean` | `false` | Initial value for the readonly signal. Makes all cells non-editable. |
 | `loading` | `boolean` | `false` | Initial value for the loading signal. Shows a loading overlay over the grid body. |
@@ -278,7 +280,7 @@ Call these through `viewChild(AgridComponent)`.
 | `openFind()` | Opens the find panel and focuses the input. |
 | `closeFind()` | Closes the find panel. |
 | `goToFindMatch(direction)` | Moves to the next (`1`) or previous (`-1`) find match. |
-| `deleteRow(originalIndex)` | Removes a row and emits `rowRemoved`. |
+| `deleteRow(originalIndex)` | Removes a row and emits `rowRemoved`, after confirmation when `confirmRowDelete` is enabled. |
 | `clearChangedCells(originalIndex?, fields?)` | Clears every changed-cell marker, one row, or selected fields in one row. |
 
 ### Public Component State
@@ -1018,6 +1020,7 @@ pnpm install
 pnpm start
 pnpm build          # publishable package
 pnpm build:demo
+pnpm copy:local     # uncompiled runtime sources in localdist/agrid
 pnpm test
 pnpm test:e2e
 pnpm test:performance
@@ -1049,3 +1052,7 @@ contents with:
 cd dist/agrid-package
 npm pack --dry-run
 ```
+
+`pnpm copy:local` recreates `localdist/agrid` with only the library's runtime `.ts`, `.html`, and
+`.css` files. Tests, documentation, licenses, package metadata, and build configuration are
+excluded, making the directory suitable for source-level debugging in another Angular workspace.

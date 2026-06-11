@@ -172,6 +172,7 @@ export class AgridDemoComponent {
     showSidebar: true,
     zebraStripes: true,
     rowSelection: 'multi',
+    confirmRowDelete:true
   });
   readonly lastEdit = signal('');
   readonly autoAdd = signal(false);

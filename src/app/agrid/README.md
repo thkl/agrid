@@ -47,9 +47,13 @@ export class PeopleComponent {
     ]),
     control: new AgridControl(),
     showChangedCellIndicator: true,
+    confirmRowDelete: true,
   });
 }
 ```
+
+`confirmRowDelete` protects grid delete actions with a localized in-row Yes/No confirmation.
+Direct calls to `AgridDataSource.removeRow()` remain immediate.
 
 ## Saving edited rows
 

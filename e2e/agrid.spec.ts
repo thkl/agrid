@@ -92,6 +92,33 @@ test.describe('agrid browser interactions', () => {
     await expect(target.locator('.ag-cell-value')).toHaveText('Copied value');
   });
 
+  test('confirms row deletion inside the faded target row', async ({ page }) => {
+    await page.goto('/demo');
+    const firstControlCell = page.locator(
+      '.ag-pinned-pane:not(.ag-pinned-pane--right) .ag-control-cell',
+    ).first();
+    const firstName = page.locator(cell(0, 1)).first();
+
+    await expect(firstName.locator('.ag-cell-value')).toHaveText('Alice');
+    await firstControlCell.click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Delete row' }).click();
+
+    const pendingRow = page.locator('.ag-scroll-pane .ag-row--pending-delete');
+    const confirmation = pendingRow.locator('.ag-delete-confirmation');
+    await expect(confirmation).toContainText('Sure to delete?');
+    await expect(firstName).toHaveCSS('opacity', '0.2');
+
+    await confirmation.getByRole('button', { name: 'No' }).click();
+    await expect(pendingRow).toHaveCount(0);
+    await expect(firstName.locator('.ag-cell-value')).toHaveText('Alice');
+
+    await firstControlCell.click({ button: 'right' });
+    await page.getByRole('menuitem', { name: 'Delete row' }).click();
+    await page.locator('.ag-delete-confirmation').getByRole('button', { name: 'Yes' }).click();
+
+    await expect(page.locator(cell(0, 1)).first().locator('.ag-cell-value')).toHaveText('Bob');
+  });
+
   test('exposes coherent grid accessibility state', async ({ page }) => {
     await page.goto('/readonly');
     const grid = page.getByRole('grid');

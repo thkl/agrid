@@ -310,6 +310,64 @@
 
 .ag-row {
   display: grid;
+  position: relative;
+}
+
+.ag-row--pending-delete > :not(.ag-delete-confirmation) {
+  opacity: 0.2;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.ag-delete-confirmation {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: min(100%, 320px);
+  padding: 2px 12px;
+  box-sizing: border-box;
+  color: var(--agrid-color-text);
+  background: color-mix(in srgb, var(--agrid-color-danger-subtle) 88%, transparent);
+  border-block: 1px solid color-mix(in srgb, var(--agrid-color-danger) 35%, transparent);
+}
+
+.ag-delete-confirmation-text {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ag-delete-confirmation-btn {
+  min-width: 42px;
+  padding: 3px 9px;
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 4px;
+  color: var(--agrid-color-text);
+  background: var(--agrid-color-bg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ag-delete-confirmation-btn:hover,
+.ag-delete-confirmation-btn:focus-visible {
+  border-color: var(--agrid-color-accent);
+  outline: none;
+}
+
+.ag-delete-confirmation-btn--yes {
+  color: #fff;
+  border-color: var(--agrid-color-danger);
+  background: var(--agrid-color-danger);
+}
+
+.ag-delete-confirmation-btn--yes:hover,
+.ag-delete-confirmation-btn--yes:focus-visible {
+  border-color: color-mix(in srgb, var(--agrid-color-danger) 75%, #000);
+  background: color-mix(in srgb, var(--agrid-color-danger) 85%, #000);
 }
 
 

@@ -60,6 +60,8 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   zebraStripes?: boolean;
   /** Show a color marker on cells changed through grid editing. @default false */
   showChangedCellIndicator?: boolean;
+  /** Ask for confirmation before grid row-delete actions. @default false */
+  confirmRowDelete?: boolean;
   /** Make the entire grid read-only. @default false */
   readonly?: boolean;
 
@@ -142,6 +144,8 @@ export class AgridProvider<T extends object = any> {
   zebraStripes: boolean;
   /** Whether committed cell changes receive a visual marker. */
   showChangedCellIndicator: boolean;
+  /** Whether grid row-delete actions require in-row confirmation. */
+  confirmRowDelete: boolean;
   /** Optional empty-state text override. */
   emptyText?: string;
   /** Whether edits are restricted to the sidebar editor. */
@@ -176,6 +180,7 @@ export class AgridProvider<T extends object = any> {
     this.cellMenuItems    = config.cellMenuItems ?? [];
     this.zebraStripes     = config.zebraStripes ?? false;
     this.showChangedCellIndicator = config.showChangedCellIndicator ?? false;
+    this.confirmRowDelete = config.confirmRowDelete ?? false;
     this.emptyText        = config.emptyText;
     this.loading          = signal(config.loading ?? false);
     this.readonlyGrid     = signal(config.readonly ?? false);

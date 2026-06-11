@@ -119,6 +119,7 @@ export class AgridComponent<T extends object = any> {
   readonly showChangedCellIndicator = computed(
     () => this.provider().showChangedCellIndicator,
   );
+  readonly confirmRowDelete = computed(() => this.provider().confirmRowDelete);
   readonly readonlyGrid = computed(() => this.provider().readonlyGrid());
   readonly loading = computed(() => this.provider().loading());
   readonly emptyText = computed(() => this.provider().emptyText);
@@ -196,6 +197,15 @@ export class AgridComponent<T extends object = any> {
 
   /** Currently focused cell, or `null`. */
   readonly selectedCell = signal<CellPosition | null>(null);
+
+  /** Original index of the row awaiting delete confirmation, or `null`. */
+  readonly pendingDeleteRow = signal<number | null>(null);
+
+  /** Horizontal position of the delete prompt inside the scrollable row. */
+  readonly deleteConfirmationLeft = signal(0);
+
+  /** Visible width available to the delete prompt. */
+  readonly deleteConfirmationWidth = signal(0);
 
   /** Rectangular cell range selected by Shift+arrow or Shift+click. */
   readonly selectedRange = signal<CellRange | null>(null);
@@ -1067,6 +1077,12 @@ export class AgridComponent<T extends object = any> {
 
   /** @internal Main keyboard handler delegated from the wrapper div. */
   onKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.pendingDeleteRow() !== null) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.cancelRowDelete();
+      return;
+    }
     this.navigationController.handleKeyDown(event);
   }
 
@@ -1195,9 +1211,51 @@ export class AgridComponent<T extends object = any> {
     this.rowController.insertRowAt(atIndex);
   }
 
-  /** Delete the row at `originalIndex`, adjusting stale cell/edit pointers. */
+  /** Start confirmation or immediately delete the row at `originalIndex`. */
   deleteRow(originalIndex: number): void {
+    if (this.confirmRowDelete()) {
+      this.updateDeleteConfirmationPosition();
+      this.pendingDeleteRow.set(originalIndex);
+      this.rowController.closeContextMenu();
+      this.rowController.closeCellContextMenu();
+      this.browser.schedule(() => {
+        (this._hostEl.nativeElement as HTMLElement)
+          .querySelector<HTMLButtonElement>('[data-delete-confirm-no]')
+          ?.focus();
+      });
+      return;
+    }
+    this.deleteRowImmediately(originalIndex);
+  }
+
+  /** @internal Returns whether this row is awaiting delete confirmation. */
+  isRowPendingDelete(originalIndex: number): boolean {
+    return this.pendingDeleteRow() === originalIndex;
+  }
+
+  /** @internal Delete the row currently awaiting confirmation. */
+  confirmPendingRowDelete(): void {
+    const originalIndex = this.pendingDeleteRow();
+    if (originalIndex === null) return;
+    this.pendingDeleteRow.set(null);
+    this.deleteRowImmediately(originalIndex);
+  }
+
+  /** @internal Cancel the active row-delete confirmation. */
+  cancelRowDelete(): void {
+    this.pendingDeleteRow.set(null);
+    this.wrapperEl().nativeElement.focus();
+  }
+
+  private deleteRowImmediately(originalIndex: number): void {
     this.rowController.deleteRow(originalIndex);
+    this.rowController.closeCellContextMenu();
+  }
+
+  private updateDeleteConfirmationPosition(): void {
+    const scroller = this.horizontalScrollerEl().nativeElement;
+    this.deleteConfirmationLeft.set(scroller.scrollLeft);
+    this.deleteConfirmationWidth.set(scroller.clientWidth);
   }
 
   // ── Group expand / collapse ───────────────────────────────────────────────────
@@ -1300,6 +1358,11 @@ export class AgridComponent<T extends object = any> {
     const offset = this.viewport().measureScrollOffset();
     this.pinnedViewport()?.scrollToOffset(offset);
     this.rightPinnedViewport()?.scrollToOffset(offset);
+  }
+
+  /** @internal Keeps the row-delete prompt visible while columns scroll horizontally. */
+  onHorizontalScroll(): void {
+    this.updateDeleteConfirmationPosition();
   }
 
   /** @internal */

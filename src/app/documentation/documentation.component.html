@@ -95,7 +95,7 @@
             <tr><td><code>collapseGroups()</code></td><td>Collapses all groups.</td></tr>
             <tr><td><code>toggleSidebar()</code></td><td>Opens or closes the column sidebar.</td></tr>
             <tr><td><code>openFind()</code></td><td>Opens and focuses the find panel.</td></tr>
-            <tr><td><code>deleteRow(index)</code></td><td>Removes a row and emits <code>rowRemoved</code>.</td></tr>
+            <tr><td><code>deleteRow(index)</code></td><td>Removes a row and emits <code>rowRemoved</code>, after confirmation when enabled.</td></tr>
             <tr><td><code>clearChangedCells(index?, fields?)</code></td><td>Clears all markers, one row, or selected fields.</td></tr>
           </tbody>
         </table>
@@ -136,11 +136,16 @@
             <tr><td><code>rowSelection</code></td><td><code>'none'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
             <tr><td><code>zebraStripes</code></td><td><code>false</code></td><td>Alternates data-row backgrounds.</td></tr>
             <tr><td><code>showChangedCellIndicator</code></td><td><code>false</code></td><td>Marks changed cells until persistence clears them.</td></tr>
+            <tr><td><code>confirmRowDelete</code></td><td><code>false</code></td><td>Fades the target row and shows a localized in-row Yes/No confirmation.</td></tr>
             <tr><td><code>readonly</code></td><td><code>false</code></td><td>Disables all cell editing.</td></tr>
             <tr><td><code>loading</code></td><td><code>false</code></td><td>Shows the loading overlay.</td></tr>
           </tbody>
         </table>
       </div>
+      <p>
+        Set <code>confirmRowDelete: true</code> to protect context-menu and
+        <code>deleteRow()</code> actions. Direct datasource removals remain immediate.
+      </p>
 
       <h3>Dynamic options</h3>
       <p>
