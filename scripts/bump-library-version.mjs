@@ -9,7 +9,21 @@ if (!match) {
 }
 
 const [, major, minor, patch] = match;
-packageJson.version = `${major}.${minor}.${Number(patch) + 1}`;
+const version = `${major}.${minor}.${Number(patch) + 1}`;
+packageJson.version = version;
 
 await writeFile(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
 console.log(`@thkl/agrid version: ${packageJson.version}`);
+
+
+const mainPackagePath = new URL('../package.json', import.meta.url);
+const mainPackageJson = JSON.parse(await readFile(mainPackagePath, 'utf8'));
+const mainMatch = /^(\d+)\.(\d+)\.(\d+)$/.exec(mainPackageJson.version);
+
+if (!mainMatch) {
+  throw new Error(`Cannot increment invalid library version: ${mainPackageJson.version}`);
+}
+
+mainPackageJson.version = version;
+await writeFile(mainPackagePath, `${JSON.stringify(mainPackageJson, null, 2)}\n`);
+console.log(`Main version: ${mainPackageJson.version}`);
