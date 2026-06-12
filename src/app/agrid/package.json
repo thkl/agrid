@@ -1,6 +1,6 @@
 {
   "name": "@thkl/agrid",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "A signal-based, standalone data grid for Angular.",
   "keywords": [
     "angular",
@@ -13,7 +13,7 @@
   "homepage": "https://thkl.github.io/agrid/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/thkl/agrid.git"
+    "url": "git+https://github.com/thkl/agrid.git"
   },
   "bugs": {
     "url": "https://github.com/thkl/agrid/issues"
