@@ -1,7 +1,8 @@
 # @thkl/agrid
 
 A signal-based, standalone data grid for Angular 21 with virtual scrolling, editing,
-filtering, sorting, grouping, pinned columns, selection, clipboard operations, and pagination.
+filtering, sorting, grouping, tree data, pinned columns, selection, clipboard operations,
+and pagination.
 
 ## Install
 
@@ -69,6 +70,34 @@ cell-context, and row-context copy operations. Read `grid.markedRowIndices()` or
 Marking is independent from row selection. Cell and range copy use the same copied columns for
 every marked row, while Copy row uses every visible column. Duplicate rows are omitted, and marked
 rows remain included when filters hide them.
+
+## Tree data
+
+Pass `treeConfig` to render rows as a hierarchical tree. The hierarchy lives on the flat row
+array via stable `id` / `parentId` accessors, so there are no nested `children` arrays and
+selection and editing keep working on the same indices.
+
+```ts
+import { AgridTreeConfig } from '@thkl/agrid';
+
+const treeConfig: AgridTreeConfig<OrgRow> = {
+  getId: row => row.id,
+  getParentId: row => row.parentId, // null / unknown id ⇒ root row
+  treeField: 'name',                // column that shows the twisty
+};
+
+readonly provider = new AgridProvider<OrgRow>({
+  columns,
+  datasource: new AgridDataSource(rows),
+  treeConfig,
+});
+```
+
+The `treeField` column shows an indented expand/collapse twisty. Filtering and sorting behave as
+in a flat grid; with `keepAncestorsOnFilter` (default `true`) a match deep in the tree keeps its
+parents visible and force-opens the path to it. Tree mode takes precedence over grouping and
+disables pagination. Call `grid.expandAllNodes()` / `grid.collapseAllNodes()` to toggle the whole
+tree.
 
 ## Saving edited rows
 

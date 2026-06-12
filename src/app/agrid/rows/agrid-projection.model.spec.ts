@@ -2,8 +2,8 @@ import { signal } from '@angular/core';
 import { AgridControl } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
 import { AgridProjectionModel } from './agrid-projection.model';
-import { ColDef, GridItem } from '../agrid.types';
-import { isDataRowItem, isGroupHeaderItem } from '../agrid.utils';
+import { AgridTreeConfig, ColDef, GridItem } from '../agrid.types';
+import { isDataRowItem, isGroupHeaderItem, isTreeRowItem } from '../agrid.utils';
 
 describe('AgridProjectionModel', () => {
   const columns: ColDef[] = [
@@ -22,9 +22,12 @@ describe('AgridProjectionModel', () => {
     control?: AgridControl;
     serverSideFiltering?: boolean;
     expandedLabels?: string[];
+    sourceRows?: Record<string, unknown>[];
+    treeConfig?: AgridTreeConfig | null;
+    expandedTreeIds?: (string | number)[];
   } = {}) {
     const control = options.control ?? new AgridControl();
-    const dataSource = new AgridDataSource(rows);
+    const dataSource = new AgridDataSource(options.sourceRows ?? rows);
     const model = new AgridProjectionModel({
       dataSource: signal(dataSource),
       control: signal(control),
@@ -39,6 +42,8 @@ describe('AgridProjectionModel', () => {
         field: control.groupByField(),
         labels: new Set(options.expandedLabels ?? []),
       }),
+      treeConfig: signal(options.treeConfig ?? null),
+      expandedTreeIds: signal(new Set(options.expandedTreeIds ?? [])),
     });
     return { control, dataSource, model };
   }
@@ -92,6 +97,92 @@ describe('AgridProjectionModel', () => {
     expect(model.footerValues()).toEqual({
       name: 2,
       amount: 30,
+    });
+  });
+
+  describe('tree mode', () => {
+    const treeRows = [
+      { id: 1, parentId: null, name: 'Root', department: 'X', amount: 0 },
+      { id: 2, parentId: 1, name: 'Child A', department: 'X', amount: 5 },
+      { id: 3, parentId: 1, name: 'Child B', department: 'X', amount: 7 },
+      { id: 4, parentId: 2, name: 'Grandchild', department: 'X', amount: 9 },
+    ];
+    const treeConfig: AgridTreeConfig = {
+      getId: (r: any) => r.id,
+      getParentId: (r: any) => r.parentId,
+      treeField: 'name',
+    };
+
+    it('flattens the hierarchy honoring expanded ids and disables pagination', () => {
+      const control = new AgridControl({ pageSize: 1 });
+      const { model } = createModel({
+        control,
+        sourceRows: treeRows,
+        treeConfig,
+        expandedTreeIds: [1],
+      });
+
+      const items = model.filteredItems();
+      expect(items.filter(isTreeRowItem).map(i => (i.row as any).name))
+        .toEqual(['Root', 'Child A', 'Child B']);
+      expect(model.showPagination()).toBe(false);
+    });
+
+    it('reveals deeper descendants as more nodes expand', () => {
+      const { model } = createModel({
+        sourceRows: treeRows,
+        treeConfig,
+        expandedTreeIds: [1, 2],
+      });
+
+      const tree = model.filteredItems().filter(isTreeRowItem);
+      expect(tree.map(i => (i.row as any).name))
+        .toEqual(['Root', 'Child A', 'Grandchild', 'Child B']);
+      expect(tree.find(i => (i.row as any).id === 4)!.level).toBe(2);
+    });
+
+    it('orders siblings by the active sort', () => {
+      const control = new AgridControl();
+      control.addSort('amount', 'desc');
+      const { model } = createModel({
+        control,
+        sourceRows: treeRows,
+        treeConfig,
+        expandedTreeIds: [1],
+      });
+
+      expect(model.filteredItems().filter(isTreeRowItem).map(i => (i.row as any).name))
+        .toEqual(['Root', 'Child B', 'Child A']);
+    });
+
+    it('keeps ancestors of a filter match visible and forces the path open', () => {
+      const control = new AgridControl();
+      control.setTextFilter('name', 'Grandchild');
+      const { model } = createModel({
+        control,
+        sourceRows: treeRows,
+        treeConfig,
+        // Nothing explicitly expanded — ancestors are force-opened by the filter.
+        expandedTreeIds: [],
+      });
+
+      expect(model.filteredItems().filter(isTreeRowItem).map(i => (i.row as any).name))
+        .toEqual(['Root', 'Child A', 'Grandchild']);
+    });
+
+    it('surfaces a match as a root when keepAncestorsOnFilter is disabled', () => {
+      const control = new AgridControl();
+      control.setTextFilter('name', 'Grandchild');
+      const { model } = createModel({
+        control,
+        sourceRows: treeRows,
+        treeConfig: { ...treeConfig, keepAncestorsOnFilter: false },
+        expandedTreeIds: [],
+      });
+
+      const tree = model.filteredItems().filter(isTreeRowItem);
+      expect(tree.map(i => (i.row as any).name)).toEqual(['Grandchild']);
+      expect(tree[0].level).toBe(0);
     });
   });
 });

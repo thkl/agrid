@@ -38,6 +38,48 @@ describe('AgridSidebarComponent', () => {
     expect(emitted).toEqual(['name']);
   });
 
+  it('renders header groups as a tree and toggles all group columns', () => {
+    fixture.componentRef.setInput('columns', [
+      { field: 'firstName', header: 'First name', group: 'employee' },
+      { field: 'lastName', header: 'Last name', group: 'employee' },
+      { field: 'department', header: 'Department' },
+    ]);
+    fixture.componentRef.setInput('headerGroups', [
+      { id: 'employee', label: 'Employee' },
+    ]);
+    fixture.componentRef.setInput('hiddenColumns', new Set(['lastName']));
+    const emitted: { fields: string[]; visible: boolean }[] = [];
+    component.toggleColumnGroup.subscribe(event => emitted.push(event));
+    fixture.detectChanges();
+
+    const groupCheckbox = fixture.nativeElement.querySelector(
+      '.ag-sidebar-group-label input',
+    ) as HTMLInputElement;
+    const childLabels = Array.from(
+      fixture.nativeElement.querySelectorAll('.ag-sidebar-group-child'),
+      (element: Element) => element.textContent?.trim(),
+    );
+
+    expect(groupCheckbox.checked).toBe(false);
+    expect(groupCheckbox.indeterminate).toBe(true);
+    expect(childLabels).toEqual(['First name', 'Last name']);
+
+    groupCheckbox.checked = true;
+    groupCheckbox.dispatchEvent(new Event('change'));
+
+    expect(emitted).toEqual([{
+      fields: ['firstName', 'lastName'],
+      visible: true,
+    }]);
+  });
+
+  it('keeps columns flat when no matching header groups are configured', () => {
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.ag-sidebar-group')).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('.ag-sidebar-item')).toHaveLength(2);
+  });
+
   it('renders detail fields and emits edits', () => {
     const emitted: AgridSidebarEdit[] = [];
     component.detailEdit.subscribe(event => emitted.push(event));

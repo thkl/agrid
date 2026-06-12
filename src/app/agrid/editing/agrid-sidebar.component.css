@@ -122,6 +122,36 @@
   flex-shrink: 0;
 }
 
+.ag-sidebar-group-label {
+  font-weight: 600;
+}
+
+.ag-sidebar-group-children {
+  position: relative;
+}
+
+.ag-sidebar-group-children::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 8px;
+  left: 19px;
+  border-left: 1px solid var(--agrid-color-border);
+}
+
+.ag-sidebar-group-child {
+  position: relative;
+  padding-left: 30px;
+}
+
+.ag-sidebar-group-child::before {
+  content: '';
+  position: absolute;
+  left: 19px;
+  width: 7px;
+  border-top: 1px solid var(--agrid-color-border);
+}
+
 .ag-detail-field {
   display: flex;
   flex-direction: column;

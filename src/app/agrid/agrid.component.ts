@@ -30,6 +30,7 @@ import { AgridEditController } from './editing/agrid-edit.controller';
 import { AgridFindController } from './selection/agrid-find.controller';
 import { AgridFindPanelComponent } from './selection/agrid-find-panel.component';
 import { AgridGroupController } from './rows/agrid-group.controller';
+import { AgridTreeController } from './rows/agrid-tree.controller';
 import { AgridLocaleText, resolveAgridLocaleText, resolveLocale } from './agrid-localization';
 import { AgridNavigationController } from './selection/agrid-navigation.controller';
 import { AgridPresentationService } from './rendering/agrid-presentation.service';
@@ -46,6 +47,7 @@ import {
 import {
   isDataRowItem as isDataRowItemFn,
   isGroupHeaderItem as isGroupHeaderItemFn,
+  isTreeRowItem as isTreeRowItemFn,
 } from './agrid.utils';
 import {
   AgridField, CellContextMenuItem, CellPosition, ColDef, FilterChangeEvent, GridEditEvent,
@@ -120,6 +122,7 @@ export class AgridComponent<T extends object = any> {
   readonly groupActions = computed(() => this.provider().groupActions);
   readonly cellMenuItems = computed(() => this.provider().cellMenuItems);
   readonly headerGroups = computed(() => this.provider().headerGroups);
+  readonly treeConfig = computed(() => this.provider().treeConfig);
   readonly zebraStripes = computed(() => this.provider().zebraStripes);
   readonly showChangedCellIndicator = computed(
     () => this.provider().showChangedCellIndicator,
@@ -340,6 +343,8 @@ export class AgridComponent<T extends object = any> {
     groupDescription: this.groupDescription,
   });
 
+  readonly treeController = new AgridTreeController();
+
   // ── Derived state ─────────────────────────────────────────────────────────────
 
   readonly allowRowReorder = computed(() =>
@@ -400,6 +405,8 @@ export class AgridComponent<T extends object = any> {
     allowAddRows: this.allowAddRows,
     autoAddRows: this.autoAddRows,
     expandedGroups: this.groupController.expandedGroups,
+    treeConfig: this.treeConfig,
+    expandedTreeIds: this.treeController.expandedIds,
   });
 
   private readonly editController = new AgridEditController({
@@ -957,6 +964,52 @@ export class AgridComponent<T extends object = any> {
     return isDataRowItemFn(item) ? item.originalIndex : null;
   }
 
+  // ── Template helpers — tree ───────────────────────────────────────────────────
+
+  /** @internal True when `col` is the configured tree column. */
+  isTreeCell(col: ColDef): boolean {
+    return this.treeConfig()?.treeField === col.field;
+  }
+
+  /** @internal Tree depth of a row item (0 when not a tree row). */
+  treeRowLevel(item: GridItem): number {
+    return isTreeRowItemFn(item) ? item.level : 0;
+  }
+
+  /** @internal Whether a tree row has children and can be expanded. */
+  treeRowExpandable(item: GridItem): boolean {
+    return isTreeRowItemFn(item) && item.expandable;
+  }
+
+  /** @internal Whether a tree row is currently expanded. */
+  treeRowExpanded(item: GridItem): boolean {
+    return isTreeRowItemFn(item) && item.expanded;
+  }
+
+  /** @internal Toggle the expand/collapse state of a tree row from its twisty. */
+  onTreeToggle(item: GridItem): void {
+    const config = this.treeConfig();
+    if (!config || !isTreeRowItemFn(item)) return;
+    this.treeController.toggle(config.getId(item.row as T));
+  }
+
+  /** Expand every expandable node in the tree. No-op when not in tree mode. */
+  expandAllNodes(): void {
+    const config = this.treeConfig();
+    if (!config) return;
+    const expandable = new Set<string | number>();
+    for (const row of this.dataSource().rows()) {
+      const parentId = config.getParentId(row as T);
+      if (parentId != null) expandable.add(parentId);
+    }
+    this.treeController.expandAll(expandable);
+  }
+
+  /** Collapse every node in the tree. No-op when not in tree mode. */
+  collapseAllNodes(): void {
+    this.treeController.collapseAll();
+  }
+
   /** @internal CDK trackBy — arrow to preserve `this`. */
   readonly trackByItem = (_di: number, item: GridItem): string | number => {
     if (item === 'ghost') return '__ghost__';
@@ -1416,6 +1469,11 @@ export class AgridComponent<T extends object = any> {
   /** @internal */
   onSidebarToggleColumn(field: string): void {
     this.columnMenuController.toggleColumnVisibility(field);
+  }
+
+  /** @internal Sets every column in a sidebar header group to the requested visibility. */
+  onSidebarToggleColumnGroup(fields: string[], visible: boolean): void {
+    this.columnMenuController.setColumnsVisibility(fields, visible);
   }
 
   /** @internal Mirrors vertical scrolling from the main viewport into both pinned panes. */

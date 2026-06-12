@@ -893,3 +893,110 @@ function focusEvent(target: Element): FocusEvent {
   Object.defineProperty(event, 'target', { value: target });
   return event;
 }
+
+describe('AgridComponent tree mode', () => {
+  let fixture: ComponentFixture<AgridComponent>;
+  let component: AgridComponent;
+  let provider: AgridProvider;
+
+  beforeAll(() => {
+    HTMLElement.prototype.scrollTo = () => undefined;
+  });
+
+  beforeEach(async () => {
+    provider = new AgridProvider({
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'size', header: 'Size', type: 'number' },
+      ],
+      datasource: new AgridDataSource([
+        { id: 1, parentId: null, name: 'Root', size: 0 },
+        { id: 2, parentId: 1, name: 'Child A', size: 5 },
+        { id: 3, parentId: 1, name: 'Child B', size: 7 },
+        { id: 4, parentId: 2, name: 'Grandchild', size: 9 },
+        { id: 5, parentId: null, name: 'Root B', size: 3 },
+      ]),
+      treeConfig: {
+        getId: (r: any) => r.id,
+        getParentId: (r: any) => r.parentId,
+        treeField: 'name',
+      },
+    });
+
+    await TestBed.configureTestingModule({
+      imports: [AgridComponent],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(AgridComponent);
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  afterEach(() => fixture.destroy());
+
+  const visibleNames = () =>
+    component.displayItems()
+      .filter(isTreeRow)
+      .map(item => (item as { row: Record<string, unknown> }).row['name']);
+
+  it('shows only root rows when nothing is expanded', () => {
+    expect(visibleNames()).toEqual(['Root', 'Root B']);
+    expect(component.showPagination()).toBe(false);
+  });
+
+  it('marks expandable rows and disables pagination', () => {
+    const items = component.displayItems().filter(isTreeRow);
+    const root = items.find(i => (i as any).row.name === 'Root')!;
+    const rootB = items.find(i => (i as any).row.name === 'Root B')!;
+    expect(component.treeRowExpandable(root)).toBe(true);
+    expect(component.treeRowExpandable(rootB)).toBe(false);
+  });
+
+  it('expands a node via its twisty click and reveals children', () => {
+    const root = component.displayItems()
+      .filter(isTreeRow)
+      .find(i => (i as any).row.name === 'Root')!;
+    component.onTreeToggle(root);
+    fixture.detectChanges();
+
+    expect(component.treeController.isExpanded(1)).toBe(true);
+    expect(visibleNames()).toEqual(['Root', 'Child A', 'Child B', 'Root B']);
+  });
+
+  it('renders the twisty inside the tree column cell', () => {
+    component.onTreeToggle(
+      component.displayItems().filter(isTreeRow).find(i => (i as any).row.name === 'Root')!,
+    );
+    fixture.detectChanges();
+
+    const treeCells = fixture.nativeElement.querySelectorAll(
+      'agrid-cell[data-col-field="name"].ag-cell--tree',
+    );
+    expect(treeCells.length).toBeGreaterThan(0);
+    expect(fixture.nativeElement.querySelector('.ag-tree-twisty')).not.toBeNull();
+  });
+
+  it('expands and collapses the whole tree', () => {
+    component.expandAllNodes();
+    fixture.detectChanges();
+    expect(visibleNames()).toEqual(['Root', 'Child A', 'Grandchild', 'Child B', 'Root B']);
+
+    component.collapseAllNodes();
+    fixture.detectChanges();
+    expect(visibleNames()).toEqual(['Root', 'Root B']);
+  });
+
+  it('indents deeper rows by level', () => {
+    component.expandAllNodes();
+    fixture.detectChanges();
+    const items = component.displayItems().filter(isTreeRow);
+    const grandchild = items.find(i => (i as any).row.name === 'Grandchild')!;
+    expect(component.treeRowLevel(grandchild)).toBe(2);
+  });
+});
+
+function isTreeRow(item: GridItem): boolean {
+  return typeof item === 'object' && item !== null && 'level' in item;
+}

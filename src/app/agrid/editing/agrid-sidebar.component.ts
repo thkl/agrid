@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from '../agrid-localization';
 import { getDateInputValue, getDisplayForField, looksLikeDate } from '../agrid.utils';
-import { ColDef } from '../agrid.types';
+import { ColDef, HeaderGroup } from '../agrid.types';
 
 /** Field edit emitted by the sidebar detail form. @internal */
 export interface AgridSidebarEdit {
@@ -31,6 +31,19 @@ export interface AgridSidebarDetailField {
   col: ColDef;
 }
 
+/** Visibility change requested from a grouped sidebar column entry. @internal */
+export interface AgridSidebarGroupToggle {
+  /** Fields belonging to the selected header group. */
+  fields: string[];
+  /** Requested visibility for every field in the group. */
+  visible: boolean;
+}
+
+/** Grouped or standalone entry rendered in the sidebar column tree. @internal */
+export type AgridSidebarColumnEntry =
+  | { kind: 'column'; col: ColDef }
+  | { kind: 'group'; id: string; label: string; columns: ColDef[] };
+
 /** Sidebar view for column visibility and selected-row details. @internal */
 @Component({
   selector: 'agrid-sidebar',
@@ -42,6 +55,7 @@ export class AgridSidebarComponent {
   open = input<boolean>(false);
   activeTab = input<'columns' | 'detail'>('columns');
   columns = input<ColDef[]>([]);
+  headerGroups = input<HeaderGroup[]>([]);
   row = input<Record<string, unknown> | null>(null);
   hiddenColumns = input<ReadonlySet<string>>(new Set());
   locale = input<string | undefined>(undefined);
@@ -52,8 +66,55 @@ export class AgridSidebarComponent {
   close = output<void>();
   tabChange = output<'columns' | 'detail'>();
   toggleColumn = output<string>();
+  toggleColumnGroup = output<AgridSidebarGroupToggle>();
   detailEdit = output<AgridSidebarEdit>();
   save = output<AgridSidebarDetailField[]>();
+
+  readonly columnEntries = computed<AgridSidebarColumnEntry[]>(() => {
+    const groupLabels = new Map(this.headerGroups().map(group => [group.id, group.label]));
+    const entries: AgridSidebarColumnEntry[] = [];
+    const groupedEntries = new Map<string, Extract<AgridSidebarColumnEntry, { kind: 'group' }>>();
+
+    for (const col of this.columns()) {
+      const groupId = col.group;
+      const groupLabel = groupId ? groupLabels.get(groupId) : undefined;
+      if (!groupId || !groupLabel) {
+        entries.push({ kind: 'column', col });
+        continue;
+      }
+
+      let entry = groupedEntries.get(groupId);
+      if (!entry) {
+        entry = { kind: 'group', id: groupId, label: groupLabel, columns: [] };
+        groupedEntries.set(groupId, entry);
+        entries.push(entry);
+      }
+      entry.columns.push(col);
+    }
+
+    return entries;
+  });
+
+  /** Whether every column in a group is currently visible. */
+  isGroupVisible(columns: ColDef[]): boolean {
+    const hidden = this.hiddenColumns();
+    return columns.every(col => !hidden.has(col.field));
+  }
+
+  /** Whether a group contains both visible and hidden columns. */
+  isGroupPartiallyVisible(columns: ColDef[]): boolean {
+    const hidden = this.hiddenColumns();
+    const visibleCount = columns.filter(col => !hidden.has(col.field)).length;
+    return visibleCount > 0 && visibleCount < columns.length;
+  }
+
+  /** Emits a visibility request for all columns belonging to a group. */
+  onGroupToggle(columns: ColDef[], event: Event): void {
+    this.toggleColumnGroup.emit({
+      fields: columns.map(col => col.field),
+      visible: (event.target as HTMLInputElement).checked,
+    });
+  }
 
   readonly detailFields = computed<AgridSidebarDetailField[] | null>(() => {
     const row = this.row();

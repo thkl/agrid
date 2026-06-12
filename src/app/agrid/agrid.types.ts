@@ -193,12 +193,67 @@ export interface GroupAction {
  * - `null` — the add-row placeholder
  * - `'ghost'` — the drop-target ghost inserted while dragging
  * - `{ groupLabel, count, collapsed }` — group header row when grouping is active
+ * - `{ row, originalIndex, level, expandable, expanded }` — a tree row when tree mode is active
  */
 export type GridItem<T extends object = Record<string, unknown>> =
   | { row: T; originalIndex: number }
   | null
   | 'ghost'
-  | { groupLabel: string; count: number; collapsed: boolean };
+  | { groupLabel: string; count: number; collapsed: boolean }
+  | TreeRowItem<T>;
+
+/**
+ * A data row rendered inside a hierarchical tree.
+ *
+ * Structurally a superset of the plain `{ row, originalIndex }` data-row item, so it also
+ * satisfies {@link GridItem}'s data-row checks — selection, editing, and cell rendering treat
+ * it exactly like a flat row. The extra fields drive indentation and the expand/collapse twisty.
+ */
+export interface TreeRowItem<T extends object = Record<string, unknown>> {
+  /** The underlying row object from the data source. */
+  row: T;
+  /** Zero-based index of the row in the (flat) data source. */
+  originalIndex: number;
+  /** Depth in the tree. Root rows are `0`; each level of nesting adds `1`. */
+  level: number;
+  /** `true` when this row has at least one child row in the current projection. */
+  expandable: boolean;
+  /** `true` when this row is expandable and currently expanded (its children are visible). */
+  expanded: boolean;
+}
+
+/**
+ * Host-supplied configuration that turns the grid into a tree.
+ *
+ * Hierarchy is expressed over the existing flat row array: every row exposes a stable id and a
+ * parent id, so no nested `children` arrays are required and `originalIndex`-based selection and
+ * editing keep working unchanged. A row whose `getParentId` is `null`/`undefined` — or whose
+ * parent id is not present in the data — is treated as a root.
+ *
+ * @example
+ * ```ts
+ * treeConfig: {
+ *   getId: row => row.id,
+ *   getParentId: row => row.managerId,
+ *   treeField: 'name',
+ * }
+ * ```
+ */
+export interface AgridTreeConfig<T extends object = any> {
+  /** Return a stable, unique id for a row. Used as the expansion key and for parent lookups. */
+  getId: (row: T) => string | number;
+  /** Return the id of a row's parent, or `null`/`undefined` for a root row. */
+  getParentId: (row: T) => string | number | null | undefined;
+  /** Field whose cell shows the indentation and expand/collapse twisty. */
+  treeField: AgridField<T>;
+  /** Expand all nodes when the tree first renders. Defaults to `false` (all collapsed). */
+  defaultExpanded?: boolean;
+  /**
+   * When filtering, keep the ancestors of any matching row visible even if they don't match.
+   * Defaults to `true`. (Applied by the projection layer, not by {@link GridItem} flattening.)
+   */
+  keepAncestorsOnFilter?: boolean;
+}
 
 /** Zero-based position of a cell inside the grid. */
 export interface CellPosition {

@@ -35,6 +35,7 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
   { color: '#4f46e5', bg: '#eef2ff', label: '⌨', title: 'Keyboard-driven editing',  desc: 'Enter / F2 to edit, Tab to confirm, Escape to cancel. No mouse required.' },
   { color: '#0891b2', bg: '#ecfeff', label: '⇅', title: 'Sorting & filtering',       desc: 'Multi-column sort with Shift-click. Per-column dropdown filters with label resolution.' },
   { color: '#7c3aed', bg: '#f5f3ff', label: '⊞', title: 'Grouping & aggregates',     desc: 'Group by any column with custom group descriptions and aggregate footer rows.' },
+  { color: '#0d9488', bg: '#f0fdfa', label: '⊟', title: 'Tree data',                 desc: 'Hierarchical rows from flat parent/child data, with expand/collapse and filter-aware ancestors.' },
   { color: '#059669', bg: '#ecfdf5', label: '⚡', title: 'Client & server pagination', desc: 'Built-in page controls for both local datasets and remote API-driven sources.' },
   { color: '#d97706', bg: '#fffbeb', label: '◧', title: 'Custom cell renderers',      desc: 'Plug in any Angular component as a cell renderer for rich, interactive cells.' },
   { color: '#db2777', bg: '#fdf2f8', label: '⇆', title: 'Column reordering & pinning', desc: 'Drag headers to rearrange columns. Pin columns left or right to keep them visible.' },
@@ -59,7 +60,7 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
           <div class="hero-badge">Angular · Signals · Zero deps</div>
           <h1 class="hero-title">The Angular data grid<br>that stays out of your way</h1>
           <p class="hero-sub">
-            agrid is a fast, keyboard-first data grid built with Angular signals.<br>
+            aGrid is a fast, keyboard-first data grid built with Angular signals.<br>
             Sorting, filtering, editing, grouping — all wired up from a single provider.
           </p>
           <div class="hero-actions">
@@ -154,7 +155,12 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
               <div class="demo-card-desc">Freeze columns to the left or right edge while scrolling.</div>
               <span class="demo-card-link">Open →</span>
 
-              
+
+            </a>
+            <a class="demo-card" routerLink="/tree">
+              <div class="demo-card-title">Tree data</div>
+              <div class="demo-card-desc">Hierarchical rows with expand/collapse, built from flat parent/child data.</div>
+              <span class="demo-card-link">Open →</span>
             </a>
             <a class="demo-card" routerLink="/performance">
               <div class="demo-card-title">Performance Test</div>

@@ -6,6 +6,7 @@
     <a href="#component-api">Component API</a>
     <a href="#provider">Provider</a>
     <a href="#columns">Columns</a>
+    <a href="#treedata">Tree data</a>
     <a href="#datasource">Data source</a>
     <a href="#control">Control</a>
     <a href="#events">Events</a>
@@ -17,7 +18,7 @@
     <header class="docs-hero">
       <div>
         <div class="eyebrow">Angular data grid</div>
-        <h1>agrid documentation</h1>
+        <h1>aGrid documentation</h1>
         <p>
           A signal-based Angular grid with virtual scrolling, editing, filtering, sorting,
           grouping, pinned columns, selection, pagination, and clipboard workflows.
@@ -50,6 +51,7 @@
         <span>Undo and redo</span>
         <span>Filtering and sorting</span>
         <span>Grouping</span>
+        <span>Tree data</span>
         <span>Pagination</span>
         <span>Pinned columns</span>
         <span>Range selection</span>
@@ -93,6 +95,8 @@
             <tr><td><code>autosizeAllColumns()</code></td><td>Fits every visible column to its current content.</td></tr>
             <tr><td><code>expandGroups()</code></td><td>Expands all groups.</td></tr>
             <tr><td><code>collapseGroups()</code></td><td>Collapses all groups.</td></tr>
+            <tr><td><code>expandAllNodes()</code></td><td>Expands every node in tree mode.</td></tr>
+            <tr><td><code>collapseAllNodes()</code></td><td>Collapses every node in tree mode.</td></tr>
             <tr><td><code>toggleSidebar()</code></td><td>Opens or closes the column sidebar.</td></tr>
             <tr><td><code>openFind()</code></td><td>Opens and focuses the find panel.</td></tr>
             <tr><td><code>deleteRow(index)</code></td><td>Removes a row and emits <code>rowRemoved</code>, after confirmation when enabled.</td></tr>
@@ -126,6 +130,7 @@
           <tbody>
             <tr><td><code>columns</code></td><td><code>[]</code></td><td>Typed column definitions.</td></tr>
             <tr><td><code>headerGroups</code></td><td><code>[]</code></td><td>Labels for optional grouped column headers.</td></tr>
+            <tr><td><code>treeConfig</code></td><td><code>null</code></td><td>Renders rows as a hierarchical tree. See <a href="#treedata">Tree data</a>.</td></tr>
             <tr><td><code>datasource</code></td><td>Empty</td><td>Signal-based row container.</td></tr>
             <tr><td><code>control</code></td><td>New control</td><td>Filters, sorting, grouping, pagination, and history.</td></tr>
             <tr><td><code>locale</code></td><td><code>'auto'</code></td><td>BCP-47 locale for labels and date formatting.</td></tr>
@@ -231,6 +236,43 @@
       <div class="callout">
         ISO date strings and <code>Date</code> objects are automatically formatted and sorted
         chronologically. A custom <code>formatter</code> takes precedence.
+      </div>
+    </section>
+
+    <section id="treedata">
+      <h2>Tree data</h2>
+      <p>
+        Set <code>treeConfig</code> on the provider to render rows as a hierarchical tree. The
+        hierarchy is expressed over the existing flat row array — every row exposes a stable id
+        and a parent id — so there are no nested <code>children</code> arrays and selection,
+        editing, and <code>originalIndex</code> all keep working unchanged. The designated
+        <code>treeField</code> column shows an indented expand/collapse twisty.
+      </p>
+      <pre><code>{{ treeCode }}</code></pre>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Property</th><th>Required</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>getId</code></td><td>Yes</td><td>Returns a stable, unique id for a row.</td></tr>
+            <tr><td><code>getParentId</code></td><td>Yes</td><td>Returns the parent row's id, or <code>null</code> for a root.</td></tr>
+            <tr><td><code>treeField</code></td><td>Yes</td><td>Field whose cell shows the indentation and twisty.</td></tr>
+            <tr><td><code>defaultExpanded</code></td><td>No</td><td>Expand all nodes on first render. Defaults to <code>false</code>.</td></tr>
+            <tr><td><code>keepAncestorsOnFilter</code></td><td>No</td><td>Keep ancestors of filter matches visible. Defaults to <code>true</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li>A row whose parent id is <code>null</code> or missing from the data renders as a root.</li>
+        <li>Filtering, sorting, and the column filter UI work the same as in a flat grid; siblings follow the active sort.</li>
+        <li>With <code>keepAncestorsOnFilter</code> (default), a match deep in the tree keeps its parents visible and force-opens the path to it.</li>
+        <li>Tree mode takes precedence over grouping and disables pagination.</li>
+        <li>Call <code>expandAllNodes()</code> / <code>collapseAllNodes()</code> on the component to expand or collapse the whole tree.</li>
+      </ul>
+      <div class="callout">
+        Tree mode keeps the data source flat, so the same indices drive cell editing and row
+        selection. Use the <code>parentId</code> shape rather than nesting child arrays.
       </div>
     </section>
 

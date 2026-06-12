@@ -341,6 +341,15 @@ export class AgridColumnMenuController {
     this.opts.control()?.toggleColumnVisibility(field);
   }
 
+  /** Sets visibility for several fields from a sidebar header-group toggle. */
+  setColumnsVisibility(fields: string[], visible: boolean): void {
+    const control = this.opts.control();
+    if (!control) return;
+    for (const field of fields) {
+      control.setColumnVisibility(field, visible);
+    }
+  }
+
   private getColDef(field: string): ColDef | undefined {
     return this.opts.colDefs().find(col => col.field === field);
   }

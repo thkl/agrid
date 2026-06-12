@@ -1,11 +1,12 @@
 import { Signal, computed } from '@angular/core';
 import { AgridControl, ColumnFilter } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
-import { ColDef, GridItem } from '../agrid.types';
+import { AgridTreeConfig, ColDef, GridItem } from '../agrid.types';
 import {
   applySortToIndices,
   applyTextAndValueFilters,
   buildGroupedItems,
+  buildTreeItems,
 } from '../agrid.utils';
 
 /** Expanded labels associated with the current grouping field. @internal */
@@ -26,6 +27,10 @@ export interface AgridProjectionOptions {
   allowAddRows: Signal<boolean>;
   autoAddRows: Signal<boolean>;
   expandedGroups: Signal<AgridGroupExpansionState>;
+  /** Tree configuration, or `null` when the grid is not in tree mode. */
+  treeConfig: Signal<AgridTreeConfig | null>;
+  /** Expanded node ids when tree mode is active. */
+  expandedTreeIds: Signal<Set<string | number>>;
 }
 
 /**
@@ -63,6 +68,18 @@ export class AgridProjectionModel {
   /** Total filtered row count, unaffected by client-side pagination. */
   readonly filteredRowCount = computed(() => this.filteredSortedIndices().length);
 
+  /** All source indices in active sort order, ignoring filters. Used for tree ancestor ordering. */
+  private readonly allSortedIndices = computed<number[]>(() => {
+    const rows = this.opts.dataSource().rows();
+    const control = this.opts.control();
+    const indices = rows.map((_, index) => index);
+    if (!control || this.opts.serverSideFiltering()) return indices;
+    const sortEntries = this.sortEntries(control.filters());
+    return sortEntries.length
+      ? applySortToIndices(rows, indices, sortEntries, this.columnMap(), this.opts.locale())
+      : indices;
+  });
+
   /** Total page count using server total when server-side pagination is active. */
   readonly totalPages = computed(() => {
     const control = this.opts.control();
@@ -77,6 +94,7 @@ export class AgridProjectionModel {
   /** Whether client or server pagination controls should be rendered. */
   readonly showPagination = computed(() => {
     const control = this.opts.control();
+    if (this.opts.treeConfig()) return false;
     return (control?.pageSize() ?? 0) > 0 && !control?.groupByField();
   });
 
@@ -131,6 +149,47 @@ export class AgridProjectionModel {
     const rows = this.opts.dataSource().rows();
     const control = this.opts.control();
     let indices = this.filteredSortedIndices();
+
+    // Tree mode takes precedence over grouping/pagination: the already filtered-and-sorted
+    // indices are flattened into a hierarchy honoring the expanded-id set.
+    const treeConfig = this.opts.treeConfig();
+    if (treeConfig) {
+      const expandedIds = this.opts.expandedTreeIds();
+
+      // When a text/value filter is active, keep the ancestors of every match visible (and
+      // force their path open) so deep matches don't vanish under filtered-out parents.
+      const filters = control?.filters() ?? {};
+      const filterActive = !this.opts.serverSideFiltering()
+        && Object.values(filters).some(f => f.text || f.selectedValues !== null);
+
+      if (filterActive && treeConfig.keepAncestorsOnFilter !== false) {
+        const { getId, getParentId } = treeConfig;
+        const idToIndex = new Map<string | number, number>();
+        rows.forEach((row, index) => idToIndex.set(getId(row), index));
+
+        const visible = new Set<number>(indices);
+        const forced = new Set<string | number>();
+        for (const matched of indices) {
+          let parentId = getParentId(rows[matched]);
+          while (parentId != null && idToIndex.has(parentId)) {
+            const parentIndex = idToIndex.get(parentId)!;
+            forced.add(parentId);
+            if (visible.has(parentIndex)) break; // chain already added by an earlier match
+            visible.add(parentIndex);
+            parentId = getParentId(rows[parentIndex]);
+          }
+        }
+
+        const ordered = this.allSortedIndices().filter(index => visible.has(index));
+        const items = buildTreeItems(rows, ordered, treeConfig, expandedIds, forced);
+        this.appendAddRow(items);
+        return items;
+      }
+
+      const items = buildTreeItems(rows, indices, treeConfig, expandedIds);
+      this.appendAddRow(items);
+      return items;
+    }
 
     if (control) {
       const groupField = control.groupByField();

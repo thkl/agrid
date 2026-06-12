@@ -148,6 +148,39 @@ readonly provider = new AgridProvider<Person>({
   ],
 });`;
 
+  readonly treeCode = `import { AgridProvider, AgridDataSource, ColDef, AgridTreeConfig } from '@thkl/agrid';
+
+interface OrgRow {
+  id: number;
+  parentId: number | null;
+  name: string;
+  role: string;
+}
+
+// Flat rows linked by parentId — no nested children arrays.
+const rows: OrgRow[] = [
+  { id: 1, parentId: null, name: 'Dana',  role: 'CEO' },
+  { id: 2, parentId: 1,    name: 'Priya', role: 'VP Engineering' },
+  { id: 3, parentId: 2,    name: 'Marco', role: 'Engineer' },
+];
+
+const columns: ColDef<OrgRow>[] = [
+  { field: 'name', header: 'Name', width: 240, filterable: true },
+  { field: 'role', header: 'Role', width: 160 },
+];
+
+const treeConfig: AgridTreeConfig<OrgRow> = {
+  getId: row => row.id,
+  getParentId: row => row.parentId,   // null / unknown id ⇒ root row
+  treeField: 'name',                  // column that shows the twisty
+};
+
+readonly provider = new AgridProvider<OrgRow>({
+  columns,
+  datasource: new AgridDataSource(rows),
+  treeConfig,
+});`;
+
   readonly persistenceCode = `const saved = localStorage.getItem('agrid-state');
 const control = AgridControl.fromJSON(saved ? JSON.parse(saved) : {});
 

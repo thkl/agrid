@@ -6,12 +6,14 @@ import {
   applySortToIndices,
   buildGroupedItems,
   buildSelectionRange,
+  buildTreeItems,
   coerceDateInputValue,
   formatDateValue,
   getDateInputValue,
   getDisplayForField,
   isDataRowItem,
   isGroupHeaderItem,
+  isTreeRowItem,
   looksLikeDate,
 } from './agrid.utils';
 
@@ -142,6 +144,20 @@ describe('type guards', () => {
     expect(isGroupHeaderItem({ groupLabel: 'A', count: 1, collapsed: false })).toBe(true);
     expect(isGroupHeaderItem({ row: {}, originalIndex: 0 })).toBe(false);
     expect(isGroupHeaderItem(null)).toBe(false);
+  });
+
+  it('identifies tree row items', () => {
+    const treeItem = { row: {}, originalIndex: 0, level: 0, expandable: false, expanded: false };
+    expect(isTreeRowItem(treeItem)).toBe(true);
+    expect(isTreeRowItem({ row: {}, originalIndex: 0 })).toBe(false);
+    expect(isTreeRowItem({ groupLabel: 'A', count: 1, collapsed: false })).toBe(false);
+    expect(isTreeRowItem(null)).toBe(false);
+    expect(isTreeRowItem('ghost')).toBe(false);
+  });
+
+  it('treats tree row items as data row items', () => {
+    const treeItem = { row: {}, originalIndex: 0, level: 1, expandable: true, expanded: true };
+    expect(isDataRowItem(treeItem)).toBe(true);
   });
 });
 
@@ -383,5 +399,118 @@ describe('buildSelectionRange', () => {
     ];
     const result = buildSelectionRange(0, 1, mixed);
     expect([...result]).toEqual([0, 1]);
+  });
+});
+
+// ── buildTreeItems ─────────────────────────────────────────────────────────────
+
+describe('buildTreeItems', () => {
+  interface Node { id: number; parentId: number | null; name: string; }
+
+  const accessors = {
+    getId: (r: Node) => r.id,
+    getParentId: (r: Node) => r.parentId,
+  };
+
+  // 1 ─ 2 ─ 4
+  //   └ 3
+  // 5 (root)
+  const rows: Node[] = [
+    { id: 1, parentId: null, name: 'root-a' },
+    { id: 2, parentId: 1, name: 'child-a1' },
+    { id: 3, parentId: 1, name: 'child-a2' },
+    { id: 4, parentId: 2, name: 'grandchild' },
+    { id: 5, parentId: null, name: 'root-b' },
+  ];
+  const allIndices = rows.map((_, i) => i);
+
+  const idsOf = (items: ReturnType<typeof buildTreeItems<Node>>) =>
+    items.filter(isTreeRowItem).map(i => (i.row as Node).id);
+
+  it('shows only roots when nothing is expanded', () => {
+    const items = buildTreeItems(rows, allIndices, accessors, new Set());
+    expect(idsOf(items)).toEqual([1, 5]);
+    const root = items.filter(isTreeRowItem);
+    expect(root.every(i => i.level === 0)).toBe(true);
+  });
+
+  it('marks rows with children as expandable', () => {
+    const items = buildTreeItems(rows, allIndices, accessors, new Set());
+    const byId = new Map(items.filter(isTreeRowItem).map(i => [(i.row as Node).id, i]));
+    expect(byId.get(1)!.expandable).toBe(true);
+    expect(byId.get(5)!.expandable).toBe(false);
+  });
+
+  it('reveals direct children of an expanded node with incremented level', () => {
+    const items = buildTreeItems(rows, allIndices, accessors, new Set([1]));
+    expect(idsOf(items)).toEqual([1, 2, 3, 5]);
+    const child = items.filter(isTreeRowItem).find(i => (i.row as Node).id === 2)!;
+    expect(child.level).toBe(1);
+    // Grandchild stays hidden because node 2 is collapsed.
+    expect(child.expanded).toBe(false);
+  });
+
+  it('reveals descendants depth-first across multiple expanded levels', () => {
+    const items = buildTreeItems(rows, allIndices, accessors, new Set([1, 2]));
+    expect(idsOf(items)).toEqual([1, 2, 4, 3, 5]);
+    const grandchild = items.filter(isTreeRowItem).find(i => (i.row as Node).id === 4)!;
+    expect(grandchild.level).toBe(2);
+  });
+
+  it('preserves the incoming (sorted) order among siblings', () => {
+    // Feed children in reversed order; output should follow indices order, not id order.
+    const reversed = [0, 2, 1, 3, 4]; // root, child3, child2, grandchild, root5
+    const items = buildTreeItems(rows, reversed, accessors, new Set([1]));
+    expect(idsOf(items)).toEqual([1, 3, 2, 5]);
+  });
+
+  it('treats a row whose parent is filtered out as a root', () => {
+    // Exclude node 1 (the parent) and root 5; children 2 and 3 become roots at level 0.
+    const indices = [1, 2, 3]; // array positions → ids 2, 3, 4 (4's parent 2 is present)
+    const items = buildTreeItems(rows, indices, accessors, new Set([2]));
+    const roots = items.filter(isTreeRowItem).filter(i => i.level === 0).map(i => (i.row as Node).id);
+    expect(roots).toEqual([2, 3]);
+    // 2 is expanded so its grandchild 4 shows at level 1.
+    expect(idsOf(items)).toEqual([2, 4, 3]);
+  });
+
+  it('terminates without rendering an unreachable cycle', () => {
+    const cyclic: Node[] = [
+      { id: 1, parentId: 2, name: 'a' },
+      { id: 2, parentId: 1, name: 'b' },
+    ];
+    // Each is the other's child, so neither is a root and the cycle is unreachable.
+    // The call must terminate (no stack overflow) and emit nothing.
+    const items = buildTreeItems(cyclic, [0, 1], accessors, new Set([1, 2]));
+    expect(items.filter(isTreeRowItem)).toEqual([]);
+  });
+
+  it('renders each row once and terminates when a node is its own parent', () => {
+    // Self-parent within an otherwise normal tree: node 2 points at itself.
+    const selfRef: Node[] = [
+      { id: 1, parentId: null, name: 'root' },
+      { id: 2, parentId: 2, name: 'self' },
+    ];
+    const items = buildTreeItems(selfRef, [0, 1], { ...accessors }, new Set([1, 2]));
+    const ids = items.filter(isTreeRowItem).map(i => (i.row as Node).id);
+    expect(new Set(ids).size).toBe(ids.length); // no duplicates
+  });
+
+  it('returns an empty list for empty input', () => {
+    expect(buildTreeItems(rows, [], accessors, new Set())).toEqual([]);
+  });
+
+  it('force-expands ids regardless of the expanded set', () => {
+    // Node 1 is not in expandedIds, but forcing it open reveals its children.
+    const items = buildTreeItems(rows, allIndices, accessors, new Set(), new Set([1]));
+    expect(idsOf(items)).toEqual([1, 2, 3, 5]);
+    const root = items.filter(isTreeRowItem).find(i => (i.row as Node).id === 1)!;
+    expect(root.expanded).toBe(true);
+  });
+
+  it('combines forced and explicit expansion', () => {
+    // Node 1 forced, node 2 explicitly expanded → grandchild 4 shows too.
+    const items = buildTreeItems(rows, allIndices, accessors, new Set([2]), new Set([1]));
+    expect(idsOf(items)).toEqual([1, 2, 4, 3, 5]);
   });
 });

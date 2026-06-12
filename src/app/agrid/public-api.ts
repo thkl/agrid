@@ -14,6 +14,7 @@ export type {
 export type { AgridProviderConfig } from './agrid-provider';
 export type {
   AgridField,
+  AgridTreeConfig,
   CellContextMenuItem,
   CellPosition,
   ColDef,
@@ -30,5 +31,6 @@ export type {
   RowSelectEvent,
   RowUpdateEvent,
   SortChangeEvent,
+  TreeRowItem,
   ValueOption,
 } from './agrid.types';

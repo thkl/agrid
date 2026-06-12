@@ -8,15 +8,41 @@
     </div>
 
     @if (activeTab() === 'columns') {
-      @for (col of columns(); track col.field) {
-        <label class="ag-sidebar-item" (click)="$event.stopPropagation()">
-          <input
-            type="checkbox"
-            [checked]="!hiddenColumns().has(col.field)"
-            (change)="toggleColumn.emit(col.field)"
-          />
-          {{ col.header }}
-        </label>
+      @for (entry of columnEntries(); track entry.kind === 'group' ? 'group-' + entry.id : 'column-' + entry.col.field) {
+        @if (entry.kind === 'group') {
+          <div class="ag-sidebar-group">
+            <label class="ag-sidebar-item ag-sidebar-group-label" (click)="$event.stopPropagation()">
+              <input
+                type="checkbox"
+                [checked]="isGroupVisible(entry.columns)"
+                [indeterminate]="isGroupPartiallyVisible(entry.columns)"
+                (change)="onGroupToggle(entry.columns, $event)"
+              />
+              {{ entry.label }}
+            </label>
+            <div class="ag-sidebar-group-children">
+              @for (col of entry.columns; track col.field) {
+                <label class="ag-sidebar-item ag-sidebar-group-child" (click)="$event.stopPropagation()">
+                  <input
+                    type="checkbox"
+                    [checked]="!hiddenColumns().has(col.field)"
+                    (change)="toggleColumn.emit(col.field)"
+                  />
+                  {{ col.header }}
+                </label>
+              }
+            </div>
+          </div>
+        } @else {
+          <label class="ag-sidebar-item" (click)="$event.stopPropagation()">
+            <input
+              type="checkbox"
+              [checked]="!hiddenColumns().has(entry.col.field)"
+              (change)="toggleColumn.emit(entry.col.field)"
+            />
+            {{ entry.col.header }}
+          </label>
+        }
       }
     } @else {
       @if (detailFields(); as fields) {

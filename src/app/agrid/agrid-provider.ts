@@ -4,6 +4,7 @@ import { AgridDataSource } from './agrid-datasource';
 import { AgridLocaleTextOverrides } from './agrid-localization';
 import {
   AGridOptions,
+  AgridTreeConfig,
   CellContextMenuItem,
   ColDef,
   GroupAction,
@@ -20,6 +21,12 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   columns?: ColDef<T>[];
   /** Labels used by columns with a matching `group` identifier. */
   headerGroups?: HeaderGroup[];
+  /**
+   * Render rows as a hierarchical tree. When set, rows are nested by the configured
+   * parent/child accessors and an expand/collapse twisty is shown on `treeField`.
+   * Mutually exclusive with grouping and pagination.
+   */
+  treeConfig?: AgridTreeConfig<T>;
   /** Row height in pixels. Must be fixed for CDK virtual scroll. @default 32 */
   rowHeight?: number;
   /** Minimum height of the grid host element (e.g. `'200px'`). */
@@ -99,6 +106,8 @@ export class AgridProvider<T extends object = any> {
   readonly columns: WritableSignal<ColDef<T>[]>;
   /** Header-group labels referenced by column definitions. */
   headerGroups: HeaderGroup[];
+  /** Tree configuration, or `null` when the grid is not in tree mode. */
+  treeConfig: AgridTreeConfig<T> | null;
   /** Shared grid options such as locale. */
   options: AGridOptions;
 
@@ -177,6 +186,7 @@ export class AgridProvider<T extends object = any> {
     this.control      = config.control ?? new AgridControl({ allowRowReorder: true });
     this.columns      = signal(config.columns ?? []);
     this.headerGroups = config.headerGroups ?? [];
+    this.treeConfig   = config.treeConfig ?? null;
 
     this.rowHeight        = config.rowHeight ?? 32;
     this.minHeight        = config.minHeight;

@@ -32,6 +32,7 @@ import {
     role: 'gridcell',
     '[class.selected]': 'selected()',
     '[class.editing]': 'editing()',
+    '[class.ag-cell--tree]': 'treeCell()',
     '[attr.aria-readonly]': 'col().editable === false ? "true" : null',
     '(click)': 'activate.emit($event)',
     '(dblclick)': 'startEdit.emit()',
@@ -58,10 +59,27 @@ import {
           (input)="onInput($event)"
         />
       }
-    } @else if (col().cellRenderer) {
-      <span class="ag-cell-value" [innerHTML]="renderedHtml()"></span>
     } @else {
-      <span class="ag-cell-value">{{ displayValue() }}</span>
+      @if (treeCell()) {
+        <span class="ag-tree-prefix" [style.padding-left.px]="treeLevel() * treeIndent">
+          @if (treeExpandable()) {
+            <button
+              type="button"
+              class="ag-tree-twisty"
+              [class.ag-tree-twisty--expanded]="treeExpanded()"
+              [attr.aria-label]="treeExpanded() ? 'Collapse' : 'Expand'"
+              (click)="onTreeToggle($event)"
+            >▶</button>
+          } @else {
+            <span class="ag-tree-twisty-spacer"></span>
+          }
+        </span>
+      }
+      @if (col().cellRenderer) {
+        <span class="ag-cell-value" [innerHTML]="renderedHtml()"></span>
+      } @else {
+        <span class="ag-cell-value">{{ displayValue() }}</span>
+      }
     }
   `,
   styleUrl: './agrid-cell.component.css',
@@ -90,6 +108,24 @@ export class AgridCellComponent {
 
   /** Whether this cell is currently in edit mode. */
   editing = input<boolean>(false);
+
+  /** Whether this cell is the tree column and should render indentation + a twisty. */
+  treeCell = input<boolean>(false);
+
+  /** Depth of the row in the tree (drives indentation). Root rows are `0`. */
+  treeLevel = input<number>(0);
+
+  /** Whether the row has children and can be expanded/collapsed. */
+  treeExpandable = input<boolean>(false);
+
+  /** Whether the row is currently expanded. */
+  treeExpanded = input<boolean>(false);
+
+  /** Emitted when the user clicks the expand/collapse twisty. */
+  treeToggle = output<void>();
+
+  /** Indentation in pixels applied per tree level. */
+  readonly treeIndent = 16;
 
   /**
    * Optional character to pre-fill the edit input when the user presses a printable key
@@ -219,6 +255,12 @@ export class AgridCellComponent {
         });
       }
     });
+  }
+
+  /** Emit a tree expand/collapse request without selecting or editing the cell. */
+  onTreeToggle(event: MouseEvent): void {
+    event.stopPropagation();
+    this.treeToggle.emit();
   }
 
   /** Forward `<input>` changes to the grid. */

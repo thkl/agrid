@@ -1,5 +1,5 @@
 import { ColumnFilter } from './agrid-control';
-import { ColDef, GridItem, ValueOption } from './agrid.types';
+import { ColDef, GridItem, TreeRowItem, ValueOption } from './agrid.types';
 
 // Display resolution
 
@@ -82,6 +82,16 @@ export function isDataRowItem(item: GridItem): item is { row: Record<string, unk
 /** Returns whether a virtual-scroll item represents a group header. */
 export function isGroupHeaderItem(item: GridItem): item is { groupLabel: string; count: number; collapsed: boolean } {
   return typeof item === 'object' && item !== null && 'groupLabel' in item;
+}
+
+/**
+ * Returns whether a virtual-scroll item represents a tree row.
+ *
+ * Tree rows also pass {@link isDataRowItem} (they carry `row` + `originalIndex`); this guard
+ * additionally narrows to the indentation/expansion fields via the `level` discriminator.
+ */
+export function isTreeRowItem<T extends object>(item: GridItem<T>): item is TreeRowItem<T> {
+  return typeof item === 'object' && item !== null && 'level' in item;
 }
 
 // Filtering
@@ -231,6 +241,77 @@ export function buildGroupedItems(
       for (const i of groupRows) items.push({ row: rows[i], originalIndex: i });
     }
   }
+  return items;
+}
+
+/** Row accessors required to flatten a hierarchy. @internal */
+export interface TreeAccessors<T extends object> {
+  getId: (row: T) => string | number;
+  getParentId: (row: T) => string | number | null | undefined;
+}
+
+/**
+ * Flatten a parent/child hierarchy into a depth-first list of {@link TreeRowItem}s for the
+ * virtual scroll list, honoring the expanded-id set.
+ *
+ * `indices` is the already filtered and sorted set of source-array positions; sibling order
+ * follows that order. A row is treated as a **root** when its parent id is `null`/`undefined`
+ * or when that parent is not present in `indices` (orphan). Children of a collapsed row are
+ * omitted. Cycles and rows visited more than once are guarded so the walk always terminates.
+ *
+ * @param rows            The full data-source array.
+ * @param indices         Filtered/sorted source positions to include, in display order.
+ * @param accessors       `getId` / `getParentId` for the rows.
+ * @param expandedIds     Ids whose children should be rendered.
+ * @param forceExpandedIds Ids forced open regardless of `expandedIds` — used to reveal the
+ *   ancestor path of filter matches. Optional.
+ */
+export function buildTreeItems<T extends object>(
+  rows: T[],
+  indices: number[],
+  accessors: TreeAccessors<T>,
+  expandedIds: Set<string | number>,
+  forceExpandedIds?: Set<string | number>,
+): GridItem<T>[] {
+  const { getId, getParentId } = accessors;
+
+  const includedIds = new Set<string | number>();
+  for (const i of indices) includedIds.add(getId(rows[i]));
+
+  // Bucket each included row under its parent, preserving the incoming (sorted) order.
+  const childrenByParent = new Map<string | number, number[]>();
+  const roots: number[] = [];
+  for (const i of indices) {
+    const parentId = getParentId(rows[i]);
+    if (parentId == null || !includedIds.has(parentId)) {
+      roots.push(i);
+      continue;
+    }
+    const siblings = childrenByParent.get(parentId);
+    if (siblings) siblings.push(i);
+    else childrenByParent.set(parentId, [i]);
+  }
+
+  const items: GridItem<T>[] = [];
+  const visited = new Set<string | number>();
+
+  const visit = (index: number, level: number): void => {
+    const row = rows[index];
+    const id = getId(row);
+    if (visited.has(id)) return; // cycle / duplicate-parent guard
+    visited.add(id);
+
+    const children = childrenByParent.get(id);
+    const expandable = !!children?.length;
+    const expanded = expandable && (expandedIds.has(id) || !!forceExpandedIds?.has(id));
+    items.push({ row, originalIndex: index, level, expandable, expanded });
+
+    if (expanded && children) {
+      for (const childIndex of children) visit(childIndex, level + 1);
+    }
+  };
+
+  for (const rootIndex of roots) visit(rootIndex, 0);
   return items;
 }
 
