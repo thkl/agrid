@@ -45,6 +45,8 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
   { color: '#0f766e', bg: '#f0fdfa', label: '⋮', title: 'Column sidebar',             desc: 'Slide-out panel to toggle visibility, reorder, and resize columns.' },
   { color: '#b45309', bg: '#fef3c7', label: '↕', title: 'Row drag-reorder',           desc: 'Optional drag handle lets users manually reorder rows.' },
   { color: '#7c3aed', bg: '#eff6ff', label: '◻', title: 'Virtual scrolling',          desc: 'Only visible rows are rendered — handles large datasets without slowdown.' },
+  { color: '#db2777', bg: '#f0fdf4', label: '├', title: 'Tree control',          desc: 'Transform complex, layered data into a clean, scannable overview by embedding expandable hierarchies right inside your structured data grid.' },
+
 ];
 
 @Component({
