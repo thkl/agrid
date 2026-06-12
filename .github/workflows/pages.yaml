@@ -2,7 +2,8 @@ name: Deploy Angular to GitHub Pages
 
 on:
   push:
-    branches: [master]
+    tags:
+      - "v*"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
