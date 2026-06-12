@@ -563,6 +563,83 @@ describe('AgridComponent Tab navigation', () => {
       focus: { rowIndex: 1, colIndex: 1 },
     });
   });
+
+  it('renders optional row markers and exposes their state', async () => {
+    const markingProvider = new AgridProvider({
+      columns: provider.columns(),
+      datasource: new AgridDataSource([
+        { name: 'Alice', department: 'Engineering' },
+        { name: 'Bob', department: 'Sales' },
+      ]),
+      enableRowMarking: true,
+    });
+    const markingFixture = TestBed.createComponent(AgridComponent);
+    markingFixture.componentRef.setInput('provider', markingProvider);
+    markingFixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    markingFixture.detectChanges();
+    const markingComponent = markingFixture.componentInstance;
+    const marker = markingFixture.nativeElement.querySelector(
+      '.ag-row-marker',
+    ) as HTMLInputElement;
+
+    expect(markingComponent.showControlColumn()).toBe(true);
+    expect(marker).not.toBeNull();
+    marker.click();
+    markingFixture.detectChanges();
+
+    expect([...markingComponent.markedRowIndices()]).toEqual([0]);
+    expect(markingFixture.nativeElement.querySelector(
+      '.ag-scroll-pane [data-original-index="0"]',
+    )?.classList.contains('ag-row--marked')).toBe(true);
+
+    markingComponent.clearMarkedRows();
+    expect(markingComponent.markedRowIndices().size).toBe(0);
+    markingFixture.destroy();
+  });
+
+  it('keeps marked rows attached across grid insertions and deletions', () => {
+    provider.enableRowMarking = true;
+    component.toggleRowMarked(0);
+
+    component.insertRowAt(0);
+    expect([...component.markedRowIndices()]).toEqual([1]);
+
+    component.deleteRow(0);
+    expect([...component.markedRowIndices()]).toEqual([0]);
+  });
+
+  it('renders one grouped header over contiguous columns and updates ARIA rows', async () => {
+    const groupedProvider = new AgridProvider({
+      columns: [
+        { field: 'first', header: 'First', group: 'employee' },
+        { field: 'last', header: 'Last', group: 'employee' },
+        { field: 'email', header: 'Email' },
+      ],
+      headerGroups: [{ id: 'employee', label: 'Employee' }],
+      datasource: new AgridDataSource([
+        { first: 'Alice', last: 'Smith', email: 'alice@example.com' },
+      ]),
+    });
+    const groupedFixture = TestBed.createComponent(AgridComponent);
+    groupedFixture.componentRef.setInput('provider', groupedProvider);
+    groupedFixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    groupedFixture.detectChanges();
+
+    const employeeHeader = groupedFixture.nativeElement.querySelector(
+      '.ag-scroll-pane [data-header-group="employee"]',
+    ) as HTMLElement;
+    expect(employeeHeader.textContent?.trim()).toBe('Employee');
+    expect(employeeHeader.style.gridColumn).toBe('span 2');
+    expect(groupedFixture.componentInstance.headerRowCount()).toBe(2);
+    expect(groupedFixture.nativeElement.querySelector('[role="grid"]')
+      .getAttribute('aria-rowcount')).toBe('3');
+    expect(groupedFixture.nativeElement.querySelector(
+      '.ag-scroll-pane [data-original-index="0"]',
+    )?.getAttribute('aria-rowindex')).toBe('3');
+    groupedFixture.destroy();
+  });
 });
 
 describe('AgridComponent server-side filtering', () => {

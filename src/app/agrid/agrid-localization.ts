@@ -37,6 +37,7 @@ export interface AgridLocaleText {
   insertRowBelow: string;
   lastPage: string;
   loading: string;
+  markRow: string;
   next: string;
   noRows: string;
   pagination: string;
@@ -96,6 +97,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     insertRowBelow: 'Insert row below',
     lastPage: 'Last page',
     loading: 'Loading...',
+    markRow: 'Mark row for copying',
     next: 'Next',
     noRows: 'No rows to display',
     pagination: 'Pagination',
@@ -149,6 +151,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     insertRowBelow: 'Zeile darunter einfügen',
     lastPage: 'Letzte Seite',
     loading: 'Wird geladen...',
+    markRow: 'Zeile zum Kopieren markieren',
     next: 'Weiter',
     noRows: 'Keine Zeilen vorhanden',
     pagination: 'Seitennavigation',

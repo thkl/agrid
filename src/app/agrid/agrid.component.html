@@ -9,7 +9,26 @@
     <div class="ag-grid-split" [class.ag-has-right-pane]="hasRightPinnedPane()">
       @if (hasPinnedPane()) {
       <div class="ag-pinned-pane" [style.width.px]="pinnedPaneWidth()">
-        <div class="ag-header ag-header--pinned" role="row" aria-rowindex="1"
+        @if (hasHeaderGroups()) {
+        <div class="ag-header-groups ag-header-groups--pinned" role="row" aria-rowindex="1"
+          [style.grid-template-columns]="pinnedGridTemplateColumns()" [style.width.px]="pinnedPaneWidth()">
+          @if (showControlColumn()) {
+          <div class="ag-header-group-cell ag-header-group-cell--empty"></div>
+          }
+          @for (run of pinnedHeaderGroupRuns(); track run.key) {
+          <div class="ag-header-group-cell" role="columnheader"
+            [attr.data-header-group]="run.id"
+            [class.ag-header-group-cell--empty]="!run.id"
+            [class.ag-header-group-cell--locked]="isHeaderGroupLocked(run.fields)"
+            [class.ag-header-group-cell--dragging]="isHeaderGroupDragging(run.fields)"
+            [style.grid-column]="'span ' + run.span"
+            (pointerdown)="run.id && onHeaderGroupPointerDown($event, run.fields, run.label)">
+            {{ run.label }}
+          </div>
+          }
+        </div>
+        }
+        <div class="ag-header ag-header--pinned" role="row" [attr.aria-rowindex]="headerRowCount()"
           [class.ag-header--with-filters]="hasFilterableColumns()"
           [style.grid-template-columns]="pinnedGridTemplateColumns()" [style.width.px]="pinnedPaneWidth()">
           @if (showControlColumn()) {
@@ -66,13 +85,14 @@
         <cdk-virtual-scroll-viewport #pinnedViewport class="ag-body ag-pinned-body" [itemSize]="rowHeight()"
           [style.width.px]="pinnedPaneWidth()">
           <div *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem" role="row"
-            [attr.aria-rowindex]="di + 2"
+            [attr.aria-rowindex]="di + headerRowCount() + 1"
             [attr.aria-selected]="isDataRowItem(item) && isRowSelected(item.originalIndex) ? 'true' : null"
             [class.ag-row]="!isGroupHeaderItem(item)" [class.ag-add-row]="item === null"
             [class.ag-add-row--selected]="item === null && isAddRowSelected()" [class.ag-ghost-row]="item === 'ghost'"
             [class.ag-group-header-row]="isGroupHeaderItem(item)"
             [class.ag-row--odd]="isDataRowItem(item) && dataRowIsOdd().get(item.originalIndex) === true"
             [class.ag-row--selected]="isPinnedPaneRowSelected(item)"
+            [class.ag-row--marked]="isDataRowItem(item) && isRowMarked(item.originalIndex)"
             [class.ag-row--pending-delete]="isDataRowItem(item) && isRowPendingDelete(item.originalIndex)"
             [attr.data-original-index]="getItemOriginalIndex(item)" [style.height.px]="rowHeight()"
             [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? pinnedGridTemplateColumns() : null"
@@ -83,7 +103,14 @@
             <div class="ag-control-cell" role="rowheader" aria-colindex="1"
               [class.ag-control-cell--reorder]="allowRowReorder()"
               (contextmenu)="onControlContextMenu($event, item.originalIndex)" (click)="$event.stopPropagation()"
-              (pointerdown)="onControlPointerDown($event, item.originalIndex)"></div>
+              (pointerdown)="onControlPointerDown($event, item.originalIndex)">
+              @if (enableRowMarking()) {
+              <input class="ag-row-marker" type="checkbox" [checked]="isRowMarked(item.originalIndex)"
+                [attr.aria-label]="localeText().markRow"
+                (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()"
+                (change)="toggleRowMarked(item.originalIndex)" />
+              }
+            </div>
             }
             @for (col of pinnedColDefs(); track col.field) {
             @let ci = getVisibleColIndex(col.field);
@@ -130,7 +157,8 @@
         </cdk-virtual-scroll-viewport>
 
         @if (showFooter()) {
-        <div class="ag-footer" role="row" [attr.aria-rowindex]="displayItems().length + 2"
+        <div class="ag-footer" role="row"
+          [attr.aria-rowindex]="displayItems().length + headerRowCount() + 1"
           [style.grid-template-columns]="pinnedGridTemplateColumns()">
           @if (showControlColumn()) {
           <div class="ag-footer-cell ag-footer-cell--control" role="gridcell" aria-colindex="1"></div>
@@ -154,7 +182,24 @@
 
       <div class="ag-scroll-pane">
         <div #horizontalScroller class="ag-horizontal-scroll" (scroll)="onHorizontalScroll()">
-          <div class="ag-header" role="row" aria-rowindex="1"
+          @if (hasHeaderGroups()) {
+          <div class="ag-header-groups" role="row" aria-rowindex="1"
+            [style.grid-template-columns]="scrollableGridTemplateColumns()"
+            [style.min-width.px]="scrollableTotalWidth()">
+            @for (run of scrollableHeaderGroupRuns(); track run.key) {
+            <div class="ag-header-group-cell" role="columnheader"
+              [attr.data-header-group]="run.id"
+              [class.ag-header-group-cell--empty]="!run.id"
+              [class.ag-header-group-cell--locked]="isHeaderGroupLocked(run.fields)"
+              [class.ag-header-group-cell--dragging]="isHeaderGroupDragging(run.fields)"
+              [style.grid-column]="'span ' + run.span"
+              (pointerdown)="run.id && onHeaderGroupPointerDown($event, run.fields, run.label)">
+              {{ run.label }}
+            </div>
+            }
+          </div>
+          }
+          <div class="ag-header" role="row" [attr.aria-rowindex]="headerRowCount()"
             [class.ag-header--with-filters]="hasFilterableColumns()"
             [style.grid-template-columns]="scrollableGridTemplateColumns()"
             [style.min-width.px]="scrollableTotalWidth()">
@@ -206,13 +251,14 @@
           <cdk-virtual-scroll-viewport #scrollViewport class="ag-body" [itemSize]="rowHeight()"
             [style.min-width.px]="scrollableTotalWidth()" (scroll)="onBodyScroll()">
             <div *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem" role="row"
-              [attr.aria-rowindex]="di + 2"
+              [attr.aria-rowindex]="di + headerRowCount() + 1"
               [attr.aria-selected]="isDataRowItem(item) && isRowSelected(item.originalIndex) ? 'true' : null"
               [class.ag-row]="!isGroupHeaderItem(item)" [class.ag-add-row]="item === null"
               [class.ag-add-row--selected]="item === null && isAddRowSelected()" [class.ag-ghost-row]="item === 'ghost'"
               [class.ag-group-header-row]="isGroupHeaderItem(item)"
               [class.ag-row--odd]="isDataRowItem(item) && dataRowIsOdd().get(item.originalIndex) === true"
               [class.ag-row--selected]="isDataRowItem(item) && isRowSelected(item.originalIndex)"
+              [class.ag-row--marked]="isDataRowItem(item) && isRowMarked(item.originalIndex)"
               [class.ag-row--pending-delete]="isDataRowItem(item) && isRowPendingDelete(item.originalIndex)"
               [attr.data-original-index]="getItemOriginalIndex(item)" [style.height.px]="rowHeight()"
               [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? scrollableGridTemplateColumns() : null"
@@ -288,7 +334,8 @@
           </cdk-virtual-scroll-viewport>
 
           @if (showFooter()) {
-          <div class="ag-footer" role="row" [attr.aria-rowindex]="displayItems().length + 2"
+          <div class="ag-footer" role="row"
+            [attr.aria-rowindex]="displayItems().length + headerRowCount() + 1"
             [style.grid-template-columns]="scrollableGridTemplateColumns()"
             [style.min-width.px]="scrollableTotalWidth()">
             @for (col of scrollableColDefs(); track col.field) {
@@ -309,7 +356,23 @@
 
       @if (hasRightPinnedPane()) {
       <div class="ag-pinned-pane ag-pinned-pane--right" [style.width.px]="rightPinnedPaneWidth()">
-        <div class="ag-header" role="row" aria-rowindex="1"
+        @if (hasHeaderGroups()) {
+        <div class="ag-header-groups" role="row" aria-rowindex="1"
+          [style.grid-template-columns]="rightGridTemplateColumns()" [style.width.px]="rightPinnedPaneWidth()">
+          @for (run of rightHeaderGroupRuns(); track run.key) {
+          <div class="ag-header-group-cell" role="columnheader"
+            [attr.data-header-group]="run.id"
+            [class.ag-header-group-cell--empty]="!run.id"
+            [class.ag-header-group-cell--locked]="isHeaderGroupLocked(run.fields)"
+            [class.ag-header-group-cell--dragging]="isHeaderGroupDragging(run.fields)"
+            [style.grid-column]="'span ' + run.span"
+            (pointerdown)="run.id && onHeaderGroupPointerDown($event, run.fields, run.label)">
+            {{ run.label }}
+          </div>
+          }
+        </div>
+        }
+        <div class="ag-header" role="row" [attr.aria-rowindex]="headerRowCount()"
           [class.ag-header--with-filters]="hasFilterableColumns()"
           [style.grid-template-columns]="rightGridTemplateColumns()" [style.width.px]="rightPinnedPaneWidth()">
           @for (col of rightPinnedColDefs(); track col.field) {
@@ -361,12 +424,13 @@
         <cdk-virtual-scroll-viewport #rightPinnedViewport class="ag-body ag-pinned-body ag-right-pinned-body"
           [itemSize]="rowHeight()" [style.width.px]="rightPinnedPaneWidth()" (scroll)="onRightPinnedBodyScroll()">
           <div *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem" role="row"
-            [attr.aria-rowindex]="di + 2"
+            [attr.aria-rowindex]="di + headerRowCount() + 1"
             [attr.aria-selected]="isDataRowItem(item) && isRowSelected(item.originalIndex) ? 'true' : null"
             [class.ag-row]="!isGroupHeaderItem(item)" [class.ag-add-row]="item === null"
             [class.ag-ghost-row]="item === 'ghost'" [class.ag-group-header-row]="isGroupHeaderItem(item)"
             [class.ag-row--odd]="isDataRowItem(item) && dataRowIsOdd().get(item.originalIndex) === true"
             [class.ag-row--selected]="isDataRowItem(item) && isRowSelected(item.originalIndex)"
+            [class.ag-row--marked]="isDataRowItem(item) && isRowMarked(item.originalIndex)"
             [class.ag-row--pending-delete]="isDataRowItem(item) && isRowPendingDelete(item.originalIndex)"
             [style.height.px]="rowHeight()"
             [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? rightGridTemplateColumns() : null">
@@ -412,7 +476,8 @@
         </cdk-virtual-scroll-viewport>
 
         @if (showFooter()) {
-        <div class="ag-footer" role="row" [attr.aria-rowindex]="displayItems().length + 2"
+        <div class="ag-footer" role="row"
+          [attr.aria-rowindex]="displayItems().length + headerRowCount() + 1"
           [style.grid-template-columns]="rightGridTemplateColumns()">
           @for (col of rightPinnedColDefs(); track col.field) {
           <div class="ag-footer-cell" role="gridcell"
@@ -496,9 +561,9 @@
   @let col = getColDef(menu.field)!;
   <div class="ag-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y"
     (click)="$event.stopPropagation()">
-    <button class="ag-context-item" role="menuitem" (click)="copyCellToClipboard(menu.value, col)">{{ localeText().copyCellValue
+    <button class="ag-context-item" role="menuitem" (click)="copyCellToClipboard(menu.rowIndex, col)">{{ localeText().copyCellValue
       }}</button>
-    <button class="ag-context-item" role="menuitem" (click)="copyRowToClipboard(menu.row)">{{ localeText().copyRow }}</button>
+    <button class="ag-context-item" role="menuitem" (click)="copyRowToClipboard(menu.rowIndex)">{{ localeText().copyRow }}</button>
     @if (allowAddRows() && !readonlyGrid()) {
     <div class="ag-context-separator" role="separator"></div>
     <button class="ag-context-item" role="menuitem" (click)="insertRowAt(menu.rowIndex)">{{ localeText().insertRowAbove }}</button>

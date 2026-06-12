@@ -16,6 +16,8 @@ export interface AgridRowControllerOptions {
   dataSource: Signal<AgridDataSource>;
   filteredItems: Signal<GridItem[]>;
   visibleColDefs: Signal<ColDef[]>;
+  locale: Signal<string>;
+  markedRowIndices: Signal<ReadonlySet<number>>;
   rowSelection: Signal<'none' | 'single' | 'multi'>;
   selectedCell: WritableSignal<CellPosition | null>;
   editingCell: Signal<CellPosition | null>;
@@ -165,19 +167,36 @@ export class AgridRowController {
     this.cellContextMenu.set(null);
   }
 
-  /** Copies a cell's formatted display value to the clipboard. */
-  copyCellToClipboard(value: unknown, col: ColDef): void {
-    void this.browser.writeClipboard(getDisplayForField(col, value));
+  /** Copies a cell plus the same field from marked rows to the clipboard. */
+  copyCellToClipboard(originalIndex: number, col: ColDef): void {
+    const rows = this.opts.dataSource().rows();
+    const text = this.copyIndices(originalIndex)
+      .map(index => getDisplayForField(col, rows[index]?.[col.field], this.opts.locale()))
+      .join('\n');
+    void this.browser.writeClipboard(text);
     this.closeCellContextMenu();
   }
 
-  /** Copies the visible values of a row as tab-separated text. */
-  copyRowToClipboard(row: Record<string, unknown>): void {
-    const text = this.opts.visibleColDefs()
-      .map(col => getDisplayForField(col, row[col.field]))
-      .join('\t');
+  /** Copies a row plus all marked rows as tab-separated text. */
+  copyRowToClipboard(originalIndex: number): void {
+    const rows = this.opts.dataSource().rows();
+    const cols = this.opts.visibleColDefs();
+    const text = this.copyIndices(originalIndex)
+      .map(index => cols
+        .map(col => getDisplayForField(col, rows[index]?.[col.field], this.opts.locale()))
+        .join('\t'))
+      .join('\n');
     void this.browser.writeClipboard(text);
     this.closeCellContextMenu();
+  }
+
+  private copyIndices(primaryIndex: number): number[] {
+    const length = this.opts.dataSource().length;
+    const indices = [primaryIndex];
+    for (const index of [...this.opts.markedRowIndices()].sort((a, b) => a - b)) {
+      if (index !== primaryIndex && index >= 0 && index < length) indices.push(index);
+    }
+    return indices;
   }
 
   /** Inserts a row through the grid's central insertion callback. */

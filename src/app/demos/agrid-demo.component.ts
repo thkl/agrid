@@ -4,8 +4,8 @@ import { ColDefAutoSize } from '../agrid/agrid.types';
 
 const COLUMNS: ColDef[] = [
   { field: 'id', header: 'ID', width: ColDefAutoSize, editable: false},
-  { field: 'firstName', header: 'First Name', width: ColDefAutoSize, filterable: true },
-  { field: 'lastName', header: 'Last Name', width: ColDefAutoSize, filterable: true  ,groupable: true},
+  { field: 'firstName', header: 'First Name', group: 'employee', width: ColDefAutoSize, filterable: true },
+  { field: 'lastName', header: 'Last Name', group: 'employee', width: ColDefAutoSize, filterable: true, groupable: true },
   { field: 'email', header: 'Email', width: ColDefAutoSize },
   { field: 'departmentId', header: 'Department', width: ColDefAutoSize, filterable: true, groupable: true,
     values: [
@@ -165,6 +165,7 @@ export class AgridDemoComponent {
   readonly gridProvider = new AgridProvider({
     locale: 'auto',
     columns: this.columns,
+    headerGroups: [{ id: 'employee', label: 'Employee' }],
     datasource: this.ds,
     control: this.gridControl,
     allowAddRows: true,
@@ -172,6 +173,7 @@ export class AgridDemoComponent {
     showSidebar: true,
     zebraStripes: true,
     rowSelection: 'multi',
+    enableRowMarking: true,
     confirmRowDelete:true
   });
   readonly lastEdit = signal('');

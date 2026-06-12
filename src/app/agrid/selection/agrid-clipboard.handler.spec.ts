@@ -19,7 +19,7 @@ describe('AgridClipboardHandler', () => {
     { field: 'locked', header: 'Locked', editable: false },
   ];
 
-  function createHandler() {
+  function createHandler(markedRowIndices = signal<ReadonlySet<number>>(new Set())) {
     const dataSource = new AgridDataSource([
       { name: 'Alice', amount: 10, status: 1, locked: 'keep' },
       { name: 'Bob', amount: 20, status: 2, locked: 'keep' },
@@ -44,6 +44,7 @@ describe('AgridClipboardHandler', () => {
       locale: signal('en-US'),
       selectedCell,
       selectedRange,
+      markedRowIndices,
       isCellEditable: col => col.editable !== false,
       onCellEdit: event => edits.push(event),
       scrollToCell,
@@ -69,6 +70,15 @@ describe('AgridClipboardHandler', () => {
     expect(handler.getSelectedTsv()).toBe(
       'Alice\t10\tActive\nBob\t20\tInactive'
     );
+  });
+
+  it('appends marked rows using the copied selection columns without duplicates', () => {
+    const markedRowIndices = signal<ReadonlySet<number>>(new Set([0, 1]));
+    const { handler, selectedCell, selectedRange } = createHandler(markedRowIndices);
+    selectedCell.set({ rowIndex: 0, colIndex: 1 });
+    selectedRange.set(null);
+
+    expect(handler.getSelectedTsv()).toBe('10\n20');
   });
 
   it('parses quoted CSV, coerces typed values, and records one history batch', () => {

@@ -20,6 +20,7 @@ export type {
   FilterChangeEvent,
   GridEditEvent,
   GroupAction,
+  HeaderGroup,
   NewRecord,
   PageChangeEvent,
   RecordEditEvent,

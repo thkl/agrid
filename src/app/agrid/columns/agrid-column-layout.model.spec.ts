@@ -37,11 +37,46 @@ describe('AgridColumnLayoutModel', () => {
     expect(model.totalWidth()).toBe(264);
   });
 
-  function createModel(control: AgridControl): AgridColumnLayoutModel {
+  it('doubles the control column width when configured for row marking', () => {
+    const model = createModel(new AgridControl(), 48);
+
+    expect(model.gridTemplateColumns()).toBe('48px 60px 100px 80px');
+    expect(model.pinnedGridTemplateColumns()).toBe('48px');
+    expect(model.pinnedPaneWidth()).toBe(48);
+    expect(model.totalWidth()).toBe(288);
+  });
+
+  it('creates separate runs when the same header group is no longer contiguous', () => {
+    const groupedColumns: ColDef[] = [
+      { field: 'first', header: 'First', group: 'employee', width: 80 },
+      { field: 'last', header: 'Last', group: 'employee', width: 80 },
+      { field: 'email', header: 'Email', width: 120 },
+    ];
+    const control = new AgridControl({ columnOrder: ['first', 'email', 'last'] });
+    const model = createModel(control, 24, groupedColumns, [
+      { id: 'employee', label: 'Employee' },
+    ]);
+
+    expect(model.hasHeaderGroups()).toBe(true);
+    expect(model.scrollableHeaderGroupRuns()).toEqual([
+      { key: 'center:first', id: 'employee', label: 'Employee', fields: ['first'], span: 1 },
+      { key: 'center:email', id: null, label: '', fields: ['email'], span: 1 },
+      { key: 'center:last', id: 'employee', label: 'Employee', fields: ['last'], span: 1 },
+    ]);
+  });
+
+  function createModel(
+    control: AgridControl,
+    controlColumnWidth = 24,
+    modelColumns = columns,
+    headerGroups: { id: string; label: string }[] = [],
+  ): AgridColumnLayoutModel {
     return new AgridColumnLayoutModel({
       control: signal(control),
-      colDefs: signal(columns),
+      colDefs: signal(modelColumns),
+      headerGroups: signal(headerGroups),
       showControlColumn: signal(true),
+      controlColumnWidth: signal(controlColumnWidth),
       getColumnWidth: col => col.width ?? 0,
       getColumnWidthToken: col => `${col.width}px`,
     });

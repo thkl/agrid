@@ -15,6 +15,7 @@
     --agrid-color-shadow:         rgba(140, 149, 159, 0.2);
     --agrid-color-bg-stripe:      #f0f2f5;
     --agrid-color-cell-changed:   #f59e0b;
+    --agrid-color-row-marked:     #fff8c5;
   }
 }
 
@@ -56,6 +57,46 @@
   flex-shrink: 0;
   background: var(--agrid-color-bg-muted);
   border-bottom: 2px solid var(--agrid-color-border);
+}
+
+.ag-header-groups {
+  display: grid;
+  flex-shrink: 0;
+  height: 28px;
+  background: color-mix(in srgb, var(--agrid-color-bg-muted) 72%, var(--agrid-color-bg));
+  border-bottom: 1px solid var(--agrid-color-border);
+}
+
+.ag-header-group-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 8px;
+  overflow: hidden;
+  border-right: 1px solid var(--agrid-color-border);
+  box-sizing: border-box;
+  color: var(--agrid-color-text);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: grab;
+  user-select: none;
+  transition: opacity 100ms ease;
+}
+
+.ag-header-group-cell:last-child {
+  border-right: none;
+}
+
+.ag-header-group-cell--empty,
+.ag-header-group-cell--locked {
+  cursor: default;
+}
+
+.ag-header-group-cell--dragging {
+  opacity: 0.12;
 }
 
 .ag-header-cell {
@@ -418,6 +459,19 @@
   background: var(--agrid-color-accent-subtle);
 }
 
+.ag-row--marked agrid-cell:not(.editing),
+.ag-row--marked .ag-control-cell {
+  background: var(--agrid-color-row-marked);
+}
+
+.ag-row--marked {
+  box-shadow: inset 3px 0 0 #bf8700;
+}
+
+.ag-row--selected.ag-row--marked {
+  box-shadow: inset 3px 0 0 var(--agrid-color-accent);
+}
+
 .ag-row agrid-cell.ag-cell--range-selected:not(.editing) {
   background: var(--agrid-color-accent-subtle);
   box-shadow: inset 0 0 0 1px var(--agrid-color-accent-border);
@@ -486,7 +540,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   box-sizing: border-box;
+  flex-direction: row-reverse;
 }
 
 .ag-control-cell::after {
@@ -507,7 +563,7 @@
 .ag-control-cell--reorder::after {
   content: '⠿';
   font-size: 13px;
-  color: var(--agrid-color-border);
+  color: var(--agrid-color-text);
 }
 
 .ag-control-cell--reorder:hover::after {
@@ -516,6 +572,16 @@
 
 .ag-control-cell--reorder:active {
   cursor: grabbing;
+}
+
+.ag-row-marker {
+  position: relative;
+  z-index: 1;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--agrid-color-accent);
+  cursor: pointer;
 }
 
 .ag-ghost-row {

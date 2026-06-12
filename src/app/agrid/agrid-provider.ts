@@ -2,7 +2,13 @@ import { signal, WritableSignal } from '@angular/core';
 import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridLocaleTextOverrides } from './agrid-localization';
-import { AGridOptions, CellContextMenuItem, ColDef, GroupAction } from './agrid.types';
+import {
+  AGridOptions,
+  CellContextMenuItem,
+  ColDef,
+  GroupAction,
+  HeaderGroup,
+} from './agrid.types';
 
 /** Configuration used to create an {@link AgridProvider}. */
 export interface AgridProviderConfig<T extends object = any> extends Partial<AGridOptions> {
@@ -12,6 +18,8 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   control?: AgridControl;
   /** Initial column definitions in display order. */
   columns?: ColDef<T>[];
+  /** Labels used by columns with a matching `group` identifier. */
+  headerGroups?: HeaderGroup[];
   /** Row height in pixels. Must be fixed for CDK virtual scroll. @default 32 */
   rowHeight?: number;
   /** Minimum height of the grid host element (e.g. `'200px'`). */
@@ -24,6 +32,8 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   autoAddRows?: boolean;
   /** Show a 24 px control column with a drag handle and right-click context menu. */
   showControlColumn?: boolean;
+  /** Show row-marking checkboxes in a 48 px control column for clipboard inclusion. @default false */
+  enableRowMarking?: boolean;
   /** Show the sidebar panel. */
   showSidebar?: boolean;
   /** Automatically open the detail panel when a row is selected. */
@@ -87,6 +97,8 @@ export class AgridProvider<T extends object = any> {
   control: AgridControl;
   /** Reactive column definitions in display order. */
   readonly columns: WritableSignal<ColDef<T>[]>;
+  /** Header-group labels referenced by column definitions. */
+  headerGroups: HeaderGroup[];
   /** Shared grid options such as locale. */
   options: AGridOptions;
 
@@ -120,6 +132,8 @@ export class AgridProvider<T extends object = any> {
   allowAddRows: boolean;
   /** Whether the control column is rendered. */
   showControlColumn: boolean;
+  /** Whether rows can be marked for inclusion in clipboard copies. */
+  enableRowMarking: boolean;
   /** Whether the sidebar is available. */
   showSidebar: boolean;
   /** Whether selecting a row automatically opens its detail panel. */
@@ -162,6 +176,7 @@ export class AgridProvider<T extends object = any> {
     this.datasource   = config.datasource ?? new AgridDataSource<T>([]);
     this.control      = config.control ?? new AgridControl({ allowRowReorder: true });
     this.columns      = signal(config.columns ?? []);
+    this.headerGroups = config.headerGroups ?? [];
 
     this.rowHeight        = config.rowHeight ?? 32;
     this.minHeight        = config.minHeight;
@@ -169,6 +184,7 @@ export class AgridProvider<T extends object = any> {
     this.allowAddRows     = config.allowAddRows ?? false;
     this.autoAddRows      = signal(config.autoAddRows ?? false);
     this.showControlColumn = config.showControlColumn ?? false;
+    this.enableRowMarking = config.enableRowMarking ?? false;
     this.showSidebar      = config.showSidebar ?? false;
     this.autoOpenDetail   = config.autoOpenDetail ?? false;
     this.serverSideFiltering = config.serverSideFiltering ?? false;

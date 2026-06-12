@@ -162,6 +162,11 @@ describe('AgridControl', () => {
       ctrl.moveColumn(['a', 'b', 'c'], 'a', 'b', false);
       expect(ctrl.columnOrder()).toEqual(['b', 'a', 'c']);
     });
+
+    it('moves a contiguous field block while preserving its internal order', () => {
+      ctrl.moveColumns(['a', 'b', 'c', 'd'], ['a', 'b'], 'd', false);
+      expect(ctrl.columnOrder()).toEqual(['c', 'd', 'a', 'b']);
+    });
   });
 
   // ── Filters & sort ───────────────────────────────────────────────────────────

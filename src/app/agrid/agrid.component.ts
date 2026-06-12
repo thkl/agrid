@@ -105,7 +105,11 @@ export class AgridComponent<T extends object = any> {
   readonly maxHeight = computed(() => this.provider().maxHeight);
   readonly allowAddRows = computed(() => this.provider().allowAddRows);
   readonly autoAddRows = computed(() => this.provider().autoAddRows());
-  readonly showControlColumn = computed(() => this.provider().showControlColumn);
+  readonly enableRowMarking = computed(() => this.provider().enableRowMarking);
+  readonly showControlColumn = computed(() =>
+    this.provider().showControlColumn || this.enableRowMarking()
+  );
+  readonly controlColumnWidth = computed(() => this.enableRowMarking() ? 48 : 24);
   readonly showSidebar = computed(() => this.provider().showSidebar);
   readonly autoOpenDetail = computed(() => this.provider().autoOpenDetail);
   readonly serverSideFiltering = computed(() => this.provider().serverSideFiltering);
@@ -115,6 +119,7 @@ export class AgridComponent<T extends object = any> {
   readonly groupDescription = computed(() => this.provider().groupDescription);
   readonly groupActions = computed(() => this.provider().groupActions);
   readonly cellMenuItems = computed(() => this.provider().cellMenuItems);
+  readonly headerGroups = computed(() => this.provider().headerGroups);
   readonly zebraStripes = computed(() => this.provider().zebraStripes);
   readonly showChangedCellIndicator = computed(
     () => this.provider().showChangedCellIndicator,
@@ -200,6 +205,12 @@ export class AgridComponent<T extends object = any> {
 
   /** Original index of the row awaiting delete confirmation, or `null`. */
   readonly pendingDeleteRow = signal<number | null>(null);
+
+  private readonly markedIndices = signal<Set<number>>(new Set());
+
+  /** Original datasource indices marked for inclusion in copy operations. */
+  readonly markedRowIndices: Signal<ReadonlySet<number>> =
+    this.markedIndices.asReadonly() as Signal<ReadonlySet<number>>;
 
   /** Horizontal position of the delete prompt inside the scrollable row. */
   readonly deleteConfirmationLeft = signal(0);
@@ -344,7 +355,9 @@ export class AgridComponent<T extends object = any> {
   private readonly columnLayout = new AgridColumnLayoutModel({
     control: this.control,
     colDefs: this.colDefs,
+    headerGroups: this.headerGroups,
     showControlColumn: this.showControlColumn,
+    controlColumnWidth: this.controlColumnWidth,
     getColumnWidth: col => this.getColumnWidth(col),
     getColumnWidthToken: col => this.getColumnWidthToken(col),
   });
@@ -362,6 +375,10 @@ export class AgridComponent<T extends object = any> {
   readonly hasRightPinnedPane = this.columnLayout.hasRightPinnedPane;
   readonly hasPinnedPane = this.columnLayout.hasPinnedPane;
   readonly hasFilterableColumns = this.columnLayout.hasFilterableColumns;
+  readonly hasHeaderGroups = this.columnLayout.hasHeaderGroups;
+  readonly pinnedHeaderGroupRuns = this.columnLayout.pinnedHeaderGroupRuns;
+  readonly scrollableHeaderGroupRuns = this.columnLayout.scrollableHeaderGroupRuns;
+  readonly rightHeaderGroupRuns = this.columnLayout.rightHeaderGroupRuns;
 
   private readonly columnState = new AgridColumnStateService({
     control: this.control,
@@ -406,9 +423,12 @@ export class AgridComponent<T extends object = any> {
 
   readonly showPagination = this.projection.showPagination;
 
-  /** Number of rendered semantic rows, including the header row. */
+  /** Number of semantic header rows currently rendered. */
+  readonly headerRowCount = computed(() => this.hasHeaderGroups() ? 2 : 1);
+
+  /** Number of rendered semantic rows, including header rows. */
   readonly ariaRowCount = computed(() =>
-    this.displayItems().length + 1 + (this.showFooter() ? 1 : 0)
+    this.displayItems().length + this.headerRowCount() + (this.showFooter() ? 1 : 0)
   );
 
   /** Number of visible semantic columns, including the optional control column. */
@@ -606,15 +626,21 @@ export class AgridComponent<T extends object = any> {
     dataSource: this.dataSource,
     filteredItems: this.filteredItems,
     visibleColDefs: this.visibleColDefs,
+    locale: this.locale,
+    markedRowIndices: this.markedRowIndices,
     rowSelection: this.rowSelection,
     selectedCell: this.selectedCell,
     editingCell: this.editController.editingCell,
-    insertRowAt: index => this.navigationController.insertRowAt(index),
+    insertRowAt: index => {
+      this.reconcileMarkedRowsAfterInsertion(index);
+      this.navigationController.insertRowAt(index);
+    },
     startDragSelect: originalIndex => this.dragHandler.startDragSelect(originalIndex),
     onRowSelect: event => this.rowSelect.emit(event),
     onRowClick: event => this.rowClick.emit(event),
     onRowRemoved: event => {
       this.reconcileDirtyInlineRowsAfterRemoval(event.index);
+      this.reconcileMarkedRowsAfterRemoval(event.index);
       this.rowRemoved.emit(this.createRecordEvent(event.index, event.data));
     },
     onEditRowRemoved: originalIndex => this.editController.onRowRemoved(originalIndex),
@@ -652,6 +678,7 @@ export class AgridComponent<T extends object = any> {
     locale: this.locale,
     selectedCell: this.selectedCell,
     selectedRange: this.selectedRange,
+    markedRowIndices: this.markedRowIndices,
     isCellEditable: col => this.isCellEditable(col),
     onCellEdit: event => this.emitEditEvents(event),
     scrollToCell: (displayIndex, colIndex) => this.scrollToKeepVisible(displayIndex, colIndex),
@@ -662,7 +689,10 @@ export class AgridComponent<T extends object = any> {
     filteredItems: () => this.filteredItems(),
     locale: () => this.locale(),
     selectedIndices: this.rowController.selectedIndices,
-    onReorder: e => this.rowReorder.emit(e),
+    onReorder: e => {
+      this.reconcileMarkedRowsAfterMove(e.oldIndex, e.newIndex);
+      this.rowReorder.emit(e);
+    },
     onSelectionChange: () => this.rowController.emitSelection(),
   }, this.destroyRef);
 
@@ -677,6 +707,21 @@ export class AgridComponent<T extends object = any> {
   /** @internal Start a column header drag. */
   onColHeaderPointerDown(event: PointerEvent, field: string): void {
     this.columnReorder.start(event, field);
+  }
+
+  /** @internal Start dragging all columns in one contiguous grouped-header segment. */
+  onHeaderGroupPointerDown(event: PointerEvent, fields: string[], label: string): void {
+    this.columnReorder.startGroup(event, fields, label);
+  }
+
+  /** @internal Whether any field in a grouped-header segment is being dragged. */
+  isHeaderGroupDragging(fields: string[]): boolean {
+    return fields.some(field => this.columnReorder.isDragging(field));
+  }
+
+  /** @internal Whether a grouped-header segment contains a locked column. */
+  isHeaderGroupLocked(fields: string[]): boolean {
+    return fields.some(field => this.getColDef(field)?.locked);
   }
 
   /** @internal Whether the given column header is being dragged. */
@@ -1134,6 +1179,26 @@ export class AgridComponent<T extends object = any> {
     this.rowController.selectFromPointer(event, originalIndex, false);
   }
 
+  /** @internal Toggle whether a row is included in subsequent copy operations. */
+  toggleRowMarked(originalIndex: number): void {
+    this.markedIndices.update(indices => {
+      const next = new Set(indices);
+      if (next.has(originalIndex)) next.delete(originalIndex);
+      else next.add(originalIndex);
+      return next;
+    });
+  }
+
+  /** @internal Returns whether a row is marked for copying. */
+  isRowMarked(originalIndex: number): boolean {
+    return this.markedIndices().has(originalIndex);
+  }
+
+  /** Clear every row marked for clipboard inclusion. */
+  clearMarkedRows(): void {
+    this.markedIndices.set(new Set());
+  }
+
   /** @internal Copy the active range or cell as TSV. */
   onCopy(event: ClipboardEvent): void {
     this.clipboardHandler.copy(event);
@@ -1196,14 +1261,14 @@ export class AgridComponent<T extends object = any> {
     this.closeCellContextMenu();
   }
 
-  /** @internal Copy the display value of one cell to the clipboard. */
-  copyCellToClipboard(value: unknown, col: ColDef): void {
-    this.rowController.copyCellToClipboard(value, col);
+  /** @internal Copy one field from the target and marked rows. */
+  copyCellToClipboard(originalIndex: number, col: ColDef): void {
+    this.rowController.copyCellToClipboard(originalIndex, col);
   }
 
-  /** @internal Copy all visible column values of a row as TSV to the clipboard. */
-  copyRowToClipboard(row: Record<string, unknown>): void {
-    this.rowController.copyRowToClipboard(row);
+  /** @internal Copy the target and marked rows using all visible fields. */
+  copyRowToClipboard(originalIndex: number): void {
+    this.rowController.copyRowToClipboard(originalIndex);
   }
 
   /** @internal Insert a blank row at a specific position and emit prepareAddRecord. */
@@ -1404,6 +1469,33 @@ export class AgridComponent<T extends object = any> {
 
   private findDisplayIndex(originalIndex: number): number {
     return this.navigationController.findDisplayIndex(originalIndex);
+  }
+
+  private reconcileMarkedRowsAfterInsertion(insertedIndex: number): void {
+    if (this.markedIndices().size === 0) return;
+    this.markedIndices.update(indices => new Set(
+      [...indices].map(index => index >= insertedIndex ? index + 1 : index)
+    ));
+  }
+
+  private reconcileMarkedRowsAfterRemoval(removedIndex: number): void {
+    if (this.markedIndices().size === 0) return;
+    this.markedIndices.update(indices => new Set(
+      [...indices]
+        .filter(index => index !== removedIndex)
+        .map(index => index > removedIndex ? index - 1 : index)
+    ));
+  }
+
+  private reconcileMarkedRowsAfterMove(oldIndex: number, newIndex: number): void {
+    if (this.markedIndices().size === 0 || oldIndex === newIndex) return;
+    const destination = newIndex > oldIndex ? newIndex - 1 : newIndex;
+    this.markedIndices.update(indices => new Set([...indices].map(index => {
+      if (index === oldIndex) return destination;
+      if (oldIndex < destination && index > oldIndex && index <= destination) return index - 1;
+      if (destination < oldIndex && index >= destination && index < oldIndex) return index + 1;
+      return index;
+    })));
   }
 
   private isCellEditable(col: ColDef): boolean {

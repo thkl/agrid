@@ -92,6 +92,28 @@ test.describe('agrid browser interactions', () => {
     await expect(target.locator('.ag-cell-value')).toHaveText('Copied value');
   });
 
+  test('includes marked rows in clipboard copies', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.goto('/demo');
+    const grid = page.getByRole('grid');
+    const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+    const controlCell = page.locator(
+      '.ag-pinned-pane:not(.ag-pinned-pane--right) .ag-control-cell',
+    ).first();
+
+    await expect.poll(async () => (await controlCell.boundingBox())?.width).toBe(48);
+    await expect.poll(() => controlCell.evaluate(element =>
+      getComputedStyle(element, '::after').content,
+    )).not.toBe('none');
+    await page.locator('.ag-row-marker').nth(1).check();
+    await page.locator(cell(0, 1)).first().click();
+    await grid.press(`${modifier}+C`);
+
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe('Alice\nBob');
+    await expect(page.locator('.ag-scroll-pane .ag-row--marked')).toHaveCount(1);
+  });
+
   test('confirms row deletion inside the faded target row', async ({ page }) => {
     await page.goto('/demo');
     const firstControlCell = page.locator(
@@ -214,5 +236,50 @@ test.describe('agrid browser interactions', () => {
       );
       return fields.indexOf('name') > fields.indexOf('email');
     }).toBe(true);
+  });
+
+  test('reorders all columns beneath a grouped header', async ({ page }) => {
+    await page.goto('/demo');
+    const groupHeader = page.locator(
+      '.ag-scroll-pane .ag-header-group-cell[data-header-group="employee"]',
+    );
+    const emailHeader = page.locator(
+      '.ag-horizontal-scroll > .ag-header [data-col-field="email"]',
+    );
+    const firstNameCell = page.locator(
+      '.ag-horizontal-scroll agrid-cell[data-col-field="firstName"]',
+    ).first();
+    const lastNameCell = page.locator(
+      '.ag-horizontal-scroll agrid-cell[data-col-field="lastName"]',
+    ).first();
+    const groupBox = await groupHeader.boundingBox();
+    const emailBox = await emailHeader.boundingBox();
+    if (!groupBox || !emailBox) throw new Error('Grouped headers are not visible');
+
+    await page.mouse.move(groupBox.x + groupBox.width / 2, groupBox.y + groupBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(emailBox.x + emailBox.width - 4, emailBox.y + emailBox.height / 2, {
+      steps: 8,
+    });
+
+    await expect(page.locator('.ag-column-drag-preview')).toContainText('Employee');
+    await expect(firstNameCell).toHaveCSS('opacity', '0.12');
+    await expect(lastNameCell).toHaveCSS('opacity', '0.12');
+    await page.mouse.up();
+
+    const headers = page.locator(
+      '.ag-horizontal-scroll > .ag-header > .ag-header-cell[data-col-field]',
+    );
+    await expect.poll(async () => headers.evaluateAll(elements =>
+      elements.map(element => (element as HTMLElement).dataset['colField']),
+    )).toEqual([
+      'id',
+      'email',
+      'firstName',
+      'lastName',
+      'departmentId',
+      'hiredAt',
+    ]);
+    await expect(groupHeader).toHaveCount(1);
   });
 });

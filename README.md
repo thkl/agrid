@@ -201,6 +201,7 @@ readonly gridProvider = new AgridProvider({
   showControlColumn: true,
   rowSelection: 'multi',
   allowAddRows: true,
+  enableRowMarking: true,
   confirmRowDelete: true,
   readonly: false,
 });
@@ -209,6 +210,7 @@ readonly gridProvider = new AgridProvider({
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `columns` | `ColDef[]` | `[]` | Column definitions. |
+| `headerGroups` | `HeaderGroup[]` | `[]` | Labels for optional grouped column headers. |
 | `datasource` | `AgridDataSource` | New empty datasource | Row data container. |
 | `control` | `AgridControl` | New default control | Manages filters, sort, grouping, pagination, and undo/redo. |
 | `locale` | `string` | `'auto'` | BCP-47 locale tag for grid text and date formatting. `'auto'` reads `navigator.language` and falls back to `'en-US'`. |
@@ -219,6 +221,7 @@ readonly gridProvider = new AgridProvider({
 | `allowAddRows` | `boolean` | `false` | Shows a `+ Add row` placeholder at the bottom when `autoAddRows` is `false`. |
 | `autoAddRows` | `boolean` | `false` | Automatically inserts a blank row when navigation moves past the last real row. |
 | `showControlColumn` | `boolean` | `false` | Shows a 24 px control column for row context actions and drag handles. |
+| `enableRowMarking` | `boolean` | `false` | Shows checkboxes in a 48 px control column and includes marked rows in every copy operation. |
 | `showSidebar` | `boolean` | `false` | Shows a collapsible column visibility sidebar. Requires `control`. |
 | `autoOpenDetail` | `boolean` | `false` | Opens the detail row automatically when a row is selected. |
 | `serverSideFiltering` | `boolean` | `false` | Emits filter/sort events instead of applying them locally and hides the value checklist. |
@@ -282,6 +285,7 @@ Call these through `viewChild(AgridComponent)`.
 | `goToFindMatch(direction)` | Moves to the next (`1`) or previous (`-1`) find match. |
 | `deleteRow(originalIndex)` | Removes a row and emits `rowRemoved`, after confirmation when `confirmRowDelete` is enabled. |
 | `clearChangedCells(originalIndex?, fields?)` | Clears every changed-cell marker, one row, or selected fields in one row. |
+| `clearMarkedRows()` | Clears all rows marked for clipboard inclusion. |
 
 ### Public Component State
 
@@ -291,6 +295,7 @@ Call these through `viewChild(AgridComponent)`.
 | `editingCell` | `Signal<CellPosition \| null>` | Cell currently in edit mode. |
 | `selectedRowIndices` | `Signal<ReadonlySet<number>>` | Selected original row indices. |
 | `selectedRowIndex` | `Signal<number \| null>` | First selected row index, useful for single selection. |
+| `markedRowIndices` | `Signal<ReadonlySet<number>>` | Original datasource indices included in copy operations. |
 | `sidebarOpen` | `Signal<boolean>` | Current sidebar visibility. |
 | `canUndo` | `Signal<boolean>` | Whether Ctrl/Cmd+Z can undo an edit. Requires `provider.control`. |
 | `canRedo` | `Signal<boolean>` | Whether redo is available. Requires `provider.control`. |
@@ -336,10 +341,32 @@ function onRecordEdit(event: RecordEditEvent<PersonRow>): void {
 An invalid field such as `{ field: 'email' }` is rejected by TypeScript. Generic parameters
 are optional, so existing untyped configurations remain compatible.
 
+### Grouped Column Headers
+
+```ts
+const columns: ColDef<PersonRow>[] = [
+  { field: 'firstName', header: 'First name', group: 'employee' },
+  { field: 'lastName', header: 'Last name', group: 'employee' },
+  { field: 'email', header: 'Email' },
+];
+
+const provider = new AgridProvider({
+  columns,
+  headerGroups: [{ id: 'employee', label: 'Employee' }],
+});
+```
+
+The extra header row appears when a visible column references a configured group. Only adjacent
+columns share one group header. Reordering, hiding, or pinning columns can split the same group ID
+into multiple rendered segments. Dragging a group header moves every column in that segment as one
+ordered block. A segment containing a locked column cannot be dragged. The `group` property is only
+for header presentation; `groupable` continues to control data-row grouping.
+
 ```ts
 interface ColDef {
   field: string;
   header: string;
+  group?: string;          // references AgridProvider.headerGroups
   width: number;           // use ColDefAutoSize (-1) to autosize on first render
   type?: 'text' | 'number' | 'date';
   editable?: boolean;
@@ -360,6 +387,7 @@ interface ColDef {
 | --- | --- | --- |
 | `field` | Yes | Key in each row object. |
 | `header` | Yes | Header label shown in the grid. |
+| `group` | No | Header-group ID. Adjacent columns with the same ID share a grouped header. |
 | `width` | Yes | Default width in pixels. Set to `ColDefAutoSize` (`-1`) to fit the column to its content on first render. |
 | `type` | No | Semantic type. `number` initializes blank rows with `0`. `date` treats the ISO date prefix as a calendar date, with localized display formatting and a native inline editor. |
 | `editable` | No | Set to `false` for read-only cells. Defaults to editable. |
@@ -937,6 +965,11 @@ Paste and fill store multiple entries as one `HistoryItem`, so Ctrl/Cmd+Z revers
 ## Clipboard, Range Selection, And Fill
 
 - Copy exports the active cell or selected rectangular range as TSV.
+- With `enableRowMarking`, checked rows are appended to every copy using the copied columns.
+- Copying without an active cell copies all visible columns from the marked rows.
+- Context-menu `Copy cell` and `Copy row` also include marked rows without duplicates.
+- Row marking is independent from row selection.
+- Marked rows remain part of copy output when filters hide them.
 - Paste accepts TSV or CSV-like plain text and writes from the active cell.
 - Pasted values use labels/raw values for `values` columns.
 - Number columns coerce numeric pasted values to `number`.
@@ -1012,6 +1045,7 @@ Override these on the `agrid` host element to theme the grid.
 | `--agrid-color-bg-muted` | `#f6f8fa` | Header and hover background. |
 | `--agrid-color-bg-stripe` | `#f0f2f5` | Zebra stripe background (even rows). |
 | `--agrid-color-cell-changed` | `#f59e0b` | Corner marker for changed cells. |
+| `--agrid-color-row-marked` | `#fff8c5` | Background for rows marked for clipboard inclusion. |
 
 ## Development
 

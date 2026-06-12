@@ -116,6 +116,38 @@ constructor() {
   });
 }`;
 
+  readonly rowMarkingCode = `readonly grid = viewChild(AgridComponent);
+
+readonly provider = new AgridProvider<Person>({
+  columns,
+  datasource,
+  enableRowMarking: true,
+});
+
+getMarkedRows(): Person[] {
+  return [...this.grid()!.markedRowIndices()]
+    .map(index => datasource.getRow(index));
+}
+
+clearCopyBasket(): void {
+  this.grid()?.clearMarkedRows();
+}`;
+
+  readonly headerGroupsCode = `const columns: ColDef<Person>[] = [
+  { field: 'firstName', header: 'First name', group: 'employee' },
+  { field: 'lastName', header: 'Last name', group: 'employee' },
+  { field: 'email', header: 'Email' },
+];
+
+readonly provider = new AgridProvider<Person>({
+  columns,
+  datasource,
+  control: new AgridControl(),
+  headerGroups: [
+    { id: 'employee', label: 'Employee' },
+  ],
+});`;
+
   readonly persistenceCode = `const saved = localStorage.getItem('agrid-state');
 const control = AgridControl.fromJSON(saved ? JSON.parse(saved) : {});
 

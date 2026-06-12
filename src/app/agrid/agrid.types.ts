@@ -55,12 +55,22 @@ export interface ValueOption<TValue = unknown> {
 /** Width sentinel that makes a column fill the remaining horizontal space. */
 export const ColDefAutoSize = -1;
 
+/** Label definition for a group displayed above contiguous column headers. */
+export interface HeaderGroup {
+  /** Stable identifier referenced by {@link ColDefBase.group}. */
+  id: string;
+  /** Text displayed in the grouped header row. */
+  label: string;
+}
+
 /** Defines the behavior shared by every typed column. */
 export interface ColDefBase<T extends object, K extends AgridField<T>> {
   /** Data field name — must match a key in the row object. */
   field: K;
   /** Text displayed in the column header. */
   header: string;
+  /** Optional header-group identifier configured through `AgridProvider.headerGroups`. */
+  group?: string;
   /**
    * Default column width in pixels. Can be overridden at runtime via {@link AgridControl}.
    * Use `-1` (or omit) to make the column auto-scale and fill available space (`1fr`).

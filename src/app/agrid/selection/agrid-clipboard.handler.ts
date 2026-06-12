@@ -23,6 +23,7 @@ export interface AgridClipboardHandlerOptions {
   locale: Signal<string>;
   selectedCell: WritableSignal<CellPosition | null>;
   selectedRange: WritableSignal<CellRange | null>;
+  markedRowIndices: Signal<ReadonlySet<number>>;
   isCellEditable: (col: ColDef) => boolean;
   onCellEdit: (event: GridEditEvent) => void;
   scrollToCell: (displayIndex: number, colIndex: number) => void;
@@ -52,30 +53,56 @@ export class AgridClipboardHandler {
   getSelectedTsv(): string {
     const bounds = this.getVisibleRangeBounds();
     const selected = this.opts.selectedCell();
-    if (!bounds && !selected) return '';
+    const marked = this.opts.markedRowIndices();
+    if (!bounds && !selected && marked.size === 0) return '';
 
-    const rowStart = bounds?.rowStart ?? this.findDisplayIndex(selected!.rowIndex);
+    const rowStart = bounds?.rowStart ?? (
+      selected ? this.findDisplayIndex(selected.rowIndex) : -1
+    );
     const rowEnd = bounds?.rowEnd ?? rowStart;
-    const colStart = bounds?.colStart ?? selected!.colIndex;
-    const colEnd = bounds?.colEnd ?? selected!.colIndex;
+    const colStart = bounds?.colStart ?? selected?.colIndex ?? 0;
+    const colEnd = bounds?.colEnd ?? selected?.colIndex
+      ?? this.opts.visibleColDefs().length - 1;
     const rows = this.opts.filteredItems();
     const cols = this.opts.visibleColDefs();
+    const dataRows = this.opts.dataSource().rows();
     const lines: string[] = [];
+    const copiedIndices = new Set<number>();
 
-    for (let displayIndex = rowStart; displayIndex <= rowEnd; displayIndex++) {
-      const item = rows[displayIndex];
-      if (!isDataRowItem(item)) continue;
-      const cells: string[] = [];
-      for (let colIndex = colStart; colIndex <= colEnd; colIndex++) {
-        const col = cols[colIndex];
-        if (!col) continue;
-        cells.push(this.escapeTsvValue(
-          getDisplayForField(col, item.row[col.field], this.opts.locale())
-        ));
+    if (rowStart >= 0) {
+      for (let displayIndex = rowStart; displayIndex <= rowEnd; displayIndex++) {
+        const item = rows[displayIndex];
+        if (!isDataRowItem(item)) continue;
+        lines.push(this.serializeRow(item.row, cols, colStart, colEnd));
+        copiedIndices.add(item.originalIndex);
       }
-      lines.push(cells.join('\t'));
     }
+
+    for (const originalIndex of [...marked].sort((a, b) => a - b)) {
+      if (copiedIndices.has(originalIndex)) continue;
+      const row = dataRows[originalIndex];
+      if (!row) continue;
+      lines.push(this.serializeRow(row, cols, colStart, colEnd));
+    }
+
     return lines.join('\n');
+  }
+
+  private serializeRow(
+    row: Record<string, unknown>,
+    cols: ColDef[],
+    colStart: number,
+    colEnd: number,
+  ): string {
+    const cells: string[] = [];
+    for (let colIndex = colStart; colIndex <= colEnd; colIndex++) {
+      const col = cols[colIndex];
+      if (!col) continue;
+      cells.push(this.escapeTsvValue(
+        getDisplayForField(col, row[col.field], this.opts.locale())
+      ));
+    }
+    return cells.join('\t');
   }
 
   /** Applies delimited text to editable cells beginning at the active selection. */

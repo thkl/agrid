@@ -140,6 +140,49 @@ describe('AgridColumnReorderController', () => {
     expect(controller.getHeaderOffset('c')).toBe(-100);
     document.dispatchEvent(new Event('pointercancel'));
   });
+
+  it('drags a contiguous header group as one ordered block', () => {
+    const control = new AgridControl();
+    const columns = [
+      { field: 'a', header: 'A' },
+      { field: 'b', header: 'B' },
+      { field: 'c', header: 'C' },
+      { field: 'd', header: 'D' },
+    ];
+    const controller = new AgridColumnReorderController({
+      control: signal(control),
+      visibleColDefs: signal(columns),
+      getColDef: field => columns.find(col => col.field === field),
+    }, destroyRef());
+    const headers = headerGrid([
+      ['a', 0],
+      ['b', 100],
+      ['c', 200],
+      ['d', 300],
+    ]);
+    const groupHeader = document.createElement('div');
+    vi.spyOn(groupHeader, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, top: 0, left: 0, right: 200, bottom: 28,
+      width: 200, height: 28, toJSON: () => ({}),
+    });
+    headers[0].closest('.ag-wrapper')?.append(groupHeader);
+
+    controller.startGroup(pointerEvent(groupHeader), ['a', 'b'], 'Employee');
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: 360, clientY: 10 }));
+
+    expect(controller.isDragging('a')).toBe(true);
+    expect(controller.isDragging('b')).toBe(true);
+    expect(controller.getHeaderOffset('c')).toBe(-200);
+    expect(controller.getHeaderOffset('d')).toBe(-200);
+    expect(controller.preview()).toMatchObject({
+      fields: ['a', 'b'],
+      label: 'Employee',
+      width: 200,
+    });
+
+    document.dispatchEvent(new MouseEvent('pointerup'));
+    expect(control.columnOrder()).toEqual(['c', 'd', 'a', 'b']);
+  });
 });
 
 function pointerEvent(currentTarget?: HTMLElement, clientX = 10): PointerEvent {

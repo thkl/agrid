@@ -189,14 +189,27 @@ export class AgridControl {
    * operation works correctly whether or not an order has been set before.
    */
   moveColumn(currentVisibleOrder: string[], fromField: string, toField: string, insertBefore: boolean): void {
+    this.moveColumns(currentVisibleOrder, [fromField], toField, insertBefore);
+  }
+
+  /**
+   * Move an ordered block of fields to a new position relative to `toField`.
+   * Fields absent from `currentVisibleOrder` are ignored.
+   */
+  moveColumns(
+    currentVisibleOrder: string[],
+    fromFields: readonly string[],
+    toField: string,
+    insertBefore: boolean,
+  ): void {
     const order = [...currentVisibleOrder];
-    const fromIdx = order.indexOf(fromField);
-    if (fromIdx === -1) return;
-    order.splice(fromIdx, 1);
-    const toIdx = order.indexOf(toField);
-    if (toIdx === -1) { this._columnOrder.set(order); return; }
-    order.splice(insertBefore ? toIdx : toIdx + 1, 0, fromField);
-    this._columnOrder.set(order);
+    const moving = order.filter(field => fromFields.includes(field));
+    if (moving.length === 0 || moving.includes(toField)) return;
+    const remaining = order.filter(field => !moving.includes(field));
+    const toIdx = remaining.indexOf(toField);
+    if (toIdx === -1) return;
+    remaining.splice(insertBefore ? toIdx : toIdx + 1, 0, ...moving);
+    this._columnOrder.set(remaining);
   }
 
   // ── Pinned columns ────────────────────────────────────────────────────────

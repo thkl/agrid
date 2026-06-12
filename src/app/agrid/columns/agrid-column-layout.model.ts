@@ -1,12 +1,23 @@
 import { Signal, computed } from '@angular/core';
 import { AgridControl } from '../agrid-control';
-import { ColDef } from '../agrid.types';
+import { ColDef, HeaderGroup } from '../agrid.types';
+
+/** One contiguous segment in the optional grouped-header row. @internal */
+export interface AgridHeaderGroupRun {
+  key: string;
+  id: string | null;
+  label: string;
+  fields: string[];
+  span: number;
+}
 
 /** Reactive inputs required by {@link AgridColumnLayoutModel}. @internal */
 export interface AgridColumnLayoutOptions {
   control: Signal<AgridControl | null>;
   colDefs: Signal<ColDef[]>;
+  headerGroups: Signal<HeaderGroup[]>;
   showControlColumn: Signal<boolean>;
+  controlColumnWidth: Signal<number>;
   getColumnWidth: (col: ColDef) => number;
   getColumnWidthToken: (col: ColDef) => string;
 }
@@ -87,15 +98,33 @@ export class AgridColumnLayoutModel {
   readonly hasFilterableColumns = computed(() =>
     this.visibleColDefs().some(col => col.filterable)
   );
+  readonly hasHeaderGroups = computed(() =>
+    this.visibleColDefs().some(col => this.groupLabel(col.group) !== null)
+  );
+
+  readonly pinnedHeaderGroupRuns = computed(() =>
+    this.buildHeaderGroupRuns(this.pinnedColDefs(), 'left')
+  );
+  readonly scrollableHeaderGroupRuns = computed(() =>
+    this.buildHeaderGroupRuns(this.scrollableColDefs(), 'center')
+  );
+  readonly rightHeaderGroupRuns = computed(() =>
+    this.buildHeaderGroupRuns(this.rightPinnedColDefs(), 'right')
+  );
 
   readonly gridTemplateColumns = computed(() => {
     const columns = this.widthTokens(this.visibleColDefs());
-    return this.opts.showControlColumn() ? `24px ${columns}` : columns;
+    return this.opts.showControlColumn()
+      ? `${this.opts.controlColumnWidth()}px ${columns}`
+      : columns;
   });
 
   readonly pinnedGridTemplateColumns = computed(() => {
     const columns = this.widthTokens(this.pinnedColDefs());
-    if (this.opts.showControlColumn()) return columns ? `24px ${columns}` : '24px';
+    if (this.opts.showControlColumn()) {
+      const controlWidth = `${this.opts.controlColumnWidth()}px`;
+      return columns ? `${controlWidth} ${columns}` : controlWidth;
+    }
     return columns;
   });
 
@@ -107,10 +136,12 @@ export class AgridColumnLayoutModel {
   );
 
   readonly totalWidth = computed(() =>
-    this.width(this.visibleColDefs()) + (this.opts.showControlColumn() ? 24 : 0)
+    this.width(this.visibleColDefs())
+      + (this.opts.showControlColumn() ? this.opts.controlColumnWidth() : 0)
   );
   readonly pinnedPaneWidth = computed(() =>
-    this.width(this.pinnedColDefs()) + (this.opts.showControlColumn() ? 24 : 0)
+    this.width(this.pinnedColDefs())
+      + (this.opts.showControlColumn() ? this.opts.controlColumnWidth() : 0)
   );
   readonly rightPinnedPaneWidth = computed(() => this.width(this.rightPinnedColDefs()));
   readonly scrollableTotalWidth = computed(() => this.width(this.scrollableColDefs()));
@@ -121,5 +152,32 @@ export class AgridColumnLayoutModel {
 
   private widthTokens(columns: ColDef[]): string {
     return columns.map(col => this.opts.getColumnWidthToken(col)).join(' ');
+  }
+
+  private buildHeaderGroupRuns(columns: ColDef[], pane: string): AgridHeaderGroupRun[] {
+    const runs: AgridHeaderGroupRun[] = [];
+    for (const col of columns) {
+      const label = this.groupLabel(col.group);
+      const id = label === null ? null : col.group ?? null;
+      const previous = runs[runs.length - 1];
+      if (id !== null && previous?.id === id) {
+        previous.fields.push(col.field);
+        previous.span++;
+        continue;
+      }
+      runs.push({
+        key: `${pane}:${col.field}`,
+        id,
+        label: label ?? '',
+        fields: [col.field],
+        span: 1,
+      });
+    }
+    return runs;
+  }
+
+  private groupLabel(groupId: string | undefined): string | null {
+    if (!groupId) return null;
+    return this.opts.headerGroups().find(group => group.id === groupId)?.label ?? null;
   }
 }

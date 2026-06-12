@@ -97,6 +97,7 @@
             <tr><td><code>openFind()</code></td><td>Opens and focuses the find panel.</td></tr>
             <tr><td><code>deleteRow(index)</code></td><td>Removes a row and emits <code>rowRemoved</code>, after confirmation when enabled.</td></tr>
             <tr><td><code>clearChangedCells(index?, fields?)</code></td><td>Clears all markers, one row, or selected fields.</td></tr>
+            <tr><td><code>clearMarkedRows()</code></td><td>Clears all rows marked for clipboard inclusion.</td></tr>
           </tbody>
         </table>
       </div>
@@ -104,7 +105,8 @@
       <h3>Public state</h3>
       <p>
         The component exposes readonly signals including <code>selectedCell</code>,
-        <code>editingCell</code>, <code>selectedRowIndices</code>, <code>sidebarOpen</code>,
+        <code>editingCell</code>, <code>selectedRowIndices</code>, <code>markedRowIndices</code>,
+        <code>sidebarOpen</code>,
         <code>canUndo</code>, <code>canRedo</code>, <code>filteredRowCount</code>, and
         <code>totalPages</code>.
       </p>
@@ -123,6 +125,7 @@
           </thead>
           <tbody>
             <tr><td><code>columns</code></td><td><code>[]</code></td><td>Typed column definitions.</td></tr>
+            <tr><td><code>headerGroups</code></td><td><code>[]</code></td><td>Labels for optional grouped column headers.</td></tr>
             <tr><td><code>datasource</code></td><td>Empty</td><td>Signal-based row container.</td></tr>
             <tr><td><code>control</code></td><td>New control</td><td>Filters, sorting, grouping, pagination, and history.</td></tr>
             <tr><td><code>locale</code></td><td><code>'auto'</code></td><td>BCP-47 locale for labels and date formatting.</td></tr>
@@ -130,6 +133,7 @@
             <tr><td><code>allowAddRows</code></td><td><code>false</code></td><td>Shows an add-row placeholder.</td></tr>
             <tr><td><code>autoAddRows</code></td><td><code>false</code></td><td>Adds a row when navigation leaves the last row.</td></tr>
             <tr><td><code>showControlColumn</code></td><td><code>false</code></td><td>Shows row actions and reorder handles.</td></tr>
+            <tr><td><code>enableRowMarking</code></td><td><code>false</code></td><td>Shows row checkboxes in a 48 px control column and includes marked rows in every copy operation.</td></tr>
             <tr><td><code>showSidebar</code></td><td><code>false</code></td><td>Shows the column visibility sidebar.</td></tr>
             <tr><td><code>serverSideFiltering</code></td><td><code>false</code></td><td>Emits filter and sort requests instead of applying them locally.</td></tr>
             <tr><td><code>sortOption</code></td><td><code>'multi'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
@@ -146,6 +150,23 @@
         Set <code>confirmRowDelete: true</code> to protect context-menu and
         <code>deleteRow()</code> actions. Direct datasource removals remain immediate.
       </p>
+      <p>
+        Set <code>enableRowMarking: true</code> to add control-column checkboxes. Keyboard copy,
+        Copy cell, and Copy row append marked rows using the same copied columns and omit duplicates.
+      </p>
+      <h3>Marking rows for copy</h3>
+      <p>
+        Row marking is independent from row selection. Enabling it adds a 48 px control column
+        containing a checkbox and the existing menu or reorder handle.
+      </p>
+      <pre><code>{{ rowMarkingCode }}</code></pre>
+      <ul>
+        <li>Copying a cell appends the same field from every marked row.</li>
+        <li>Copying a range appends the same column range from every marked row.</li>
+        <li>Copy row appends every visible field from every marked row.</li>
+        <li>Rows already present in the active copy selection are not duplicated.</li>
+        <li>Marked rows remain included when filters hide them.</li>
+      </ul>
 
       <h3>Dynamic options</h3>
       <p>
@@ -176,6 +197,7 @@
           <tbody>
             <tr><td><code>field</code></td><td>Yes</td><td>Key in the row object.</td></tr>
             <tr><td><code>header</code></td><td>Yes</td><td>Displayed header label.</td></tr>
+            <tr><td><code>group</code></td><td>No</td><td>Header-group ID shared by adjacent columns.</td></tr>
             <tr><td><code>width</code></td><td>No</td><td>Pixel width or <code>ColDefAutoSize</code>.</td></tr>
             <tr><td><code>type</code></td><td>No</td><td><code>'text'</code>, <code>'number'</code>, or <code>'date'</code>.</td></tr>
             <tr><td><code>editable</code></td><td>No</td><td>Set to false for readonly cells.</td></tr>
@@ -192,6 +214,20 @@
           </tbody>
         </table>
       </div>
+      <h3>Grouped column headers</h3>
+      <pre><code>{{ headerGroupsCode }}</code></pre>
+      <p>
+        The grouped-header row appears only when a visible column references a configured group.
+        Adjacent columns with the same group ID share one header. Reordering, hiding, or pinning
+        can split the same group into multiple contiguous headers, including separate headers in
+        pinned panes.
+      </p>
+      <ul>
+        <li>Dragging a grouped header moves every column in that rendered segment together.</li>
+        <li>The columns keep their internal order while the segment moves.</li>
+        <li>A segment containing a locked column cannot be dragged.</li>
+        <li><code>group</code> controls header presentation; <code>groupable</code> controls data-row grouping.</li>
+      </ul>
       <div class="callout">
         ISO date strings and <code>Date</code> objects are automatically formatted and sorted
         chronologically. A custom <code>formatter</code> takes precedence.
