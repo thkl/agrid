@@ -4,6 +4,9 @@ A signal-based, standalone data grid for Angular 21 with virtual scrolling, edit
 filtering, sorting, grouping, tree data, pinned columns, selection, clipboard operations,
 and pagination.
 
+
+[![npm version](https://img.shields.io/npm/v/my-package.svg)](https://www.npmjs.com/package/@thkl/agrid)
+
 ## Install
 
 ```bash
