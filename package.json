@@ -1,6 +1,6 @@
 {
   "name": "agrid",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -33,7 +33,7 @@
   "bugs": {
     "url": "https://github.com/thkl/agrid/issues"
   },
-  "packageManager": "pnpm@10.10.0",
+  "packageManager": "pnpm@11.6.0",
   "dependencies": {
     "@angular/cdk": "^21.2.13",
     "@angular/common": "^21.0.0",
@@ -50,9 +50,9 @@
     "@angular/build": "^21.0.0",
     "@angular/cli": "^21.0.0",
     "@angular/compiler-cli": "^21.0.0",
-    "ng-packagr": "^21.0.0",
     "@playwright/test": "^1.60.0",
     "jsdom": "^27.1.0",
+    "ng-packagr": "^21.0.0",
     "typescript": "~5.9.2",
     "vitest": "^4.0.8"
   }

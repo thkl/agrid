@@ -49,3 +49,5 @@ graphify-out/
 .codex
 AGENTS.md
 .pnpm-store/
+.npmrc
+pnpm-workspace.yaml
