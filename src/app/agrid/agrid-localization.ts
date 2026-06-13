@@ -21,6 +21,18 @@ export interface AgridLocaleText {
   columns: string;
   detail: string;
   hiddenColumn: string;
+  filterCondition: string;
+  filterNoCondition: string;
+  filterOpEquals: string;
+  filterOpNotEquals: string;
+  filterOpGreater: string;
+  filterOpGreaterEqual: string;
+  filterOpLess: string;
+  filterOpLessEqual: string;
+  filterOpBetween: string;
+  filterOpBefore: string;
+  filterOpAfter: string;
+  filterOpOn: string;
   copyCellValue: string;
   copyRow: string;
   confirmDeleteRow: string;
@@ -81,6 +93,18 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     columns: 'Columns',
     detail: 'Detail',
     hiddenColumn: '(hidden)',
+    filterCondition: 'Condition',
+    filterNoCondition: 'No condition',
+    filterOpEquals: 'Equals',
+    filterOpNotEquals: 'Not equal',
+    filterOpGreater: 'Greater than',
+    filterOpGreaterEqual: 'Greater or equal',
+    filterOpLess: 'Less than',
+    filterOpLessEqual: 'Less or equal',
+    filterOpBetween: 'Between',
+    filterOpBefore: 'Before',
+    filterOpAfter: 'After',
+    filterOpOn: 'On',
     copyCellValue: 'Copy cell',
     copyRow: 'Copy row',
     confirmDeleteRow: 'Sure to delete?',
@@ -135,6 +159,18 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     columns: 'Spalten',
     detail: 'Details',
     hiddenColumn: '(ausgeblendet)',
+    filterCondition: 'Bedingung',
+    filterNoCondition: 'Keine Bedingung',
+    filterOpEquals: 'Gleich',
+    filterOpNotEquals: 'Ungleich',
+    filterOpGreater: 'Größer als',
+    filterOpGreaterEqual: 'Größer oder gleich',
+    filterOpLess: 'Kleiner als',
+    filterOpLessEqual: 'Kleiner oder gleich',
+    filterOpBetween: 'Zwischen',
+    filterOpBefore: 'Vor',
+    filterOpAfter: 'Nach',
+    filterOpOn: 'Am',
     copyCellValue: 'Zelle kopieren',
     copyRow: 'Zeile kopieren',
     confirmDeleteRow: 'Wirklich löschen?',

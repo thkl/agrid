@@ -18,8 +18,9 @@ const COLUMNS: ColDef[] = [
       { value: 7, label: 'Operations' },
     ]
   },
-  { field: 'salary', header: 'Salary', width: ColDefAutoSize, type: 'number', filterable: true, hidden:true, aggregate: 'sum'},
-  { field: 'hiredAt', header: 'Hire Date', width: ColDefAutoSize, type: 'date' },
+  { field: 'salary', header: 'Salary', width: ColDefAutoSize, type: 'number', filterable: true, aggregate: 'sum'},
+  { field: 'hiredAt', header: 'Hire Date', width: ColDefAutoSize, type: 'date', filterable: true },
+  { field: 'active', header: 'Active', width: ColDefAutoSize, type: 'boolean' },
 ];
 
 const FIRST_NAMES = ['Alice', 'Bob', 'Carol', 'David', 'Emma', 'Frank', 'Grace', 'Henry', 'Iris', 'Jack'];
@@ -35,6 +36,7 @@ function generateRows(count: number): Record<string, unknown>[] {
     departmentId: (i % DEPARTMENTS.length) + 1,  // numeric ID, displayed as label via ValueOption
     salary: 50000 + ((i * 137) % 100000),
     hiredAt: new Date(2018 + (i % 7), (i * 3) % 12, (i * 7) % 28 + 1).toISOString(),
+    active: i % 3 !== 0,
   }));
 }
 
@@ -50,7 +52,7 @@ function generateRows(count: number): Record<string, unknown>[] {
           @if (filteredRowCount() !== ds.rows().length) {
             {{ filteredRowCount().toLocaleString() }} of
           }
-          {{ ds.rows().length.toLocaleString() }} rows · 7 columns
+          {{ ds.rows().length.toLocaleString() }} rows · 8 columns
         </span>
         <label class="demo-toggle">
           <input type="checkbox" [checked]="autoAdd()" (change)="autoAdd.set(!autoAdd())" />

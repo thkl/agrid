@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from '../agrid-localization';
+import { FilterOperator } from '../agrid-control';
 
 /** Display model for one value-filter option in the column menu. */
 export interface AgridColumnMenuValueItem {
@@ -56,6 +57,27 @@ export class AgridColumnMenuComponent {
 
   /** Whether to show the Excel-style distinct-value picker. */
   showValueFilter = input<boolean>(true);
+
+  /** Range-filter input type for the active column, or `null` to hide the condition UI. */
+  filterType = input<'number' | 'date' | null>(null);
+
+  /** Current range-filter operator, or `null` when none is selected. */
+  operator = input<FilterOperator | null>(null);
+
+  /** Current primary range-filter operand. */
+  operand = input<string>('');
+
+  /** Current secondary range-filter operand (used by `between`). */
+  operand2 = input<string>('');
+
+  /** Emits the selected range-filter operator, or `null` to clear the condition. */
+  operatorChange = output<FilterOperator | null>();
+
+  /** Emits the primary range-filter operand text. */
+  operandChange = output<string>();
+
+  /** Emits the secondary range-filter operand text (used by `between`). */
+  operand2Change = output<string>();
 
   /** Current search text for the value-filter option list. */
   search = input<string>('');
@@ -127,4 +149,29 @@ export class AgridColumnMenuComponent {
       { value: 'count' as const, symbol: '#', label: t.aggregateCount },
     ];
   });
+
+  /** Range-filter operators offered for the active column, labeled per column type. */
+  readonly operatorOptions = computed<{ value: FilterOperator; label: string }[]>(() => {
+    const t = this.localeText();
+    if (this.filterType() === 'date') {
+      return [
+        { value: 'eq',      label: t.filterOpOn },
+        { value: 'lt',      label: t.filterOpBefore },
+        { value: 'gt',      label: t.filterOpAfter },
+        { value: 'between', label: t.filterOpBetween },
+      ];
+    }
+    return [
+      { value: 'eq',      label: t.filterOpEquals },
+      { value: 'neq',     label: t.filterOpNotEquals },
+      { value: 'gt',      label: t.filterOpGreater },
+      { value: 'gte',     label: t.filterOpGreaterEqual },
+      { value: 'lt',      label: t.filterOpLess },
+      { value: 'lte',     label: t.filterOpLessEqual },
+      { value: 'between', label: t.filterOpBetween },
+    ];
+  });
+
+  /** Native input type for operand fields (date columns use a date picker). */
+  readonly operandInputType = computed(() => (this.filterType() === 'date' ? 'date' : 'number'));
 }

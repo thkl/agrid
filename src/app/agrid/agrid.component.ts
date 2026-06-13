@@ -23,7 +23,7 @@ import { AgridColumnMenuController } from './columns/agrid-column-menu.controlle
 import { AgridColumnReorderController } from './columns/agrid-column-reorder.controller';
 import { AgridColumnSizingController } from './columns/agrid-column-sizing.controller';
 import { AgridColumnStateService } from './columns/agrid-column-state.service';
-import { AgridControl } from './agrid-control';
+import { AgridControl, FilterOperator } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridDragHandler } from './rows/agrid-drag.handler';
 import { AgridEditController } from './editing/agrid-edit.controller';
@@ -1066,6 +1066,39 @@ export class AgridComponent<T extends object = any> {
 
   getTextFilter(field: string): string { return this.columnMenuController.getTextFilter(field); }
 
+  /** @internal Range-filter input type for a column, or `null` when not range-filterable. */
+  getMenuFilterType(field: string): 'number' | 'date' | null {
+    return this.columnMenuController.getFilterType(field);
+  }
+
+  /** @internal */
+  getMenuOperator(field: string): FilterOperator | null {
+    return this.columnMenuController.getFilterOperator(field);
+  }
+
+  /** @internal */
+  getMenuOperand(field: string): string { return this.columnMenuController.getFilterOperand(field); }
+
+  /** @internal */
+  getMenuOperand2(field: string): string {
+    return this.columnMenuController.getFilterOperand2(field);
+  }
+
+  /** @internal */
+  onMenuOperatorChange(field: string, operator: FilterOperator | null): void {
+    this.columnMenuController.setFilterOperator(field, operator);
+  }
+
+  /** @internal */
+  onMenuOperandChange(field: string, value: string): void {
+    this.columnMenuController.setFilterOperand(field, value);
+  }
+
+  /** @internal */
+  onMenuOperand2Change(field: string, value: string): void {
+    this.columnMenuController.setFilterOperand2(field, value);
+  }
+
   /** @internal */
   getSort(field: string): 'asc' | 'desc' | null {
     return this.columnMenuController.getSort(field);
@@ -1167,6 +1200,14 @@ export class AgridComponent<T extends object = any> {
 
   /** @internal */
   onDraftChange(value: unknown): void { this.editController.setDraft(value); }
+
+  /** @internal Whether a column is editable in the current grid state (drives boolean checkboxes). */
+  isColEditable(col: ColDef): boolean { return this.editController.isCellEditable(col); }
+
+  /** @internal Commit a boolean-column checkbox toggle directly to the data source. */
+  onBooleanToggle(originalIndex: number, ci: number, value: boolean): void {
+    this.editController.setCellValue(originalIndex, ci, value);
+  }
 
   /** @internal Starts a fill-handle drag from the bottom-right corner of the selection. */
   onCellPointerDown(event: PointerEvent, originalIndex: number, colIndex: number): void {

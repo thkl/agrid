@@ -120,7 +120,7 @@
               [attr.data-col-field]="col.field"
               [attr.aria-colindex]="getAriaColIndex(ci)"
               [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
-              [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
+              [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)" [editable]="isColEditable(col)"
               [seedChar]="getSeedChar(item.originalIndex, ci)"
               [treeCell]="isTreeCell(col)" [treeLevel]="treeRowLevel(item)"
               [treeExpandable]="treeRowExpandable(item)" [treeExpanded]="treeRowExpanded(item)"
@@ -136,7 +136,7 @@
               [class.ag-cell--pinned-last]="isLastPinnedColumn(col.field)"
               (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
               (activate)="onActivate(item.originalIndex, ci, $event)" (startEdit)="onStartEdit(item.originalIndex, ci)"
-              (draftChange)="onDraftChange($event)" (treeToggle)="onTreeToggle(item)"
+              (draftChange)="onDraftChange($event)" (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)" (treeToggle)="onTreeToggle(item)"
               (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
             }
             } @else if (item === null) {
@@ -275,7 +275,7 @@
                 [attr.data-col-field]="col.field"
                 [attr.aria-colindex]="getAriaColIndex(ci)"
                 [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
-                [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
+                [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)" [editable]="isColEditable(col)"
                 [seedChar]="getSeedChar(item.originalIndex, ci)"
                 [treeCell]="isTreeCell(col)" [treeLevel]="treeRowLevel(item)"
                 [treeExpandable]="treeRowExpandable(item)" [treeExpanded]="treeRowExpanded(item)"
@@ -290,7 +290,7 @@
                 [class.ag-cell--find-active]="isActiveFindMatchCell(item.originalIndex, ci)"
                 (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
                 (activate)="onActivate(item.originalIndex, ci, $event)"
-                (startEdit)="onStartEdit(item.originalIndex, ci)" (draftChange)="onDraftChange($event)"
+                (startEdit)="onStartEdit(item.originalIndex, ci)" (draftChange)="onDraftChange($event)" (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)"
                 (treeToggle)="onTreeToggle(item)"
                 (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
               }
@@ -448,7 +448,7 @@
               [attr.data-col-field]="col.field"
               [attr.aria-colindex]="getAriaColIndex(ci)"
               [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
-              [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
+              [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)" [editable]="isColEditable(col)"
               [seedChar]="getSeedChar(item.originalIndex, ci)"
               [treeCell]="isTreeCell(col)" [treeLevel]="treeRowLevel(item)"
               [treeExpandable]="treeRowExpandable(item)" [treeExpanded]="treeRowExpanded(item)"
@@ -464,7 +464,7 @@
               [class.ag-cell--pinned]="true" [class.ag-cell--pinned-first]="isFirstRightPinnedColumn(col.field)"
               (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
               (activate)="onActivate(item.originalIndex, ci, $event)" (startEdit)="onStartEdit(item.originalIndex, ci)"
-              (draftChange)="onDraftChange($event)" (treeToggle)="onTreeToggle(item)"
+              (draftChange)="onDraftChange($event)" (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)" (treeToggle)="onTreeToggle(item)"
               (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
             }
             } @else if (item === null) {
@@ -617,6 +617,12 @@
     [showColumnActions]="!!control()" [pinned]="getColumnPinState(menu.field)"
     [groupable]="!!getColDef(menu.field)?.groupable" [grouped]="isGroupedByField(menu.field)"
     [filterable]="!!getColDef(menu.field)?.filterable" [showValueFilter]="!serverSideFiltering()"
+    [filterType]="serverSideFiltering() ? null : getMenuFilterType(menu.field)"
+    [operator]="getMenuOperator(menu.field)" [operand]="getMenuOperand(menu.field)"
+    [operand2]="getMenuOperand2(menu.field)"
+    (operatorChange)="onMenuOperatorChange(menu.field, $event)"
+    (operandChange)="onMenuOperandChange(menu.field, $event)"
+    (operand2Change)="onMenuOperand2Change(menu.field, $event)"
     [search]="filterMenuSearch()"
     [allSelected]="isMenuAllSelected(menu.field)"
     [valueItems]="serverSideFiltering() || !getColDef(menu.field)?.filterable ? [] : columnMenuValueItems()"

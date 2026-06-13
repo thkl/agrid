@@ -5,7 +5,13 @@ export { AGRID_LOCALE_TEXT } from './agrid-localization';
 export { AgridProvider } from './agrid-provider';
 export { ColDefAutoSize } from './agrid.types';
 
-export type { AgridControlState, HistoryEntry, HistoryItem } from './agrid-control';
+export type {
+  AgridControlState,
+  ColumnFilter,
+  FilterOperator,
+  HistoryEntry,
+  HistoryItem,
+} from './agrid-control';
 export type {
   AgridLocaleKey,
   AgridLocaleText,

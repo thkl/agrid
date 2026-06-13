@@ -90,6 +90,40 @@
       </button>
     </div>
 
+    @if (filterType()) {
+      <div class="ag-filter-menu-section ag-filter-menu-section--border ag-filter-menu-condition">
+        <span class="ag-filter-menu-aggregate-label">{{ localeText().filterCondition }}</span>
+        <select
+          class="ag-filter-menu-operator"
+          (change)="operatorChange.emit($any($event.target).value || null)"
+          (click)="$event.stopPropagation()"
+        >
+          <option value="" [selected]="!operator()">{{ localeText().filterNoCondition }}</option>
+          @for (op of operatorOptions(); track op.value) {
+            <option [value]="op.value" [selected]="op.value === operator()">{{ op.label }}</option>
+          }
+        </select>
+        @if (operator()) {
+          <input
+            class="ag-filter-menu-operand"
+            [type]="operandInputType()"
+            [value]="operand()"
+            (input)="operandChange.emit($any($event.target).value)"
+            (click)="$event.stopPropagation()"
+          />
+          @if (operator() === 'between') {
+            <input
+              class="ag-filter-menu-operand"
+              [type]="operandInputType()"
+              [value]="operand2()"
+              (input)="operand2Change.emit($any($event.target).value)"
+              (click)="$event.stopPropagation()"
+            />
+          }
+        }
+      </div>
+    }
+
     @if (showValueFilter()) {
       <div class="ag-filter-menu-section ag-filter-menu-section--border">
         <input

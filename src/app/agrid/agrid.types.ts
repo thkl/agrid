@@ -78,10 +78,13 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
   width?: number;
   /**
    * Semantic type of the field.
-   * - `'number'` — blank rows initialize this field to `0` instead of `''`.
-   * - `'date'` — uses a native date editor and built-in localized display formatting.
+   * - `'number'` — blank rows initialize this field to `0` instead of `''`; enables numeric
+   *   range filters (`>`, `<`, `between`, …) in the column menu.
+   * - `'date'` — uses a native date editor and built-in localized display formatting; enables
+   *   date range filters (before / after / between) in the column menu.
+   * - `'boolean'` — renders an inline checkbox that toggles the value on click (no edit mode).
    */
-  type?: 'text' | 'number' | 'date';
+  type?: 'text' | 'number' | 'date' | 'boolean';
   /**
    * Set to `false` to make the column read-only.
    * Defaults to `true` (editable) when omitted.

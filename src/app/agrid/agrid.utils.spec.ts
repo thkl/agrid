@@ -210,6 +210,48 @@ describe('applyTextAndValueFilters', () => {
   });
 });
 
+// ── typed range filters ─────────────────────────────────────────────────────────
+
+describe('applyTextAndValueFilters — typed range operators', () => {
+  const rows = [
+    { score: 10, due: '2024-01-10' },
+    { score: 20, due: '2024-02-15' },
+    { score: 30, due: '2024-03-20' },
+  ];
+  const indices = [0, 1, 2];
+  const colMap = new Map<string, ColDef>([
+    ['score', { field: 'score', header: 'Score', type: 'number' }],
+    ['due',   { field: 'due',   header: 'Due',   type: 'date' }],
+  ]);
+  const numFilter = (operator: ColumnFilter['operator'], operand: string, operand2?: string): Record<string, ColumnFilter> =>
+    ({ score: { text: '', selectedValues: null, sort: null, operator, operand, operand2 } });
+
+  it('filters numbers with gt / gte / lt / lte', () => {
+    expect(applyTextAndValueFilters(rows, indices, numFilter('gt', '20'), colMap)).toEqual([2]);
+    expect(applyTextAndValueFilters(rows, indices, numFilter('gte', '20'), colMap)).toEqual([1, 2]);
+    expect(applyTextAndValueFilters(rows, indices, numFilter('lt', '20'), colMap)).toEqual([0]);
+    expect(applyTextAndValueFilters(rows, indices, numFilter('lte', '20'), colMap)).toEqual([0, 1]);
+  });
+
+  it('filters numbers with eq / neq / between', () => {
+    expect(applyTextAndValueFilters(rows, indices, numFilter('eq', '20'), colMap)).toEqual([1]);
+    expect(applyTextAndValueFilters(rows, indices, numFilter('neq', '20'), colMap)).toEqual([0, 2]);
+    expect(applyTextAndValueFilters(rows, indices, numFilter('between', '15', '35'), colMap)).toEqual([1, 2]);
+  });
+
+  it('ignores the operand-less / empty range filter', () => {
+    expect(applyTextAndValueFilters(rows, indices, numFilter('gt', ''), colMap)).toEqual([0, 1, 2]);
+  });
+
+  it('filters dates with before (lt) / after (gt) / between', () => {
+    const dateFilter = (operator: ColumnFilter['operator'], operand: string, operand2?: string): Record<string, ColumnFilter> =>
+      ({ due: { text: '', selectedValues: null, sort: null, operator, operand, operand2 } });
+    expect(applyTextAndValueFilters(rows, indices, dateFilter('lt', '2024-02-01'), colMap)).toEqual([0]);
+    expect(applyTextAndValueFilters(rows, indices, dateFilter('gt', '2024-02-01'), colMap)).toEqual([1, 2]);
+    expect(applyTextAndValueFilters(rows, indices, dateFilter('between', '2024-02-01', '2024-03-01'), colMap)).toEqual([1]);
+  });
+});
+
 // ── applySortToIndices ─────────────────────────────────────────────────────────
 
 describe('applySortToIndices', () => {

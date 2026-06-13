@@ -1,7 +1,7 @@
 import { DestroyRef, Signal, computed, signal } from '@angular/core';
 import { AgridBrowserAdapter } from '../infrastructure/agrid-browser.adapter';
 import { AgridColumnMenuValueItem } from './agrid-column-menu.component';
-import { AgridControl } from '../agrid-control';
+import { AgridControl, FilterOperator } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
 import { ColDef, FilterChangeEvent, SortChangeEvent, ValueOption } from '../agrid.types';
 
@@ -115,6 +115,55 @@ export class AgridColumnMenuController {
   /** Returns the active text filter for a field. */
   getTextFilter(field: string): string {
     return this.opts.control()?.getFilter(field).text ?? '';
+  }
+
+  /** Returns the range-filter input type for a field, or `null` when not range-filterable. */
+  getFilterType(field: string): 'number' | 'date' | null {
+    const type = this.getColDef(field)?.type;
+    return type === 'number' || type === 'date' ? type : null;
+  }
+
+  /** Returns the typed range-filter operator for a field, or `null`. */
+  getFilterOperator(field: string): FilterOperator | null {
+    return this.opts.control()?.getFilter(field).operator ?? null;
+  }
+
+  /** Returns the primary range-filter operand for a field. */
+  getFilterOperand(field: string): string {
+    return this.opts.control()?.getFilter(field).operand ?? '';
+  }
+
+  /** Returns the secondary range-filter operand (used by `between`). */
+  getFilterOperand2(field: string): string {
+    return this.opts.control()?.getFilter(field).operand2 ?? '';
+  }
+
+  /** Sets the range-filter operator; clearing it (`null`) also drops the operands. */
+  setFilterOperator(field: string, operator: FilterOperator | null): void {
+    const control = this.opts.control();
+    if (!control) return;
+    if (!operator) {
+      control.setRangeFilter(field, null, null, null);
+      return;
+    }
+    const current = control.getFilter(field);
+    control.setRangeFilter(field, operator, current.operand ?? '', current.operand2 ?? '');
+  }
+
+  /** Sets the primary range-filter operand. */
+  setFilterOperand(field: string, value: string): void {
+    const control = this.opts.control();
+    if (!control) return;
+    const current = control.getFilter(field);
+    control.setRangeFilter(field, current.operator ?? 'eq', value, current.operand2 ?? '');
+  }
+
+  /** Sets the secondary range-filter operand (used by `between`). */
+  setFilterOperand2(field: string, value: string): void {
+    const control = this.opts.control();
+    if (!control) return;
+    const current = control.getFilter(field);
+    control.setRangeFilter(field, current.operator ?? 'between', current.operand ?? '', value);
   }
 
   /** Returns the active sort direction, respecting disabled sorting. */

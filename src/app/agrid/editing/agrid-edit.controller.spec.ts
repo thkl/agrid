@@ -95,6 +95,27 @@ describe('AgridEditController', () => {
     expect(edits.map(event => event.newValue)).toEqual(['Carol', 'Alice', 'Carol']);
   });
 
+  it('commits a direct cell value without entering edit mode (checkbox toggle)', () => {
+    const { control, controller, dataSource, edits } = createController();
+
+    controller.setCellValue(0, 0, 'Direct');
+
+    expect(dataSource.getRow(0).name).toBe('Direct');
+    expect(controller.editingCell()).toBeNull();
+    expect(control.canUndo()).toBe(true);
+    expect(edits[0]).toMatchObject({ oldValue: 'Alice', newValue: 'Direct' });
+  });
+
+  it('ignores direct cell values for readonly columns or unchanged values', () => {
+    const { controller, dataSource, edits } = createController();
+
+    controller.setCellValue(0, 1, 'changed'); // locked column
+    expect(dataSource.getRow(0).locked).toBe('fixed');
+
+    controller.setCellValue(0, 0, 'Alice'); // unchanged
+    expect(edits).toHaveLength(0);
+  });
+
   it('clears or shifts edit state when a row is removed', () => {
     const { controller } = createController();
     controller.start(1, 0, '');

@@ -191,6 +191,29 @@ describe('AgridControl', () => {
       expect(ctrl.getFilter('status').selectedValues).toBeNull();
     });
 
+    it('setRangeFilter stores operator and operands', () => {
+      ctrl.setRangeFilter('score', 'between', '10', '20');
+      expect(ctrl.getFilter('score')).toMatchObject({
+        operator: 'between',
+        operand: '10',
+        operand2: '20',
+      });
+    });
+
+    it('setRangeFilter with null operator clears the range condition', () => {
+      ctrl.setRangeFilter('score', 'gt', '10');
+      ctrl.setRangeFilter('score', null, null, null);
+      expect(ctrl.getFilter('score').operator).toBeNull();
+    });
+
+    it('hasActiveFilter reflects an active range condition', () => {
+      expect(ctrl.hasActiveFilter('score')).toBe(false);
+      ctrl.setRangeFilter('score', 'gt', '10');
+      expect(ctrl.hasActiveFilter('score')).toBe(true);
+      ctrl.setRangeFilter('score', 'gt', '');
+      expect(ctrl.hasActiveFilter('score')).toBe(false);
+    });
+
     it('setSort sets direction and clears other sorts', () => {
       ctrl.setSort('a', 'asc');
       ctrl.setSort('b', 'desc');

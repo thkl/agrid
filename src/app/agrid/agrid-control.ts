@@ -20,6 +20,12 @@ export type HistoryItem = HistoryEntry | HistoryEntry[];
  * All three fields are independent — text, value selection, and sort are ANDed together
  * when computing the visible rows.
  */
+/**
+ * Comparison operator for a typed (number / date) range filter.
+ * For `date` columns `gt`/`lt`/`eq` read as after / before / on.
+ */
+export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'between';
+
 export interface ColumnFilter {
   /** Free-text substring filter (case-insensitive). Empty string = no text filter. */
   text: string;
@@ -31,6 +37,15 @@ export interface ColumnFilter {
   selectedValues: string[] | null;
   /** Sort direction, or `null` when this column is not sorted. */
   sort: 'asc' | 'desc' | null;
+  /**
+   * Typed range-filter operator for `number` / `date` columns, or `null`/omitted when none.
+   * Combined with text and value filters using AND semantics.
+   */
+  operator?: FilterOperator | null;
+  /** Primary comparison operand (number as string, or `yyyy-mm-dd`). */
+  operand?: string | null;
+  /** Upper-bound operand used only when {@link operator} is `'between'`. */
+  operand2?: string | null;
 }
 
 /** Serializable snapshot of the grid's UI state. Used with `toJSON` / `fromJSON`. */
@@ -449,6 +464,23 @@ export class AgridControl {
     }));
   }
 
+  /**
+   * Set the typed range filter for a `number` / `date` column.
+   * Pass `operator: null` (or an empty `operand`) to clear it. `operand2` is only used
+   * by the `'between'` operator.
+   */
+  setRangeFilter(
+    field: string,
+    operator: FilterOperator | null,
+    operand: string | null,
+    operand2: string | null = null,
+  ): void {
+    this._filters.update(f => ({
+      ...f,
+      [field]: { ...this.getFilter(field), operator, operand, operand2 },
+    }));
+  }
+
   /** Ordered list of sorted field names, from highest to lowest priority. */
   readonly sortOrder: Signal<string[]> = this._sortOrder.asReadonly();
 
@@ -514,7 +546,8 @@ export class AgridControl {
    */
   hasActiveFilter(field: string): boolean {
     const f = this.getFilter(field);
-    return !!(f.text || f.selectedValues !== null || f.sort);
+    const hasRange = !!f.operator && f.operand != null && f.operand !== '';
+    return !!(f.text || f.selectedValues !== null || f.sort || hasRange);
   }
 
   /** Return `true` when ANY column has an active filter or sort. */

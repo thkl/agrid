@@ -35,6 +35,37 @@ describe('AgridCellComponent custom renderer', () => {
     expect(value.querySelector('script')).toBeNull();
   });
 
+  it('renders a checkbox for boolean columns and toggles via booleanToggle', () => {
+    fixture.componentRef.setInput('col', { field: 'done', header: 'Done', type: 'boolean' });
+    fixture.componentRef.setInput('value', true);
+    fixture.componentRef.setInput('row', { done: true });
+    const emitted: boolean[] = [];
+    fixture.componentInstance.booleanToggle.subscribe(value => emitted.push(value));
+    fixture.detectChanges();
+
+    const checkbox = fixture.nativeElement.querySelector('.ag-cell-checkbox') as HTMLInputElement;
+    expect(checkbox).not.toBeNull();
+    expect(checkbox.checked).toBe(true);
+    expect(checkbox.disabled).toBe(false);
+
+    checkbox.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(emitted).toEqual([false]);
+  });
+
+  it('disables the boolean checkbox and suppresses toggles when not editable', () => {
+    fixture.componentRef.setInput('col', { field: 'done', header: 'Done', type: 'boolean' });
+    fixture.componentRef.setInput('value', false);
+    fixture.componentRef.setInput('editable', false);
+    const emitted: boolean[] = [];
+    fixture.componentInstance.booleanToggle.subscribe(value => emitted.push(value));
+    fixture.detectChanges();
+
+    const checkbox = fixture.nativeElement.querySelector('.ag-cell-checkbox') as HTMLInputElement;
+    expect(checkbox.disabled).toBe(true);
+    checkbox.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(emitted).toEqual([]);
+  });
+
   it('uses a native date input and preserves an ISO time suffix', async () => {
     fixture.componentRef.setInput('col', {
       field: 'hiredAt',

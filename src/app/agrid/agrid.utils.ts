@@ -115,8 +115,46 @@ export function applyTextAndValueFilters(
       const allowed = new Set(filter.selectedValues);
       result = result.filter(i => allowed.has(String(rows[i][field] ?? '')));
     }
+    if (filter.operator && filter.operand != null && filter.operand !== '') {
+      result = result.filter(i => passesRangeFilter(col, rows[i][field], filter));
+    }
   }
   return result;
+}
+
+/**
+ * Evaluate a typed range filter (`number` / `date`) for one cell value.
+ * Date columns compare epoch-millis; everything else compares as numbers.
+ * Rows whose value can't be parsed to the comparison type are excluded.
+ */
+export function passesRangeFilter(
+  col: ColDef | undefined,
+  raw: unknown,
+  filter: ColumnFilter,
+): boolean {
+  const isDate = col?.type === 'date' || looksLikeDate(raw);
+  const toNum = (v: unknown): number =>
+    isDate
+      ? (v instanceof Date ? v.getTime() : new Date(v as string).getTime())
+      : Number(v);
+  const value = toNum(raw);
+  if (Number.isNaN(value)) return false;
+  const a = toNum(filter.operand);
+  if (Number.isNaN(a)) return true;
+  switch (filter.operator) {
+    case 'eq':  return value === a;
+    case 'neq': return value !== a;
+    case 'gt':  return value > a;
+    case 'gte': return value >= a;
+    case 'lt':  return value < a;
+    case 'lte': return value <= a;
+    case 'between': {
+      const b = toNum(filter.operand2);
+      if (Number.isNaN(b)) return value >= a;
+      return value >= Math.min(a, b) && value <= Math.max(a, b);
+    }
+    default: return true;
+  }
 }
 
 // Sorting

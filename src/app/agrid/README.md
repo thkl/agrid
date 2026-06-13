@@ -71,6 +71,37 @@ Marking is independent from row selection. Cell and range copy use the same copi
 every marked row, while Copy row uses every visible column. Duplicate rows are omitted, and marked
 rows remain included when filters hide them.
 
+## Boolean columns
+
+Set `type: 'boolean'` to render a cell as an inline checkbox. Clicking it toggles the value and
+commits immediately — no edit mode, and the change is recorded in undo/redo like any other edit.
+Read-only columns (`editable: false`) or a read-only grid render the checkbox disabled. Values are
+truthy-coerced for display, so `true`, `1`, `'true'`, and `'1'` all render as checked.
+
+```ts
+const columns: ColDef<Person>[] = [
+  { field: 'name', header: 'Name' },
+  { field: 'active', header: 'Active', type: 'boolean' },
+];
+```
+
+## Typed filters
+
+Mark a `number` or `date` column `filterable: true` and its column menu gains a **condition**
+filter in addition to the value picker. Numbers offer `=`, `≠`, `>`, `≥`, `<`, `≤`, and `between`;
+dates offer on / before / after / between. The condition combines with the value picker and other
+columns using AND semantics, and is included in `AgridControl.toJSON()` state.
+
+```ts
+const columns: ColDef<Order>[] = [
+  { field: 'total', header: 'Total', type: 'number', filterable: true },
+  { field: 'placedAt', header: 'Placed', type: 'date', filterable: true },
+];
+```
+
+Set it programmatically with `control.setRangeFilter(field, operator, operand, operand2?)`, where
+`operator` is one of `'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'between'` (pass `null` to clear).
+
 ## Tree data
 
 Pass `treeConfig` to render rows as a hierarchical tree. The hierarchy lives on the flat row

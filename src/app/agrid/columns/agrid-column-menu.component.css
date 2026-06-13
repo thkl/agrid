@@ -164,3 +164,29 @@
   color: var(--agrid-color-accent-fg);
   font-weight: 700;
 }
+
+.ag-filter-menu-condition {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 14px 8px;
+}
+
+.ag-filter-menu-operator,
+.ag-filter-menu-operand {
+  height: 28px;
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 4px;
+  background: var(--agrid-color-bg);
+  color: var(--agrid-color-text);
+  font-size: 13px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.ag-filter-menu-operator:focus,
+.ag-filter-menu-operand:focus {
+  outline: none;
+  border-color: var(--agrid-color-accent-border);
+}

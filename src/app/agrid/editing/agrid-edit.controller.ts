@@ -87,6 +87,25 @@ export class AgridEditController {
     this.opts.focusGrid();
   }
 
+  /**
+   * Commit a value directly to a cell without entering edit mode (e.g. a boolean checkbox
+   * toggle). Records the change in history and emits the edit just like {@link commit}.
+   */
+  setCellValue(rowIndex: number, colIndex: number, newValue: unknown): void {
+    const col = this.opts.visibleColDefs()[colIndex];
+    if (!this.isCellEditable(col)) return;
+    const oldValue = this.opts.dataSource().getRow(rowIndex)[col.field];
+    if (oldValue === newValue) return;
+    this.opts.dataSource().patchRow(rowIndex, { [col.field]: newValue });
+    this.opts.control()?.pushEdit({ rowIndex, field: col.field, oldValue, newValue });
+    this.opts.onCellEdit({
+      position: { rowIndex, colIndex },
+      field: col.field,
+      oldValue,
+      newValue,
+    });
+  }
+
   /** Discards the active edit without changing row data. */
   cancel(): void {
     this.clearEditState();

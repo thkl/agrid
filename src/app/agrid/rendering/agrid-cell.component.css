@@ -110,3 +110,15 @@
   background: transparent;
   cursor: pointer;
 }
+
+.ag-cell-checkbox {
+  display: block;
+  margin: 9px auto;
+  cursor: pointer;
+  accent-color: var(--agrid-color-accent);
+}
+
+.ag-cell-checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

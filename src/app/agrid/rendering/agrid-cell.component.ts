@@ -39,7 +39,17 @@ import {
     tabindex: '-1',
   },
   template: `
-    @if (editing()) {
+    @if (booleanCell()) {
+      <input
+        type="checkbox"
+        class="ag-cell-checkbox"
+        [checked]="booleanChecked()"
+        [disabled]="!editable()"
+        [attr.aria-label]="col().header"
+        (click)="onCheckboxClick($event)"
+        (dblclick)="$event.stopPropagation()"
+      />
+    } @else if (editing()) {
       @if (col().values?.length) {
         <select
           #editSelect
@@ -109,6 +119,9 @@ export class AgridCellComponent {
   /** Whether this cell is currently in edit mode. */
   editing = input<boolean>(false);
 
+  /** Whether this cell may be edited (drives the boolean checkbox enabled state). */
+  editable = input<boolean>(true);
+
   /** Whether this cell is the tree column and should render indentation + a twisty. */
   treeCell = input<boolean>(false);
 
@@ -142,6 +155,9 @@ export class AgridCellComponent {
   /** Emitted on double-click — the grid enters edit mode. */
   startEdit = output<void>();
 
+  /** Emitted when a boolean-column checkbox is toggled, carrying the new value. */
+  booleanToggle = output<boolean>();
+
   /**
    * Emitted on every keystroke inside the edit input or on every select change.
    * The grid stores the latest value in `currentDraft` so it can commit on Tab / Enter.
@@ -157,6 +173,17 @@ export class AgridCellComponent {
     return this.col().type === 'date'
       ? getDateInputValue(draft)
       : String(draft ?? '');
+  });
+
+  /** Whether this cell renders as an inline boolean checkbox (no edit mode). */
+  readonly booleanCell = computed(
+    (): boolean => this.col().type === 'boolean' && !this.col().cellRenderer,
+  );
+
+  /** Truthiness of the current boolean value (accepts `true`, `'true'`, `1`, `'1'`). */
+  readonly booleanChecked = computed((): boolean => {
+    const v = this.value();
+    return v === true || v === 1 || v === 'true' || v === '1';
   });
 
   readonly renderedHtml = computed((): string => {
@@ -255,6 +282,14 @@ export class AgridCellComponent {
         });
       }
     });
+  }
+
+  /** Toggle a boolean cell's value, driven entirely from data (no DOM toggle). */
+  onCheckboxClick(event: MouseEvent): void {
+    event.stopPropagation();
+    event.preventDefault();
+    if (!this.editable()) return;
+    this.booleanToggle.emit(!this.booleanChecked());
   }
 
   /** Emit a tree expand/collapse request without selecting or editing the cell. */
