@@ -757,6 +757,30 @@
   line-height: 16px;
 }
 
+.ag-group-aggregates {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 4px;
+  flex-wrap: wrap;
+}
+
+.ag-group-aggregate {
+  font-size: 11px;
+  color: var(--agrid-color-text);
+  white-space: nowrap;
+}
+
+.ag-group-aggregate-col {
+  color: var(--agrid-color-text-muted);
+  margin-right: 4px;
+}
+
+.ag-group-aggregate-op {
+  color: var(--agrid-color-text-muted);
+  margin-right: 3px;
+}
+
 .ag-footer {
   display: grid;
   flex-shrink: 0;

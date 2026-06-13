@@ -6,6 +6,7 @@
     <a href="#component-api">Component API</a>
     <a href="#provider">Provider</a>
     <a href="#columns">Columns</a>
+    <a href="#filtering">Filtering and validation</a>
     <a href="#treedata">Tree data</a>
     <a href="#datasource">Data source</a>
     <a href="#control">Control</a>
@@ -48,9 +49,14 @@
         <span>CDK virtual scrolling</span>
         <span>Signal-based state</span>
         <span>Inline editing</span>
+        <span>Edit validation</span>
         <span>Undo and redo</span>
         <span>Filtering and sorting</span>
+        <span>Typed range filters</span>
+        <span>Quick filter</span>
+        <span>Boolean checkbox columns</span>
         <span>Grouping</span>
+        <span>Aggregates and group subtotals</span>
         <span>Tree data</span>
         <span>Pagination</span>
         <span>Pinned columns</span>
@@ -140,7 +146,8 @@
             <tr><td><code>showControlColumn</code></td><td><code>false</code></td><td>Shows row actions and reorder handles.</td></tr>
             <tr><td><code>enableRowMarking</code></td><td><code>false</code></td><td>Shows row checkboxes in a 48 px control column and includes marked rows in every copy operation.</td></tr>
             <tr><td><code>showSidebar</code></td><td><code>false</code></td><td>Shows the column visibility sidebar.</td></tr>
-            <tr><td><code>serverSideFiltering</code></td><td><code>false</code></td><td>Emits filter and sort requests instead of applying them locally.</td></tr>
+            <tr><td><code>serverSideFiltering</code></td><td><code>false</code></td><td>Emits filter, sort, and quick-filter requests instead of applying them locally. See <a href="#filtering">Filtering</a>.</td></tr>
+            <tr><td><code>enableQuickFilter</code></td><td><code>false</code></td><td>Shows a search box above the grid that matches across all visible columns.</td></tr>
             <tr><td><code>sortOption</code></td><td><code>'multi'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
             <tr><td><code>rowSelection</code></td><td><code>'none'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
             <tr><td><code>zebraStripes</code></td><td><code>false</code></td><td>Alternates data-row backgrounds.</td></tr>
@@ -204,8 +211,9 @@
             <tr><td><code>header</code></td><td>Yes</td><td>Displayed header label.</td></tr>
             <tr><td><code>group</code></td><td>No</td><td>Header-group ID shared by adjacent columns.</td></tr>
             <tr><td><code>width</code></td><td>No</td><td>Pixel width or <code>ColDefAutoSize</code>.</td></tr>
-            <tr><td><code>type</code></td><td>No</td><td><code>'text'</code>, <code>'number'</code>, or <code>'date'</code>.</td></tr>
+            <tr><td><code>type</code></td><td>No</td><td><code>'text'</code>, <code>'number'</code>, <code>'date'</code>, or <code>'boolean'</code> (inline checkbox).</td></tr>
             <tr><td><code>editable</code></td><td>No</td><td>Set to false for readonly cells.</td></tr>
+            <tr><td><code>validate</code></td><td>No</td><td>Rejects a committed value, returning an error message or <code>null</code>. See <a href="#filtering">Validation</a>.</td></tr>
             <tr><td><code>locked</code></td><td>No</td><td>Prevents hiding, reordering, and unpinning.</td></tr>
             <tr><td><code>values</code></td><td>No</td><td>Fixed editor and filter values or value-label pairs.</td></tr>
             <tr><td><code>formatter</code></td><td>No</td><td>Formats the displayed value.</td></tr>
@@ -213,7 +221,7 @@
             <tr><td><code>groupable</code></td><td>No</td><td>Enables grouping from the column menu.</td></tr>
             <tr><td><code>hidden</code></td><td>No</td><td>Hides the column initially.</td></tr>
             <tr><td><code>pinned</code></td><td>No</td><td>Pins to <code>'left'</code> or <code>'right'</code>.</td></tr>
-            <tr><td><code>aggregate</code></td><td>No</td><td><code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, or <code>count</code>.</td></tr>
+            <tr><td><code>aggregate</code></td><td>No</td><td><code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>count</code>, or a custom function. Shown in the footer and as per-group subtotals.</td></tr>
             <tr><td><code>cellRenderer</code></td><td>No</td><td>Returns sanitized HTML for the cell.</td></tr>
             <tr><td><code>cellClass</code></td><td>No</td><td>Returns a CSS class for the cell.</td></tr>
           </tbody>
@@ -237,6 +245,68 @@
         ISO date strings and <code>Date</code> objects are automatically formatted and sorted
         chronologically. A custom <code>formatter</code> takes precedence.
       </div>
+
+      <h3>Aggregates and group subtotals</h3>
+      <p>
+        A column's <code>aggregate</code> (<code>sum</code>, <code>avg</code>, <code>min</code>,
+        <code>max</code>, <code>count</code>, or a custom <code>(values) =&gt; unknown</code>
+        function) renders a footer total over all filtered rows; toggle it at runtime with
+        <code>control.setAggregate(field, fn)</code>. When the grid is grouped, every group header
+        row also shows that group's subtotals — the same functions applied to just the group's rows,
+        inline beside the label and count. Subtotals appear automatically whenever grouping and at
+        least one aggregated column are both active.
+      </p>
+    </section>
+
+    <section id="filtering">
+      <h2>Filtering, typed columns, and validation</h2>
+
+      <h3>Typed range filters and boolean columns</h3>
+      <p>
+        Mark a <code>number</code> or <code>date</code> column <code>filterable</code> and its
+        column menu gains a <strong>condition</strong> filter beside the value picker. Numbers offer
+        <code>=</code>, <code>≠</code>, <code>&gt;</code>, <code>≥</code>, <code>&lt;</code>,
+        <code>≤</code>, and <code>between</code>; dates offer on / before / after / between. A
+        <code>boolean</code> column renders an inline checkbox that toggles the value on click — no
+        edit mode — and the change goes through undo/redo like any other edit.
+      </p>
+      <pre><code>{{ typedFilterCode }}</code></pre>
+      <p>
+        The condition combines with the value picker and other columns using AND semantics and is
+        included in <code>AgridControl.toJSON()</code> state.
+      </p>
+
+      <h3>Quick filter</h3>
+      <p>
+        Set <code>enableQuickFilter: true</code> to render a search box above the grid that keeps
+        rows whose visible columns contain the text. Matching uses resolved display values, so
+        <code>ValueOption</code> labels and formatters count.
+      </p>
+      <pre><code>{{ quickFilterCode }}</code></pre>
+
+      <h3>Server-side filtering</h3>
+      <p>
+        With <code>serverSideFiltering: true</code> the grid never filters locally — it emits
+        events so the host can refetch. Text filters emit <code>&#123; field, value &#125;</code>;
+        typed range conditions add <code>operator</code>, <code>operand</code>, and
+        <code>operand2</code>; the quick filter emits its text through
+        <code>quickFilterChange</code>. All three are debounced by <code>filterDebounceMs</code>
+        (default 300 ms).
+      </p>
+      <pre><code>{{ serverSideCode }}</code></pre>
+
+      <h3>Edit validation</h3>
+      <p>
+        Add a <code>validate</code> hook to a column to reject bad values. Return a message to block
+        the edit — the value is not written and the message is shown — or <code>null</code> to
+        accept it. It runs on inline commit, boolean-checkbox toggle, and sidebar save.
+      </p>
+      <pre><code>{{ validationCode }}</code></pre>
+      <ul>
+        <li>A rejected inline edit keeps the cell in edit mode with the message beneath it; Tab/Enter will not leave the cell until the value is valid.</li>
+        <li>Rejected sidebar edits show the message under the field.</li>
+        <li>Listen to <code>(validationFailed)</code> for <code>&#123; rowIndex, field, value, message, source &#125;</code>, where <code>source</code> is <code>'inline'</code> or <code>'sidebar'</code>.</li>
+      </ul>
     </section>
 
     <section id="treedata">
@@ -317,7 +387,7 @@
           </thead>
           <tbody>
             <tr><td>Columns</td><td><code>setColumnVisibility</code>, <code>setColumnOrder</code>, <code>setPinned</code>, <code>setColumnWidth</code></td></tr>
-            <tr><td>Filters</td><td><code>setTextFilter</code>, <code>setSelectedValues</code>, <code>clearFilter</code>, <code>clearAllFilters</code></td></tr>
+            <tr><td>Filters</td><td><code>setTextFilter</code>, <code>setSelectedValues</code>, <code>setRangeFilter</code>, <code>setQuickFilter</code>, <code>clearFilter</code>, <code>clearAllFilters</code></td></tr>
             <tr><td>Sorting</td><td><code>setSort</code>, <code>filters</code></td></tr>
             <tr><td>Grouping</td><td><code>setGroupBy</code>, <code>groupByField</code></td></tr>
             <tr><td>Pagination</td><td><code>setPageSize</code>, <code>setPage</code>, <code>pageSize</code>, <code>currentPage</code></td></tr>
@@ -344,8 +414,10 @@
             <tr><td><code>prepareAddRecord</code></td><td><code>NewRecord&lt;T&gt;</code></td><td>Emitted after inserting a blank row so defaults can be patched.</td></tr>
             <tr><td><code>rowReorder</code></td><td><code>RowReorderEvent&lt;T&gt;</code></td><td>The host applies the move with <code>datasource.moveRow()</code>.</td></tr>
             <tr><td><code>rowSelect</code></td><td><code>RowSelectEvent&lt;T&gt; | null</code></td><td>Selected rows or null when selection clears.</td></tr>
-            <tr><td><code>filterChange</code></td><td><code>FilterChangeEvent</code></td><td>Server-side filter request.</td></tr>
+            <tr><td><code>filterChange</code></td><td><code>FilterChangeEvent</code></td><td>Server-side text or typed range filter request (carries <code>operator</code>/<code>operand</code> for ranges).</td></tr>
             <tr><td><code>sortChange</code></td><td><code>SortChangeEvent</code></td><td>Server-side sort request.</td></tr>
+            <tr><td><code>quickFilterChange</code></td><td><code>string</code></td><td>Debounced quick-filter text in server-side mode.</td></tr>
+            <tr><td><code>validationFailed</code></td><td><code>ValidationFailedEvent&lt;T&gt;</code></td><td>A <code>validate</code> hook rejected a committed value (inline or sidebar).</td></tr>
           </tbody>
         </table>
       </div>

@@ -80,7 +80,9 @@ export function isDataRowItem(item: GridItem): item is { row: Record<string, unk
 }
 
 /** Returns whether a virtual-scroll item represents a group header. */
-export function isGroupHeaderItem(item: GridItem): item is { groupLabel: string; count: number; collapsed: boolean } {
+export function isGroupHeaderItem(
+  item: GridItem,
+): item is { groupLabel: string; count: number; collapsed: boolean; aggregates?: Record<string, unknown> } {
   return typeof item === 'object' && item !== null && 'groupLabel' in item;
 }
 
@@ -258,6 +260,53 @@ export function applySortToIndices(
  * optionally sort within groups by a secondary sort, and interleave group-header items.
  * Does NOT append the add-row null sentinel — the caller does that.
  */
+/** Built-in aggregate function names supported by the footer and group subtotals. */
+type BuiltinAggregate = 'sum' | 'avg' | 'min' | 'max' | 'count';
+
+/**
+ * Compute aggregate values for the given rows across every column that has a static
+ * (`ColDef.aggregate`) or control-configured aggregate. Returns a `field → value` map containing
+ * only aggregated columns. Shared by the grid footer and per-group subtotals.
+ */
+export function computeAggregates(
+  rows: Record<string, unknown>[],
+  indices: number[],
+  cols: ColDef[],
+  controlAggregates: Record<string, BuiltinAggregate>,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const col of cols) {
+    const aggregate: ColDef['aggregate'] = controlAggregates[col.field] ?? col.aggregate;
+    if (!aggregate) continue;
+    const values = indices.map(index => rows[index][col.field]);
+    if (typeof aggregate === 'function') {
+      result[col.field] = (aggregate as (values: unknown[]) => unknown)(values);
+      continue;
+    }
+    const numbers = values.map(Number).filter(value => !Number.isNaN(value));
+    switch (aggregate) {
+      case 'sum':
+        result[col.field] = numbers.reduce((sum, value) => sum + value, 0);
+        break;
+      case 'avg':
+        result[col.field] = numbers.length
+          ? numbers.reduce((sum, value) => sum + value, 0) / numbers.length
+          : null;
+        break;
+      case 'min':
+        result[col.field] = numbers.length ? Math.min(...numbers) : null;
+        break;
+      case 'max':
+        result[col.field] = numbers.length ? Math.max(...numbers) : null;
+        break;
+      case 'count':
+        result[col.field] = values.filter(value => value != null && value !== '').length;
+        break;
+    }
+  }
+  return result;
+}
+
 export function buildGroupedItems(
   rows: Record<string, unknown>[],
   indices: number[],
@@ -266,7 +315,12 @@ export function buildGroupedItems(
   sortEntries: [string, ColumnFilter][],
   expandedLabels: Set<string>,
   locale?: string,
+  aggregateCols: ColDef[] = [],
+  controlAggregates: Record<string, BuiltinAggregate> = {},
 ): GridItem[] {
+  const hasAggregates = aggregateCols.some(
+    col => controlAggregates[col.field] ?? col.aggregate,
+  );
   const groupCol = colMap.get(groupField);
 
   const groups = new Map<string, number[]>();
@@ -292,7 +346,10 @@ export function buildGroupedItems(
   for (const key of sortedKeys) {
     const groupRows = groups.get(key)!;
     const isExpanded = expandedLabels.has(key);
-    items.push({ groupLabel: key, count: groupRows.length, collapsed: !isExpanded });
+    const aggregates = hasAggregates
+      ? computeAggregates(rows, groupRows, aggregateCols, controlAggregates)
+      : undefined;
+    items.push({ groupLabel: key, count: groupRows.length, collapsed: !isExpanded, aggregates });
     if (isExpanded) {
       for (const i of groupRows) items.push({ row: rows[i], originalIndex: i });
     }

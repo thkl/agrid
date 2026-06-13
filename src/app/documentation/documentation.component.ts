@@ -181,6 +181,60 @@ readonly provider = new AgridProvider<OrgRow>({
   treeConfig,
 });`;
 
+  readonly typedFilterCode = `const columns: ColDef<Order>[] = [
+  // number column → =, ≠, >, ≥, <, ≤, between
+  { field: 'total', header: 'Total', type: 'number', filterable: true },
+  // date column → on / before / after / between
+  { field: 'placedAt', header: 'Placed', type: 'date', filterable: true },
+  // boolean column → inline checkbox, toggles on click (no edit mode)
+  { field: 'paid', header: 'Paid', type: 'boolean' },
+];
+
+// The number/date condition is also available programmatically:
+control.setRangeFilter('total', 'between', '100', '500');
+control.setRangeFilter('total', null, null); // clear it`;
+
+  readonly quickFilterCode = `readonly provider = new AgridProvider<Person>({
+  columns,
+  datasource,
+  enableQuickFilter: true, // renders a search box above the grid
+});
+
+// Or drive it from code — part of toJSON() state:
+control.setQuickFilter('alice');`;
+
+  readonly validationCode = `const columns: ColDef<Person>[] = [
+  {
+    field: 'email',
+    header: 'Email',
+    // return a message to reject the edit, or null to accept it
+    validate: v => /@/.test(String(v)) ? null : 'Enter a valid email',
+  },
+  {
+    field: 'age',
+    header: 'Age',
+    type: 'number',
+    validate: (v, row) => Number(v) >= 0 ? null : 'Age must be ≥ 0',
+  },
+];`;
+
+  readonly serverSideCode = `<agrid
+  [provider]="provider"
+  (filterChange)="onFilter($event)"
+  (sortChange)="onSort($event)"
+  (quickFilterChange)="onQuickFilter($event)"
+/>
+
+onFilter(event: FilterChangeEvent): void {
+  if (event.operator) {
+    // typed range condition on a number/date column
+    fetchRange(event.field, event.operator, event.operand, event.operand2);
+  } else {
+    // free-text filter ('' clears it)
+    fetchText(event.field, event.value);
+  }
+}`;
+
   readonly persistenceCode = `const saved = localStorage.getItem('agrid-state');
 const control = AgridControl.fromJSON(saved ? JSON.parse(saved) : {});
 

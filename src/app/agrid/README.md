@@ -158,6 +158,25 @@ refetch:
 Text/range/quick events are debounced by `filterDebounceMs` (default 300 ms; `0` disables). The
 Excel-style value picker stays client-only and is hidden in this mode.
 
+## Grouping and aggregates
+
+Give a column an `aggregate` (`'sum'`, `'avg'`, `'min'`, `'max'`, `'count'`, or a custom
+`(values) => unknown` function) and the grid renders a footer row with that column's total over all
+filtered rows. Set/clear it at runtime with `control.setAggregate(field, fn)`.
+
+```ts
+const columns: ColDef<Order>[] = [
+  { field: 'region', header: 'Region', groupable: true },
+  { field: 'total', header: 'Total', type: 'number', aggregate: 'sum' },
+];
+```
+
+When the grid is grouped (set `groupable: true` and group from the column menu, or call
+`control.setGroupBy(field)`), each **group header row also shows that group's subtotals** —
+the same aggregate functions applied to just the group's rows, displayed inline beside the group
+label and count. No extra configuration is needed; subtotals appear whenever grouping and at least
+one aggregated column are both active.
+
 ## Tree data
 
 Pass `treeConfig` to render rows as a hierarchical tree. The hierarchy lives on the flat row

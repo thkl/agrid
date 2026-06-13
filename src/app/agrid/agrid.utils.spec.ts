@@ -6,6 +6,7 @@ import {
   applyTextAndValueFilters,
   applySortToIndices,
   buildGroupedItems,
+  computeAggregates,
   buildSelectionRange,
   buildTreeItems,
   coerceDateInputValue,
@@ -391,6 +392,38 @@ describe('applySortToIndices', () => {
   });
 });
 
+// ── computeAggregates ───────────────────────────────────────────────────────────
+
+describe('computeAggregates', () => {
+  const rows = [
+    { dept: 'Eng', salary: 100, score: 90 },
+    { dept: 'HR',  salary: 200, score: 70 },
+    { dept: 'Eng', salary: 300, score: 80 },
+  ];
+  const cols: ColDef[] = [
+    { field: 'dept', header: 'Dept' },
+    { field: 'salary', header: 'Salary', type: 'number', aggregate: 'sum' },
+    { field: 'score', header: 'Score', type: 'number' },
+  ];
+
+  it('computes only the columns that have an aggregate', () => {
+    const result = computeAggregates(rows, [0, 1, 2], cols, {});
+    expect(result).toEqual({ salary: 600 });
+  });
+
+  it('lets a control aggregate override the ColDef and supports avg/min/max/count', () => {
+    expect(computeAggregates(rows, [0, 1, 2], cols, { salary: 'avg' })).toEqual({ salary: 200 });
+    expect(computeAggregates(rows, [0, 1, 2], cols, { salary: 'min', score: 'max' }))
+      .toEqual({ salary: 100, score: 90 });
+    expect(computeAggregates(rows, [0, 1, 2], cols, { score: 'count' })).toEqual({ salary: 600, score: 3 });
+  });
+
+  it('supports a custom aggregate function', () => {
+    const custom: ColDef[] = [{ field: 'score', header: 'Score', aggregate: vals => vals.length }];
+    expect(computeAggregates(rows, [0, 2], custom, {})).toEqual({ score: 2 });
+  });
+});
+
 // ── buildGroupedItems ──────────────────────────────────────────────────────────
 
 describe('buildGroupedItems', () => {
@@ -433,6 +466,30 @@ describe('buildGroupedItems', () => {
     const items = buildGroupedItems(rows, indices, 'dept', colMap, [], new Set(['Eng']));
     const engRows = items.filter(isDataRowItem);
     expect(engRows.length).toBe(2);
+  });
+
+  it('attaches per-group aggregate subtotals when aggregated columns exist', () => {
+    const aggRows = [
+      { dept: 'Eng', salary: 100 },
+      { dept: 'HR',  salary: 200 },
+      { dept: 'Eng', salary: 300 },
+    ];
+    const aggCols: ColDef[] = [
+      { field: 'dept', header: 'Dept' },
+      { field: 'salary', header: 'Salary', type: 'number', aggregate: 'sum' },
+    ];
+    const items = buildGroupedItems(aggRows, [0, 1, 2], 'dept', colMap, [], new Set(), undefined, aggCols, {});
+    const headers = items.filter(isGroupHeaderItem);
+    const eng = headers.find(h => isGroupHeaderItem(h) && h.groupLabel === 'Eng');
+    const hr = headers.find(h => isGroupHeaderItem(h) && h.groupLabel === 'HR');
+    expect(isGroupHeaderItem(eng!) && eng.aggregates).toEqual({ salary: 400 });
+    expect(isGroupHeaderItem(hr!) && hr.aggregates).toEqual({ salary: 200 });
+  });
+
+  it('omits aggregates when no aggregated columns are supplied', () => {
+    const items = buildGroupedItems(rows, indices, 'dept', colMap, [], new Set());
+    const header = items.find(isGroupHeaderItem);
+    expect(isGroupHeaderItem(header!) && header.aggregates).toBeUndefined();
   });
 
   it('stores correct row count on group header', () => {

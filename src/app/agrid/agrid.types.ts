@@ -207,14 +207,15 @@ export interface GroupAction {
  * - `{ row, originalIndex }` — a real data row
  * - `null` — the add-row placeholder
  * - `'ghost'` — the drop-target ghost inserted while dragging
- * - `{ groupLabel, count, collapsed }` — group header row when grouping is active
+ * - `{ groupLabel, count, collapsed, aggregates? }` — group header row when grouping is active
+ *   (`aggregates` holds per-group subtotals when aggregated columns exist)
  * - `{ row, originalIndex, level, expandable, expanded }` — a tree row when tree mode is active
  */
 export type GridItem<T extends object = Record<string, unknown>> =
   | { row: T; originalIndex: number }
   | null
   | 'ghost'
-  | { groupLabel: string; count: number; collapsed: boolean }
+  | { groupLabel: string; count: number; collapsed: boolean; aggregates?: Record<string, unknown> }
   | TreeRowItem<T>;
 
 /**

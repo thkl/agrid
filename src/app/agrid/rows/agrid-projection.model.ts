@@ -8,6 +8,7 @@ import {
   applyTextAndValueFilters,
   buildGroupedItems,
   buildTreeItems,
+  computeAggregates,
 } from '../agrid.utils';
 
 /** Expanded labels associated with the current grouping field. @internal */
@@ -110,44 +111,14 @@ export class AgridProjectionModel {
   });
 
   /** Aggregate values computed over all filtered rows, before pagination. */
-  readonly footerValues = computed<Record<string, unknown>>(() => {
-    const rows = this.opts.dataSource().rows();
-    const indices = this.filteredSortedIndices();
-    const controlAggregates = this.opts.control()?.aggregates() ?? {};
-    const result: Record<string, unknown> = {};
-
-    for (const col of this.opts.visibleColDefs()) {
-      const aggregate: ColDef['aggregate'] = controlAggregates[col.field] ?? col.aggregate;
-      if (!aggregate) continue;
-      const values = indices.map(index => rows[index][col.field]);
-      if (typeof aggregate === 'function') {
-        result[col.field] = (aggregate as (values: unknown[]) => unknown)(values);
-        continue;
-      }
-
-      const numbers = values.map(Number).filter(value => !Number.isNaN(value));
-      switch (aggregate) {
-        case 'sum':
-          result[col.field] = numbers.reduce((sum, value) => sum + value, 0);
-          break;
-        case 'avg':
-          result[col.field] = numbers.length
-            ? numbers.reduce((sum, value) => sum + value, 0) / numbers.length
-            : null;
-          break;
-        case 'min':
-          result[col.field] = numbers.length ? Math.min(...numbers) : null;
-          break;
-        case 'max':
-          result[col.field] = numbers.length ? Math.max(...numbers) : null;
-          break;
-        case 'count':
-          result[col.field] = values.filter(value => value != null && value !== '').length;
-          break;
-      }
-    }
-    return result;
-  });
+  readonly footerValues = computed<Record<string, unknown>>(() =>
+    computeAggregates(
+      this.opts.dataSource().rows(),
+      this.filteredSortedIndices(),
+      this.opts.visibleColDefs(),
+      this.opts.control()?.aggregates() ?? {},
+    ),
+  );
 
   /** Filtered, sorted, paginated, and optionally grouped virtual-scroll items. */
   readonly filteredItems = computed<GridItem[]>(() => {
@@ -222,6 +193,8 @@ export class AgridProjectionModel {
           sortEntries,
           expandedLabels,
           this.opts.locale(),
+          this.opts.visibleColDefs(),
+          control.aggregates(),
         );
         this.appendAddRow(items);
         return items;

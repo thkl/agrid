@@ -331,6 +331,19 @@
                   @if (getGroupDescription(item.groupLabel); as desc) {
                   <span class="ag-group-description">{{ desc }}</span>
                   }
+                  @if (item.aggregates; as aggs) {
+                  <span class="ag-group-aggregates">
+                    @for (col of visibleColDefs(); track col.field) {
+                      @if (hasAggregate(col) && aggs[col.field] !== undefined) {
+                      <span class="ag-group-aggregate">
+                        <span class="ag-group-aggregate-col">{{ col.header }}</span>
+                        <span class="ag-group-aggregate-op">{{ getAggregateLabel(col) }}</span>
+                        {{ getFooterDisplay(col, aggs[col.field]) }}
+                      </span>
+                      }
+                    }
+                  </span>
+                  }
                 </div>
               </div>
               }
