@@ -57,6 +57,7 @@
             @if ((field.editable || useSidebarEditor()) && field.col.values?.length) {
               <select
                 class="ag-detail-input"
+                [class.ag-detail-input--invalid]="!!errors()[field.col.field]"
                 (change)="detailEdit.emit({
                   field: field.col.field,
                   col: field.col,
@@ -76,6 +77,7 @@
             } @else if (field.editable || useSidebarEditor()) {
               <input
                 class="ag-detail-input"
+                [class.ag-detail-input--invalid]="!!errors()[field.col.field]"
                 [type]="field.col.type === 'number' ? 'number' : field.col.type === 'date' ? 'date' : 'text'"
                 [value]="field.inputValue"
                 (change)="detailEdit.emit({
@@ -86,6 +88,9 @@
               />
             } @else {
               <span class="ag-detail-value">{{ field.value }}</span>
+            }
+            @if (errors()[field.col.field]; as msg) {
+              <span class="ag-detail-error" role="alert">{{ msg }}</span>
             }
           </div>
         }

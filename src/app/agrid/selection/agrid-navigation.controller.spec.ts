@@ -144,7 +144,7 @@ function setup(overrides: {
   const prepared: Pick<NewRecord, 'index' | 'data'>[] = [];
   const focusGrid = vi.fn();
   const startEdit = vi.fn();
-  const commitEdit = vi.fn();
+  const commitEdit = vi.fn(() => true);
   const cancelEdit = vi.fn();
   const undoEdit = vi.fn();
   const redoEdit = vi.fn();

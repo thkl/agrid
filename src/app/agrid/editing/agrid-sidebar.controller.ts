@@ -16,6 +16,8 @@ export interface AgridSidebarControllerOptions {
   useSidebarEditor: Signal<boolean>;
   onFieldChange: (event: GridEditEvent) => void;
   onCellEdit: (event: GridEditEvent) => void;
+  /** Called when a `ColDef.validate` hook rejects a sidebar value. */
+  onValidationFailed: (event: { rowIndex: number; field: string; value: unknown; message: string }) => void;
 }
 
 /** Owns sidebar visibility, selected-row projection, and detail-panel edits. @internal */
@@ -29,8 +31,20 @@ export class AgridSidebarController {
   readonly hiddenColumns = computed<ReadonlySet<string>>(
     () => this.opts.control()?.hiddenColumns() ?? new Set<string>(),
   );
+  /** Per-field validation messages for rejected sidebar edits (`field → message`). */
+  readonly validationErrors = signal<Record<string, string>>({});
 
   constructor(private readonly opts: AgridSidebarControllerOptions) {}
+
+  /** Remove the stored validation message for one field, if any. */
+  private clearFieldError(field: string): void {
+    if (!(field in this.validationErrors())) return;
+    this.validationErrors.update(errors => {
+      const next = { ...errors };
+      delete next[field];
+      return next;
+    });
+  }
 
   /** Opens the detail tab when automatic detail display is enabled. */
   syncAutoOpen(): void {
@@ -98,8 +112,16 @@ export class AgridSidebarController {
         : typeof option === 'string' ? option : (option as ValueOption).value;
     }
 
-    const oldValue = this.opts.dataSource().getRow(index)[field];
+    const row = this.opts.dataSource().getRow(index);
+    const oldValue = row[field];
     if (oldValue === newValue) return;
+    const message = col.validate?.(newValue as never, row as never) ?? null;
+    if (message) {
+      this.validationErrors.update(errors => ({ ...errors, [field]: message }));
+      this.opts.onValidationFailed({ rowIndex: index, field, value: newValue, message });
+      return;
+    }
+    this.clearFieldError(field);
     this.opts.dataSource().patchRow(index, { [field]: newValue });
     const colIndex = this.opts.visibleColDefs().findIndex(column => column.field === field);
     this.opts.control()?.pushEdit({ rowIndex: index, field, oldValue, newValue });

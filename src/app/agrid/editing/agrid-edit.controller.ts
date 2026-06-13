@@ -16,6 +16,16 @@ export interface AgridEditControllerOptions {
   scrollToCell: (displayIndex: number, colIndex: number) => void;
   focusGrid: () => void;
   onCellEdit: (event: GridEditEvent) => void;
+  /** Called when a `ColDef.validate` hook rejects a committed value. */
+  onValidationFailed: (event: { rowIndex: number; field: string; value: unknown; message: string }) => void;
+}
+
+/** Active cell validation error: the rejecting cell position, field, and message. @internal */
+export interface CellValidationError {
+  rowIndex: number;
+  colIndex: number;
+  field: string;
+  message: string;
 }
 
 /**
@@ -26,6 +36,8 @@ export class AgridEditController {
   readonly editingCell = signal<CellPosition | null>(null);
   readonly currentDraft = signal<unknown>(null);
   readonly editSeedChar = signal<string>('');
+  /** The active cell validation error, or `null` when the last commit was accepted. */
+  readonly validationError = signal<CellValidationError | null>(null);
 
   constructor(private readonly opts: AgridEditControllerOptions) {}
 
@@ -43,6 +55,7 @@ export class AgridEditController {
   start(originalIndex: number, colIndex: number, seedChar: string): void {
     const col = this.opts.visibleColDefs()[colIndex];
     if (!this.isCellEditable(col)) return;
+    this.validationError.set(null);
     const currentValue = this.opts.dataSource().getRow(originalIndex)[col.field];
     this.opts.selectedRange.set(null);
     this.opts.selectedCell.set({ rowIndex: originalIndex, colIndex });
@@ -61,19 +74,30 @@ export class AgridEditController {
     if (displayIndex >= 0) this.opts.scrollToCell(displayIndex, colIndex);
   }
 
-  /** Commits the staged value and records the edit in history. */
-  commit(): void {
+  /**
+   * Commits the staged value and records the edit in history.
+   * Returns `false` (keeping the cell in edit mode) when a `ColDef.validate` hook rejects the
+   * value; `true` when the edit is committed or there was no change.
+   */
+  commit(): boolean {
     const position = this.editingCell();
-    if (!position) return;
+    if (!position) return true;
     const col = this.opts.visibleColDefs()[position.colIndex];
     if (!col) {
       this.cancel();
-      return;
+      return true;
     }
 
-    const oldValue = this.opts.dataSource().getRow(position.rowIndex)[col.field];
+    const row = this.opts.dataSource().getRow(position.rowIndex);
+    const oldValue = row[col.field];
     const newValue = this.currentDraft();
     if (oldValue !== newValue) {
+      const message = col.validate?.(newValue as never, row as never) ?? null;
+      if (message) {
+        this.validationError.set({ ...position, field: col.field, message });
+        this.opts.onValidationFailed({ rowIndex: position.rowIndex, field: col.field, value: newValue, message });
+        return false;
+      }
       this.opts.dataSource().patchRow(position.rowIndex, { [col.field]: newValue });
       this.opts.control()?.pushEdit({
         rowIndex: position.rowIndex,
@@ -83,19 +107,28 @@ export class AgridEditController {
       });
       this.opts.onCellEdit({ position, field: col.field, oldValue, newValue });
     }
+    this.validationError.set(null);
     this.clearEditState();
     this.opts.focusGrid();
+    return true;
   }
 
   /**
    * Commit a value directly to a cell without entering edit mode (e.g. a boolean checkbox
    * toggle). Records the change in history and emits the edit just like {@link commit}.
    */
-  setCellValue(rowIndex: number, colIndex: number, newValue: unknown): void {
+  setCellValue(rowIndex: number, colIndex: number, newValue: unknown): boolean {
     const col = this.opts.visibleColDefs()[colIndex];
-    if (!this.isCellEditable(col)) return;
-    const oldValue = this.opts.dataSource().getRow(rowIndex)[col.field];
-    if (oldValue === newValue) return;
+    if (!this.isCellEditable(col)) return false;
+    const row = this.opts.dataSource().getRow(rowIndex);
+    const oldValue = row[col.field];
+    if (oldValue === newValue) return true;
+    const message = col.validate?.(newValue as never, row as never) ?? null;
+    if (message) {
+      this.validationError.set({ rowIndex, colIndex, field: col.field, message });
+      this.opts.onValidationFailed({ rowIndex, field: col.field, value: newValue, message });
+      return false;
+    }
     this.opts.dataSource().patchRow(rowIndex, { [col.field]: newValue });
     this.opts.control()?.pushEdit({ rowIndex, field: col.field, oldValue, newValue });
     this.opts.onCellEdit({
@@ -104,10 +137,13 @@ export class AgridEditController {
       oldValue,
       newValue,
     });
+    this.validationError.set(null);
+    return true;
   }
 
   /** Discards the active edit without changing row data. */
   cancel(): void {
+    this.validationError.set(null);
     this.clearEditState();
   }
 

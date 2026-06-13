@@ -64,10 +64,14 @@ import {
         <input
           #editInput
           class="ag-cell-input"
+          [class.ag-cell-input--invalid]="!!error()"
           [type]="col().type === 'date' ? 'date' : col().type === 'number' ? 'number' : 'text'"
           [value]="editorValue()"
           (input)="onInput($event)"
         />
+      }
+      @if (error(); as msg) {
+        <span class="ag-cell-error" role="alert">{{ msg }}</span>
       }
     } @else {
       @if (treeCell()) {
@@ -121,6 +125,9 @@ export class AgridCellComponent {
 
   /** Whether this cell may be edited (drives the boolean checkbox enabled state). */
   editable = input<boolean>(true);
+
+  /** Validation error message to show under the editor, or `null` when the value is valid. */
+  error = input<string | null>(null);
 
   /** Whether this cell is the tree column and should render indentation + a twisty. */
   treeCell = input<boolean>(false);

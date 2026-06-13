@@ -10,7 +10,7 @@ describe('AgridEditController', () => {
     { field: 'locked', header: 'Locked', editable: false },
   ];
 
-  function createController(readonly = false) {
+  function createController(readonly = false, cols: ColDef[] = columns) {
     const control = new AgridControl();
     const dataSource = new AgridDataSource([
       { name: 'Alice', locked: 'fixed' },
@@ -22,12 +22,13 @@ describe('AgridEditController', () => {
       focus: CellPosition;
     } | null>(null);
     const edits: GridEditEvent[] = [];
+    const validationFailures: { rowIndex: number; field: string; value: unknown; message: string }[] = [];
     const focusGrid = vi.fn();
     const scrollToCell = vi.fn();
     const controller = new AgridEditController({
       control: signal(control),
       dataSource: signal(dataSource),
-      visibleColDefs: signal(columns),
+      visibleColDefs: signal(cols),
       readonlyGrid: signal(readonly),
       selectedCell,
       selectedRange,
@@ -35,12 +36,14 @@ describe('AgridEditController', () => {
       scrollToCell,
       focusGrid,
       onCellEdit: event => edits.push(event),
+      onValidationFailed: event => validationFailures.push(event),
     });
     return {
       control,
       controller,
       dataSource,
       edits,
+      validationFailures,
       focusGrid,
       scrollToCell,
       selectedCell,
@@ -114,6 +117,40 @@ describe('AgridEditController', () => {
 
     controller.setCellValue(0, 0, 'Alice'); // unchanged
     expect(edits).toHaveLength(0);
+  });
+
+  it('rejects a commit when ColDef.validate returns a message', () => {
+    const { controller, dataSource, edits, validationFailures } = createController(false, [
+      { field: 'name', header: 'Name', validate: v => (v === 'Bad' ? 'Not allowed' : null) },
+      { field: 'locked', header: 'Locked', editable: false },
+    ]);
+
+    controller.start(0, 0, '');
+    controller.setDraft('Bad');
+    const committed = controller.commit();
+
+    expect(committed).toBe(false);
+    expect(dataSource.getRow(0).name).toBe('Alice'); // not written
+    expect(controller.editingCell()).toEqual({ rowIndex: 0, colIndex: 0 }); // stays editing
+    expect(controller.validationError()).toMatchObject({ field: 'name', message: 'Not allowed' });
+    expect(validationFailures[0]).toMatchObject({ field: 'name', value: 'Bad', message: 'Not allowed' });
+    expect(edits).toHaveLength(0);
+
+    // a valid value then commits and clears the error
+    controller.setDraft('Carol');
+    expect(controller.commit()).toBe(true);
+    expect(dataSource.getRow(0).name).toBe('Carol');
+    expect(controller.validationError()).toBeNull();
+  });
+
+  it('rejects a direct setCellValue when validation fails', () => {
+    const { controller, dataSource, validationFailures } = createController(false, [
+      { field: 'name', header: 'Name', validate: () => 'nope' },
+    ]);
+
+    expect(controller.setCellValue(0, 0, 'X')).toBe(false);
+    expect(dataSource.getRow(0).name).toBe('Alice');
+    expect(validationFailures[0]).toMatchObject({ field: 'name', message: 'nope' });
   });
 
   it('clears or shifts edit state when a row is removed', () => {

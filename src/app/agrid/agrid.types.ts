@@ -159,6 +159,17 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
    */
   locked?: boolean;
   /**
+   * Validate a committed value before it is written to the row. Return an error message to
+   * reject the edit (the value is not written and the message is shown), or `null`/`undefined`
+   * to accept it. Runs on inline commit, boolean-checkbox toggle, and sidebar save.
+   *
+   * @example
+   * ```ts
+   * { field: 'email', validate: v => /@/.test(String(v)) ? null : 'Invalid email' }
+   * ```
+   */
+  validate?: (value: T[K], row: T) => string | null | undefined;
+  /**
    * Custom cell renderer. Returns an HTML string displayed instead of the plain text value.
    * Angular's built-in HTML sanitization is applied automatically.
    *
@@ -265,6 +276,23 @@ export interface CellPosition {
   rowIndex: number;
   /** Zero-based column index in {@link ColDef} order. */
   colIndex: number;
+}
+
+/**
+ * Emitted by `(validationFailed)` when a {@link ColDefBase.validate} hook rejects a committed
+ * value. The value is not written to the row.
+ */
+export interface ValidationFailedEvent<T extends object = any> {
+  /** Zero-based index of the row whose edit was rejected. */
+  rowIndex: number;
+  /** Field that failed validation. */
+  field: AgridField<T>;
+  /** The rejected value. */
+  value: unknown;
+  /** Message returned by the `validate` hook. */
+  message: string;
+  /** Which editing surface produced the rejected edit. */
+  source: 'inline' | 'sidebar';
 }
 
 /** Emitted by `(cellEdit)` after the user commits a cell change. */

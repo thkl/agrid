@@ -220,3 +220,16 @@
   padding: 0;
   line-height: 1;
 }
+
+.ag-detail-input--invalid {
+  border-color: var(--agrid-color-danger);
+  outline: 1px solid var(--agrid-color-danger);
+}
+
+.ag-detail-error {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--agrid-color-danger);
+}

@@ -102,6 +102,30 @@ const columns: ColDef<Order>[] = [
 Set it programmatically with `control.setRangeFilter(field, operator, operand, operand2?)`, where
 `operator` is one of `'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'between'` (pass `null` to clear).
 
+## Edit validation
+
+Add a `validate` hook to a column to reject bad values. Return a message to block the edit (the
+value is not written and the message is shown), or `null` to accept it. It runs on inline commit,
+boolean-checkbox toggle, and sidebar save.
+
+```ts
+const columns: ColDef<Person>[] = [
+  { field: 'email', header: 'Email',
+    validate: v => /@/.test(String(v)) ? null : 'Enter a valid email' },
+  { field: 'age', header: 'Age', type: 'number',
+    validate: (v, row) => Number(v) >= 0 ? null : 'Age must be ≥ 0' },
+];
+```
+
+A rejected inline edit keeps the cell in edit mode with the message shown beneath it, so the user
+can correct it; Tab/Enter won't leave the cell until the value is valid. Rejected sidebar edits show
+the message under the field. Listen to `(validationFailed)` for `{ rowIndex, field, value, message,
+source }` (`source` is `'inline'` or `'sidebar'`).
+
+```html
+<agrid [provider]="provider" (validationFailed)="onInvalid($event)" />
+```
+
 ## Quick filter
 
 Set `enableQuickFilter: true` to render a search box above the grid that keeps rows whose visible

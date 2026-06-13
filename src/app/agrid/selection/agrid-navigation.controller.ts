@@ -31,7 +31,7 @@ export interface AgridNavigationControllerOptions {
   editingCell: Signal<CellPosition | null>;
   isEditing: (originalIndex: number, colIndex: number) => boolean;
   startEdit: (originalIndex: number, colIndex: number, seedChar: string) => void;
-  commitEdit: () => void;
+  commitEdit: () => boolean;
   cancelEdit: () => void;
   undoEdit: () => void;
   redoEdit: () => void;
@@ -113,13 +113,11 @@ export class AgridNavigationController {
       switch (event.key) {
         case 'Tab':
           event.preventDefault();
-          this.opts.commitEdit();
-          this.moveSelection(0, event.shiftKey ? -1 : 1);
+          if (this.opts.commitEdit()) this.moveSelection(0, event.shiftKey ? -1 : 1);
           break;
         case 'Enter':
           event.preventDefault();
-          this.opts.commitEdit();
-          this.moveSelection(1, 0);
+          if (this.opts.commitEdit()) this.moveSelection(1, 0);
           break;
         case 'Escape':
           event.preventDefault();

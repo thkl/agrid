@@ -38,5 +38,6 @@ export type {
   RowUpdateEvent,
   SortChangeEvent,
   TreeRowItem,
+  ValidationFailedEvent,
   ValueOption,
 } from './agrid.types';

@@ -52,7 +52,7 @@ import {
 import {
   AgridField, CellContextMenuItem, CellPosition, ColDef, FilterChangeEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, RecordEditEvent, RowClickEvent,
-  RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent,
+  RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, ValidationFailedEvent,
 } from './agrid.types';
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
@@ -209,6 +209,9 @@ export class AgridComponent<T extends object = any> {
    * filters locally.
    */
   quickFilterChange = output<string>();
+
+  /** Emitted when a `ColDef.validate` hook rejects a committed value (inline or sidebar). */
+  validationFailed = output<ValidationFailedEvent>();
 
   // ── Public state ─────────────────────────────────────────────────────────────
 
@@ -429,6 +432,7 @@ export class AgridComponent<T extends object = any> {
     scrollToCell: (displayIndex, colIndex) => this.scrollToKeepVisible(displayIndex, colIndex),
     focusGrid: () => this.wrapperEl().nativeElement.focus(),
     onCellEdit: event => this.emitEditEvents(event),
+    onValidationFailed: event => this.validationFailed.emit({ ...event, source: 'inline' }),
   });
 
   /** Total filtered row count regardless of current page. */
@@ -679,9 +683,12 @@ export class AgridComponent<T extends object = any> {
     useSidebarEditor: this.useSidebarEditor,
     onFieldChange: event => this.markCellChanged(event),
     onCellEdit: event => this.emitSidebarEditEvents(event),
+    onValidationFailed: event => this.validationFailed.emit({ ...event, source: 'sidebar' }),
   });
 
   readonly sidebarOpen = this.sidebarController.open;
+  /** @internal Per-field sidebar validation messages. */
+  readonly sidebarValidationErrors = this.sidebarController.validationErrors;
   readonly sidebarTab = this.sidebarController.tab;
   readonly sidebarRow = this.sidebarController.row;
   readonly sidebarHiddenColumns = this.sidebarController.hiddenColumns;
@@ -1235,6 +1242,12 @@ export class AgridComponent<T extends object = any> {
 
   /** @internal Whether a column is editable in the current grid state (drives boolean checkboxes). */
   isColEditable(col: ColDef): boolean { return this.editController.isCellEditable(col); }
+
+  /** @internal Inline validation message for a cell, or `null` when the cell has no active error. */
+  cellValidationError(originalIndex: number, ci: number): string | null {
+    const error = this.editController.validationError();
+    return error && error.rowIndex === originalIndex && error.colIndex === ci ? error.message : null;
+  }
 
   /** @internal Commit a boolean-column checkbox toggle directly to the data source. */
   onBooleanToggle(originalIndex: number, ci: number, value: boolean): void {

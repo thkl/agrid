@@ -6,7 +6,8 @@ const COLUMNS: ColDef[] = [
   { field: 'id', header: 'ID', width: ColDefAutoSize, editable: false},
   { field: 'firstName', header: 'First Name', group: 'employee', width: ColDefAutoSize, filterable: true },
   { field: 'lastName', header: 'Last Name', group: 'employee', width: ColDefAutoSize, filterable: true, groupable: true },
-  { field: 'email', header: 'Email', width: ColDefAutoSize },
+  { field: 'email', header: 'Email', width: ColDefAutoSize,
+    validate: v => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v ?? '')) ? null : 'Enter a valid email address' },
   { field: 'departmentId', header: 'Department', width: ColDefAutoSize, filterable: true, groupable: true,
     values: [
       { value: 1, label: 'Engineering' },
@@ -18,7 +19,8 @@ const COLUMNS: ColDef[] = [
       { value: 7, label: 'Operations' },
     ]
   },
-  { field: 'salary', header: 'Salary', width: ColDefAutoSize, type: 'number', filterable: true, aggregate: 'sum'},
+  { field: 'salary', header: 'Salary', width: ColDefAutoSize, type: 'number', filterable: true, aggregate: 'sum',
+    validate: v => Number(v) >= 0 ? null : 'Salary must be ≥ 0' },
   { field: 'hiredAt', header: 'Hire Date', width: ColDefAutoSize, type: 'date', filterable: true },
   { field: 'active', header: 'Active', width: ColDefAutoSize, type: 'boolean' },
 ];

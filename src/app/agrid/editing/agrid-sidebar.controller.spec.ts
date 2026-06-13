@@ -20,6 +20,7 @@ describe('AgridSidebarController', () => {
       useSidebarEditor: signal(false),
       onFieldChange: () => undefined,
       onCellEdit: event => events.push(event),
+      onValidationFailed: () => undefined,
     });
 
     controller.commitEdit('amount', { field: 'amount', header: 'Amount', type: 'number' }, '12');
@@ -43,6 +44,7 @@ describe('AgridSidebarController', () => {
       useSidebarEditor: signal(false),
       onFieldChange: () => undefined,
       onCellEdit: () => undefined,
+      onValidationFailed: () => undefined,
     });
 
     controller.commitEdit(
@@ -52,5 +54,33 @@ describe('AgridSidebarController', () => {
     );
 
     expect(dataSource.getRow(0)['hiredAt']).toBe('2025-04-20T14:30:00.000Z');
+  });
+
+  it('rejects a detail edit when ColDef.validate fails and records the message', () => {
+    const dataSource = new AgridDataSource([{ amount: 1 }]);
+    const col = { field: 'amount', header: 'Amount', type: 'number' as const, validate: (v: unknown) => (Number(v) < 0 ? 'Must be ≥ 0' : null) };
+    const failures: { field: string; message: string }[] = [];
+    const controller = new AgridSidebarController({
+      control: signal(new AgridControl()),
+      dataSource: signal(dataSource),
+      colDefs: signal([col]),
+      visibleColDefs: signal([col]),
+      selectedRowIndex: signal(0),
+      autoOpenDetail: signal(false),
+      useSidebarEditor: signal(false),
+      onFieldChange: () => undefined,
+      onCellEdit: () => undefined,
+      onValidationFailed: event => failures.push(event),
+    });
+
+    controller.commitEdit('amount', col, '-5');
+    expect(dataSource.getRow(0)['amount']).toBe(1); // not written
+    expect(controller.validationErrors()['amount']).toBe('Must be ≥ 0');
+    expect(failures[0]).toMatchObject({ field: 'amount', message: 'Must be ≥ 0' });
+
+    // a valid value clears the stored error and writes
+    controller.commitEdit('amount', col, '7');
+    expect(dataSource.getRow(0)['amount']).toBe(7);
+    expect(controller.validationErrors()['amount']).toBeUndefined();
   });
 });

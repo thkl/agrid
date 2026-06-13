@@ -62,6 +62,8 @@ export class AgridSidebarComponent {
   localeText = input<AgridLocaleText>(AGRID_LOCALE_TEXT.en);
   readonlyGrid = input<boolean>(false);
   useSidebarEditor = input<boolean>(false);
+  /** Per-field validation messages (`field → message`) for rejected detail edits. */
+  errors = input<Record<string, string>>({});
 
   close = output<void>();
   tabChange = output<'columns' | 'detail'>();
