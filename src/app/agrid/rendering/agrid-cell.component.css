@@ -97,6 +97,10 @@
   padding: 0 6px;
   box-sizing: border-box;
   background: transparent;
+  /* Re-enable text selection inside the editor; the host sets user-select: none
+     to suppress selection while range-selecting cells, and the input inherits it. */
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .ag-cell-select {

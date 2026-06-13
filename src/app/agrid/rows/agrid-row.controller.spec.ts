@@ -24,6 +24,27 @@ describe('AgridRowController', () => {
     expect([...controller.selectedRowIndices()]).toEqual([0, 1, 2]);
   });
 
+  it('does not preventDefault on a plain row pointerdown so cell range-drag is suppressed', () => {
+    const { controller } = setup({ rowSelection: 'multi' });
+    const event = primaryPointerEvent({ target: document.createElement('div') });
+
+    controller.selectFromPointer(event, 1, false);
+
+    expect(event.preventDefault).toHaveBeenCalled();
+  });
+
+  it('keeps native text selection working: no preventDefault when the target is an editor input', () => {
+    const { controller } = setup({ rowSelection: 'multi' });
+    const input = primaryPointerEvent({ target: document.createElement('input') });
+    const select = primaryPointerEvent({ target: document.createElement('select') });
+
+    controller.selectFromPointer(input, 1, false);
+    controller.selectFromPointer(select, 1, false);
+
+    expect(input.preventDefault).not.toHaveBeenCalled();
+    expect(select.preventDefault).not.toHaveBeenCalled();
+  });
+
   it('deletes a row and adjusts selected cell/edit state', () => {
     const selectedCell = signal<CellPosition | null>({ rowIndex: 2, colIndex: 0 });
     const { controller, dataSource, removed, editRemoved } = setup({ selectedCell });

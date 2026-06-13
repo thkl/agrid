@@ -11,6 +11,18 @@ import {
 } from '../agrid.types';
 import { buildSelectionRange, getDisplayForField, isDataRowItem } from '../agrid.utils';
 
+/**
+ * Whether a pointer event originated inside an editable form control. Used to avoid calling
+ * `preventDefault()` on a row pointerdown, which would otherwise cancel native text selection
+ * (and caret placement) inside an active cell editor.
+ */
+function isEditableEventTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement
+    || target instanceof HTMLTextAreaElement
+    || target instanceof HTMLSelectElement
+    || (target instanceof HTMLElement && target.isContentEditable);
+}
+
 /** Dependencies and callbacks required by {@link AgridRowController}. @internal */
 export interface AgridRowControllerOptions {
   dataSource: Signal<AgridDataSource>;
@@ -112,7 +124,7 @@ export class AgridRowController {
       );
       this.emitSelection();
     } else {
-      if (!(event.target instanceof HTMLSelectElement)) event.preventDefault();
+      if (!isEditableEventTarget(event.target)) event.preventDefault();
       this.selectedIndices.set(new Set([originalIndex]));
       this.selectionPivot = originalIndex;
       if (allowDragSelect) this.opts.startDragSelect(originalIndex);
