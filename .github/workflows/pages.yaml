@@ -28,7 +28,10 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile --config.ignore-scripts=false
+      - name: Install dependencies
+        env:
+          PNPM_ALLOW_ALLOWED_BUILDS: 'true'
+        run: pnpm install --frozen-lockfile
 
       - run: pnpm exec ng build --configuration production --base-href /agrid/
 
