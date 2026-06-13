@@ -3,7 +3,12 @@ import { AgridControl } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
 import { AgridProjectionModel } from './agrid-projection.model';
 import { AgridTreeConfig, ColDef, GridItem } from '../agrid.types';
-import { isDataRowItem, isGroupHeaderItem, isTreeRowItem } from '../agrid.utils';
+import {
+  computeAggregates,
+  isDataRowItem,
+  isGroupHeaderItem,
+  isTreeRowItem,
+} from '../agrid.utils';
 
 describe('AgridProjectionModel', () => {
   const columns: ColDef[] = [
@@ -97,6 +102,37 @@ describe('AgridProjectionModel', () => {
     expect(model.footerValues()).toEqual({
       name: 2,
       amount: 30,
+    });
+  });
+
+  it('computes built-in aggregates without spreading large value arrays', () => {
+    const largeRows = Array.from({ length: 150_000 }, (_, index) => ({
+      amount: index === 149_999 ? -5 : index,
+    }));
+    const indices = largeRows.map((_, index) => index);
+    const aggregateColumns: ColDef[] = [
+      { field: 'amount', header: 'Amount', aggregate: 'min' },
+    ];
+
+    expect(computeAggregates(largeRows, indices, aggregateColumns, {})).toEqual({
+      amount: -5,
+    });
+  });
+
+  it('preserves count and custom aggregate semantics', () => {
+    const aggregateRows = [
+      { value: 1, label: 'A' },
+      { value: '2', label: '' },
+      { value: 'invalid', label: null },
+    ];
+    const aggregateColumns: ColDef[] = [
+      { field: 'value', header: 'Value', aggregate: values => values.join('|') },
+      { field: 'label', header: 'Label', aggregate: 'count' },
+    ];
+
+    expect(computeAggregates(aggregateRows, [0, 1, 2], aggregateColumns, {})).toEqual({
+      value: '1|2|invalid',
+      label: 1,
     });
   });
 

@@ -12,9 +12,8 @@ import {
 import { ColDef, ValueOption } from '../agrid.types';
 import {
   coerceDateInputValue,
-  formatDateValue,
+  getDisplayForField,
   getDateInputValue,
-  looksLikeDate,
 } from '../agrid.utils';
 
 /**
@@ -34,6 +33,7 @@ import {
     '[class.editing]': 'editing()',
     '[class.ag-cell--tree]': 'treeCell()',
     '[attr.aria-readonly]': 'col().editable === false ? "true" : null',
+    '[attr.title]': 'displayValue()',
     '(click)': 'activate.emit($event)',
     '(dblclick)': 'startEdit.emit()',
     tabindex: '-1',
@@ -217,21 +217,7 @@ export class AgridCellComponent {
    * Priority: ValueOption label → `ColDef.formatter` → raw string.
    */
   readonly displayValue = computed((): string => {
-    const raw = this.value();
-    const col = this.col();
-
-    if (col.values?.length) {
-      const opt = col.values.find(v =>
-        typeof v === 'string' ? v === raw : (v as ValueOption).value === raw
-      );
-      if (opt !== undefined) return typeof opt === 'string' ? opt : (opt as ValueOption).label;
-    }
-
-    if (col.formatter) return col.formatter(raw);
-    if (col.type === 'date' || looksLikeDate(raw)) {
-      return formatDateValue(raw, this.locale(), col.type === 'date');
-    }
-    return String(raw ?? '');
+    return getDisplayForField(this.col(), this.value(), this.locale());
   });
 
   /**

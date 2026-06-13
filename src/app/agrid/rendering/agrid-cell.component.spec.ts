@@ -66,6 +66,25 @@ describe('AgridCellComponent custom renderer', () => {
     expect(emitted).toEqual([]);
   });
 
+  it('formats the displayed value and tooltip once per input change', () => {
+    let formatterCalls = 0;
+    fixture.componentRef.setInput('col', {
+      field: 'status',
+      header: 'Status',
+      formatter: (value: unknown) => {
+        formatterCalls++;
+        return `Formatted ${value}`;
+      },
+    });
+
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.ag-cell-value').textContent)
+      .toBe('Formatted Active');
+    expect(fixture.nativeElement.title).toBe('Formatted Active');
+    expect(formatterCalls).toBe(1);
+  });
+
   it('uses a native date input and preserves an ISO time suffix', async () => {
     fixture.componentRef.setInput('col', {
       field: 'hiredAt',

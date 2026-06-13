@@ -127,7 +127,7 @@
             @for (col of pinnedColDefs(); track col.field) {
             @let ci = getVisibleColIndex(col.field);
             <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
-              [row]="item.row" [locale]="locale()" [attr.title]="getCellTitle(col, item.row[col.field])"
+              [row]="item.row" [locale]="locale()"
               [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
               [attr.data-col-field]="col.field"
               [attr.aria-colindex]="getAriaColIndex(ci)"
@@ -282,7 +282,7 @@
               @for (col of scrollableColDefs(); track col.field) {
               @let ci = getVisibleColIndex(col.field);
               <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
-                [row]="item.row" [locale]="locale()" [attr.title]="getCellTitle(col, item.row[col.field])"
+                [row]="item.row" [locale]="locale()"
                 [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
                 [attr.data-col-field]="col.field"
                 [attr.aria-colindex]="getAriaColIndex(ci)"
@@ -468,7 +468,7 @@
             @for (col of rightPinnedColDefs(); track col.field) {
             @let ci = getVisibleColIndex(col.field);
             <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
-              [row]="item.row" [locale]="locale()" [attr.title]="getCellTitle(col, item.row[col.field])"
+              [row]="item.row" [locale]="locale()"
               [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
               [attr.data-col-field]="col.field"
               [attr.aria-colindex]="getAriaColIndex(ci)"

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const ROW_COUNTS = [10_000, 50_000, 100_000,250_000];
+const ROW_COUNTS = [10_000, 50_000, 100_000, 250_000];
 const OPERATIONS = [
   'filter',
   'clear',
@@ -14,13 +14,14 @@ const OPERATIONS = [
 
 test.describe('@performance large datasets', () => {
   test.describe.configure({ mode: 'serial' });
+  test.setTimeout(120_000);
 
   for (const rowCount of ROW_COUNTS) {
     test(`${rowCount.toLocaleString()} rows`, async ({ page }, testInfo) => {
       const status = page.getByTestId('benchmark-status');
       const navigationStartedAt = Date.now();
 
-      await page.goto(`/performance?rows=${rowCount}`);
+      await page.goto(`/#/performance?rows=${rowCount}`);
       await expect(status).toHaveAttribute('data-state', 'ready', { timeout: 60_000 });
 
       const results: Record<string, number> = {

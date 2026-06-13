@@ -193,26 +193,20 @@ export function applySortToIndices(
 ): number[] {
   if (sortEntries.length === 0) return indices;
 
-  interface SortKey {
-    display: string;
-    dateLike: boolean;
-    dateValue: number;
-    numericValue: number | null;
-  }
-
   const collator = new Intl.Collator(locale, { numeric: true, sensitivity: 'base' });
-  const fields = sortEntries.map(([field, filter]) => ({
-    field,
-    direction: filter.sort === 'desc' ? -1 : 1,
-    col: colMap.get(field),
-  }));
-  const decorated = indices.map((index, position) => ({
-    index,
-    position,
-    keys: fields.map(({ field, col }): SortKey => {
+  const fields = sortEntries.map(([field, filter]) => {
+    const col = colMap.get(field);
+    const dateLike = new Uint8Array(indices.length);
+    const dateValues = new Float64Array(indices.length);
+    const numericValues = new Float64Array(indices.length);
+    numericValues.fill(Number.NaN);
+    const displayValues = new Array<string>(indices.length);
+
+    for (let position = 0; position < indices.length; position++) {
+      const index = indices[position];
       const raw = rows[index][field];
-      const dateLike = col?.type === 'date' || looksLikeDate(raw);
-      const dateValue = dateLike
+      const isDateLike = col?.type === 'date' || looksLikeDate(raw);
+      const dateValue = isDateLike
         ? raw instanceof Date ? raw.getTime() : new Date(raw as string).getTime()
         : Number.NaN;
       const numericValue = col?.type === 'number'
@@ -221,36 +215,45 @@ export function applySortToIndices(
         && typeof raw === 'number'
         && Number.isFinite(raw)
         ? raw
-        : null;
-      return {
-        display: dateLike ? '' : getDisplayForField(col, raw, locale),
-        dateLike,
-        dateValue: Number.isNaN(dateValue) ? -1 : dateValue,
-        numericValue,
-      };
-    }),
-  }));
+        : Number.NaN;
+      dateLike[position] = isDateLike ? 1 : 0;
+      dateValues[position] = Number.isNaN(dateValue) ? -1 : dateValue;
+      numericValues[position] = numericValue;
+      displayValues[position] = isDateLike ? '' : getDisplayForField(col, raw, locale);
+    }
 
-  decorated.sort((a, b) => {
+    return {
+      direction: filter.sort === 'desc' ? -1 : 1,
+      dateLike,
+      dateValues,
+      numericValues,
+      displayValues,
+    };
+  });
+  const positions = Array.from({ length: indices.length }, (_, position) => position);
+
+  positions.sort((a, b) => {
     for (let fieldIndex = 0; fieldIndex < fields.length; fieldIndex++) {
-      const keyA = a.keys[fieldIndex];
-      const keyB = b.keys[fieldIndex];
+      const field = fields[fieldIndex];
       let comparison: number;
-      if (keyA.dateLike || keyB.dateLike) {
-        comparison = keyA.dateValue - keyB.dateValue;
-      } else if (keyA.numericValue !== null && keyB.numericValue !== null) {
-        comparison = keyA.numericValue - keyB.numericValue;
+      if (field.dateLike[a] || field.dateLike[b]) {
+        comparison = field.dateValues[a] - field.dateValues[b];
+      } else if (
+        !Number.isNaN(field.numericValues[a])
+        && !Number.isNaN(field.numericValues[b])
+      ) {
+        comparison = field.numericValues[a] - field.numericValues[b];
       } else {
-        comparison = collator.compare(keyA.display, keyB.display);
+        comparison = collator.compare(field.displayValues[a], field.displayValues[b]);
       }
       if (comparison !== 0) {
-        return comparison * fields[fieldIndex].direction;
+        return comparison * field.direction;
       }
     }
-    return a.position - b.position;
+    return a - b;
   });
 
-  return decorated.map(item => item.index);
+  return positions.map(position => indices[position]);
 }
 
 // Grouping
@@ -278,29 +281,44 @@ export function computeAggregates(
   for (const col of cols) {
     const aggregate: ColDef['aggregate'] = controlAggregates[col.field] ?? col.aggregate;
     if (!aggregate) continue;
-    const values = indices.map(index => rows[index][col.field]);
     if (typeof aggregate === 'function') {
+      const values = indices.map(index => rows[index][col.field]);
       result[col.field] = (aggregate as (values: unknown[]) => unknown)(values);
       continue;
     }
-    const numbers = values.map(Number).filter(value => !Number.isNaN(value));
+
+    let count = 0;
+    let numericCount = 0;
+    let sum = 0;
+    let min = Infinity;
+    let max = -Infinity;
+    for (const index of indices) {
+      const raw = rows[index][col.field];
+      if (raw != null && raw !== '') count++;
+
+      const value = Number(raw);
+      if (Number.isNaN(value)) continue;
+      numericCount++;
+      sum += value;
+      if (value < min) min = value;
+      if (value > max) max = value;
+    }
+
     switch (aggregate) {
       case 'sum':
-        result[col.field] = numbers.reduce((sum, value) => sum + value, 0);
+        result[col.field] = sum;
         break;
       case 'avg':
-        result[col.field] = numbers.length
-          ? numbers.reduce((sum, value) => sum + value, 0) / numbers.length
-          : null;
+        result[col.field] = numericCount ? sum / numericCount : null;
         break;
       case 'min':
-        result[col.field] = numbers.length ? Math.min(...numbers) : null;
+        result[col.field] = numericCount ? min : null;
         break;
       case 'max':
-        result[col.field] = numbers.length ? Math.max(...numbers) : null;
+        result[col.field] = numericCount ? max : null;
         break;
       case 'count':
-        result[col.field] = values.filter(value => value != null && value !== '').length;
+        result[col.field] = count;
         break;
     }
   }

@@ -390,6 +390,27 @@ describe('applySortToIndices', () => {
       ),
     ).toEqual([1, 3, 0, 2]);
   });
+
+  it('sorts large numeric datasets without per-row key objects', () => {
+    const largeRows = Array.from({ length: 150_000 }, (_, index) => ({
+      score: 150_000 - index,
+    }));
+    const largeIndices = largeRows.map((_, index) => index);
+    const numericColMap = new Map<string, ColDef>([
+      ['score', { field: 'score', header: 'Score', type: 'number' }],
+    ]);
+
+    const result = applySortToIndices(
+      largeRows,
+      largeIndices,
+      [asc('score')],
+      numericColMap,
+    );
+
+    expect(result[0]).toBe(149_999);
+    expect(result[result.length - 1]).toBe(0);
+    expect(largeIndices[0]).toBe(0);
+  });
 });
 
 // ── computeAggregates ───────────────────────────────────────────────────────────

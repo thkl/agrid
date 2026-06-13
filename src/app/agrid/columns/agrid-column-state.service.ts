@@ -1,4 +1,4 @@
-import { Signal } from '@angular/core';
+import { Signal, computed } from '@angular/core';
 import { AgridControl } from '../agrid-control';
 import { ColDef } from '../agrid.types';
 
@@ -16,14 +16,22 @@ export interface AgridColumnStateOptions {
 export class AgridColumnStateService {
   constructor(private readonly opts: AgridColumnStateOptions) {}
 
+  private readonly columnsByField = computed(() =>
+    new Map(this.opts.colDefs().map(col => [col.field, col])),
+  );
+
+  private readonly visibleIndexByField = computed(() =>
+    new Map(this.opts.visibleColDefs().map((col, index) => [col.field, index])),
+  );
+
   /** Finds a column definition by field name. */
   getColDef(field: string): ColDef | undefined {
-    return this.opts.colDefs().find(col => col.field === field);
+    return this.columnsByField().get(field);
   }
 
   /** Returns a field's zero-based index among visible columns. */
   getVisibleColIndex(field: string): number {
-    return this.opts.visibleColDefs().findIndex(col => col.field === field);
+    return this.visibleIndexByField().get(field) ?? -1;
   }
 
   /** Converts a visible data-column index to a one-based ARIA index. */
