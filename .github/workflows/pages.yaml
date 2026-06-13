@@ -28,7 +28,16 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - name: Configure pnpm build permissions
+        run: |
+          echo "allowBuilds:" > pnpm-workspace.yaml
+          echo "  - '@parcel/watcher'" >> pnpm-workspace.yaml
+          echo "  - 'esbuild'" >> pnpm-workspace.yaml
+          echo "  - 'lmdb'" >> pnpm-workspace.yaml
+          echo "  - 'msgpackr-extract'" >> pnpm-workspace.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - run: pnpm exec ng build --configuration production --base-href /agrid/
 
