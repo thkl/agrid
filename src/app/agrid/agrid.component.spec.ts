@@ -1000,3 +1000,70 @@ describe('AgridComponent tree mode', () => {
 function isTreeRow(item: GridItem): boolean {
   return typeof item === 'object' && item !== null && 'level' in item;
 }
+
+describe('AgridComponent pinned rows and master/detail', () => {
+  let fixture: ComponentFixture<AgridComponent>;
+  let component: AgridComponent;
+
+  beforeAll(() => {
+    HTMLElement.prototype.scrollTo = () => undefined;
+  });
+
+  beforeEach(async () => {
+    const provider = new AgridProvider({
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'kind', header: 'Kind' },
+      ],
+      datasource: new AgridDataSource([
+        { name: 'Row 0', kind: 'data' },
+        { name: 'Row 1', kind: 'data' },
+        { name: 'Summary', kind: 'summary' },
+      ]),
+      control: new AgridControl({ allowRowReorder: false }),
+      getRowClass: ({ row }) => (row['kind'] === 'summary' ? 'is-summary' : ''),
+      pinRow: row => (row['kind'] === 'summary' ? 'bottom' : undefined),
+      masterDetail: true,
+      detailRenderer: ({ row }) => `<b>${row['name']}</b>`,
+    });
+
+    await TestBed.configureTestingModule({ imports: [AgridComponent] }).compileComponents();
+    fixture = TestBed.createComponent(AgridComponent);
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+  });
+
+  it('pins predicate rows and keeps them out of the body', () => {
+    expect(component.pinnedBottomItems().map(i => i.row['name'])).toEqual(['Summary']);
+    expect(component.displayItems().some(i => typeof i === 'object' && i !== null && (i as any).row?.name === 'Summary'))
+      .toBe(false);
+  });
+
+  it('lets the UI pin and unpin rows by original index', () => {
+    component.pinRowTo(0, 'top');
+    fixture.detectChanges();
+    expect(component.pinnedTopItems().map(i => i.row['name'])).toEqual(['Row 0']);
+    expect(component.rowPinState(0)).toBe('top');
+
+    // A runtime override beats the predicate: unpin the summary row.
+    component.pinRowTo(2, null);
+    fixture.detectChanges();
+    expect(component.rowPinState(2)).toBeUndefined();
+    expect(component.pinnedBottomItems()).toEqual([]);
+  });
+
+  it('expands a master/detail panel and sizes it via itemSizes', () => {
+    component.toggleDetail(0);
+    fixture.detectChanges();
+    expect(component.isDetailExpanded(0)).toBe(true);
+    expect(component.detailHtml({ detailFor: 0, row: { name: 'Row 0' } })).toContain('Row 0');
+    // the detail item contributes a taller entry to the virtual-scroll size array
+    expect(component.itemSizes().some(h => h === component.detailRowHeight())).toBe(true);
+  });
+
+  it('resolves whole-row CSS classes from getRowClass', () => {
+    expect(component.getRowClass({ kind: 'summary' }, 2)).toBe('is-summary');
+    expect(component.getRowClass({ kind: 'data' }, 0)).toBe('');
+  });
+});

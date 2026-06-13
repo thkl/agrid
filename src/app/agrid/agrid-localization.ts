@@ -20,6 +20,7 @@ export interface AgridLocaleText {
   columnMenu: string;
   columns: string;
   detail: string;
+  toggleDetail: string;
   hiddenColumn: string;
   filterCondition: string;
   filterNoCondition: string;
@@ -56,6 +57,9 @@ export interface AgridLocaleText {
   pinColumn: string;
   pinColumnRight: string;
   unpinColumnRight: string;
+  pinRowTop: string;
+  pinRowBottom: string;
+  unpinRow: string;
   previous: string;
   resizeColumn: string;
   rows: (count: number) => string;
@@ -93,6 +97,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     columnMenu: 'Column menu',
     columns: 'Columns',
     detail: 'Detail',
+    toggleDetail: 'Toggle detail panel',
     hiddenColumn: '(hidden)',
     filterCondition: 'Condition',
     filterNoCondition: 'No condition',
@@ -129,6 +134,9 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     pinColumn: 'Pin left',
     pinColumnRight: 'Pin right',
     unpinColumnRight: 'Unpin right',
+    pinRowTop: 'Pin row to top',
+    pinRowBottom: 'Pin row to bottom',
+    unpinRow: 'Unpin row',
     previous: 'Previous',
     resizeColumn: 'Resize column',
     rows: count => `${count} ${count === 1 ? 'row' : 'rows'}`,
@@ -160,6 +168,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     columnMenu: 'Spaltenmenü',
     columns: 'Spalten',
     detail: 'Details',
+    toggleDetail: 'Detailbereich umschalten',
     hiddenColumn: '(ausgeblendet)',
     filterCondition: 'Bedingung',
     filterNoCondition: 'Keine Bedingung',
@@ -196,6 +205,9 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     pinColumn: 'Links fixieren',
     pinColumnRight: 'Rechts fixieren',
     unpinColumnRight: 'Rechts lösen',
+    pinRowTop: 'Zeile oben fixieren',
+    pinRowBottom: 'Zeile unten fixieren',
+    unpinRow: 'Zeilenfixierung lösen',
     previous: 'Zurück',
     resizeColumn: 'Spaltenbreite ändern',
     rows: count => `${count} ${count === 1 ? 'Zeile' : 'Zeilen'}`,

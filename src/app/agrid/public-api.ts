@@ -24,6 +24,7 @@ export type {
   CellContextMenuItem,
   CellPosition,
   ColDef,
+  DetailRowItem,
   FilterChangeEvent,
   GridEditEvent,
   GroupAction,

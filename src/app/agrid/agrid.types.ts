@@ -216,7 +216,22 @@ export type GridItem<T extends object = Record<string, unknown>> =
   | null
   | 'ghost'
   | { groupLabel: string; count: number; collapsed: boolean; aggregates?: Record<string, unknown> }
-  | TreeRowItem<T>;
+  | TreeRowItem<T>
+  | DetailRowItem<T>;
+
+/**
+ * A master/detail panel row rendered immediately beneath its expanded parent data row.
+ *
+ * Carries the parent's `originalIndex` (so the panel can be re-collapsed and tracked) and the
+ * parent `row` (passed to `detailRenderer`). It is intentionally *not* a data-row item — selection,
+ * editing, and cell rendering skip it.
+ */
+export interface DetailRowItem<T extends object = Record<string, unknown>> {
+  /** Original index of the parent data row this detail panel belongs to. */
+  detailFor: number;
+  /** The parent row's data, passed to `detailRenderer`. */
+  row: T;
+}
 
 /**
  * A data row rendered inside a hierarchical tree.

@@ -6,6 +6,7 @@ import { AgridTreeConfig, ColDef, GridItem } from '../agrid.types';
 import {
   computeAggregates,
   isDataRowItem,
+  isDetailRowItem,
   isGroupHeaderItem,
   isTreeRowItem,
 } from '../agrid.utils';
@@ -30,6 +31,9 @@ describe('AgridProjectionModel', () => {
     sourceRows?: Record<string, unknown>[];
     treeConfig?: AgridTreeConfig | null;
     expandedTreeIds?: (string | number)[];
+    pinRow?: (row: Record<string, unknown>, index: number) => 'top' | 'bottom' | undefined;
+    masterDetail?: boolean;
+    expandedDetailIds?: number[];
   } = {}) {
     const control = options.control ?? new AgridControl();
     const dataSource = new AgridDataSource(options.sourceRows ?? rows);
@@ -49,6 +53,9 @@ describe('AgridProjectionModel', () => {
       }),
       treeConfig: signal(options.treeConfig ?? null),
       expandedTreeIds: signal(new Set(options.expandedTreeIds ?? [])),
+      pinRow: signal(options.pinRow),
+      masterDetail: signal(options.masterDetail ?? false),
+      expandedDetailIds: signal(new Set(options.expandedDetailIds ?? [])),
     });
     return { control, dataSource, model };
   }
@@ -219,6 +226,51 @@ describe('AgridProjectionModel', () => {
       const tree = model.filteredItems().filter(isTreeRowItem);
       expect(tree.map(i => (i.row as any).name)).toEqual(['Grandchild']);
       expect(tree[0].level).toBe(0);
+    });
+  });
+
+  describe('pinned rows', () => {
+    it('partitions rows into top/bottom and removes them from the body', () => {
+      const { model } = createModel({
+        pinRow: row => (row['name'] === 'Alice' ? 'top' : row['name'] === 'Carol' ? 'bottom' : undefined),
+      });
+
+      expect(model.pinnedTopItems().map(i => i.row['name'])).toEqual(['Alice']);
+      expect(model.pinnedBottomItems().map(i => i.row['name'])).toEqual(['Carol']);
+      expect(dataRows(model.filteredItems()).map(i => i.row['name'])).toEqual(['Bob']);
+    });
+
+    it('keeps the real source index on pinned rows so editing stays addressable', () => {
+      const { model } = createModel({ pinRow: row => (row['name'] === 'Carol' ? 'bottom' : undefined) });
+      expect(model.pinnedBottomItems()[0].originalIndex).toBe(2);
+    });
+
+    it('ignores pinRow in tree mode', () => {
+      const treeRows = [{ id: 1, parentId: null, name: 'Root' }];
+      const { model } = createModel({
+        sourceRows: treeRows,
+        treeConfig: { getId: r => (r as any).id, getParentId: r => (r as any).parentId, treeField: 'name' },
+        pinRow: () => 'top',
+      });
+      expect(model.pinnedTopItems()).toEqual([]);
+    });
+  });
+
+  describe('master/detail', () => {
+    it('inserts a detail item after each expanded row when masterDetail is on', () => {
+      const { model } = createModel({ masterDetail: true, expandedDetailIds: [1] });
+      const items = model.filteredItems();
+      const detail = items.filter(isDetailRowItem);
+      expect(detail).toHaveLength(1);
+      expect(detail[0].detailFor).toBe(1);
+      // the detail item directly follows its parent row
+      const parentPos = items.findIndex(i => isDataRowItem(i) && i.originalIndex === 1);
+      expect(isDetailRowItem(items[parentPos + 1])).toBe(true);
+    });
+
+    it('emits no detail items when masterDetail is off', () => {
+      const { model } = createModel({ expandedDetailIds: [0, 1] });
+      expect(model.filteredItems().some(isDetailRowItem)).toBe(false);
     });
   });
 });

@@ -14,6 +14,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
+import { NgTemplateOutlet } from '@angular/common';
 import { AgridCellComponent } from './rendering/agrid-cell.component';
 import { AgridBrowserAdapter } from './infrastructure/agrid-browser.adapter';
 import { AgridClipboardHandler, CellRange } from './selection/agrid-clipboard.handler';
@@ -46,11 +47,13 @@ import {
 } from './editing/agrid-sidebar.component';
 import {
   isDataRowItem as isDataRowItemFn,
+  isDetailRowItem as isDetailRowItemFn,
   isGroupHeaderItem as isGroupHeaderItemFn,
   isTreeRowItem as isTreeRowItemFn,
 } from './agrid.utils';
+import { AgridVariableRowSizeDirective } from './infrastructure/agrid-variable-row-size.strategy';
 import {
-  AgridField, CellContextMenuItem, CellPosition, ColDef, FilterChangeEvent, GridEditEvent,
+  AgridField, CellContextMenuItem, CellPosition, ColDef, DetailRowItem, FilterChangeEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, RecordEditEvent, RowClickEvent,
   RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, ValidationFailedEvent,
 } from './agrid.types';
@@ -81,6 +84,8 @@ export type { GridItem };
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     ScrollingModule,
+    NgTemplateOutlet,
+    AgridVariableRowSizeDirective,
     AgridCellComponent,
     AgridColumnMenuComponent,
     AgridFindPanelComponent,
@@ -109,7 +114,7 @@ export class AgridComponent<T extends object = any> {
   readonly autoAddRows = computed(() => this.provider().autoAddRows());
   readonly enableRowMarking = computed(() => this.provider().enableRowMarking);
   readonly showControlColumn = computed(() =>
-    this.provider().showControlColumn || this.enableRowMarking()
+    this.provider().showControlColumn || this.enableRowMarking() || this.masterDetail()
   );
   readonly controlColumnWidth = computed(() => this.enableRowMarking() ? 48 : 24);
   readonly showSidebar = computed(() => this.provider().showSidebar);
@@ -134,6 +139,38 @@ export class AgridComponent<T extends object = any> {
   readonly loading = computed(() => this.provider().loading());
   readonly emptyText = computed(() => this.provider().emptyText);
   readonly useSidebarEditor = computed(() => this.provider().useSidebarEditor);
+
+  /** Host callback for per-row CSS classes, or `undefined`. */
+  readonly rowClassFn = computed(() => this.provider().getRowClass as
+    | ((params: { row: Record<string, unknown>; index: number }) => string)
+    | undefined);
+  /** Host callback designating pinned rows, or `undefined`. */
+  readonly pinRowFn = computed(() => this.provider().pinRow as
+    | ((row: Record<string, unknown>, index: number) => 'top' | 'bottom' | undefined)
+    | undefined);
+
+  /**
+   * Effective pin resolver fed to the projection: a runtime UI override wins (including an explicit
+   * `null` unpin), otherwise the provider `pinRow` predicate decides. Returns `undefined` when
+   * neither pinning source is active, so the projection's pinning path stays off.
+   */
+  readonly effectivePinRow = computed(() => {
+    const predicate = this.pinRowFn();
+    const overrides = this._pinnedRows();
+    if (!predicate && overrides.size === 0) return undefined;
+    return (row: Record<string, unknown>, index: number): 'top' | 'bottom' | undefined => {
+      const override = overrides.get(index);
+      if (override !== undefined) return override ?? undefined;
+      return predicate?.(row, index);
+    };
+  });
+  /** Whether master/detail is enabled and applicable (flat mode only — not tree or grouped). */
+  readonly masterDetail = computed(
+    () => this.provider().masterDetail && !!this.provider().detailRenderer
+      && !this.treeConfig() && !this.control()?.groupByField(),
+  );
+  /** Fixed detail-panel height in pixels. */
+  readonly detailRowHeight = computed(() => this.provider().detailRowHeight);
 
   /** Column definitions from the active provider. */
   readonly colDefs = computed<ColDef[]>(
@@ -220,6 +257,16 @@ export class AgridComponent<T extends object = any> {
 
   /** Original index of the row awaiting delete confirmation, or `null`. */
   readonly pendingDeleteRow = signal<number | null>(null);
+
+  /** Original indices of rows whose master/detail panel is currently expanded. */
+  private readonly _expandedDetailIds = signal<Set<number>>(new Set());
+
+  /**
+   * Runtime per-row pin overrides set through the UI (keyed by original index). A `null` value
+   * explicitly unpins a row that the `pinRow` predicate would otherwise pin. Merged with the
+   * provider predicate by {@link effectivePinRow}.
+   */
+  private readonly _pinnedRows = signal<Map<number, 'top' | 'bottom' | null>>(new Map());
 
   private readonly markedIndices = signal<Set<number>>(new Set());
 
@@ -419,6 +466,9 @@ export class AgridComponent<T extends object = any> {
     expandedGroups: this.groupController.expandedGroups,
     treeConfig: this.treeConfig,
     expandedTreeIds: this.treeController.expandedIds,
+    pinRow: this.effectivePinRow,
+    masterDetail: this.masterDetail,
+    expandedDetailIds: this._expandedDetailIds,
   });
 
   private readonly editController = new AgridEditController({
@@ -446,9 +496,10 @@ export class AgridComponent<T extends object = any> {
   /** Number of semantic header rows currently rendered. */
   readonly headerRowCount = computed(() => this.hasHeaderGroups() ? 2 : 1);
 
-  /** Number of rendered semantic rows, including header rows. */
+  /** Number of rendered semantic rows, including header and pinned rows. */
   readonly ariaRowCount = computed(() =>
     this.displayItems().length + this.headerRowCount() + (this.showFooter() ? 1 : 0)
+    + this.pinnedTopItems().length + this.pinnedBottomItems().length
   );
 
   /** Number of visible semantic columns, including the optional control column. */
@@ -524,6 +575,26 @@ export class AgridComponent<T extends object = any> {
     return result;
   });
 
+  /** Rows pinned to the top of the body (rendered in a fixed container, outside virtual scroll). */
+  readonly pinnedTopItems = this.projection.pinnedTopItems;
+  /** Rows pinned to the bottom of the body (rendered in a fixed container, outside virtual scroll). */
+  readonly pinnedBottomItems = this.projection.pinnedBottomItems;
+  /** Whether any top-pinned rows are present. */
+  readonly hasPinnedTopRows = computed(() => this.pinnedTopItems().length > 0);
+  /** Whether any bottom-pinned rows are present. */
+  readonly hasPinnedBottomRows = computed(() => this.pinnedBottomItems().length > 0);
+
+  /**
+   * Per-item heights fed to the variable-size virtual-scroll strategy: a detail panel uses the
+   * configured detail height, every other row uses the standard row height. With no detail rows
+   * open the array is uniform, so scrolling matches the fixed-size strategy.
+   */
+  readonly itemSizes = computed<number[]>(() => {
+    const h = this.rowHeight();
+    const dh = this.detailRowHeight();
+    return this.displayItems().map(item => (isDetailRowItemFn(item) ? dh : h));
+  });
+
   // ── Menu signals ─────────────────────────────────────────────────────────────
 
   readonly groupActionsMenu = this.groupController.actionsMenu;
@@ -590,6 +661,7 @@ export class AgridComponent<T extends object = any> {
     visibleColDefs: this.visibleColDefs,
     filteredItems: this.filteredItems,
     locale: this.locale,
+    getRowClass: this.rowClassFn,
   });
 
   private readonly findController = new AgridFindController({
@@ -981,6 +1053,75 @@ export class AgridComponent<T extends object = any> {
     return isDataRowItemFn(item) ? item.originalIndex : null;
   }
 
+  /** @internal True when the item is a master/detail panel row. */
+  isDetailRowItem(item: GridItem): item is DetailRowItem {
+    return isDetailRowItemFn(item);
+  }
+
+  /** @internal Rendered pixel height of a virtual-scroll item (detail panels are taller). */
+  rowPx(item: GridItem): number {
+    return isDetailRowItemFn(item) ? this.detailRowHeight() : this.rowHeight();
+  }
+
+  /** @internal Resolved HTML for an expanded detail panel (auto-sanitized by `[innerHTML]`). */
+  detailHtml(item: GridItem): string {
+    if (!isDetailRowItemFn(item)) return '';
+    return this.provider().detailRenderer?.({ row: item.row as T }) ?? '';
+  }
+
+  /** @internal Resolved per-row CSS classes from the host `getRowClass` callback. */
+  getRowClass(row: Record<string, unknown>, index: number): string {
+    return this.presentation.getRowClass(row, index);
+  }
+
+  /** Whether the master/detail panel for `originalIndex` is currently expanded. */
+  isDetailExpanded(originalIndex: number): boolean {
+    return this._expandedDetailIds().has(originalIndex);
+  }
+
+  /** Toggle the master/detail panel for a row by its original (data-source) index. */
+  toggleDetail(originalIndex: number): void {
+    this._expandedDetailIds.update(ids => {
+      const next = new Set(ids);
+      if (next.has(originalIndex)) next.delete(originalIndex);
+      else next.add(originalIndex);
+      return next;
+    });
+  }
+
+  /** @internal Template handler for the detail expander chevron. */
+  onDetailToggle(originalIndex: number): void {
+    this.toggleDetail(originalIndex);
+  }
+
+  /** Effective pin position of a row (`'top'`, `'bottom'`, or `undefined`). */
+  rowPinState(originalIndex: number): 'top' | 'bottom' | undefined {
+    const resolver = this.effectivePinRow();
+    if (!resolver) return undefined;
+    return resolver(this.dataSource().rows()[originalIndex], originalIndex);
+  }
+
+  /**
+   * Pin a row to the top or bottom of the body, or unpin it with `null`.
+   * Keyed by the row's original (data-source) index; the pinned row stays fully interactive.
+   */
+  pinRowTo(originalIndex: number, position: 'top' | 'bottom' | null): void {
+    this._pinnedRows.update(map => {
+      const next = new Map(map);
+      // When no predicate could re-pin the row, an unpin can simply drop the override.
+      if (position === null && !this.pinRowFn()) next.delete(originalIndex);
+      else next.set(originalIndex, position);
+      return next;
+    });
+  }
+
+  /** @internal Template handler for the pin/unpin context-menu items; closes the open menus. */
+  onPinRow(originalIndex: number, position: 'top' | 'bottom' | null): void {
+    this.pinRowTo(originalIndex, position);
+    this.rowController.closeContextMenu();
+    this.rowController.closeCellContextMenu();
+  }
+
   // ── Template helpers — tree ───────────────────────────────────────────────────
 
   /** @internal True when `col` is the configured tree column. */
@@ -1032,6 +1173,7 @@ export class AgridComponent<T extends object = any> {
     if (item === 'ghost') return '__ghost__';
     if (item === null) return -1;
     if (isGroupHeaderItemFn(item)) return `__group__${item.groupLabel}`;
+    if (isDetailRowItemFn(item)) return `__detail__${item.detailFor}`;
     return item.originalIndex;
   };
 

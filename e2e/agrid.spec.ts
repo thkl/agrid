@@ -15,7 +15,7 @@ test.describe('agrid browser interactions', () => {
   });
 
   test('supports keyboard editing and navigation', async ({ page }) => {
-    await page.goto('/demo');
+    await page.goto('/#/demo');
     const grid = page.getByRole('grid');
     const firstName = page.locator(cell(0, 1)).first();
 
@@ -32,7 +32,7 @@ test.describe('agrid browser interactions', () => {
   });
 
   test('keeps typing in header filters instead of reopening the selected cell editor', async ({ page }) => {
-    await page.goto('/demo');
+    await page.goto('/#/demo');
     const selectedCell = page.locator(cell(0, 1)).first();
     await selectedCell.click();
 
@@ -59,9 +59,9 @@ test.describe('agrid browser interactions', () => {
   });
 
   test('edits date columns with a native date input', async ({ page }) => {
-    await page.goto('/demo');
+    await page.goto('/#/demo');
     const grid = page.getByRole('grid');
-    const hiredAt = page.locator(cell(0, 5)).first();
+    const hiredAt = page.locator(cell(0, 6)).first();
 
     await hiredAt.click();
     await grid.press('Enter');
@@ -76,7 +76,7 @@ test.describe('agrid browser interactions', () => {
 
   test('copies and pastes a selected cell through browser clipboard events', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await page.goto('/demo');
+    await page.goto('/#/demo');
     const grid = page.getByRole('grid');
     const source = page.locator(cell(0, 1)).first();
     const target = page.locator(cell(1, 1)).first();
@@ -94,7 +94,7 @@ test.describe('agrid browser interactions', () => {
 
   test('includes marked rows in clipboard copies', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await page.goto('/demo');
+    await page.goto('/#/demo');
     const grid = page.getByRole('grid');
     const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
     const controlCell = page.locator(
@@ -115,7 +115,7 @@ test.describe('agrid browser interactions', () => {
   });
 
   test('confirms row deletion inside the faded target row', async ({ page }) => {
-    await page.goto('/demo');
+    await page.goto('/#/demo');
     const firstControlCell = page.locator(
       '.ag-pinned-pane:not(.ag-pinned-pane--right) .ag-control-cell',
     ).first();
@@ -142,7 +142,7 @@ test.describe('agrid browser interactions', () => {
   });
 
   test('exposes coherent grid accessibility state', async ({ page }) => {
-    await page.goto('/readonly');
+    await page.goto('/#/readonly');
     const grid = page.getByRole('grid');
 
     await expect(grid).toHaveAttribute('aria-label', 'Data grid');
@@ -156,7 +156,7 @@ test.describe('agrid browser interactions', () => {
   });
 
   test('navigates client-side pages with labelled controls', async ({ page }) => {
-    await page.goto('/pagination');
+    await page.goto('/#/pagination');
     const pageInfo = page.locator('.ag-page-info');
 
     await expect(pageInfo).toHaveText('1 / 20');
@@ -168,7 +168,7 @@ test.describe('agrid browser interactions', () => {
   });
 
   test('keeps left and right pinned columns fixed during horizontal scrolling', async ({ page }) => {
-    await page.goto('/pinning');
+    await page.goto('/#/pinning');
     const leftHeader = page.locator(
       '.ag-pinned-pane:not(.ag-pinned-pane--right) .ag-header-cell[data-col-field="id"]',
     );
@@ -190,7 +190,7 @@ test.describe('agrid browser interactions', () => {
   });
 
   test('reorders unlocked columns by dragging their headers', async ({ page }) => {
-    await page.goto('/pinning');
+    await page.goto('/#/pinning');
     const nameHeader = page.locator('.ag-horizontal-scroll > .ag-header [data-col-field="name"]');
     const emailHeader = page.locator('.ag-horizontal-scroll > .ag-header [data-col-field="email"]');
     const nameCell = page.locator('.ag-horizontal-scroll agrid-cell[data-col-field="name"]').first();
@@ -239,7 +239,7 @@ test.describe('agrid browser interactions', () => {
   });
 
   test('reorders all columns beneath a grouped header', async ({ page }) => {
-    await page.goto('/demo');
+    await page.goto('/#/demo');
     const groupHeader = page.locator(
       '.ag-scroll-pane .ag-header-group-cell[data-header-group="employee"]',
     );
@@ -278,7 +278,9 @@ test.describe('agrid browser interactions', () => {
       'firstName',
       'lastName',
       'departmentId',
+      'salary',
       'hiredAt',
+      'active',
     ]);
     await expect(groupHeader).toHaveCount(1);
   });

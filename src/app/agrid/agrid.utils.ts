@@ -1,5 +1,5 @@
 import { ColumnFilter } from './agrid-control';
-import { ColDef, GridItem, TreeRowItem, ValueOption } from './agrid.types';
+import { ColDef, DetailRowItem, GridItem, TreeRowItem, ValueOption } from './agrid.types';
 
 // Display resolution
 
@@ -76,7 +76,12 @@ export function getDisplayForField(col: ColDef | undefined, raw: unknown, locale
 
 /** Returns whether a virtual-scroll item represents a data row. */
 export function isDataRowItem(item: GridItem): item is { row: Record<string, unknown>; originalIndex: number } {
-  return typeof item === 'object' && item !== null && 'row' in item;
+  return typeof item === 'object' && item !== null && 'row' in item && !('detailFor' in item);
+}
+
+/** Returns whether a virtual-scroll item represents a master/detail panel row. */
+export function isDetailRowItem<T extends object>(item: GridItem<T>): item is DetailRowItem<T> {
+  return typeof item === 'object' && item !== null && 'detailFor' in item;
 }
 
 /** Returns whether a virtual-scroll item represents a group header. */

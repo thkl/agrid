@@ -94,19 +94,19 @@
           }
         </div>
 
-        <cdk-virtual-scroll-viewport #pinnedViewport class="ag-body ag-pinned-body" [itemSize]="rowHeight()"
-          [style.width.px]="pinnedPaneWidth()">
-          <div *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem" role="row"
-            [attr.aria-rowindex]="di + headerRowCount() + 1"
+        <ng-template #leftRow let-item let-ariaIndex="ariaIndex">
+          <div role="row"
+            [attr.aria-rowindex]="ariaIndex"
             [attr.aria-selected]="isDataRowItem(item) && isRowSelected(item.originalIndex) ? 'true' : null"
-            [class.ag-row]="!isGroupHeaderItem(item)" [class.ag-add-row]="item === null"
+            [class.ag-row]="!isGroupHeaderItem(item) && !isDetailRowItem(item)" [class.ag-add-row]="item === null"
             [class.ag-add-row--selected]="item === null && isAddRowSelected()" [class.ag-ghost-row]="item === 'ghost'"
-            [class.ag-group-header-row]="isGroupHeaderItem(item)"
+            [class.ag-group-header-row]="isGroupHeaderItem(item)" [class.ag-detail-row]="isDetailRowItem(item)"
             [class.ag-row--odd]="isDataRowItem(item) && dataRowIsOdd().get(item.originalIndex) === true"
             [class.ag-row--selected]="isPinnedPaneRowSelected(item)"
             [class.ag-row--marked]="isDataRowItem(item) && isRowMarked(item.originalIndex)"
             [class.ag-row--pending-delete]="isDataRowItem(item) && isRowPendingDelete(item.originalIndex)"
-            [attr.data-original-index]="getItemOriginalIndex(item)" [style.height.px]="rowHeight()"
+            [class]="isDataRowItem(item) ? getRowClass(item.row, item.originalIndex) : ''"
+            [attr.data-original-index]="getItemOriginalIndex(item)" [style.height.px]="rowPx(item)"
             [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? pinnedGridTemplateColumns() : null"
             (pointerdown)="isDataRowItem(item) && onRowPointerDown($event, item.originalIndex)"
             (click)="isDataRowItem(item) && onRowClick($event, item)">
@@ -116,6 +116,14 @@
               [class.ag-control-cell--reorder]="allowRowReorder()"
               (contextmenu)="onControlContextMenu($event, item.originalIndex)" (click)="$event.stopPropagation()"
               (pointerdown)="onControlPointerDown($event, item.originalIndex)">
+              @if (masterDetail()) {
+              <button class="ag-detail-toggle" type="button"
+                [class.ag-detail-toggle--expanded]="isDetailExpanded(item.originalIndex)"
+                [attr.aria-expanded]="isDetailExpanded(item.originalIndex)"
+                [attr.aria-label]="localeText().toggleDetail"
+                (pointerdown)="$event.stopPropagation()"
+                (click)="onDetailToggle(item.originalIndex); $event.stopPropagation()">▶</button>
+              }
               @if (enableRowMarking()) {
               <input class="ag-row-marker" type="checkbox" [checked]="isRowMarked(item.originalIndex)"
                 [attr.aria-label]="localeText().markRow"
@@ -165,10 +173,36 @@
               getGhostCellDisplay(col) }}</div>
             }
             } @else {
-            <div class="ag-pinned-group-spacer"></div>
+            <div class="ag-pinned-row-spacer"></div>
             }
           </div>
+        </ng-template>
+
+        @if (hasPinnedTopRows()) {
+        <div class="ag-pinned-rows ag-pinned-rows--top ag-pinned-body" [style.width.px]="pinnedPaneWidth()">
+          @for (item of pinnedTopItems(); track item.originalIndex) {
+          <ng-container [ngTemplateOutlet]="leftRow"
+            [ngTemplateOutletContext]="{ $implicit: item, ariaIndex: headerRowCount() + 1 + $index }" />
+          }
+        </div>
+        }
+
+        <cdk-virtual-scroll-viewport #pinnedViewport class="ag-body ag-pinned-body" [agridVariableRowSize]="itemSizes()"
+          [style.width.px]="pinnedPaneWidth()">
+          <ng-container *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem">
+            <ng-container [ngTemplateOutlet]="leftRow"
+              [ngTemplateOutletContext]="{ $implicit: item, ariaIndex: di + headerRowCount() + 1 + pinnedTopItems().length }" />
+          </ng-container>
         </cdk-virtual-scroll-viewport>
+
+        @if (hasPinnedBottomRows()) {
+        <div class="ag-pinned-rows ag-pinned-rows--bottom ag-pinned-body" [style.width.px]="pinnedPaneWidth()">
+          @for (item of pinnedBottomItems(); track item.originalIndex) {
+          <ng-container [ngTemplateOutlet]="leftRow"
+            [ngTemplateOutletContext]="{ $implicit: item, ariaIndex: headerRowCount() + 1 + pinnedTopItems().length + displayItems().length + $index }" />
+          }
+        </div>
+        }
 
         @if (showFooter()) {
         <div class="ag-footer" role="row"
@@ -262,19 +296,19 @@
             }
           </div>
 
-          <cdk-virtual-scroll-viewport #scrollViewport class="ag-body" [itemSize]="rowHeight()"
-            [style.min-width.px]="scrollableTotalWidth()" (scroll)="onBodyScroll()">
-            <div *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem" role="row"
-              [attr.aria-rowindex]="di + headerRowCount() + 1"
+          <ng-template #bodyRow let-item let-ariaIndex="ariaIndex">
+            <div role="row"
+              [attr.aria-rowindex]="ariaIndex"
               [attr.aria-selected]="isDataRowItem(item) && isRowSelected(item.originalIndex) ? 'true' : null"
-              [class.ag-row]="!isGroupHeaderItem(item)" [class.ag-add-row]="item === null"
+              [class.ag-row]="!isGroupHeaderItem(item) && !isDetailRowItem(item)" [class.ag-add-row]="item === null"
               [class.ag-add-row--selected]="item === null && isAddRowSelected()" [class.ag-ghost-row]="item === 'ghost'"
-              [class.ag-group-header-row]="isGroupHeaderItem(item)"
+              [class.ag-group-header-row]="isGroupHeaderItem(item)" [class.ag-detail-row]="isDetailRowItem(item)"
               [class.ag-row--odd]="isDataRowItem(item) && dataRowIsOdd().get(item.originalIndex) === true"
               [class.ag-row--selected]="isDataRowItem(item) && isRowSelected(item.originalIndex)"
               [class.ag-row--marked]="isDataRowItem(item) && isRowMarked(item.originalIndex)"
               [class.ag-row--pending-delete]="isDataRowItem(item) && isRowPendingDelete(item.originalIndex)"
-              [attr.data-original-index]="getItemOriginalIndex(item)" [style.height.px]="rowHeight()"
+              [class]="isDataRowItem(item) ? getRowClass(item.row, item.originalIndex) : ''"
+              [attr.data-original-index]="getItemOriginalIndex(item)" [style.height.px]="rowPx(item)"
               [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? scrollableGridTemplateColumns() : null"
               (pointerdown)="isDataRowItem(item) && onRowPointerDown($event, item.originalIndex)"
               (click)="isDataRowItem(item) && onRowClick($event, item)">
@@ -317,6 +351,9 @@
                 [style.transform]="'translateX(' + getColReorderOffset(col.field) + 'px)'">{{
                 getGhostCellDisplay(col) }}</div>
               }
+              } @else if (isDetailRowItem(item)) {
+              <div class="ag-detail-panel" [style.height.px]="detailRowHeight()"
+                [style.min-width.px]="scrollableTotalWidth()" [innerHTML]="detailHtml(item)"></div>
               } @else {
               <div class="ag-group-header-content" [style.min-width.px]="scrollableTotalWidth()">
                 <div class="ag-group-header-main"
@@ -361,7 +398,33 @@
               </div>
               }
             </div>
+          </ng-template>
+
+          @if (hasPinnedTopRows()) {
+          <div class="ag-pinned-rows ag-pinned-rows--top" [style.min-width.px]="scrollableTotalWidth()">
+            @for (item of pinnedTopItems(); track item.originalIndex) {
+            <ng-container [ngTemplateOutlet]="bodyRow"
+              [ngTemplateOutletContext]="{ $implicit: item, ariaIndex: headerRowCount() + 1 + $index }" />
+            }
+          </div>
+          }
+
+          <cdk-virtual-scroll-viewport #scrollViewport class="ag-body" [agridVariableRowSize]="itemSizes()"
+            [style.min-width.px]="scrollableTotalWidth()" (scroll)="onBodyScroll()">
+            <ng-container *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem">
+              <ng-container [ngTemplateOutlet]="bodyRow"
+                [ngTemplateOutletContext]="{ $implicit: item, ariaIndex: di + headerRowCount() + 1 + pinnedTopItems().length }" />
+            </ng-container>
           </cdk-virtual-scroll-viewport>
+
+          @if (hasPinnedBottomRows()) {
+          <div class="ag-pinned-rows ag-pinned-rows--bottom" [style.min-width.px]="scrollableTotalWidth()">
+            @for (item of pinnedBottomItems(); track item.originalIndex) {
+            <ng-container [ngTemplateOutlet]="bodyRow"
+              [ngTemplateOutletContext]="{ $implicit: item, ariaIndex: headerRowCount() + 1 + pinnedTopItems().length + displayItems().length + $index }" />
+            }
+          </div>
+          }
 
           @if (showFooter()) {
           <div class="ag-footer" role="row"
@@ -451,18 +514,19 @@
           }
         </div>
 
-        <cdk-virtual-scroll-viewport #rightPinnedViewport class="ag-body ag-pinned-body ag-right-pinned-body"
-          [itemSize]="rowHeight()" [style.width.px]="rightPinnedPaneWidth()" (scroll)="onRightPinnedBodyScroll()">
-          <div *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem" role="row"
-            [attr.aria-rowindex]="di + headerRowCount() + 1"
+        <ng-template #rightRow let-item let-ariaIndex="ariaIndex">
+          <div role="row"
+            [attr.aria-rowindex]="ariaIndex"
             [attr.aria-selected]="isDataRowItem(item) && isRowSelected(item.originalIndex) ? 'true' : null"
-            [class.ag-row]="!isGroupHeaderItem(item)" [class.ag-add-row]="item === null"
+            [class.ag-row]="!isGroupHeaderItem(item) && !isDetailRowItem(item)" [class.ag-add-row]="item === null"
             [class.ag-ghost-row]="item === 'ghost'" [class.ag-group-header-row]="isGroupHeaderItem(item)"
+            [class.ag-detail-row]="isDetailRowItem(item)"
             [class.ag-row--odd]="isDataRowItem(item) && dataRowIsOdd().get(item.originalIndex) === true"
             [class.ag-row--selected]="isDataRowItem(item) && isRowSelected(item.originalIndex)"
             [class.ag-row--marked]="isDataRowItem(item) && isRowMarked(item.originalIndex)"
             [class.ag-row--pending-delete]="isDataRowItem(item) && isRowPendingDelete(item.originalIndex)"
-            [style.height.px]="rowHeight()"
+            [class]="isDataRowItem(item) ? getRowClass(item.row, item.originalIndex) : ''"
+            [style.height.px]="rowPx(item)"
             [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? rightGridTemplateColumns() : null">
             @if (isDataRowItem(item)) {
             @for (col of rightPinnedColDefs(); track col.field) {
@@ -502,10 +566,38 @@
               [class.ag-cell--pinned-first]="isFirstRightPinnedColumn(col.field)">{{ getGhostCellDisplay(col) }}</div>
             }
             } @else {
-            <div class="ag-pinned-group-spacer"></div>
+            <div class="ag-pinned-row-spacer"></div>
             }
           </div>
+        </ng-template>
+
+        @if (hasPinnedTopRows()) {
+        <div class="ag-pinned-rows ag-pinned-rows--top ag-pinned-body ag-right-pinned-body"
+          [style.width.px]="rightPinnedPaneWidth()">
+          @for (item of pinnedTopItems(); track item.originalIndex) {
+          <ng-container [ngTemplateOutlet]="rightRow"
+            [ngTemplateOutletContext]="{ $implicit: item, ariaIndex: headerRowCount() + 1 + $index }" />
+          }
+        </div>
+        }
+
+        <cdk-virtual-scroll-viewport #rightPinnedViewport class="ag-body ag-pinned-body ag-right-pinned-body"
+          [agridVariableRowSize]="itemSizes()" [style.width.px]="rightPinnedPaneWidth()" (scroll)="onRightPinnedBodyScroll()">
+          <ng-container *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem">
+            <ng-container [ngTemplateOutlet]="rightRow"
+              [ngTemplateOutletContext]="{ $implicit: item, ariaIndex: di + headerRowCount() + 1 + pinnedTopItems().length }" />
+          </ng-container>
         </cdk-virtual-scroll-viewport>
+
+        @if (hasPinnedBottomRows()) {
+        <div class="ag-pinned-rows ag-pinned-rows--bottom ag-pinned-body ag-right-pinned-body"
+          [style.width.px]="rightPinnedPaneWidth()">
+          @for (item of pinnedBottomItems(); track item.originalIndex) {
+          <ng-container [ngTemplateOutlet]="rightRow"
+            [ngTemplateOutletContext]="{ $implicit: item, ariaIndex: headerRowCount() + 1 + pinnedTopItems().length + displayItems().length + $index }" />
+          }
+        </div>
+        }
 
         @if (showFooter()) {
         <div class="ag-footer" role="row"
@@ -585,6 +677,15 @@
   @if (contextMenu(); as menu) {
   <div class="ag-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y"
     (click)="$event.stopPropagation()">
+    @if (!treeConfig()) {
+    @if (rowPinState(menu.rowIndex)) {
+    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, null)">{{ localeText().unpinRow }}</button>
+    } @else {
+    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, 'top')">{{ localeText().pinRowTop }}</button>
+    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, 'bottom')">{{ localeText().pinRowBottom }}</button>
+    }
+    <div class="ag-context-separator" role="separator"></div>
+    }
     <button class="ag-context-item ag-context-item--danger" role="menuitem" (click)="deleteRow(menu.rowIndex)">
       {{ localeText().deleteRow }}
     </button>
@@ -599,6 +700,15 @@
     <button class="ag-context-item" role="menuitem" (click)="copyCellToClipboard(menu.rowIndex, col)">{{ localeText().copyCellValue
       }}</button>
     <button class="ag-context-item" role="menuitem" (click)="copyRowToClipboard(menu.rowIndex)">{{ localeText().copyRow }}</button>
+    @if (!treeConfig()) {
+    <div class="ag-context-separator" role="separator"></div>
+    @if (rowPinState(menu.rowIndex)) {
+    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, null)">{{ localeText().unpinRow }}</button>
+    } @else {
+    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, 'top')">{{ localeText().pinRowTop }}</button>
+    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, 'bottom')">{{ localeText().pinRowBottom }}</button>
+    }
+    }
     @if (allowAddRows() && !readonlyGrid()) {
     <div class="ag-context-separator" role="separator"></div>
     <button class="ag-context-item" role="menuitem" (click)="insertRowAt(menu.rowIndex)">{{ localeText().insertRowAbove }}</button>

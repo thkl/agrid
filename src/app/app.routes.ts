@@ -45,5 +45,9 @@ export const routes: Routes = [
     path: 'tree',
     loadComponent: () => import('./demos/tree.component').then(m => m.TreeDemoComponent),
   },
+  {
+    path: 'master-detail',
+    loadComponent: () => import('./demos/master-detail.component').then(m => m.MasterDetailDemoComponent),
+  },
 
 ];

@@ -10,6 +10,8 @@ export interface AgridPresentationOptions {
   visibleColDefs: Signal<ColDef[]>;
   filteredItems: Signal<GridItem[]>;
   locale: Signal<string>;
+  /** Optional host callback returning CSS classes for a whole data row. */
+  getRowClass?: Signal<((params: { row: Record<string, unknown>; index: number }) => string) | undefined>;
 }
 
 /**
@@ -30,6 +32,11 @@ export class AgridPresentationService {
   /** Resolves dynamic CSS classes configured for a cell. */
   getCellClass(col: ColDef, value: unknown, row: Record<string, unknown>): string {
     return col.cellClass?.({ value, row }) ?? '';
+  }
+
+  /** Resolves dynamic CSS classes configured for a whole data row. */
+  getRowClass(row: Record<string, unknown>, index: number): string {
+    return this.opts.getRowClass?.()?.({ row, index }) ?? '';
   }
 
   /** Returns the compact label for a built-in aggregate. */

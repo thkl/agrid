@@ -1021,3 +1021,63 @@
   outline: none;
   border-color: var(--agrid-color-accent-border);
 }
+
+/* ── Master/detail ─────────────────────────────────────────────── */
+.ag-detail-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--agrid-color-text-muted);
+  transition: transform 120ms ease, color 120ms ease;
+}
+
+.ag-detail-toggle:hover {
+  color: var(--agrid-color-text);
+}
+
+.ag-detail-toggle--expanded {
+  transform: rotate(90deg);
+}
+
+.ag-detail-row {
+  display: block;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.ag-detail-panel {
+  box-sizing: border-box;
+  height: 100%;
+  overflow: auto;
+  padding: 8px 12px;
+  background: var(--agrid-color-bg-subtle);
+  border-bottom: 1px solid var(--agrid-color-border);
+}
+
+/* ── Pinned rows (top/bottom) ──────────────────────────────────── */
+.ag-pinned-rows {
+  position: relative;
+  z-index: 3;
+  flex: none;
+  background: var(--agrid-color-bg);
+}
+
+.ag-pinned-rows--top {
+  box-shadow: 0 2px 4px -2px var(--agrid-color-shadow);
+}
+
+.ag-pinned-rows--bottom {
+  box-shadow: 0 -2px 4px -2px var(--agrid-color-shadow);
+}
+
+.ag-pinned-rows .ag-row {
+  background: var(--agrid-color-bg-subtle);
+}

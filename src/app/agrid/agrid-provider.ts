@@ -95,6 +95,50 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   loading?: boolean;
   /** Message shown when the grid has no rows to display. */
   emptyText?: string;
+
+  /**
+   * Return one or more CSS class names applied to a whole data row, based on its data and index.
+   * Complements the per-cell {@link ColDef.cellClass}.
+   *
+   * @example
+   * ```ts
+   * getRowClass: ({ row }) => row.status === 'overdue' ? 'row-danger' : ''
+   * ```
+   */
+  getRowClass?: (params: { row: T; index: number }) => string;
+
+  /**
+   * Designate rows to pin to the top or bottom of the grid body. Pinned rows stay visible during
+   * vertical scroll and are excluded from grouping and pagination, but remain fully interactive
+   * (editable/selectable) because they keep their real data-source index.
+   *
+   * Return `'top'`, `'bottom'`, or `undefined` (a normal scrolling row).
+   *
+   * @example
+   * ```ts
+   * pinRow: row => row.isSummary ? 'bottom' : undefined
+   * ```
+   */
+  pinRow?: (row: T, index: number) => 'top' | 'bottom' | undefined;
+
+  /**
+   * Enable master/detail rows: each data row can expand to reveal a detail panel rendered
+   * beneath it. Requires {@link detailRenderer}. Applies in flat mode only (not with grouping
+   * or tree mode). @default false
+   */
+  masterDetail?: boolean;
+  /**
+   * Returns the HTML shown inside an expanded detail panel. Angular's built-in HTML sanitization
+   * is applied automatically (same as {@link ColDef.cellRenderer}).
+   *
+   * @example
+   * ```ts
+   * detailRenderer: ({ row }) => `<div class="detail">${row.notes}</div>`
+   * ```
+   */
+  detailRenderer?: (params: { row: T }) => string;
+  /** Fixed height in pixels of an expanded detail panel row. @default 200 */
+  detailRowHeight?: number;
 }
 
 /**
@@ -182,6 +226,17 @@ export class AgridProvider<T extends object = any> {
   /** Whether edits are restricted to the sidebar editor. */
   useSidebarEditor: boolean;
 
+  /** Optional callback returning CSS classes for a whole data row. */
+  getRowClass?: (params: { row: T; index: number }) => string;
+  /** Optional callback designating rows pinned to the top or bottom of the body. */
+  pinRow?: (row: T, index: number) => 'top' | 'bottom' | undefined;
+  /** Whether master/detail expandable detail rows are enabled. */
+  masterDetail: boolean;
+  /** Returns the sanitized HTML rendered inside an expanded detail panel. */
+  detailRenderer?: (params: { row: T }) => string;
+  /** Fixed height in pixels of an expanded detail panel row. */
+  detailRowHeight: number;
+
   /** Toggle the loading overlay without recreating the provider. @default signal(false) */
   readonly loading: WritableSignal<boolean>;
   /** Toggle readonly mode without recreating the provider. @default signal(false) */
@@ -220,6 +275,11 @@ export class AgridProvider<T extends object = any> {
     this.loading          = signal(config.loading ?? false);
     this.readonlyGrid     = signal(config.readonly ?? false);
     this.useSidebarEditor = config.useSidebarEditor ?? false;
+    this.getRowClass      = config.getRowClass;
+    this.pinRow           = config.pinRow;
+    this.masterDetail     = config.masterDetail ?? false;
+    this.detailRenderer   = config.detailRenderer;
+    this.detailRowHeight  = config.detailRowHeight ?? 200;
   }
 
   /** Returns the current reactive row array. */

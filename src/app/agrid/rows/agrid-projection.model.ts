@@ -33,6 +33,12 @@ export interface AgridProjectionOptions {
   treeConfig: Signal<AgridTreeConfig | null>;
   /** Expanded node ids when tree mode is active. */
   expandedTreeIds: Signal<Set<string | number>>;
+  /** Host callback designating rows pinned to the top/bottom, or `undefined` when not pinning. */
+  pinRow?: Signal<((row: Record<string, unknown>, index: number) => 'top' | 'bottom' | undefined) | undefined>;
+  /** Whether master/detail expandable rows are enabled. */
+  masterDetail?: Signal<boolean>;
+  /** Original indices of rows whose detail panel is currently expanded. */
+  expandedDetailIds?: Signal<Set<number>>;
 }
 
 /**
@@ -73,6 +79,41 @@ export class AgridProjectionModel {
 
   /** Total filtered row count, unaffected by client-side pagination. */
   readonly filteredRowCount = computed(() => this.filteredSortedIndices().length);
+
+  /** Whether row pinning is active: a `pinRow` callback is supplied and not in tree mode. */
+  private readonly pinningActive = computed(() => !!this.opts.pinRow?.() && !this.opts.treeConfig());
+
+  /**
+   * Partitions the filtered+sorted indices into top-pinned, bottom-pinned, and a body set.
+   * Pinned rows keep their real source index, so editing/selection over them is unchanged.
+   */
+  private readonly partitionPinned = computed<{ top: number[]; bottom: number[]; bodySet: Set<number> }>(() => {
+    if (!this.pinningActive()) return { top: [], bottom: [], bodySet: new Set<number>() };
+    const rows = this.opts.dataSource().rows();
+    const pinRow = this.opts.pinRow!()!;
+    const top: number[] = [];
+    const bottom: number[] = [];
+    const bodySet = new Set<number>();
+    for (const index of this.filteredSortedIndices()) {
+      const where = pinRow(rows[index], index);
+      if (where === 'top') top.push(index);
+      else if (where === 'bottom') bottom.push(index);
+      else bodySet.add(index);
+    }
+    return { top, bottom, bodySet };
+  });
+
+  /** Top-pinned rows as data-row items, in filtered+sorted order. */
+  readonly pinnedTopItems = computed<{ row: Record<string, unknown>; originalIndex: number }[]>(() => {
+    const rows = this.opts.dataSource().rows();
+    return this.partitionPinned().top.map(originalIndex => ({ row: rows[originalIndex], originalIndex }));
+  });
+
+  /** Bottom-pinned rows as data-row items, in filtered+sorted order. */
+  readonly pinnedBottomItems = computed<{ row: Record<string, unknown>; originalIndex: number }[]>(() => {
+    const rows = this.opts.dataSource().rows();
+    return this.partitionPinned().bottom.map(originalIndex => ({ row: rows[originalIndex], originalIndex }));
+  });
 
   /** All source indices in active sort order, ignoring filters. Used for tree ancestor ordering. */
   private readonly allSortedIndices = computed<number[]>(() => {
@@ -167,6 +208,12 @@ export class AgridProjectionModel {
       return items;
     }
 
+    // Pull pinned rows out of the body; they render in fixed top/bottom containers instead.
+    if (this.pinningActive()) {
+      const bodySet = this.partitionPinned().bodySet;
+      indices = indices.filter(index => bodySet.has(index));
+    }
+
     if (control) {
       const groupField = control.groupByField();
       const pageSize = control.pageSize();
@@ -201,10 +248,14 @@ export class AgridProjectionModel {
       }
     }
 
-    const items: GridItem[] = indices.map(originalIndex => ({
-      row: rows[originalIndex],
-      originalIndex,
-    }));
+    // Flat mode: optionally interleave a master/detail panel item after each expanded row.
+    const expandedDetail = this.opts.masterDetail?.() ? this.opts.expandedDetailIds?.() : null;
+    const items: GridItem[] = [];
+    for (const originalIndex of indices) {
+      const row = rows[originalIndex];
+      items.push({ row, originalIndex });
+      if (expandedDetail?.has(originalIndex)) items.push({ detailFor: originalIndex, row });
+    }
     this.appendAddRow(items);
     return items;
   });

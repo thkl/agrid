@@ -93,6 +93,9 @@ export class PageComponent {
 - **Pagination** — built-in page controls driven by `AgridControl`.
 - **Custom cell renderers** — return HTML strings per column for rich cell content.
 - **Column autosize all** — fit every visible column to its content in one call.
+- **Master/detail rows** — expand any row to reveal a custom HTML detail panel beneath it.
+- **Pinned rows** — keep summary/total rows fixed at the top or bottom of the body.
+- **Row CSS classes** — apply conditional classes to whole rows via `getRowClass`.
 
 ## Component API
 
@@ -241,6 +244,11 @@ readonly gridProvider = new AgridProvider({
 | `emptyText` | `string` | `undefined` | Text shown when the grid has no rows. Falls back to the locale default. |
 | `readonly` | `boolean` | `false` | Initial value for the readonly signal. Makes all cells non-editable. |
 | `loading` | `boolean` | `false` | Initial value for the loading signal. Shows a loading overlay over the grid body. |
+| `getRowClass` | `(p: { row; index }) => string` | `undefined` | Returns CSS class names applied to a whole data row. Complements `ColDef.cellClass`. |
+| `pinRow` | `(row, index) => 'top' \| 'bottom' \| undefined` | `undefined` | Pins matching rows to the top/bottom of the body (see [Master/Detail and Pinned Rows](#masterdetail-and-pinned-rows)). |
+| `masterDetail` | `boolean` | `false` | Enables expandable detail panels. Requires `detailRenderer`. Flat mode only (not tree/grouped). |
+| `detailRenderer` | `(p: { row }) => string` | `undefined` | Returns sanitized HTML for an expanded detail panel. |
+| `detailRowHeight` | `number` | `200` | Fixed height in pixels of an expanded detail panel. |
 
 ### Dynamic Provider Options
 
@@ -980,6 +988,58 @@ Paste and fill store multiple entries as one `HistoryItem`, so Ctrl/Cmd+Z revers
 - Paste skips read-only columns.
 - Fill repeats the selected source block into the dragged target area.
 - Paste and fill are each one undo history item.
+
+## Master/Detail and Pinned Rows
+
+### Master/detail
+
+Set `masterDetail: true` and provide a `detailRenderer` to make every data row expandable. A chevron
+appears in the control column; clicking it reveals a detail panel rendered beneath the row. The
+renderer returns an HTML string (sanitized automatically, like `cellRenderer`).
+
+```ts
+readonly provider = new AgridProvider<Order>({
+  columns, datasource,
+  masterDetail: true,
+  detailRowHeight: 160, // fixed panel height in px (default 200)
+  detailRenderer: ({ row }) => `<div class="order-detail">${row.notes}</div>`,
+});
+```
+
+Detail panels are sized by a built-in variable-height virtual-scroll strategy, so large lists stay
+performant whether or not panels are open. Master/detail applies in **flat mode only** — it is
+disabled while grouping or tree mode is active. Toggle a panel imperatively with the public
+`toggleDetail(originalIndex)` / `isDetailExpanded(originalIndex)` methods on the component.
+
+### Pinned rows
+
+`pinRow` designates rows to keep fixed at the top or bottom of the body during vertical scroll —
+ideal for header or total/summary rows. Pinned rows are pulled out of grouping and pagination but
+keep their real data-source index, so editing, selection, and cell rendering work on them unchanged.
+
+```ts
+readonly provider = new AgridProvider<Order>({
+  columns, datasource, // datasource includes a summary row
+  pinRow: row => (row.isSummary ? 'bottom' : undefined),
+});
+```
+
+**Interactive pinning.** Right-click any row (its cell context menu, or the control-cell row menu)
+to **Pin row to top / bottom** or **Unpin row**. A runtime override always wins over the `pinRow`
+predicate, so a user can unpin a declaratively-pinned row. Drive it programmatically with the
+public component methods `pinRowTo(originalIndex, 'top' | 'bottom' | null)` and
+`rowPinState(originalIndex)`.
+
+> Pinned rows are designated over existing data-source rows (not a separate detached array).
+> Keyboard arrow-navigation and range-selection do not currently cross the body↔pinned boundary.
+
+### Row CSS classes
+
+`getRowClass` returns class names for a whole data row, complementing the per-cell `ColDef.cellClass`:
+
+```ts
+getRowClass: ({ row }) => (row.status === 'overdue' ? 'row-danger' : '')
+```
 
 ## Pinned Columns
 
