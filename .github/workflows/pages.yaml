@@ -21,25 +21,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v6
-
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: pnpm
-
-      - name: Configure pnpm build permissions
-        run: |
-          echo "allowBuilds:" > pnpm-workspace.yaml
-          echo "  - '@parcel/watcher'" >> pnpm-workspace.yaml
-          echo "  - 'esbuild'" >> pnpm-workspace.yaml
-          echo "  - 'lmdb'" >> pnpm-workspace.yaml
-          echo "  - 'msgpackr-extract'" >> pnpm-workspace.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm install --no-audit --no-fund
 
-      - run: pnpm exec ng build --configuration production --base-href /agrid/
+      - name: Build Angular App
+        run: npx ng build --configuration production --base-href /agrid/
 
       - uses: actions/upload-pages-artifact@v4
         with:
