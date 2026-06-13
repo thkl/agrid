@@ -3,6 +3,7 @@ import { AgridControl, ColumnFilter } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
 import { AgridTreeConfig, ColDef, GridItem } from '../agrid.types';
 import {
+  applyQuickFilter,
   applySortToIndices,
   applyTextAndValueFilters,
   buildGroupedItems,
@@ -57,6 +58,10 @@ export class AgridProjectionModel {
       colMap,
       this.opts.locale(),
     );
+    const quick = control.quickFilter();
+    if (quick) {
+      indices = applyQuickFilter(rows, indices, quick, this.opts.visibleColDefs(), this.opts.locale());
+    }
     if (control.groupByField()) return indices;
 
     const sortEntries = this.sortEntries(filters);

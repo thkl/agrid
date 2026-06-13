@@ -157,6 +157,24 @@ export function passesRangeFilter(
   }
 }
 
+/**
+ * Keep only the rows where at least one of the given columns' display value contains
+ * `text` (case-insensitive). An empty/whitespace `text` returns the indices unchanged.
+ */
+export function applyQuickFilter(
+  rows: Record<string, unknown>[],
+  indices: number[],
+  text: string,
+  cols: ColDef[],
+  locale?: string,
+): number[] {
+  const q = text.trim().toLowerCase();
+  if (!q) return indices;
+  return indices.filter(i =>
+    cols.some(col => getDisplayForField(col, rows[i][col.field], locale).toLowerCase().includes(q)),
+  );
+}
+
 // Sorting
 
 /**

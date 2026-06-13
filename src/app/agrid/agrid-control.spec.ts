@@ -206,6 +206,21 @@ describe('AgridControl', () => {
       expect(ctrl.getFilter('score').operator).toBeNull();
     });
 
+    it('setQuickFilter stores text and clearAllFilters clears it', () => {
+      ctrl.setQuickFilter('alice');
+      expect(ctrl.quickFilter()).toBe('alice');
+      expect(ctrl.hasAnyActiveFilter()).toBe(true);
+      ctrl.clearAllFilters();
+      expect(ctrl.quickFilter()).toBe('');
+      expect(ctrl.hasAnyActiveFilter()).toBe(false);
+    });
+
+    it('quick filter survives a toJSON / fromJSON round-trip', () => {
+      ctrl.setQuickFilter('bob');
+      const restored = AgridControl.fromJSON(JSON.parse(JSON.stringify(ctrl.toJSON())));
+      expect(restored.quickFilter()).toBe('bob');
+    });
+
     it('hasActiveFilter reflects an active range condition', () => {
       expect(ctrl.hasActiveFilter('score')).toBe(false);
       ctrl.setRangeFilter('score', 'gt', '10');

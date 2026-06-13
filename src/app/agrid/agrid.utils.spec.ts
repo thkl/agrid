@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ColDef } from './agrid.types';
 import { ColumnFilter } from './agrid-control';
 import {
+  applyQuickFilter,
   applyTextAndValueFilters,
   applySortToIndices,
   buildGroupedItems,
@@ -249,6 +250,39 @@ describe('applyTextAndValueFilters — typed range operators', () => {
     expect(applyTextAndValueFilters(rows, indices, dateFilter('lt', '2024-02-01'), colMap)).toEqual([0]);
     expect(applyTextAndValueFilters(rows, indices, dateFilter('gt', '2024-02-01'), colMap)).toEqual([1, 2]);
     expect(applyTextAndValueFilters(rows, indices, dateFilter('between', '2024-02-01', '2024-03-01'), colMap)).toEqual([1]);
+  });
+});
+
+// ── applyQuickFilter ─────────────────────────────────────────────────────────
+
+describe('applyQuickFilter', () => {
+  const rows = [
+    { name: 'Alice', dept: 1 },
+    { name: 'Bob', dept: 2 },
+    { name: 'Carol', dept: 1 },
+  ];
+  const indices = [0, 1, 2];
+  const cols: ColDef[] = [
+    { field: 'name', header: 'Name' },
+    { field: 'dept', header: 'Dept', values: [{ value: 1, label: 'Engineering' }, { value: 2, label: 'Sales' }] },
+  ];
+
+  it('returns all indices for empty / whitespace text', () => {
+    expect(applyQuickFilter(rows, indices, '', cols)).toEqual([0, 1, 2]);
+    expect(applyQuickFilter(rows, indices, '   ', cols)).toEqual([0, 1, 2]);
+  });
+
+  it('matches across any visible column, case-insensitively', () => {
+    expect(applyQuickFilter(rows, indices, 'car', cols)).toEqual([2]);
+  });
+
+  it('matches the resolved display label, not the raw value', () => {
+    // dept 1 → 'Engineering'; searching the label keeps rows 0 and 2
+    expect(applyQuickFilter(rows, indices, 'engineering', cols)).toEqual([0, 2]);
+  });
+
+  it('returns empty when nothing matches', () => {
+    expect(applyQuickFilter(rows, indices, 'zzz', cols)).toEqual([]);
   });
 });
 

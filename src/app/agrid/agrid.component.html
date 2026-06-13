@@ -5,6 +5,18 @@
   [attr.aria-busy]="loading() ? 'true' : null" (copy)="onCopy($event)" (paste)="onPaste($event)"
   (focusin)="onGridFocusIn($event)"
   (click)="closeContextMenu(); closeCellContextMenu(); closeFilterMenu(); closeGroupActionsMenu()">
+  @if (enableQuickFilter()) {
+    <div class="ag-toolbar">
+      <input
+        class="ag-quick-filter"
+        type="search"
+        [value]="quickFilterValue()"
+        (input)="onQuickFilterInput($event)"
+        [placeholder]="localeText().quickFilterPlaceholder"
+        [attr.aria-label]="localeText().quickFilterPlaceholder"
+      />
+    </div>
+  }
   <div class="ag-main-area">
     <div class="ag-grid-split" [class.ag-has-right-pane]="hasRightPinnedPane()">
       @if (hasPinnedPane()) {
@@ -617,7 +629,7 @@
     [showColumnActions]="!!control()" [pinned]="getColumnPinState(menu.field)"
     [groupable]="!!getColDef(menu.field)?.groupable" [grouped]="isGroupedByField(menu.field)"
     [filterable]="!!getColDef(menu.field)?.filterable" [showValueFilter]="!serverSideFiltering()"
-    [filterType]="serverSideFiltering() ? null : getMenuFilterType(menu.field)"
+    [filterType]="getMenuFilterType(menu.field)"
     [operator]="getMenuOperator(menu.field)" [operand]="getMenuOperand(menu.field)"
     [operand2]="getMenuOperand2(menu.field)"
     (operatorChange)="onMenuOperatorChange(menu.field, $event)"

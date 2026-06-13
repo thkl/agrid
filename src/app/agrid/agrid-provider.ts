@@ -53,6 +53,12 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   /** Delay before emitting server-side text filter changes. Set to `0` to disable. @default 300 */
   filterDebounceMs?: number;
   /**
+   * Show the global quick-filter box above the grid. In client mode it filters rows whose
+   * visible columns contain the text; in `serverSideFiltering` mode it emits `(quickFilterChange)`
+   * instead of filtering locally. @default false
+   */
+  enableQuickFilter?: boolean;
+  /**
    * Sorting behavior: one active column, multiple columns, or disabled entirely.
    * @default 'multi'
    */
@@ -151,6 +157,8 @@ export class AgridProvider<T extends object = any> {
   serverSideFiltering: boolean;
   /** Delay before server-side filter events are emitted. */
   filterDebounceMs: number;
+  /** Whether the global quick-filter box is shown above the grid. */
+  enableQuickFilter: boolean;
   /** Enabled sorting mode. */
   sortOption: 'single' | 'multi' | 'none';
   /** Toggle auto-add-rows without recreating the provider. @default signal(false) */
@@ -199,6 +207,7 @@ export class AgridProvider<T extends object = any> {
     this.autoOpenDetail   = config.autoOpenDetail ?? false;
     this.serverSideFiltering = config.serverSideFiltering ?? false;
     this.filterDebounceMs = Math.max(0, config.filterDebounceMs ?? 300);
+    this.enableQuickFilter = config.enableQuickFilter ?? false;
     this.sortOption = config.sortOption ?? 'multi';
     this.rowSelection     = config.rowSelection ?? 'none';
     this.groupDescription = config.groupDescription ?? null;

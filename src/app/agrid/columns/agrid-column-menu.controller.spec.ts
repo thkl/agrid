@@ -99,6 +99,26 @@ describe('AgridColumnMenuController', () => {
     ]);
     expect(sortEvents).toEqual([{ field: 'name', direction: null }]);
   });
+
+  it('emits a server-side filter event for typed range conditions', () => {
+    const { controller, control, filterEvents } = setup({
+      columns: [{ field: 'score', header: 'Score', type: 'number', filterable: true }],
+    });
+
+    controller.setFilterOperator('score', 'between');
+    controller.setFilterOperand('score', '10');
+    controller.setFilterOperand2('score', '20');
+
+    expect(control.getFilter('score')).toMatchObject({ operator: 'between', operand: '10', operand2: '20' });
+    expect(filterEvents.at(-1)).toEqual({
+      field: 'score', value: '', operator: 'between', operand: '10', operand2: '20',
+    });
+
+    controller.clearFilter('score');
+    expect(filterEvents.at(-1)).toEqual({
+      field: 'score', value: '', operator: null, operand: null, operand2: null,
+    });
+  });
 });
 
 function setup(overrides: {

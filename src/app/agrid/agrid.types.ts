@@ -1,5 +1,6 @@
 import type { AgridDataSource } from './agrid-datasource';
 import type { AgridProvider } from './agrid-provider';
+import type { FilterOperator } from './agrid-control';
 
 /** String-valued property names available on a row type. */
 export type AgridField<T extends object> = Extract<keyof T, string>;
@@ -368,8 +369,18 @@ export interface PageChangeEvent {
 export interface FilterChangeEvent {
   /** Field name of the filtered column. */
   field: string;
-  /** Current filter text. An empty string clears the filter. */
+  /** Current free-text filter value. An empty string clears the text filter. */
   value: string;
+  /**
+   * Typed range-filter operator for `number` / `date` columns, present only when the change
+   * came from the column-menu condition UI. `null` clears the range condition.
+   * When set, `value` is empty and the operands live in {@link operand} / {@link operand2}.
+   */
+  operator?: FilterOperator | null;
+  /** Primary range operand (number as string, or `yyyy-mm-dd`). Present with {@link operator}. */
+  operand?: string | null;
+  /** Upper-bound operand, present only when {@link operator} is `'between'`. */
+  operand2?: string | null;
 }
 
 /** Emitted when a sort changes in server-side filtering mode. */

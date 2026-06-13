@@ -54,6 +54,8 @@ export interface AgridControlState {
   columnWidths: Record<string, number>;
   /** Per-field filter and sort state. Fields with default state may be omitted. */
   filters: Record<string, ColumnFilter>;
+  /** Global quick-filter text matched across all visible columns. Empty string when inactive. */
+  quickFilter?: string;
   /** When `true`, rows can be reordered by dragging the control-column handle. */
   allowRowReorder?: boolean;
   /** Field to group rows by, or `null` / omitted for no grouping. */
@@ -102,6 +104,7 @@ export interface AgridControlState {
 export class AgridControl {
   private readonly _columnWidths = signal<Record<string, number>>({});
   private readonly _filters = signal<Record<string, ColumnFilter>>({});
+  private readonly _quickFilter = signal<string>('');
   private readonly _allowRowReorder = signal<boolean>(false);
   private readonly _groupByField = signal<string | null>(null);
   private readonly _hiddenColumns  = signal<Set<string>>(new Set());
@@ -118,6 +121,7 @@ export class AgridControl {
   constructor(state?: Partial<AgridControlState>) {
     if (state?.columnWidths) this._columnWidths.set({ ...state.columnWidths });
     if (state?.filters) this._filters.set({ ...state.filters });
+    if (state?.quickFilter) this._quickFilter.set(state.quickFilter);
     if (state?.allowRowReorder) this._allowRowReorder.set(state.allowRowReorder);
     if (state?.groupByField !== undefined) this._groupByField.set(state.groupByField ?? null);
     if (state?.hiddenColumns?.length) this._hiddenColumns.set(new Set(state.hiddenColumns));
@@ -154,6 +158,18 @@ export class AgridControl {
    */
   setGroupBy(field: string | null): void {
     this._groupByField.set(field);
+  }
+
+  /**
+   * Global quick-filter text. When non-empty (and not in server-side filtering mode),
+   * the grid keeps only rows where at least one visible column's display value contains
+   * this text (case-insensitive).
+   */
+  readonly quickFilter: Signal<string> = this._quickFilter.asReadonly();
+
+  /** Set the global quick-filter text. Pass an empty string to clear it. */
+  setQuickFilter(text: string): void {
+    this._quickFilter.set(text);
   }
 
   /**
@@ -534,10 +550,11 @@ export class AgridControl {
     this._sortOrder.update(o => o.filter(f => f !== field));
   }
 
-  /** Remove all active filters and sorts for every column. */
+  /** Remove all active filters and sorts for every column, including the quick filter. */
   clearAllFilters(): void {
     this._filters.set({});
     this._sortOrder.set([]);
+    this._quickFilter.set('');
   }
 
   /**
@@ -550,10 +567,11 @@ export class AgridControl {
     return !!(f.text || f.selectedValues !== null || f.sort || hasRange);
   }
 
-  /** Return `true` when ANY column has an active filter or sort. */
+  /** Return `true` when the quick filter or ANY column has an active filter or sort. */
   hasAnyActiveFilter(): boolean {
-    return Object.values(this._filters()).some(
+    return !!this._quickFilter() || Object.values(this._filters()).some(
       f => f.text || f.selectedValues !== null || f.sort
+        || (!!f.operator && f.operand != null && f.operand !== '')
     );
   }
 
@@ -564,6 +582,7 @@ export class AgridControl {
     return {
       columnWidths: { ...this._columnWidths() },
       filters: { ...this._filters() },
+      quickFilter: this._quickFilter() || undefined,
       allowRowReorder: this._allowRowReorder(),
       groupByField: this._groupByField() ?? undefined,
       hiddenColumns: [...this._hiddenColumns()],

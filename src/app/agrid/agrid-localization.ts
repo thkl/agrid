@@ -59,6 +59,7 @@ export interface AgridLocaleText {
   previous: string;
   resizeColumn: string;
   rows: (count: number) => string;
+  quickFilterPlaceholder: string;
   searchValuesPlaceholder: string;
   selectAll: string;
   sortOnlyByThis: string;
@@ -131,6 +132,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     previous: 'Previous',
     resizeColumn: 'Resize column',
     rows: count => `${count} ${count === 1 ? 'row' : 'rows'}`,
+    quickFilterPlaceholder: 'Search all columns...',
     searchValuesPlaceholder: 'Search values...',
     selectAll: '(Select All)',
     sortOnlyByThis: 'Sort only by this column',
@@ -197,6 +199,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     previous: 'Zurück',
     resizeColumn: 'Spaltenbreite ändern',
     rows: count => `${count} ${count === 1 ? 'Zeile' : 'Zeilen'}`,
+    quickFilterPlaceholder: 'Alle Spalten durchsuchen...',
     searchValuesPlaceholder: 'Werte suchen...',
     selectAll: '(Alle auswählen)',
     sortOnlyByThis: 'Nur nach dieser Spalte sortieren',

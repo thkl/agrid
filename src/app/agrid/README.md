@@ -102,6 +102,38 @@ const columns: ColDef<Order>[] = [
 Set it programmatically with `control.setRangeFilter(field, operator, operand, operand2?)`, where
 `operator` is one of `'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'between'` (pass `null` to clear).
 
+## Quick filter
+
+Set `enableQuickFilter: true` to render a search box above the grid that keeps rows whose visible
+columns contain the text (resolved display values, so `ValueOption` labels and formatters count).
+
+```ts
+readonly provider = new AgridProvider<Person>({ columns, datasource, enableQuickFilter: true });
+```
+
+Drive it programmatically with `control.setQuickFilter(text)`; it's part of `toJSON()` state and is
+cleared by `control.clearAllFilters()`.
+
+## Server-side filtering
+
+With `serverSideFiltering: true` the grid never filters locally — it emits events so the host can
+refetch:
+
+- `(filterChange)` — text filters emit `{ field, value }`; typed range conditions emit
+  `{ field, value: '', operator, operand, operand2 }` (operator `null` clears the condition).
+- `(sortChange)` — `{ field, direction }`.
+- `(quickFilterChange)` — the quick-filter text (debounced by `filterDebounceMs`).
+
+```html
+<agrid [provider]="provider"
+  (filterChange)="onFilter($event)"
+  (sortChange)="onSort($event)"
+  (quickFilterChange)="onQuickFilter($event)" />
+```
+
+Text/range/quick events are debounced by `filterDebounceMs` (default 300 ms; `0` disables). The
+Excel-style value picker stays client-only and is hidden in this mode.
+
 ## Tree data
 
 Pass `treeConfig` to render rows as a hierarchical tree. The hierarchy lives on the flat row

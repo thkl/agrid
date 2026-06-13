@@ -176,7 +176,8 @@ export class AgridDemoComponent {
     zebraStripes: true,
     rowSelection: 'multi',
     enableRowMarking: true,
-    confirmRowDelete:true
+    confirmRowDelete:true,
+    enableQuickFilter: true
   });
   readonly lastEdit = signal('');
   readonly autoAdd = signal(false);

@@ -144,10 +144,11 @@ export class AgridColumnMenuController {
     if (!control) return;
     if (!operator) {
       control.setRangeFilter(field, null, null, null);
-      return;
+    } else {
+      const current = control.getFilter(field);
+      control.setRangeFilter(field, operator, current.operand ?? '', current.operand2 ?? '');
     }
-    const current = control.getFilter(field);
-    control.setRangeFilter(field, operator, current.operand ?? '', current.operand2 ?? '');
+    this.emitRangeServer(field, false);
   }
 
   /** Sets the primary range-filter operand. */
@@ -156,6 +157,7 @@ export class AgridColumnMenuController {
     if (!control) return;
     const current = control.getFilter(field);
     control.setRangeFilter(field, current.operator ?? 'eq', value, current.operand2 ?? '');
+    this.emitRangeServer(field, true);
   }
 
   /** Sets the secondary range-filter operand (used by `between`). */
@@ -164,6 +166,36 @@ export class AgridColumnMenuController {
     if (!control) return;
     const current = control.getFilter(field);
     control.setRangeFilter(field, current.operator ?? 'between', current.operand ?? '', value);
+    this.emitRangeServer(field, true);
+  }
+
+  /**
+   * In server-side filtering mode, emit a {@link FilterChangeEvent} carrying the current range
+   * condition so the host can refetch. Operand edits are debounced; operator changes are immediate.
+   * No-op in client mode (the projection layer filters locally).
+   */
+  private emitRangeServer(field: string, debounce: boolean): void {
+    if (!this.opts.serverSideFiltering()) return;
+    const emit = () => {
+      const f = this.opts.control()?.getFilter(field);
+      this.opts.onFilterChange({
+        field,
+        value: '',
+        operator: f?.operator ?? null,
+        operand: f?.operand ?? null,
+        operand2: f?.operand2 ?? null,
+      });
+    };
+    this.cancelFilterDebounce(field);
+    const delay = this.opts.filterDebounceMs();
+    if (!debounce || delay === 0) {
+      emit();
+      return;
+    }
+    this.filterDebounces.set(field, setTimeout(() => {
+      this.filterDebounces.delete(field);
+      emit();
+    }, delay));
   }
 
   /** Returns the active sort direction, respecting disabled sorting. */
@@ -284,6 +316,9 @@ export class AgridColumnMenuController {
     control.clearFilter(field);
     if (this.opts.serverSideFiltering()) {
       if (previous.text) this.opts.onFilterChange({ field, value: '' });
+      if (previous.operator) {
+        this.opts.onFilterChange({ field, value: '', operator: null, operand: null, operand2: null });
+      }
       if (previous.sort) this.opts.onSortChange({ field, direction: null });
     }
     this.close();
@@ -322,6 +357,9 @@ export class AgridColumnMenuController {
     if (this.opts.serverSideFiltering()) {
       for (const [field, filter] of Object.entries(previous)) {
         if (filter.text) this.opts.onFilterChange({ field, value: '' });
+        if (filter.operator) {
+          this.opts.onFilterChange({ field, value: '', operator: null, operand: null, operand2: null });
+        }
         if (filter.sort) this.opts.onSortChange({ field, direction: null });
       }
     }

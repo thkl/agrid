@@ -116,6 +116,8 @@ export class AgridComponent<T extends object = any> {
   readonly autoOpenDetail = computed(() => this.provider().autoOpenDetail);
   readonly serverSideFiltering = computed(() => this.provider().serverSideFiltering);
   readonly filterDebounceMs = computed(() => this.provider().filterDebounceMs);
+  readonly enableQuickFilter = computed(() => this.provider().enableQuickFilter);
+  readonly quickFilterValue = computed(() => this.control()?.quickFilter() ?? '');
   readonly sortOption = computed(() => this.provider().sortOption);
   readonly rowSelection = computed(() => this.provider().rowSelection);
   readonly groupDescription = computed(() => this.provider().groupDescription);
@@ -200,6 +202,13 @@ export class AgridComponent<T extends object = any> {
 
   /** Emitted when a column sort changes in server-side filtering mode. */
   sortChange = output<SortChangeEvent>();
+
+  /**
+   * Emitted (debounced) when the global quick-filter text changes in server-side filtering mode.
+   * The host should refetch rows matching the text. Not emitted in client mode, where the grid
+   * filters locally.
+   */
+  quickFilterChange = output<string>();
 
   // ── Public state ─────────────────────────────────────────────────────────────
 
@@ -914,6 +923,7 @@ export class AgridComponent<T extends object = any> {
     this.browser.addDocumentListener('pointerdown', onOutsidePointerDown);
     this.destroyRef.onDestroy(() => {
       this.browser.removeDocumentListener('pointerdown', onOutsidePointerDown);
+      if (this.quickFilterTimer !== null) clearTimeout(this.quickFilterTimer);
     });
 
     // Re-sync pinned pane scroll after displayItems changes — CDK independently adjusts
@@ -1200,6 +1210,28 @@ export class AgridComponent<T extends object = any> {
 
   /** @internal */
   onDraftChange(value: unknown): void { this.editController.setDraft(value); }
+
+  private quickFilterTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * @internal Quick-filter input handler. Stores the text on the control (drives the bound value
+   * and client-side filtering) and, in server mode, emits a debounced `quickFilterChange` instead.
+   */
+  onQuickFilterInput(event: Event): void {
+    const text = (event.target as HTMLInputElement).value;
+    this.control()?.setQuickFilter(text);
+    if (!this.serverSideFiltering()) return;
+    if (this.quickFilterTimer !== null) clearTimeout(this.quickFilterTimer);
+    const delay = this.filterDebounceMs();
+    if (delay === 0) {
+      this.quickFilterChange.emit(text);
+      return;
+    }
+    this.quickFilterTimer = setTimeout(() => {
+      this.quickFilterTimer = null;
+      this.quickFilterChange.emit(text);
+    }, delay);
+  }
 
   /** @internal Whether a column is editable in the current grid state (drives boolean checkboxes). */
   isColEditable(col: ColDef): boolean { return this.editController.isCellEditable(col); }
