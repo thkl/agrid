@@ -11,3 +11,88 @@ body {
   font-size: 14px;
   font-weight: 400;
 }
+
+.route-view--demo > *:not(router-outlet) {
+  height: 100% !important;
+}
+
+.app-shell--dark agrid {
+  --agrid-color-text: #dce8df !important;
+  --agrid-color-text-muted: #91a399 !important;
+  --agrid-color-accent: #4ade80 !important;
+  --agrid-color-accent-subtle: #193c26 !important;
+  --agrid-color-accent-fg: #86efac !important;
+  --agrid-color-accent-border: #2f6842 !important;
+  --agrid-color-danger: #fb7185 !important;
+  --agrid-color-danger-subtle: #3b171d !important;
+  --agrid-color-border: #34443a !important;
+  --agrid-color-bg: #111a14 !important;
+  --agrid-color-bg-subtle: #151f18 !important;
+  --agrid-color-bg-muted: #1b2820 !important;
+  --agrid-color-shadow: #00000073 !important;
+  --agrid-color-bg-stripe: #17231b !important;
+  --agrid-color-cell-changed: #fbbf24 !important;
+  --agrid-color-row-marked: #3b3518 !important;
+}
+
+.app-shell--dark .demo-wrap,
+.app-shell--dark .demo-wrapper,
+.app-shell--dark .benchmark {
+  color: var(--app-text);
+  background: var(--app-surface);
+}
+
+.app-shell--dark .demo-meta,
+.app-shell--dark .demo-toggle,
+.app-shell--dark .edit-hint,
+.app-shell--dark .page-sizes,
+.app-shell--dark .fetch-info,
+.app-shell--dark .benchmark p,
+.app-shell--dark .benchmark output {
+  color: var(--app-text-muted) !important;
+}
+
+.app-shell--dark .demo-btn,
+.app-shell--dark .ps-btn,
+.app-shell--dark .demo-toolbar button,
+.app-shell--dark .benchmark nav a,
+.app-shell--dark .benchmark button {
+  border-color: var(--app-border) !important;
+  color: var(--app-text) !important;
+  background: var(--app-surface-muted) !important;
+}
+
+.app-shell--dark .ps-btn--active {
+  border-color: #278552 !important;
+  color: #fff !important;
+  background: #278552 !important;
+}
+
+.app-shell--dark .demo-hint {
+  border-color: var(--app-border) !important;
+  color: var(--app-text-muted) !important;
+  background: var(--app-surface-muted) !important;
+}
+
+.app-shell--dark .benchmark th,
+.app-shell--dark .benchmark td {
+  border-color: var(--app-border) !important;
+}
+
+.app-shell--dark .row-pending agrid-cell:not(.editing) {
+  background: #302b14 !important;
+}
+
+.app-shell--dark .row-summary agrid-cell:not(.editing) {
+  background: #1d2d3f !important;
+}
+
+.app-shell--dark .od-detail {
+  color: var(--app-text) !important;
+}
+
+.app-shell--dark .demo-tag {
+  border-color: #477259 !important;
+  color: #dce8df !important;
+  background: #1c3023 !important;
+}

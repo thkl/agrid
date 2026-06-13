@@ -1,22 +1,115 @@
-<div class="app-shell">
-  <nav class="app-nav">
-    <div class="app-nav-brand">aGrid</div>
-    <a class="app-nav-link" routerLink="/" routerLinkActive="app-nav-link--active" [routerLinkActiveOptions]="{exact:true}">Home</a>
-    <a class="app-nav-link" routerLink="/documentation" routerLinkActive="app-nav-link--active">Documentation</a>
-    <div class="app-nav-section">Demos</div>
-    <a class="app-nav-link" routerLink="/demo" routerLinkActive="app-nav-link--active">Overview</a>
-    <div class="app-nav-section">Features</div>
-    <a class="app-nav-link" routerLink="/custom-cells" routerLinkActive="app-nav-link--active">Custom cells</a>
-    <a class="app-nav-link" routerLink="/pagination" routerLinkActive="app-nav-link--active">Pagination</a>
-    <a class="app-nav-link" routerLink="/server-pagination" routerLinkActive="app-nav-link--active">Server pagination</a>
-    <a class="app-nav-link" routerLink="/aggregates" routerLinkActive="app-nav-link--active">Aggregates</a>
-    <a class="app-nav-link" routerLink="/readonly" routerLinkActive="app-nav-link--active">Readonly</a>
-    <a class="app-nav-link" routerLink="/pinning" routerLinkActive="app-nav-link--active">Column Pinning</a>
-    <a class="app-nav-link" routerLink="/tree" routerLinkActive="app-nav-link--active">Tree</a>
-    <a class="app-nav-link" routerLink="/master-detail" routerLinkActive="app-nav-link--active">Master / Detail</a>
-    <a class="app-nav-link" routerLink="/performance" routerLinkActive="app-nav-link--active">Performance test</a>
-  </nav>
-  <main class="app-content">
-    <router-outlet />
+<div class="app-shell" [class.app-shell--dark]="theme.darkMode()">
+  <header class="topbar">
+    <a class="brand" routerLink="/" aria-label="aGrid home">
+      <span class="brand-mark">a</span>
+      <span>aGrid</span>
+    </a>
+
+    <nav class="primary-nav" aria-label="Primary navigation">
+      <a
+        routerLink="/"
+        routerLinkActive="nav-link--active"
+        [routerLinkActiveOptions]="{ exact: true }"
+      >
+        Home
+      </a>
+
+      <label class="demo-select-label">
+        <span class="sr-only">Choose a demo</span>
+        <select
+          class="demo-select"
+          aria-label="Choose a demo"
+          [value]="currentDemo()?.path ?? ''"
+          (change)="openDemo($event)"
+        >
+          <option value="">Demos</option>
+          @for (demo of demos; track demo.path) {
+            <option [value]="demo.path">{{ demo.label }}</option>
+          }
+        </select>
+      </label>
+
+      <a routerLink="/documentation" routerLinkActive="nav-link--active">Documentation</a>
+    </nav>
+
+    <div class="topbar-actions">
+      <a
+        class="github-link"
+        href="https://github.com/thkl/agrid"
+        target="_blank"
+        rel="noopener"
+        aria-label="View aGrid on GitHub"
+      >
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+            0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+            -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+            .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+            -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27
+            .68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12
+            .51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48
+            0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+        </svg>
+        <span>GitHub</span>
+      </a>
+
+      <button
+        class="theme-toggle"
+        type="button"
+        role="switch"
+        [attr.aria-checked]="theme.darkMode()"
+        [attr.aria-label]="theme.darkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
+        (click)="theme.toggle()"
+      >
+        <svg class="theme-icon theme-icon-sun" viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="10" cy="10" r="3.25"></circle>
+          <path d="M10 1.5v2M10 16.5v2M1.5 10h2M16.5 10h2M4 4l1.4 1.4M14.6 14.6 16 16M16 4l-1.4 1.4M5.4 14.6 4 16"></path>
+        </svg>
+        <span class="theme-track"><span class="theme-thumb"></span></span>
+        <svg class="theme-icon theme-icon-moon" viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M16.5 12.8A7 7 0 0 1 7.2 3.5 7 7 0 1 0 16.5 12.8Z"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="app-content" [class.app-content--demo]="currentDemo()">
+    <div class="route-view" [class.route-view--demo]="currentDemo()">
+      <router-outlet />
+    </div>
+
+    @if (currentDemo(); as demo) {
+      <section class="demo-guide" aria-labelledby="demo-guide-title">
+        <div class="demo-guide-intro">
+          <div>
+            <div class="guide-eyebrow">Build this grid</div>
+            <h2 id="demo-guide-title">{{ demo.title }}</h2>
+            <p>{{ demo.summary }}</p>
+          </div>
+          <a class="docs-link" routerLink="/documentation">Full API documentation <span>→</span></a>
+        </div>
+
+        <div class="demo-guide-grid">
+          <div class="guide-points">
+            <h3>What matters</h3>
+            <ol>
+              @for (point of demo.points; track point) {
+                <li>{{ point }}</li>
+              }
+            </ol>
+          </div>
+
+          <div class="code-card">
+            <div class="code-card-header">
+              <span>Angular / TypeScript</span>
+              <button type="button" (click)="copyDemoCode()">
+                {{ copied() ? 'Copied' : 'Copy code' }}
+              </button>
+            </div>
+            <pre><code>{{ demo.code }}</code></pre>
+          </div>
+        </div>
+      </section>
+    }
   </main>
 </div>

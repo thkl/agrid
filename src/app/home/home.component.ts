@@ -1,7 +1,14 @@
-import { ChangeDetectionStrategy, Component, afterNextRender, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  afterNextRender,
+  inject,
+  viewChild,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef } from '../agrid';
 import { ColDefAutoSize } from '../agrid/agrid.types';
+import { ThemeService } from '../theme.service';
 
 const PREVIEW_COLUMNS: ColDef[] = [
   { field: 'name',       header: 'Name',       width: ColDefAutoSize, filterable: true },
@@ -32,7 +39,7 @@ const PREVIEW_ROWS = [
 ];
 
 const FEATURES: { color: string; bg: string; label: string; title: string; desc: string }[] = [
-  { color: '#4f46e5', bg: '#eef2ff', label: '⌨', title: 'Keyboard-driven editing',  desc: 'Enter / F2 to edit, Tab to confirm, Escape to cancel. No mouse required.' },
+  { color: '#4f46e5', bg: '#eef2ff', label: '⌨', title: 'Keyboard-driven editing',  desc: 'Enter or F2 to edit, Tab to confirm, Escape to cancel. No mouse required.' },
   { color: '#0891b2', bg: '#ecfeff', label: '⇅', title: 'Sorting & filtering',       desc: 'Multi-column sort with Shift-click. Per-column dropdown filters with label resolution.' },
   { color: '#7c3aed', bg: '#f5f3ff', label: '⊞', title: 'Grouping & aggregates',     desc: 'Group by any column with custom group descriptions and aggregate footer rows.' },
   { color: '#0d9488', bg: '#f0fdfa', label: '⊟', title: 'Tree data',                 desc: 'Hierarchical rows from flat parent/child data, with expand/collapse and filter-aware ancestors.' },
@@ -45,8 +52,9 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
   { color: '#0f766e', bg: '#f0fdfa', label: '⋮', title: 'Column sidebar',             desc: 'Slide-out panel to toggle visibility, reorder, and resize columns.' },
   { color: '#b45309', bg: '#fef3c7', label: '↕', title: 'Row drag-reorder',           desc: 'Optional drag handle lets users manually reorder rows.' },
   { color: '#7c3aed', bg: '#eff6ff', label: '◻', title: 'Virtual scrolling',          desc: 'Only visible rows are rendered — handles large datasets without slowdown.' },
-  { color: '#db2777', bg: '#f0fdf4', label: '├', title: 'Tree control',          desc: 'Transform complex, layered data into a clean, scannable overview by embedding expandable hierarchies right inside your structured data grid.' },
-
+  { color: '#2563eb', bg: '#eff6ff', label: '▦', title: 'Clipboard & cell ranges',     desc: 'Select rectangular ranges, copy and paste TSV data, or drag to fill adjacent cells.' },
+  { color: '#c2410c', bg: '#fff7ed', label: '⊕', title: 'Master-detail & pinned rows', desc: 'Expand rich detail panels and keep summary rows fixed at the top or bottom.' },
+  { color: '#be123c', bg: '#fff1f2', label: '✓', title: 'Readonly & validation',       desc: 'Switch modes at runtime and reject invalid edits with field-level feedback.' },
 ];
 
 @Component({
@@ -54,49 +62,58 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, AgridComponent],
   template: `
-    <div class="page">
+    <div class="page" [class.dark-theme]="theme.darkMode()">
 
       <!-- Hero -->
       <section class="hero">
-        <div class="hero-inner">
-          <div class="hero-badge">Angular · Signals · Zero deps</div>
-          <h1 class="hero-title">The Angular data grid<br>that stays out of your way</h1>
-          <p class="hero-sub">
-            aGrid is a fast, keyboard-first data grid built with Angular signals.<br>
-            Sorting, filtering, editing, grouping — all wired up from a single provider.
-          </p>
-          <div class="hero-actions">
-            <a class="btn btn-white" routerLink="/demo">Explore demos →</a>
-            <a class="btn btn-outline" routerLink="/documentation">Documentation</a>
-            <a class="btn btn-outline" href="https://github.com/thkl/agrid" target="_blank" rel="noopener">
-              <svg class="github-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
-                  0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
-                  -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
-                  .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
-                  -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27
-                  .68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12
-                  .51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48
-                  0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-              </svg>
-              GitHub
-            </a>
+        <div class="hero-glow hero-glow-one"></div>
+        <div class="hero-glow hero-glow-two"></div>
+        <div class="hero-layout">
+          <div class="hero-inner">
+            <div class="hero-badge"><span></span> Built for Angular 21</div>
+            <h1 class="hero-title">A powerful data grid that feels <em>native</em> to Angular.</h1>
+            <p class="hero-sub">
+              Fast, keyboard-first, and signal-powered. Editing, grouping, filtering, and
+              virtual scrolling are ready from a single provider.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-white" routerLink="/demo">Explore the grid <span>→</span></a>
+              <a class="btn btn-outline" routerLink="/documentation">Read the docs</a>
+              <a class="btn btn-icon" href="https://github.com/thkl/agrid" target="_blank" rel="noopener" aria-label="View aGrid on GitHub">
+                <svg class="github-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                  <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+                    0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+                    -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+                    .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+                    -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27
+                    .68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12
+                    .51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48
+                    0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                </svg>
+              </a>
+            </div>
+            <div class="hero-proof">
+              <div><strong>Zero</strong><span>runtime dependencies</span></div>
+              <div><strong>250k</strong><span>row demo</span></div>
+              <div><strong>Signals</strong><span>at the core</span></div>
+            </div>
           </div>
-        </div>
 
-        <!-- Browser frame -->
-        <div class="browser-frame">
-          <div class="browser-bar">
-            <span class="dot dot-red"></span>
-            <span class="dot dot-yellow"></span>
-            <span class="dot dot-green"></span>
-            <div class="browser-url">agrid demo — 10 rows · 5 columns</div>
-          </div>
-          <div class="browser-content">
-            <agrid
-              class="preview-grid"
-              [provider]="previewProvider"
-            />
+          <!-- Browser frame -->
+          <div class="browser-wrap">
+            <div class="browser-note browser-note-top">Signal-powered</div>
+            <div class="browser-frame">
+              <div class="browser-bar">
+                <span class="dot dot-red"></span>
+                <span class="dot dot-yellow"></span>
+                <span class="dot dot-green"></span>
+                <div class="browser-url"><span class="url-lock">◆</span> agrid.dev/playground</div>
+              </div>
+              <div class="browser-content">
+                <agrid class="preview-grid" [provider]="previewProvider" />
+              </div>
+            </div>
+            <div class="browser-note browser-note-bottom">10 rows · 5 columns</div>
           </div>
         </div>
       </section>
@@ -104,9 +121,13 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
       <!-- Features -->
       <section class="features">
         <div class="features-inner">
-          <div class="section-label">Features</div>
-          <h2 class="section-title">Everything in the box</h2>
-          <p class="section-sub">{{ features.length }} capabilities ready to use — configure what you need, ignore the rest.</p>
+          <div class="section-heading">
+            <div>
+              <div class="section-label">Built in, not bolted on</div>
+              <h2 class="section-title">Everything you expect from a serious grid.</h2>
+            </div>
+            <p class="section-sub">{{ features.length }} focused capabilities. Configure what you need and leave the rest untouched.</p>
+          </div>
           <div class="feature-grid">
             @for (f of features; track f.title) {
               <div class="feature-card">
@@ -124,8 +145,13 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
       <!-- Demo links -->
       <section class="demos">
         <div class="demos-inner">
-          <div class="section-label">Live demos</div>
-          <h2 class="section-title">See it in action</h2>
+          <div class="section-heading">
+            <div>
+              <div class="section-label">Live examples</div>
+              <h2 class="section-title">See the real grid, not a mockup.</h2>
+            </div>
+            <a class="text-link" routerLink="/documentation">Browse documentation <span>→</span></a>
+          </div>
           <div class="demo-cards">
             <a class="demo-card" routerLink="/demo">
               <div class="demo-card-title">Overview</div>
@@ -165,8 +191,18 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
               <span class="demo-card-link">Open →</span>
             </a>
             <a class="demo-card" routerLink="/performance">
-              <div class="demo-card-title">Performance Test</div>
-              <div class="demo-card-desc">Run a performance test with up to 250k Records</div>
+              <div class="demo-card-title">Performance test</div>
+              <div class="demo-card-desc">Stress-test virtual scrolling with up to 250,000 records.</div>
+              <span class="demo-card-link">Open →</span>
+            </a>
+            <a class="demo-card" routerLink="/readonly">
+              <div class="demo-card-title">Readonly mode</div>
+              <div class="demo-card-desc">Toggle a production-style dataset between viewing and editing.</div>
+              <span class="demo-card-link">Open →</span>
+            </a>
+            <a class="demo-card" routerLink="/master-detail">
+              <div class="demo-card-title">Master-detail</div>
+              <div class="demo-card-desc">Expandable detail panels and rows pinned above or below the dataset.</div>
               <span class="demo-card-link">Open →</span>
             </a>
           </div>
@@ -178,8 +214,10 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
   styles: `
     :host { 
       display: block; 
-      overflow:auto;
-      scrollbar-width: thin,
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+      scrollbar-width: thin;
     }
 
     :host::-webkit-scrollbar {
@@ -469,9 +507,580 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
       color: #4f46e5;
       margin-top: 4px;
     }
+
+    /* ── Homepage refresh ─────────────────── */
+    :host {
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+      scrollbar-width: thin;
+    }
+
+    :host::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .page {
+      background: #fbfcfa;
+      color: #142019;
+    }
+
+    .hero {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      display: block;
+      background:
+        linear-gradient(#ffffff09 1px, transparent 1px),
+        linear-gradient(90deg, #ffffff09 1px, transparent 1px),
+        linear-gradient(135deg, #071b11 0%, #0a3320 48%, #0d4b2d 100%);
+      background-size: 40px 40px, 40px 40px, auto;
+      padding: 88px 48px 82px;
+    }
+
+    .hero-layout {
+      position: relative;
+      z-index: 1;
+      max-width: 1180px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(360px, 0.9fr) minmax(520px, 1.1fr);
+      align-items: center;
+      gap: 68px;
+    }
+
+    .hero-glow {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .hero-glow-one {
+      width: 540px;
+      height: 540px;
+      right: -170px;
+      top: -260px;
+      background: radial-gradient(circle, #22c55e35 0%, transparent 70%);
+    }
+
+    .hero-glow-two {
+      width: 420px;
+      height: 420px;
+      left: -220px;
+      bottom: -250px;
+      background: radial-gradient(circle, #4ade8024 0%, transparent 70%);
+    }
+
+    .hero-inner {
+      max-width: 560px;
+      text-align: left;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      margin-bottom: 22px;
+      border-color: #ffffff1f;
+      border-radius: 999px;
+      background: #ffffff0d;
+      box-shadow: inset 0 1px #ffffff14;
+      color: #bbf7d0;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.1px;
+    }
+
+    .hero-badge span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 0 4px #4ade801c;
+    }
+
+    .hero-title {
+      margin-bottom: 22px;
+      color: #fff;
+      font-size: clamp(42px, 5vw, 64px);
+      font-weight: 760;
+      line-height: 1.02;
+      letter-spacing: -2.6px;
+    }
+
+    .hero-title em {
+      color: #86efac;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-weight: 400;
+    }
+
+    .hero-sub {
+      max-width: 520px;
+      margin-bottom: 30px;
+      color: #b9d8c4;
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      justify-content: flex-start;
+      gap: 9px;
+    }
+
+    .btn {
+      justify-content: center;
+      gap: 10px;
+      min-height: 42px;
+      padding: 0 20px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 650;
+      transition:
+        transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+        box-shadow 160ms ease,
+        background-color 160ms ease,
+        border-color 160ms ease;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn-white {
+      color: #12552f;
+      box-shadow: 0 8px 28px #020c0738, inset 0 -1px #00000012;
+    }
+
+    .btn-outline,
+    .btn-icon {
+      border: 1px solid #ffffff2b;
+      background: #ffffff0b;
+      color: #e7f7ec;
+    }
+
+    .btn-icon {
+      width: 42px;
+      padding: 0;
+    }
+
+    .github-icon {
+      margin: 0;
+      width: 17px;
+      height: 17px;
+    }
+
+    .hero-proof {
+      display: flex;
+      margin-top: 36px;
+      padding-top: 24px;
+      border-top: 1px solid #ffffff17;
+    }
+
+    .hero-proof div {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 0 22px;
+      border-right: 1px solid #ffffff17;
+    }
+
+    .hero-proof div:first-child { padding-left: 0; }
+    .hero-proof div:last-child { border-right: 0; }
+    .hero-proof strong { color: #f0fdf4; font-size: 14px; }
+    .hero-proof span { color: #81a98f; font-size: 10px; }
+
+    .browser-wrap {
+      position: relative;
+      min-width: 0;
+      transform: perspective(1200px) rotateY(-2deg) rotateX(1deg);
+    }
+
+    .browser-frame {
+      max-width: none;
+      border-radius: 14px;
+      box-shadow: 0 34px 90px #020c0773, 0 0 0 1px #ffffff21, inset 0 1px #ffffff24;
+    }
+
+    .browser-bar {
+      padding: 11px 14px;
+      border-bottom: 1px solid #d9e0db;
+      background: #edf1ee;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+    }
+
+    .browser-url {
+      width: min(64%, 310px);
+      flex: none;
+      margin: 0 auto;
+      padding: 4px 12px;
+      border-color: #d7ded9;
+      background: #fff;
+      box-shadow: 0 1px 2px #0000000a;
+      color: #7b8980;
+      font-size: 10px;
+      text-align: center;
+    }
+
+    .url-lock {
+      margin-right: 5px;
+      color: #34a863;
+      font-size: 7px;
+    }
+
+    .browser-content {
+      height: 360px;
+    }
+
+    .browser-note {
+      position: absolute;
+      z-index: 2;
+      padding: 8px 12px;
+      border: 1px solid #ffffff2b;
+      border-radius: 8px;
+      background: #10291dcc;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px #020c0738;
+      color: #d8f3e0;
+      font-size: 10px;
+      font-weight: 650;
+      letter-spacing: 0.25px;
+    }
+
+    .browser-note-top { top: -18px; right: 28px; }
+    .browser-note-bottom { right: -22px; bottom: 28px; }
+
+    .section-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 48px;
+      margin-bottom: 38px;
+    }
+
+    .section-label {
+      margin-bottom: 10px;
+      color: #21844c;
+      font-size: 10px;
+      letter-spacing: 1.3px;
+    }
+
+    .section-title {
+      max-width: 650px;
+      margin: 0;
+      color: #142019;
+      font-size: clamp(30px, 3.5vw, 42px);
+      font-weight: 750;
+      line-height: 1.08;
+      letter-spacing: -1.3px;
+    }
+
+    .section-sub {
+      max-width: 340px;
+      margin: 0 0 3px;
+      color: #68756c;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .text-link {
+      flex-shrink: 0;
+      margin-bottom: 5px;
+      color: #26734a;
+      font-size: 12px;
+      font-weight: 650;
+      text-decoration: none;
+    }
+
+    .text-link span { margin-left: 5px; }
+
+    .text-link:focus-visible,
+    .btn:focus-visible,
+    .demo-card:focus-visible {
+      outline: 3px solid #4ade80;
+      outline-offset: 3px;
+    }
+
+    .features {
+      border-bottom-color: #e8ede9;
+      background: #fbfcfa;
+    }
+
+    .features-inner,
+    .demos-inner {
+      max-width: 1180px;
+      padding: 92px 48px 96px;
+    }
+
+    .feature-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0;
+      border-top: 1px solid #dfe6e1;
+      border-left: 1px solid #dfe6e1;
+    }
+
+    .feature-card {
+      min-height: 142px;
+      padding: 22px 20px;
+      border: 0;
+      border-right: 1px solid #dfe6e1;
+      border-bottom: 1px solid #dfe6e1;
+      border-radius: 0;
+      box-shadow: none;
+      transition: background-color 180ms ease;
+    }
+
+    .feature-name {
+      margin-bottom: 6px;
+      color: #1a2820;
+      font-size: 12px;
+    }
+
+    .feature-desc {
+      color: #718078;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    .demos {
+      background: #f2f6f3;
+    }
+
+    .demos-inner {
+      padding-bottom: 110px;
+    }
+
+    .demo-cards {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .demo-card {
+      min-height: 154px;
+      padding: 20px 18px 17px;
+      border-color: #dfe7e1;
+      border-radius: 12px;
+      box-shadow: 0 1px 2px #0c2b1810;
+      transition:
+        box-shadow 180ms ease,
+        border-color 180ms ease,
+        transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    .demo-card:active {
+      transform: scale(0.98);
+    }
+
+    .demo-card-title {
+      color: #1a2820;
+      font-size: 13px;
+    }
+
+    .demo-card-desc {
+      color: #758079;
+      font-size: 10.5px;
+    }
+
+    .demo-card-link {
+      display: flex;
+      justify-content: space-between;
+      padding-top: 11px;
+      border-top: 1px solid #edf1ee;
+      color: #2b754c;
+      font-size: 10px;
+    }
+
+    .page,
+    .features,
+    .demos,
+    .feature-card,
+    .demo-card,
+    .section-title,
+    .section-sub,
+    .feature-name,
+    .feature-desc,
+    .demo-card-title,
+    .demo-card-desc,
+    .demo-card-link,
+    .text-link {
+      transition:
+        background-color 200ms ease,
+        border-color 200ms ease,
+        color 200ms ease,
+        box-shadow 200ms ease;
+    }
+
+    .dark-theme {
+      color-scheme: dark;
+      background: #09110d;
+      color: #e5eee8;
+    }
+
+    .dark-theme .features {
+      border-bottom-color: #25332a;
+      background: #0c1510;
+    }
+
+    .dark-theme .demos {
+      background: #101b14;
+    }
+
+    .dark-theme .section-title {
+      color: #f0f7f2;
+    }
+
+    .dark-theme .section-label,
+    .dark-theme .text-link,
+    .dark-theme .demo-card-link {
+      color: #6ee7a0;
+    }
+
+    .dark-theme .section-sub,
+    .dark-theme .feature-desc,
+    .dark-theme .demo-card-desc {
+      color: #91a399;
+    }
+
+    .dark-theme .feature-grid {
+      border-color: #2a382f;
+    }
+
+    .dark-theme .feature-card,
+    .dark-theme .demo-card {
+      border-color: #2a382f;
+      background: #131f17;
+      box-shadow: 0 1px 2px #00000038;
+    }
+
+    .dark-theme .feature-name,
+    .dark-theme .demo-card-title {
+      color: #e5eee8;
+    }
+
+    .dark-theme .feature-badge {
+      background: #1c3023 !important;
+      color: #86efac !important;
+    }
+
+    .dark-theme .demo-card-link {
+      border-top-color: #2a382f;
+    }
+
+    .dark-theme .browser-frame {
+      box-shadow: 0 34px 90px #00000099, 0 0 0 1px #ffffff1c, inset 0 1px #ffffff1c;
+    }
+
+    .dark-theme .browser-bar {
+      border-bottom-color: #34443a;
+      background: #1b2820;
+    }
+
+    .dark-theme .browser-url {
+      border-color: #3a4b40;
+      background: #111b15;
+      color: #91a399;
+    }
+
+    .dark-theme .browser-content {
+      background: #101713;
+    }
+
+    .dark-theme .preview-grid {
+      --agrid-color-text: #dce8df;
+      --agrid-color-text-muted: #91a399;
+      --agrid-color-accent: #4ade80;
+      --agrid-color-accent-subtle: #193c26;
+      --agrid-color-accent-fg: #86efac;
+      --agrid-color-accent-border: #2f6842;
+      --agrid-color-danger: #fb7185;
+      --agrid-color-danger-subtle: #3b171d;
+      --agrid-color-border: #34443a;
+      --agrid-color-bg: #111a14;
+      --agrid-color-bg-subtle: #151f18;
+      --agrid-color-bg-muted: #1b2820;
+      --agrid-color-shadow: #00000073;
+      --agrid-color-bg-stripe: #17231b;
+      --agrid-color-cell-changed: #fbbf24;
+      --agrid-color-row-marked: #3b3518;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .btn:hover { transform: translateY(-1px); }
+      .btn-white:hover { box-shadow: 0 12px 34px #020c0752, inset 0 -1px #00000012; }
+      .btn-outline:hover, .btn-icon:hover { border-color: #ffffff42; background: #ffffff15; }
+      .feature-card:hover {
+        border-color: #dfe6e1;
+        background: #f6faf7;
+        box-shadow: none;
+        transform: none;
+      }
+      .demo-card:hover {
+        border-color: #a9c9b4;
+        box-shadow: 0 10px 28px #12351f14;
+        transform: translateY(-3px);
+      }
+      .dark-theme .feature-card:hover {
+        border-color: #2a382f;
+        background: #17261c;
+      }
+      .dark-theme .demo-card:hover {
+        border-color: #477259;
+        box-shadow: 0 10px 28px #00000047;
+      }
+    }
+
+    @media (max-width: 1100px) {
+      .hero-layout {
+        grid-template-columns: 1fr;
+        gap: 52px;
+      }
+      .hero-inner { max-width: 680px; }
+      .browser-wrap { transform: none; }
+      .feature-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .demo-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 760px) {
+      .hero { padding: 64px 22px 58px; }
+      .hero-title { font-size: 44px; letter-spacing: -1.8px; }
+      .hero-proof { flex-wrap: wrap; gap: 18px 0; }
+      .hero-proof div { padding: 0 16px; }
+      .browser-content { height: 300px; }
+      .browser-note { display: none; }
+      .features-inner, .demos-inner { padding: 68px 22px 74px; }
+      .section-heading { align-items: flex-start; flex-direction: column; gap: 18px; }
+      .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .demo-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 500px) {
+      .hero-title { font-size: 38px; }
+      .hero-sub { font-size: 14px; }
+      .hero-actions .btn-white, .hero-actions .btn-outline { flex: 1; }
+      .hero-proof div { width: 50%; padding: 0; border: 0; }
+      .feature-grid, .demo-cards { grid-template-columns: 1fr; }
+      .feature-card { min-height: auto; }
+      .browser-content { height: 260px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .btn,
+      .demo-card,
+      .page,
+      .features,
+      .demos,
+      .feature-card {
+        transition-duration: 0.01ms;
+      }
+    }
   `,
 })
 export class HomeComponent {
+  readonly theme = inject(ThemeService);
   readonly features = FEATURES;
 
   readonly ds = new AgridDataSource(PREVIEW_ROWS);

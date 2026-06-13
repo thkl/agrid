@@ -91,7 +91,7 @@ function generateRows(count: number): Record<string, unknown>[] {
   styles: `
     .demo-wrapper {
       padding: 16px;
-      height: 100vh;
+      height: 100%;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;

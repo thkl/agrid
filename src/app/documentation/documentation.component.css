@@ -244,6 +244,94 @@ td:first-child {
   font-weight: 600;
 }
 
+:host-context(.app-shell--dark) {
+  color: #e5eee8;
+  background: #0b130e;
+}
+
+:host-context(.app-shell--dark) .docs-toc {
+  border-right-color: #2b3a31;
+  background: #111b15;
+}
+
+:host-context(.app-shell--dark) .docs-toc-title,
+:host-context(.app-shell--dark) h1,
+:host-context(.app-shell--dark) h2,
+:host-context(.app-shell--dark) h3 {
+  color: #edf5ef;
+}
+
+:host-context(.app-shell--dark) .docs-toc a,
+:host-context(.app-shell--dark) .docs-hero p,
+:host-context(.app-shell--dark) p,
+:host-context(.app-shell--dark) .docs-footer {
+  color: #9aaca0;
+}
+
+:host-context(.app-shell--dark) .docs-toc a:hover,
+:host-context(.app-shell--dark) .eyebrow,
+:host-context(.app-shell--dark) .docs-footer a {
+  color: #6ee7a0;
+}
+
+:host-context(.app-shell--dark) .docs-hero,
+:host-context(.app-shell--dark) section {
+  border-bottom-color: #26352c;
+}
+
+:host-context(.app-shell--dark) .hero-links a {
+  border-color: #34443a;
+  color: #dce8df;
+  background: #111b15;
+}
+
+:host-context(.app-shell--dark) .hero-links .primary-link {
+  border-color: #278552;
+  color: #fff;
+  background: #278552;
+}
+
+:host-context(.app-shell--dark) p code,
+:host-context(.app-shell--dark) td code {
+  color: #86efac;
+  background: #173923;
+}
+
+:host-context(.app-shell--dark) pre {
+  border-color: #34443a;
+  background: #070d09;
+}
+
+:host-context(.app-shell--dark) .feature-list span {
+  border-color: #28583a;
+  color: #86efac;
+  background: #173923;
+}
+
+:host-context(.app-shell--dark) .table-wrap {
+  border-color: #2b3a31;
+}
+
+:host-context(.app-shell--dark) th {
+  color: #dce8df;
+  background: #17231b;
+}
+
+:host-context(.app-shell--dark) th,
+:host-context(.app-shell--dark) td {
+  border-bottom-color: #2b3a31;
+}
+
+:host-context(.app-shell--dark) .callout {
+  border-left-color: #4ade80;
+  color: #b7e4c4;
+  background: #17301f;
+}
+
+:host-context(.app-shell--dark) .docs-footer {
+  background: #17231b;
+}
+
 @media (max-width: 860px) {
   .docs-page {
     display: block;
