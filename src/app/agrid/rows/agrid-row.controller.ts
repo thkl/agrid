@@ -127,6 +127,7 @@ export class AgridRowController {
       if (!isEditableEventTarget(event.target)) event.preventDefault();
       this.selectedIndices.set(new Set([originalIndex]));
       this.selectionPivot = originalIndex;
+
       if (allowDragSelect) this.opts.startDragSelect(originalIndex);
       else this.emitSelection();
     }

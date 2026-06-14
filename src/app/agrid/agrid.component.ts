@@ -849,6 +849,11 @@ export class AgridComponent<T extends object = any> {
     return this.columnReorder.getHeaderOffset(field);
   }
 
+  hasContextMenuEntries() {
+    const hme = (!this.readonlyGrid() && !this.treeConfig())
+    return hme;
+  }
+
   // ── Setup ─────────────────────────────────────────────────────────────────────
 
   private readonly _seededControls = new WeakSet<AgridControl>();
@@ -1540,7 +1545,7 @@ export class AgridComponent<T extends object = any> {
   /** @internal Handles the control column without letting the row receive a second pointer event. */
   onControlPointerDown(event: PointerEvent, originalIndex: number): void {
     event.stopPropagation();
-    if (this.allowRowReorder()) {
+    if (this.allowRowReorder() && event.pointerType === 'mouse' && event.button === 0) {
       this.onHandlePointerDown(event, originalIndex);
       return;
     }

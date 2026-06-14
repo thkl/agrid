@@ -1,21 +1,14 @@
 <div #wrapper class="ag-wrapper" tabindex="0" role="grid" [attr.aria-label]="localeText().grid"
   [attr.aria-rowcount]="ariaRowCount()" [attr.aria-colcount]="ariaColCount()"
   [attr.aria-multiselectable]="rowSelection() === 'multi' ? 'true' : null"
-  [attr.aria-readonly]="readonlyGrid() ? 'true' : null"
-  [attr.aria-busy]="loading() ? 'true' : null" (copy)="onCopy($event)" (paste)="onPaste($event)"
-  (focusin)="onGridFocusIn($event)"
+  [attr.aria-readonly]="readonlyGrid() ? 'true' : null" [attr.aria-busy]="loading() ? 'true' : null"
+  (copy)="onCopy($event)" (paste)="onPaste($event)" (focusin)="onGridFocusIn($event)"
   (click)="closeContextMenu(); closeCellContextMenu(); closeFilterMenu(); closeGroupActionsMenu()">
   @if (enableQuickFilter()) {
-    <div class="ag-toolbar">
-      <input
-        class="ag-quick-filter"
-        type="search"
-        [value]="quickFilterValue()"
-        (input)="onQuickFilterInput($event)"
-        [placeholder]="localeText().quickFilterPlaceholder"
-        [attr.aria-label]="localeText().quickFilterPlaceholder"
-      />
-    </div>
+  <div class="ag-toolbar">
+    <input class="ag-quick-filter" type="search" [value]="quickFilterValue()" (input)="onQuickFilterInput($event)"
+      [placeholder]="localeText().quickFilterPlaceholder" [attr.aria-label]="localeText().quickFilterPlaceholder" />
+  </div>
   }
   <div class="ag-main-area">
     <div class="ag-grid-split" [class.ag-has-right-pane]="hasRightPinnedPane()">
@@ -28,8 +21,7 @@
           <div class="ag-header-group-cell ag-header-group-cell--empty"></div>
           }
           @for (run of pinnedHeaderGroupRuns(); track run.key) {
-          <div class="ag-header-group-cell" role="columnheader"
-            [attr.data-header-group]="run.id"
+          <div class="ag-header-group-cell" role="columnheader" [attr.data-header-group]="run.id"
             [class.ag-header-group-cell--empty]="!run.id"
             [class.ag-header-group-cell--locked]="isHeaderGroupLocked(run.fields)"
             [class.ag-header-group-cell--dragging]="isHeaderGroupDragging(run.fields)"
@@ -71,8 +63,7 @@
               <button class="ag-header-menu-btn" [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
                 [title]="localeText().columnMenu" [attr.aria-label]="localeText().columnMenu + ': ' + col.header"
                 [attr.aria-expanded]="filterMenu()?.field === col.field" aria-haspopup="menu"
-                (click)="openFilterMenu($event, col.field)"
-                (pointerdown)="$event.stopPropagation()">▾</button>
+                (click)="openFilterMenu($event, col.field)" (pointerdown)="$event.stopPropagation()">▾</button>
             </div>
             @if (hasFilterableColumns()) {
             <div class="ag-header-cell-filter">
@@ -88,15 +79,15 @@
               aria-orientation="vertical" [attr.aria-disabled]="col.locked ? 'true' : null"
               [attr.aria-label]="localeText().resizeColumn + ': ' + col.header"
               [attr.aria-valuenow]="getColumnWidth(col)" (keydown)="onResizeKeyDown($event, col)"
-              (mousedown)="onResizeStart($event, col)"
-              (pointerdown)="$event.stopPropagation()" (dblclick)="onAutosizeColumn($event, col)"></div>
+              (mousedown)="onResizeStart($event, col)" (pointerdown)="$event.stopPropagation()"
+              (dblclick)="onAutosizeColumn($event, col)"></div>
           </div>
           }
         </div>
 
         <ng-template #leftRow let-item let-ariaIndex="ariaIndex">
-          <div role="row"
-            [attr.aria-rowindex]="ariaIndex"
+          <div role="row" [attr.aria-rowindex]="ariaIndex"
+            [attr.data-control]="true"
             [attr.aria-selected]="isDataRowItem(item) && isRowSelected(item.originalIndex) ? 'true' : null"
             [class.ag-row]="!isGroupHeaderItem(item) && !isDetailRowItem(item)" [class.ag-add-row]="item === null"
             [class.ag-add-row--selected]="item === null && isAddRowSelected()" [class.ag-ghost-row]="item === 'ghost'"
@@ -120,30 +111,27 @@
               <button class="ag-detail-toggle" type="button"
                 [class.ag-detail-toggle--expanded]="isDetailExpanded(item.originalIndex)"
                 [attr.aria-expanded]="isDetailExpanded(item.originalIndex)"
-                [attr.aria-label]="localeText().toggleDetail"
-                (pointerdown)="$event.stopPropagation()"
+                [attr.aria-label]="localeText().toggleDetail" (pointerdown)="$event.stopPropagation()"
                 (click)="onDetailToggle(item.originalIndex); $event.stopPropagation()">▶</button>
               }
               @if (enableRowMarking()) {
               <input class="ag-row-marker" type="checkbox" [checked]="isRowMarked(item.originalIndex)"
-                [attr.aria-label]="localeText().markRow"
-                (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()"
-                (change)="toggleRowMarked(item.originalIndex)" />
+                [attr.aria-label]="localeText().markRow" (pointerdown)="$event.stopPropagation()"
+                (click)="$event.stopPropagation()" (change)="toggleRowMarked(item.originalIndex)" />
               }
             </div>
             }
             @for (col of pinnedColDefs(); track col.field) {
             @let ci = getVisibleColIndex(col.field);
             <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
-              [row]="item.row" [locale]="locale()"
-              [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
-              [attr.data-col-field]="col.field"
-              [attr.aria-colindex]="getAriaColIndex(ci)"
+              [row]="item.row" [locale]="locale()" [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
+              [attr.data-col-field]="col.field" [attr.aria-colindex]="getAriaColIndex(ci)"
               [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
-              [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)" [editable]="isColEditable(col)" [error]="cellValidationError(item.originalIndex, ci)"
-              [seedChar]="getSeedChar(item.originalIndex, ci)"
-              [treeCell]="isTreeCell(col)" [treeLevel]="treeRowLevel(item)"
-              [treeExpandable]="treeRowExpandable(item)" [treeExpanded]="treeRowExpanded(item)"
+              [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
+              [editable]="isColEditable(col)" [error]="cellValidationError(item.originalIndex, ci)"
+              [seedChar]="getSeedChar(item.originalIndex, ci)" [treeCell]="isTreeCell(col)"
+              [treeLevel]="treeRowLevel(item)" [treeExpandable]="treeRowExpandable(item)"
+              [treeExpanded]="treeRowExpanded(item)"
               [class.ag-cell--range-selected]="isRangeSelected(item.originalIndex, ci)"
               [class.ag-cell--fill-preview]="isFillPreviewCell(item.originalIndex, ci)"
               [class.ag-cell--fill-handle]="isFillHandleCell(item.originalIndex, ci)"
@@ -156,7 +144,8 @@
               [class.ag-cell--pinned-last]="isLastPinnedColumn(col.field)"
               (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
               (activate)="onActivate(item.originalIndex, ci, $event)" (startEdit)="onStartEdit(item.originalIndex, ci)"
-              (draftChange)="onDraftChange($event)" (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)" (treeToggle)="onTreeToggle(item)"
+              (draftChange)="onDraftChange($event)" (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)"
+              (treeToggle)="onTreeToggle(item)"
               (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
             }
             } @else if (item === null) {
@@ -205,8 +194,7 @@
         }
 
         @if (showFooter()) {
-        <div class="ag-footer" role="row"
-          [attr.aria-rowindex]="displayItems().length + headerRowCount() + 1"
+        <div class="ag-footer" role="row" [attr.aria-rowindex]="displayItems().length + headerRowCount() + 1"
           [style.grid-template-columns]="pinnedGridTemplateColumns()">
           @if (showControlColumn()) {
           <div class="ag-footer-cell ag-footer-cell--control" role="gridcell" aria-colindex="1"></div>
@@ -235,8 +223,7 @@
             [style.grid-template-columns]="scrollableGridTemplateColumns()"
             [style.min-width.px]="scrollableTotalWidth()">
             @for (run of scrollableHeaderGroupRuns(); track run.key) {
-            <div class="ag-header-group-cell" role="columnheader"
-              [attr.data-header-group]="run.id"
+            <div class="ag-header-group-cell" role="columnheader" [attr.data-header-group]="run.id"
               [class.ag-header-group-cell--empty]="!run.id"
               [class.ag-header-group-cell--locked]="isHeaderGroupLocked(run.fields)"
               [class.ag-header-group-cell--dragging]="isHeaderGroupDragging(run.fields)"
@@ -273,8 +260,7 @@
                 <button class="ag-header-menu-btn" [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
                   [title]="localeText().columnMenu" [attr.aria-label]="localeText().columnMenu + ': ' + col.header"
                   [attr.aria-expanded]="filterMenu()?.field === col.field" aria-haspopup="menu"
-                  (click)="openFilterMenu($event, col.field)"
-                  (pointerdown)="$event.stopPropagation()">▾</button>
+                  (click)="openFilterMenu($event, col.field)" (pointerdown)="$event.stopPropagation()">▾</button>
               </div>
               @if (hasFilterableColumns()) {
               <div class="ag-header-cell-filter">
@@ -290,15 +276,14 @@
                 aria-orientation="vertical" [attr.aria-disabled]="col.locked ? 'true' : null"
                 [attr.aria-label]="localeText().resizeColumn + ': ' + col.header"
                 [attr.aria-valuenow]="getColumnWidth(col)" (keydown)="onResizeKeyDown($event, col)"
-                (mousedown)="onResizeStart($event, col)"
-                (pointerdown)="$event.stopPropagation()" (dblclick)="onAutosizeColumn($event, col)"></div>
+                (mousedown)="onResizeStart($event, col)" (pointerdown)="$event.stopPropagation()"
+                (dblclick)="onAutosizeColumn($event, col)"></div>
             </div>
             }
           </div>
 
           <ng-template #bodyRow let-item let-ariaIndex="ariaIndex">
-            <div role="row"
-              [attr.aria-rowindex]="ariaIndex"
+            <div role="row" [attr.aria-rowindex]="ariaIndex"
               [attr.aria-selected]="isDataRowItem(item) && isRowSelected(item.originalIndex) ? 'true' : null"
               [class.ag-row]="!isGroupHeaderItem(item) && !isDetailRowItem(item)" [class.ag-add-row]="item === null"
               [class.ag-add-row--selected]="item === null && isAddRowSelected()" [class.ag-ghost-row]="item === 'ghost'"
@@ -316,15 +301,14 @@
               @for (col of scrollableColDefs(); track col.field) {
               @let ci = getVisibleColIndex(col.field);
               <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
-                [row]="item.row" [locale]="locale()"
-                [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
-                [attr.data-col-field]="col.field"
-                [attr.aria-colindex]="getAriaColIndex(ci)"
+                [row]="item.row" [locale]="locale()" [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
+                [attr.data-col-field]="col.field" [attr.aria-colindex]="getAriaColIndex(ci)"
                 [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
-                [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)" [editable]="isColEditable(col)" [error]="cellValidationError(item.originalIndex, ci)"
-                [seedChar]="getSeedChar(item.originalIndex, ci)"
-                [treeCell]="isTreeCell(col)" [treeLevel]="treeRowLevel(item)"
-                [treeExpandable]="treeRowExpandable(item)" [treeExpanded]="treeRowExpanded(item)"
+                [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
+                [editable]="isColEditable(col)" [error]="cellValidationError(item.originalIndex, ci)"
+                [seedChar]="getSeedChar(item.originalIndex, ci)" [treeCell]="isTreeCell(col)"
+                [treeLevel]="treeRowLevel(item)" [treeExpandable]="treeRowExpandable(item)"
+                [treeExpanded]="treeRowExpanded(item)"
                 [class.ag-cell--range-selected]="isRangeSelected(item.originalIndex, ci)"
                 [class.ag-cell--fill-preview]="isFillPreviewCell(item.originalIndex, ci)"
                 [class.ag-cell--fill-handle]="isFillHandleCell(item.originalIndex, ci)"
@@ -336,8 +320,8 @@
                 [class.ag-cell--find-active]="isActiveFindMatchCell(item.originalIndex, ci)"
                 (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
                 (activate)="onActivate(item.originalIndex, ci, $event)"
-                (startEdit)="onStartEdit(item.originalIndex, ci)" (draftChange)="onDraftChange($event)" (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)"
-                (treeToggle)="onTreeToggle(item)"
+                (startEdit)="onStartEdit(item.originalIndex, ci)" (draftChange)="onDraftChange($event)"
+                (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)" (treeToggle)="onTreeToggle(item)"
                 (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
               }
               } @else if (item === null) {
@@ -346,8 +330,7 @@
               </div>
               } @else if (item === 'ghost') {
               @for (col of scrollableColDefs(); track col.field) {
-              <div class="ag-ghost-cell"
-                [class.ag-column-reorder-item--dragging]="isColDragging(col.field)"
+              <div class="ag-ghost-cell" [class.ag-column-reorder-item--dragging]="isColDragging(col.field)"
                 [style.transform]="'translateX(' + getColReorderOffset(col.field) + 'px)'">{{
                 getGhostCellDisplay(col) }}</div>
               }
@@ -371,13 +354,13 @@
                   @if (item.aggregates; as aggs) {
                   <span class="ag-group-aggregates">
                     @for (col of visibleColDefs(); track col.field) {
-                      @if (hasAggregate(col) && aggs[col.field] !== undefined) {
-                      <span class="ag-group-aggregate">
-                        <span class="ag-group-aggregate-col">{{ col.header }}</span>
-                        <span class="ag-group-aggregate-op">{{ getAggregateLabel(col) }}</span>
-                        {{ getFooterDisplay(col, aggs[col.field]) }}
-                      </span>
-                      }
+                    @if (hasAggregate(col) && aggs[col.field] !== undefined) {
+                    <span class="ag-group-aggregate">
+                      <span class="ag-group-aggregate-col">{{ col.header }}</span>
+                      <span class="ag-group-aggregate-op">{{ getAggregateLabel(col) }}</span>
+                      {{ getFooterDisplay(col, aggs[col.field]) }}
+                    </span>
+                    }
                     }
                   </span>
                   }
@@ -385,14 +368,12 @@
               </div>
               }
               @if (isDataRowItem(item) && isRowPendingDelete(item.originalIndex)) {
-              <div class="ag-delete-confirmation" role="alertdialog"
-                [attr.aria-label]="localeText().confirmDeleteRow"
-                [style.left.px]="deleteConfirmationLeft()"
-                [style.width.px]="deleteConfirmationWidth() || null"
+              <div class="ag-delete-confirmation" role="alertdialog" [attr.aria-label]="localeText().confirmDeleteRow"
+                [style.left.px]="deleteConfirmationLeft()" [style.width.px]="deleteConfirmationWidth() || null"
                 (pointerdown)="$event.stopPropagation()" (click)="$event.stopPropagation()">
                 <span class="ag-delete-confirmation-text">{{ localeText().confirmDeleteRow }}</span>
-                <button class="ag-delete-confirmation-btn ag-delete-confirmation-btn--yes"
-                  type="button" (click)="confirmPendingRowDelete()">{{ localeText().confirmYes }}</button>
+                <button class="ag-delete-confirmation-btn ag-delete-confirmation-btn--yes" type="button"
+                  (click)="confirmPendingRowDelete()">{{ localeText().confirmYes }}</button>
                 <button class="ag-delete-confirmation-btn" type="button" data-delete-confirm-no
                   (click)="cancelRowDelete()">{{ localeText().confirmNo }}</button>
               </div>
@@ -427,8 +408,7 @@
           }
 
           @if (showFooter()) {
-          <div class="ag-footer" role="row"
-            [attr.aria-rowindex]="displayItems().length + headerRowCount() + 1"
+          <div class="ag-footer" role="row" [attr.aria-rowindex]="displayItems().length + headerRowCount() + 1"
             [style.grid-template-columns]="scrollableGridTemplateColumns()"
             [style.min-width.px]="scrollableTotalWidth()">
             @for (col of scrollableColDefs(); track col.field) {
@@ -453,8 +433,7 @@
         <div class="ag-header-groups" role="row" aria-rowindex="1"
           [style.grid-template-columns]="rightGridTemplateColumns()" [style.width.px]="rightPinnedPaneWidth()">
           @for (run of rightHeaderGroupRuns(); track run.key) {
-          <div class="ag-header-group-cell" role="columnheader"
-            [attr.data-header-group]="run.id"
+          <div class="ag-header-group-cell" role="columnheader" [attr.data-header-group]="run.id"
             [class.ag-header-group-cell--empty]="!run.id"
             [class.ag-header-group-cell--locked]="isHeaderGroupLocked(run.fields)"
             [class.ag-header-group-cell--dragging]="isHeaderGroupDragging(run.fields)"
@@ -491,8 +470,7 @@
               <button class="ag-header-menu-btn" [class.ag-header-menu-btn--active]="hasActiveFilter(col.field)"
                 [title]="localeText().columnMenu" [attr.aria-label]="localeText().columnMenu + ': ' + col.header"
                 [attr.aria-expanded]="filterMenu()?.field === col.field" aria-haspopup="menu"
-                (click)="openFilterMenu($event, col.field)"
-                (pointerdown)="$event.stopPropagation()">▾</button>
+                (click)="openFilterMenu($event, col.field)" (pointerdown)="$event.stopPropagation()">▾</button>
             </div>
             @if (hasFilterableColumns()) {
             <div class="ag-header-cell-filter">
@@ -508,15 +486,14 @@
               aria-orientation="vertical" [attr.aria-disabled]="col.locked ? 'true' : null"
               [attr.aria-label]="localeText().resizeColumn + ': ' + col.header"
               [attr.aria-valuenow]="getColumnWidth(col)" (keydown)="onResizeKeyDown($event, col)"
-              (mousedown)="onResizeStart($event, col)"
-              (pointerdown)="$event.stopPropagation()" (dblclick)="onAutosizeColumn($event, col)"></div>
+              (mousedown)="onResizeStart($event, col)" (pointerdown)="$event.stopPropagation()"
+              (dblclick)="onAutosizeColumn($event, col)"></div>
           </div>
           }
         </div>
 
         <ng-template #rightRow let-item let-ariaIndex="ariaIndex">
-          <div role="row"
-            [attr.aria-rowindex]="ariaIndex"
+          <div role="row" [attr.aria-rowindex]="ariaIndex"
             [attr.aria-selected]="isDataRowItem(item) && isRowSelected(item.originalIndex) ? 'true' : null"
             [class.ag-row]="!isGroupHeaderItem(item) && !isDetailRowItem(item)" [class.ag-add-row]="item === null"
             [class.ag-ghost-row]="item === 'ghost'" [class.ag-group-header-row]="isGroupHeaderItem(item)"
@@ -532,16 +509,14 @@
             @for (col of rightPinnedColDefs(); track col.field) {
             @let ci = getVisibleColIndex(col.field);
             <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
-              [row]="item.row" [locale]="locale()"
-              [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
-              [attr.data-col-field]="col.field"
-              [attr.aria-colindex]="getAriaColIndex(ci)"
+              [row]="item.row" [locale]="locale()" [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
+              [attr.data-col-field]="col.field" [attr.aria-colindex]="getAriaColIndex(ci)"
               [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
-              [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)" [editable]="isColEditable(col)" [error]="cellValidationError(item.originalIndex, ci)"
-              [seedChar]="getSeedChar(item.originalIndex, ci)"
-              [treeCell]="isTreeCell(col)" [treeLevel]="treeRowLevel(item)"
-              [treeExpandable]="treeRowExpandable(item)" [treeExpanded]="treeRowExpanded(item)"
-              [class]="getCellClass(col, item.row[col.field], item.row)"
+              [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
+              [editable]="isColEditable(col)" [error]="cellValidationError(item.originalIndex, ci)"
+              [seedChar]="getSeedChar(item.originalIndex, ci)" [treeCell]="isTreeCell(col)"
+              [treeLevel]="treeRowLevel(item)" [treeExpandable]="treeRowExpandable(item)"
+              [treeExpanded]="treeRowExpanded(item)" [class]="getCellClass(col, item.row[col.field], item.row)"
               [class.ag-cell--range-selected]="isRangeSelected(item.originalIndex, ci)"
               [class.ag-cell--fill-preview]="isFillPreviewCell(item.originalIndex, ci)"
               [class.ag-cell--fill-handle]="isFillHandleCell(item.originalIndex, ci)"
@@ -553,7 +528,8 @@
               [class.ag-cell--pinned]="true" [class.ag-cell--pinned-first]="isFirstRightPinnedColumn(col.field)"
               (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
               (activate)="onActivate(item.originalIndex, ci, $event)" (startEdit)="onStartEdit(item.originalIndex, ci)"
-              (draftChange)="onDraftChange($event)" (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)" (treeToggle)="onTreeToggle(item)"
+              (draftChange)="onDraftChange($event)" (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)"
+              (treeToggle)="onTreeToggle(item)"
               (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
             }
             } @else if (item === null) {
@@ -582,7 +558,8 @@
         }
 
         <cdk-virtual-scroll-viewport #rightPinnedViewport class="ag-body ag-pinned-body ag-right-pinned-body"
-          [agridVariableRowSize]="itemSizes()" [style.width.px]="rightPinnedPaneWidth()" (scroll)="onRightPinnedBodyScroll()">
+          [agridVariableRowSize]="itemSizes()" [style.width.px]="rightPinnedPaneWidth()"
+          (scroll)="onRightPinnedBodyScroll()">
           <ng-container *cdkVirtualFor="let item of displayItems(); let di = index; trackBy: trackByItem">
             <ng-container [ngTemplateOutlet]="rightRow"
               [ngTemplateOutletContext]="{ $implicit: item, ariaIndex: di + headerRowCount() + 1 + pinnedTopItems().length }" />
@@ -600,8 +577,7 @@
         }
 
         @if (showFooter()) {
-        <div class="ag-footer" role="row"
-          [attr.aria-rowindex]="displayItems().length + headerRowCount() + 1"
+        <div class="ag-footer" role="row" [attr.aria-rowindex]="displayItems().length + headerRowCount() + 1"
           [style.grid-template-columns]="rightGridTemplateColumns()">
           @for (col of rightPinnedColDefs(); track col.field) {
           <div class="ag-footer-cell" role="gridcell"
@@ -628,41 +604,27 @@
     }
 
     @if (showSidebar()) {
-    <agrid-sidebar
-      [open]="sidebarOpen()"
-      [activeTab]="sidebarTab()"
-      [columns]="colDefs()"
-      [headerGroups]="headerGroups()"
-      [row]="sidebarRow()"
-      [hiddenColumns]="sidebarHiddenColumns()"
-      [locale]="locale()"
-      [localeText]="localeText()"
-      [readonlyGrid]="readonlyGrid()"
-      [useSidebarEditor]="useSidebarEditor()"
-      [errors]="sidebarValidationErrors()"
-      (close)="toggleSidebar()"
-      (tabChange)="onSidebarStripClick($event)"
+    <agrid-sidebar [open]="sidebarOpen()" [activeTab]="sidebarTab()" [columns]="colDefs()"
+      [headerGroups]="headerGroups()" [row]="sidebarRow()" [hiddenColumns]="sidebarHiddenColumns()" [locale]="locale()"
+      [localeText]="localeText()" [readonlyGrid]="readonlyGrid()" [useSidebarEditor]="useSidebarEditor()"
+      [errors]="sidebarValidationErrors()" (close)="toggleSidebar()" (tabChange)="onSidebarStripClick($event)"
       (toggleColumn)="onSidebarToggleColumn($event)"
       (toggleColumnGroup)="onSidebarToggleColumnGroup($event.fields, $event.visible)"
-      (detailEdit)="onSidebarDetailEdit($event)"
-      (save)="onSidebarDetailSave($event)"
-    />
+      (detailEdit)="onSidebarDetailEdit($event)" (save)="onSidebarDetailSave($event)" />
     }
   </div><!-- /.ag-main-area -->
 
   @if (showPagination()) {
   <nav class="ag-pagination" [attr.aria-label]="localeText().pagination">
-    <button class="ag-page-btn" [attr.aria-label]="localeText().firstPage"
-      [disabled]="control()!.currentPage() <= 1" (click)="goToFirstPage()">«</button>
-    <button class="ag-page-btn" [attr.aria-label]="localeText().previous"
-      [disabled]="control()!.currentPage() <= 1" (click)="goToPrevPage()">‹</button>
+    <button class="ag-page-btn" [attr.aria-label]="localeText().firstPage" [disabled]="control()!.currentPage() <= 1"
+      (click)="goToFirstPage()">«</button>
+    <button class="ag-page-btn" [attr.aria-label]="localeText().previous" [disabled]="control()!.currentPage() <= 1"
+      (click)="goToPrevPage()">‹</button>
     <span class="ag-page-info" aria-live="polite">{{ control()!.currentPage() }} / {{ totalPages() }}</span>
     <button class="ag-page-btn" [disabled]="control()!.currentPage() >= totalPages()"
-      [attr.aria-label]="localeText().next"
-      (click)="goToNextPage()">›</button>
+      [attr.aria-label]="localeText().next" (click)="goToNextPage()">›</button>
     <button class="ag-page-btn" [disabled]="control()!.currentPage() >= totalPages()"
-      [attr.aria-label]="localeText().lastPage"
-      (click)="goToLastPage()">»</button>
+      [attr.aria-label]="localeText().lastPage" (click)="goToLastPage()">»</button>
     <span class="ag-page-count">{{ localeText().rows(filteredRowCount()) }}</span>
   </nav>
   }
@@ -675,23 +637,28 @@
 
   <!-- Row context menu -->
   @if (contextMenu(); as menu) {
+  @if(hasContextMenuEntries()) {
   <div class="ag-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y"
     (click)="$event.stopPropagation()">
     @if (!treeConfig()) {
     @if (rowPinState(menu.rowIndex)) {
-    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, null)">{{ localeText().unpinRow }}</button>
+    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, null)">{{ localeText().unpinRow
+      }}</button>
     } @else {
-    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, 'top')">{{ localeText().pinRowTop }}</button>
-    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, 'bottom')">{{ localeText().pinRowBottom }}</button>
+    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, 'top')">{{ localeText().pinRowTop
+      }}</button>
+    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, 'bottom')">{{
+      localeText().pinRowBottom }}</button>
     }
     <div class="ag-context-separator" role="separator"></div>
     }
     @if (!readonlyGrid()) {
-      <button class="ag-context-item ag-context-item--danger" role="menuitem" (click)="deleteRow(menu.rowIndex)">
-        {{ localeText().deleteRow }}
-      </button>
+    <button class="ag-context-item ag-context-item--danger" role="menuitem" (click)="deleteRow(menu.rowIndex)">
+      {{ localeText().deleteRow }}
+    </button>
     }
   </div>
+  }
   }
 
   <!-- Cell context menu -->
@@ -699,27 +666,34 @@
   @let col = getColDef(menu.field)!;
   <div class="ag-context-menu" role="menu" [style.left.px]="menu.x" [style.top.px]="menu.y"
     (click)="$event.stopPropagation()">
-    <button class="ag-context-item" role="menuitem" (click)="copyCellToClipboard(menu.rowIndex, col)">{{ localeText().copyCellValue
+    <button class="ag-context-item" role="menuitem" (click)="copyCellToClipboard(menu.rowIndex, col)">{{
+      localeText().copyCellValue
       }}</button>
-    <button class="ag-context-item" role="menuitem" (click)="copyRowToClipboard(menu.rowIndex)">{{ localeText().copyRow }}</button>
+    <button class="ag-context-item" role="menuitem" (click)="copyRowToClipboard(menu.rowIndex)">{{ localeText().copyRow
+      }}</button>
     @if (!treeConfig()) {
     <div class="ag-context-separator" role="separator"></div>
     @if (rowPinState(menu.rowIndex)) {
-    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, null)">{{ localeText().unpinRow }}</button>
+    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, null)">{{ localeText().unpinRow
+      }}</button>
     } @else {
-    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, 'top')">{{ localeText().pinRowTop }}</button>
-    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, 'bottom')">{{ localeText().pinRowBottom }}</button>
+    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, 'top')">{{ localeText().pinRowTop
+      }}</button>
+    <button class="ag-context-item" role="menuitem" (click)="onPinRow(menu.rowIndex, 'bottom')">{{
+      localeText().pinRowBottom }}</button>
     }
     }
     @if (allowAddRows() && !readonlyGrid()) {
     <div class="ag-context-separator" role="separator"></div>
-    <button class="ag-context-item" role="menuitem" (click)="insertRowAt(menu.rowIndex)">{{ localeText().insertRowAbove }}</button>
-    <button class="ag-context-item" role="menuitem" (click)="insertRowAt(menu.rowIndex + 1)">{{ localeText().insertRowBelow }}</button>
+    <button class="ag-context-item" role="menuitem" (click)="insertRowAt(menu.rowIndex)">{{ localeText().insertRowAbove
+      }}</button>
+    <button class="ag-context-item" role="menuitem" (click)="insertRowAt(menu.rowIndex + 1)">{{
+      localeText().insertRowBelow }}</button>
     }
     @if (!readonlyGrid()) {
     <div class="ag-context-separator" role="separator"></div>
-    <button class="ag-context-item ag-context-item--danger" role="menuitem"
-      (click)="deleteRow(menu.rowIndex)">{{ localeText().deleteRow }}</button>
+    <button class="ag-context-item ag-context-item--danger" role="menuitem" (click)="deleteRow(menu.rowIndex)">{{
+      localeText().deleteRow }}</button>
     }
     @if (cellMenuItems().length) {
     <div class="ag-context-separator" role="separator"></div>
@@ -727,8 +701,8 @@
     @if (item === null) {
     <div class="ag-context-separator" role="separator"></div>
     } @else {
-    <button class="ag-context-item" role="menuitem" [class.ag-context-item--danger]="item.danger" [disabled]="item.disabled"
-      (click)="runCellMenuItem(item, menu)">{{
+    <button class="ag-context-item" role="menuitem" [class.ag-context-item--danger]="item.danger"
+      [disabled]="item.disabled" (click)="runCellMenuItem(item, menu)">{{
       item.label }}</button>
     }
     }
@@ -751,33 +725,28 @@
   <!-- Filter dropdown -->
   @if (filterMenu(); as menu) {
   <agrid-column-menu [x]="menu.x" [y]="menu.y" [header]="getColDef(menu.field)?.header ?? menu.field"
-    [sortDir]="getSort(menu.field)" [sortable]="sortOption() !== 'none'"
-    [showColumnActions]="!!control()" [pinned]="getColumnPinState(menu.field)"
-    [groupable]="!!getColDef(menu.field)?.groupable" [grouped]="isGroupedByField(menu.field)"
-    [filterable]="!!getColDef(menu.field)?.filterable" [showValueFilter]="!serverSideFiltering()"
-    [filterType]="getMenuFilterType(menu.field)"
+    [sortDir]="getSort(menu.field)" [sortable]="sortOption() !== 'none'" [showColumnActions]="!!control()"
+    [pinned]="getColumnPinState(menu.field)" [groupable]="!!getColDef(menu.field)?.groupable"
+    [grouped]="isGroupedByField(menu.field)" [filterable]="!!getColDef(menu.field)?.filterable"
+    [showValueFilter]="!serverSideFiltering()" [filterType]="getMenuFilterType(menu.field)"
     [operator]="getMenuOperator(menu.field)" [operand]="getMenuOperand(menu.field)"
-    [operand2]="getMenuOperand2(menu.field)"
-    (operatorChange)="onMenuOperatorChange(menu.field, $event)"
+    [operand2]="getMenuOperand2(menu.field)" (operatorChange)="onMenuOperatorChange(menu.field, $event)"
     (operandChange)="onMenuOperandChange(menu.field, $event)"
-    (operand2Change)="onMenuOperand2Change(menu.field, $event)"
-    [search]="filterMenuSearch()"
+    (operand2Change)="onMenuOperand2Change(menu.field, $event)" [search]="filterMenuSearch()"
     [allSelected]="isMenuAllSelected(menu.field)"
     [valueItems]="serverSideFiltering() || !getColDef(menu.field)?.filterable ? [] : columnMenuValueItems()"
-    [localeText]="localeText()"
-    [sortPriority]="getSortPriority(menu.field)" [hasMultiSort]="hasMultiSort()" (sort)="onMenuSort(menu.field, $event)"
-    (resetSort)="onMenuResetSort(menu.field, $event)" (autosize)="onMenuAutosizeColumn(menu.field)"
-    (togglePin)="onMenuTogglePin(menu.field)" (togglePinRight)="onMenuTogglePinRight(menu.field)"
-    (hide)="onMenuHideColumn(menu.field)" (toggleGroup)="onMenuToggleGroupBy(menu.field)"
-    (clearFilter)="onMenuClearFilter(menu.field)" (clearAll)="onMenuClearAll()"
-    (searchChange)="onFilterMenuSearch($event)" (toggleAll)="onMenuToggleAll(menu.field)"
+    [localeText]="localeText()" [sortPriority]="getSortPriority(menu.field)" [hasMultiSort]="hasMultiSort()"
+    (sort)="onMenuSort(menu.field, $event)" (resetSort)="onMenuResetSort(menu.field, $event)"
+    (autosize)="onMenuAutosizeColumn(menu.field)" (togglePin)="onMenuTogglePin(menu.field)"
+    (togglePinRight)="onMenuTogglePinRight(menu.field)" (hide)="onMenuHideColumn(menu.field)"
+    (toggleGroup)="onMenuToggleGroupBy(menu.field)" (clearFilter)="onMenuClearFilter(menu.field)"
+    (clearAll)="onMenuClearAll()" (searchChange)="onFilterMenuSearch($event)" (toggleAll)="onMenuToggleAll(menu.field)"
     (toggleValue)="onMenuToggleValue(menu.field, $event)" [aggregate]="getEffectiveAggregate(getColDef(menu.field)!)"
     (setAggregate)="onMenuSetAggregate(menu.field, $event)" />
   }
 
   @if (columnDragPreview(); as preview) {
-  <div class="ag-column-drag-preview"
-    [style.left.px]="preview.x" [style.top.px]="preview.y"
+  <div class="ag-column-drag-preview" [style.left.px]="preview.x" [style.top.px]="preview.y"
     [style.width.px]="preview.width" [style.height.px]="preview.height">
     <span>{{ preview.label }}</span>
   </div>
