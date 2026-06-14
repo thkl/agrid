@@ -10,6 +10,7 @@ import {
   RowSelectEvent,
   RowUpdateEvent,
 } from './agrid.types';
+import { isDetailRowItem } from './agrid.utils';
 
 describe('AgridComponent grouped control column selection', () => {
   let fixture: ComponentFixture<AgridComponent>;
@@ -80,6 +81,14 @@ describe('AgridComponent grouped control column selection', () => {
         originalIndex: clicked.originalIndex,
       }],
     }]);
+  });
+
+  it('hides row deletion from the control-cell menu when readonly', () => {
+    provider.readonlyGrid.set(true);
+    component.contextMenu.set({ x: 1, y: 2, rowIndex: 0 });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.ag-context-item--danger')).toBeNull();
   });
 });
 
@@ -452,6 +461,47 @@ describe('AgridComponent Tab navigation', () => {
     expect(confirmComponent.pendingDeleteRow()).toBeNull();
     expect(confirmProvider.datasource.length).toBe(1);
     confirmFixture.destroy();
+  });
+
+  it('closes all open menus with Escape before other Escape behavior', () => {
+    component.contextMenu.set({ x: 1, y: 2, rowIndex: 0 });
+    component.cellContextMenuState.set({
+      x: 3,
+      y: 4,
+      rowIndex: 0,
+      colIndex: 0,
+      field: 'name',
+      value: 'Alice',
+      row: { name: 'Alice', department: 'Engineering' },
+    });
+    component.groupActionsMenu.set({ x: 5, y: 6, label: 'Engineering' });
+    component.filterMenu.set({ field: 'name', x: 7, y: 8 });
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      cancelable: true,
+    });
+
+    component.onKeyDown(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(component.contextMenu()).toBeNull();
+    expect(component.cellContextMenuState()).toBeNull();
+    expect(component.groupActionsMenu()).toBeNull();
+    expect(component.filterMenu()).toBeNull();
+  });
+
+  it('closes an open header menu from the document-level Escape hotkey', () => {
+    component.filterMenu.set({ field: 'name', x: 7, y: 8 });
+    const event = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    });
+
+    document.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(component.filterMenu()).toBeNull();
   });
 
   it('identifies the source datasource when multiple grids auto-add rows', async () => {
@@ -921,6 +971,8 @@ describe('AgridComponent tree mode', () => {
         getParentId: (r: any) => r.parentId,
         treeField: 'name',
       },
+      masterDetail: true,
+      detailRenderer: ({ row }) => `<b>${row.name}</b>`,
     });
 
     await TestBed.configureTestingModule({
@@ -954,6 +1006,30 @@ describe('AgridComponent tree mode', () => {
     expect(component.treeRowExpandable(rootB)).toBe(false);
   });
 
+  it('offers master/detail only on tree leaves', () => {
+    const items = component.displayItems().filter(isTreeRow);
+    const root = items.find(i => (i as any).row.name === 'Root')!;
+    const rootB = items.find(i => (i as any).row.name === 'Root B')!;
+
+    expect(component.masterDetail()).toBe(true);
+    expect(component.canToggleDetail(root)).toBe(false);
+    expect(component.canToggleDetail(rootB)).toBe(true);
+  });
+
+  it('expands detail panels beneath tree leaves and rejects parent rows', () => {
+    component.toggleDetail(0);
+    component.toggleDetail(4);
+    fixture.detectChanges();
+
+    expect(component.isDetailExpanded(0)).toBe(false);
+    expect(component.isDetailExpanded(4)).toBe(true);
+    const items = component.displayItems();
+    const detail = items.find(isDetailRowItem);
+    expect(detail?.detailFor).toBe(4);
+    expect(component.detailHtml(detail!)).toContain('Root B');
+    expect(component.itemSizes()).toContain(component.detailRowHeight());
+  });
+
   it('expands a node via its twisty click and reveals children', () => {
     const root = component.displayItems()
       .filter(isTreeRow)
@@ -963,6 +1039,75 @@ describe('AgridComponent tree mode', () => {
 
     expect(component.treeController.isExpanded(1)).toBe(true);
     expect(visibleNames()).toEqual(['Root', 'Child A', 'Child B', 'Root B']);
+  });
+
+  it('toggles an expandable readonly tree cell with Ctrl+Enter', () => {
+    provider.readonlyGrid.set(true);
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+
+    component.onKeyDown(new KeyboardEvent('keydown', {
+      key: 'Enter',
+      ctrlKey: true,
+      cancelable: true,
+    }));
+    fixture.detectChanges();
+
+    expect(component.treeController.isExpanded(1)).toBe(true);
+    expect(visibleNames()).toEqual(['Root', 'Child A', 'Child B', 'Root B']);
+
+    component.onKeyDown(new KeyboardEvent('keydown', {
+      key: 'Enter',
+      ctrlKey: true,
+      cancelable: true,
+    }));
+    fixture.detectChanges();
+
+    expect(component.treeController.isExpanded(1)).toBe(false);
+    expect(visibleNames()).toEqual(['Root', 'Root B']);
+  });
+
+  it('toggles an expandable editable tree cell with Cmd+Enter', () => {
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+
+    component.onKeyDown(new KeyboardEvent('keydown', {
+      key: 'Enter',
+      metaKey: true,
+      cancelable: true,
+    }));
+
+    expect(component.isEditing(0, 0)).toBe(false);
+    expect(component.treeController.isExpanded(1)).toBe(true);
+  });
+
+  it('keeps plain Enter editing behavior for editable tree cells', () => {
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+
+    component.onKeyDown(new KeyboardEvent('keydown', {
+      key: 'Enter',
+      cancelable: true,
+    }));
+
+    expect(component.isEditing(0, 0)).toBe(true);
+    expect(component.treeController.isExpanded(1)).toBe(false);
+  });
+
+  it('finds collapsed descendants without returning focus to the selected cell', () => {
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+
+    component.openFind();
+    component.onFindInput('Grandchild');
+
+    expect(component.selectedCell()).toBeNull();
+    expect(component.findMatches()).toEqual([{ rowIndex: 3, colIndex: 0 }]);
+    expect(visibleNames()).toEqual(['Root', 'Root B']);
+
+    component.goToFindMatch(1);
+    fixture.detectChanges();
+
+    expect(component.selectedCell()).toEqual({ rowIndex: 3, colIndex: 0 });
+    expect(component.treeController.isExpanded(1)).toBe(true);
+    expect(component.treeController.isExpanded(2)).toBe(true);
+    expect(visibleNames()).toEqual(['Root', 'Child A', 'Grandchild', 'Child B', 'Root B']);
   });
 
   it('renders the twisty inside the tree column cell', () => {

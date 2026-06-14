@@ -1,23 +1,24 @@
 import { Signal, WritableSignal, computed, signal } from '@angular/core';
 import { CellRange } from './agrid-clipboard.handler';
-import { CellPosition, ColDef, GridItem } from '../agrid.types';
-import { getDisplayForField, isDataRowItem } from '../agrid.utils';
+import { AgridDataSource } from '../agrid-datasource';
+import { CellPosition, ColDef } from '../agrid.types';
+import { getDisplayForField } from '../agrid.utils';
 
-/** Location of a formatted-value match in source and display coordinates. @internal */
+/** Location of a formatted-value match in source coordinates. @internal */
 export type AgridFindMatch = {
   rowIndex: number;
-  displayIndex: number;
   colIndex: number;
 };
 
 /** Dependencies and callbacks required by {@link AgridFindController}. @internal */
 export interface AgridFindControllerOptions {
-  filteredItems: Signal<GridItem[]>;
+  dataSource: Signal<AgridDataSource>;
+  filteredSortedIndices: Signal<number[]>;
   visibleColDefs: Signal<ColDef[]>;
   locale: Signal<string>;
   selectedCell: WritableSignal<CellPosition | null>;
   selectedRange: WritableSignal<CellRange | null>;
-  scrollToCell: (displayIndex: number, colIndex: number) => void;
+  revealMatch: (originalIndex: number, colIndex: number) => void;
   focusGrid: () => void;
 }
 
@@ -31,14 +32,16 @@ export class AgridFindController {
     const query = this.query().trim().toLowerCase();
     if (!query) return [];
     const cols = this.opts.visibleColDefs();
+    const rows = this.opts.dataSource().rows();
     const matches: AgridFindMatch[] = [];
-    this.opts.filteredItems().forEach((item, displayIndex) => {
-      if (!isDataRowItem(item)) return;
+    this.opts.filteredSortedIndices().forEach(rowIndex => {
+      const row = rows[rowIndex];
+      if (!row) return;
       for (let colIndex = 0; colIndex < cols.length; colIndex++) {
         const col = cols[colIndex];
-        const value = getDisplayForField(col, item.row[col.field], this.opts.locale()).toLowerCase();
+        const value = getDisplayForField(col, row[col.field], this.opts.locale()).toLowerCase();
         if (value.includes(query)) {
-          matches.push({ rowIndex: item.originalIndex, displayIndex, colIndex });
+          matches.push({ rowIndex, colIndex });
         }
       }
     });
@@ -49,6 +52,9 @@ export class AgridFindController {
 
   /** Opens the find panel. */
   show(): void {
+    this.opts.selectedCell.set(null);
+    this.opts.selectedRange.set(null);
+    this.activeIndex.set(-1);
     this.open.set(true);
   }
 
@@ -58,11 +64,10 @@ export class AgridFindController {
     this.opts.focusGrid();
   }
 
-  /** Replaces the search query and selects its first match. */
+  /** Replaces the search query without moving focus away from the find input. */
   setQuery(value: string): void {
     this.query.set(value);
     this.activeIndex.set(-1);
-    this.goToMatch(1);
   }
 
   /** Selects the next or previous match, wrapping at either end. */
@@ -80,7 +85,7 @@ export class AgridFindController {
     const match = matches[next];
     this.opts.selectedRange.set(null);
     this.opts.selectedCell.set({ rowIndex: match.rowIndex, colIndex: match.colIndex });
-    this.opts.scrollToCell(match.displayIndex, match.colIndex);
+    this.opts.revealMatch(match.rowIndex, match.colIndex);
   }
 
   /** Returns whether a cell matches the current query. */

@@ -318,6 +318,11 @@
         editing, and <code>originalIndex</code> all keep working unchanged. The designated
         <code>treeField</code> column shows an indented expand/collapse twisty.
       </p>
+      <p>
+        Tree mode can be combined with <code>masterDetail: true</code> and a
+        <code>detailRenderer</code>. Detail expanders are shown only for leaf rows; parent rows
+        retain their tree expand/collapse control.
+      </p>
       <pre><code>{{ treeCode }}</code></pre>
       <div class="table-wrap">
         <table>
@@ -453,11 +458,13 @@
             <tr><td>Arrow keys</td><td>Move the active cell.</td></tr>
             <tr><td>Shift + arrow/click</td><td>Extend the cell range.</td></tr>
             <tr><td>Tab / Shift + Tab</td><td>Move horizontally and wrap rows.</td></tr>
-            <tr><td>Enter / F2 / printable key</td><td>Start editing.</td></tr>
-            <tr><td>Escape</td><td>Cancel editing or close find.</td></tr>
+            <tr><td>Enter</td><td>Start editing.</td></tr>
+            <tr><td>Ctrl/Cmd + Enter</td><td>Toggle an expandable tree node.</td></tr>
+            <tr><td>F2 / printable key</td><td>Start editing.</td></tr>
+            <tr><td>Escape</td><td>Close any open menu, cancel editing, or close find.</td></tr>
             <tr><td>Ctrl/Cmd + Z</td><td>Undo.</td></tr>
             <tr><td>Ctrl/Cmd + Y or Shift + Z</td><td>Redo.</td></tr>
-            <tr><td>Ctrl/Cmd + F</td><td>Open the find panel.</td></tr>
+            <tr><td>Ctrl/Cmd + F</td><td>Open the find panel and clear the active cell. Tree searches include collapsed descendants.</td></tr>
             <tr><td>Double-click resize handle</td><td>Autosize the column.</td></tr>
             <tr><td>Drag header</td><td>Reorder the column.</td></tr>
             <tr><td>Drag fill handle</td><td>Fill the selected range.</td></tr>

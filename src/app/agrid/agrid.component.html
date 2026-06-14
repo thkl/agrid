@@ -116,7 +116,7 @@
               [class.ag-control-cell--reorder]="allowRowReorder()"
               (contextmenu)="onControlContextMenu($event, item.originalIndex)" (click)="$event.stopPropagation()"
               (pointerdown)="onControlPointerDown($event, item.originalIndex)">
-              @if (masterDetail()) {
+              @if (canToggleDetail(item)) {
               <button class="ag-detail-toggle" type="button"
                 [class.ag-detail-toggle--expanded]="isDetailExpanded(item.originalIndex)"
                 [attr.aria-expanded]="isDetailExpanded(item.originalIndex)"
@@ -686,9 +686,11 @@
     }
     <div class="ag-context-separator" role="separator"></div>
     }
-    <button class="ag-context-item ag-context-item--danger" role="menuitem" (click)="deleteRow(menu.rowIndex)">
-      {{ localeText().deleteRow }}
-    </button>
+    @if (!readonlyGrid()) {
+      <button class="ag-context-item ag-context-item--danger" role="menuitem" (click)="deleteRow(menu.rowIndex)">
+        {{ localeText().deleteRow }}
+      </button>
+    }
   </div>
   }
 

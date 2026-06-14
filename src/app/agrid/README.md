@@ -205,6 +205,9 @@ parents visible and force-opens the path to it. Tree mode takes precedence over 
 disables pagination. Call `grid.expandAllNodes()` / `grid.collapseAllNodes()` to toggle the whole
 tree.
 
+Tree mode can be combined with `masterDetail: true` and a `detailRenderer`. Detail expanders are
+shown only for leaf rows; parent rows retain their tree expand/collapse control.
+
 ## Saving edited rows
 
 Use `rowChanged` to send one request after the user edits one or more fields in a row:

@@ -198,12 +198,20 @@ export class AgridProjectionModel {
         }
 
         const ordered = this.allSortedIndices().filter(index => visible.has(index));
-        const items = buildTreeItems(rows, ordered, treeConfig, expandedIds, forced);
+        const items = this.appendTreeDetailItems(
+          buildTreeItems(rows, ordered, treeConfig, expandedIds, forced),
+          rows,
+          treeConfig,
+        );
         this.appendAddRow(items);
         return items;
       }
 
-      const items = buildTreeItems(rows, indices, treeConfig, expandedIds);
+      const items = this.appendTreeDetailItems(
+        buildTreeItems(rows, indices, treeConfig, expandedIds),
+        rows,
+        treeConfig,
+      );
       this.appendAddRow(items);
       return items;
     }
@@ -276,6 +284,35 @@ export class AgridProjectionModel {
     return this.effectiveSortOrder()
       .map(field => [field, filters[field]] as [string, ColumnFilter])
       .filter(([, filter]) => !!filter?.sort);
+  }
+
+  private appendTreeDetailItems(
+    items: GridItem[],
+    rows: Record<string, unknown>[],
+    treeConfig: AgridTreeConfig,
+  ): GridItem[] {
+    const expandedDetail = this.opts.masterDetail?.() ? this.opts.expandedDetailIds?.() : null;
+    if (!expandedDetail?.size) return items;
+
+    const parentIds = new Set(
+      rows
+        .map(row => treeConfig.getParentId(row))
+        .filter((id): id is string | number => id !== null && id !== undefined),
+    );
+    const result: GridItem[] = [];
+    for (const item of items) {
+      result.push(item);
+      if (
+        item
+        && typeof item === 'object'
+        && 'originalIndex' in item
+        && !parentIds.has(treeConfig.getId(item.row))
+        && expandedDetail.has(item.originalIndex)
+      ) {
+        result.push({ detailFor: item.originalIndex, row: item.row });
+      }
+    }
+    return result;
   }
 
   private appendAddRow(items: GridItem[]): void {

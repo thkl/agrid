@@ -30,6 +30,7 @@ export interface AgridNavigationControllerOptions {
   selectedRange: WritableSignal<CellRange | null>;
   editingCell: Signal<CellPosition | null>;
   isEditing: (originalIndex: number, colIndex: number) => boolean;
+  toggleTreeCell: (originalIndex: number, colIndex: number) => boolean;
   startEdit: (originalIndex: number, colIndex: number, seedChar: string) => void;
   commitEdit: () => boolean;
   cancelEdit: () => void;
@@ -109,6 +110,19 @@ export class AgridNavigationController {
       }
     }
 
+    const sel = this.opts.selectedCell();
+    if (
+      event.key === 'Enter'
+      && (event.ctrlKey || event.metaKey)
+      && !event.altKey
+      && !event.shiftKey
+      && sel
+      && this.opts.toggleTreeCell(sel.rowIndex, sel.colIndex)
+    ) {
+      event.preventDefault();
+      return;
+    }
+
     if (this.opts.editingCell()) {
       switch (event.key) {
         case 'Tab':
@@ -128,7 +142,6 @@ export class AgridNavigationController {
       return;
     }
 
-    const sel = this.opts.selectedCell();
     const isOnAddRow = this.opts.allowAddRows()
       && !this.opts.autoAddRows()
       && sel?.rowIndex === this.opts.dataSource().length;
@@ -154,6 +167,12 @@ export class AgridNavigationController {
         this.moveSelection(0, event.shiftKey ? -1 : 1);
         break;
       case 'Enter':
+        event.preventDefault();
+        if (sel) {
+          if (isOnAddRow) this.addRowAndSelect();
+          else this.opts.startEdit(sel.rowIndex, sel.colIndex, '');
+        }
+        break;
       case 'F2':
         event.preventDefault();
         if (sel) {

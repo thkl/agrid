@@ -122,9 +122,9 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   pinRow?: (row: T, index: number) => 'top' | 'bottom' | undefined;
 
   /**
-   * Enable master/detail rows: each data row can expand to reveal a detail panel rendered
-   * beneath it. Requires {@link detailRenderer}. Applies in flat mode only (not with grouping
-   * or tree mode). @default false
+   * Enable master/detail rows: each flat data row, or each leaf row in tree mode, can expand to
+   * reveal a detail panel rendered beneath it. Requires {@link detailRenderer}. Grouped mode is
+   * not supported. @default false
    */
   masterDetail?: boolean;
   /**

@@ -198,7 +198,7 @@ export class AgridColumnReorderController {
   private captureDropTargets(header: HTMLElement | null): AgridColumnDropTarget[] {
     const root = header?.closest('.ag-wrapper') ?? header?.ownerDocument;
     if (!root) return [];
-    return [...root.querySelectorAll<HTMLElement>('.ag-header-cell[data-col-field]')]
+    return Array.from(root.querySelectorAll<HTMLElement>('.ag-header-cell[data-col-field]'))
       .map(element => {
         const field = element.dataset['colField'];
         const rect = element.getBoundingClientRect();

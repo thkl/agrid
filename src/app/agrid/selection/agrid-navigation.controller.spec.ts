@@ -76,6 +76,28 @@ describe('AgridNavigationController', () => {
     expect(redoEdit).toHaveBeenCalledTimes(2);
   });
 
+  it('toggles a tree cell with Ctrl/Cmd+Enter without starting an edit', () => {
+    const toggleTreeCell = vi.fn(() => true);
+    const { controller, selectedCell, startEdit } = setup({ toggleTreeCell });
+    selectedCell.set({ rowIndex: 0, colIndex: 0 });
+
+    controller.handleKeyDown(keyboardEvent('Enter', { metaKey: true }));
+
+    expect(toggleTreeCell).toHaveBeenCalledWith(0, 0);
+    expect(startEdit).not.toHaveBeenCalled();
+  });
+
+  it('keeps plain Enter dedicated to editing', () => {
+    const toggleTreeCell = vi.fn(() => true);
+    const { controller, selectedCell, startEdit } = setup({ toggleTreeCell });
+    selectedCell.set({ rowIndex: 0, colIndex: 0 });
+
+    controller.handleKeyDown(keyboardEvent('Enter'));
+
+    expect(toggleTreeCell).not.toHaveBeenCalled();
+    expect(startEdit).toHaveBeenCalledWith(0, 0, '');
+  });
+
   it('adds and selects a blank row when navigation leaves the final cell', () => {
     const { controller, dataSource, selectedCell, prepared } = setup({
       filteredItems: [dataItem(0)],
@@ -129,6 +151,7 @@ function setup(overrides: {
   editingCell?: WritableSignal<CellPosition | null>;
   viewport?: AgridVerticalViewport & { scrollToOffset: Mock<(offset: number) => void> };
   scrollColumn?: Mock<(colIndex: number) => void>;
+  toggleTreeCell?: Mock<(originalIndex: number, colIndex: number) => boolean>;
 } = {}) {
   const columns: ColDef[] = [
     { field: 'name', header: 'Name' },
@@ -172,6 +195,7 @@ function setup(overrides: {
       const current = editingCell();
       return current?.rowIndex === rowIndex && current.colIndex === colIndex;
     },
+    toggleTreeCell: overrides.toggleTreeCell ?? vi.fn(() => false),
     startEdit,
     commitEdit,
     cancelEdit,

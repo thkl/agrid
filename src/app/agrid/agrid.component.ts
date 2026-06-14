@@ -74,9 +74,11 @@ export type { GridItem };
  * |-----|--------|
  * | Arrow keys | Move selection |
  * | Tab / Shift+Tab | Move right / left (wraps rows) |
- * | Enter / F2 | Enter edit mode |
+ * | Enter | Enter edit mode |
+ * | Ctrl/Cmd+Enter | Toggle an expandable tree node |
+ * | F2 | Enter edit mode |
  * | Printable key | Enter edit mode with seeded character |
- * | Escape | Cancel edit |
+ * | Escape | Close any open menu or cancel edit |
  * | Tab / Enter (while editing) | Commit and move right / down |
  */
 @Component({
@@ -164,10 +166,10 @@ export class AgridComponent<T extends object = any> {
       return predicate?.(row, index);
     };
   });
-  /** Whether master/detail is enabled and applicable (flat mode only — not tree or grouped). */
+  /** Whether master/detail is enabled and applicable (flat rows or tree leaves; not grouped). */
   readonly masterDetail = computed(
     () => this.provider().masterDetail && !!this.provider().detailRenderer
-      && !this.treeConfig() && !this.control()?.groupByField(),
+      && !this.control()?.groupByField(),
   );
   /** Fixed detail-panel height in pixels. */
   readonly detailRowHeight = computed(() => this.provider().detailRowHeight);
@@ -179,6 +181,17 @@ export class AgridComponent<T extends object = any> {
 
   /** Signal-based data container from the active provider. */
   readonly dataSource = computed<AgridDataSource>(() => this.provider().datasource);
+
+  private readonly treeParentIds = computed(() => {
+    const config = this.treeConfig();
+    if (!config) return new Set<string | number>();
+    const ids = new Set<string | number>();
+    for (const row of this.dataSource().rows()) {
+      const parentId = config.getParentId(row as T);
+      if (parentId !== null && parentId !== undefined) ids.add(parentId);
+    }
+    return ids;
+  });
 
   /** Grid UI state container from the active provider. */
   readonly control = computed<AgridControl | null>(() => this.provider().control);
@@ -665,13 +678,13 @@ export class AgridComponent<T extends object = any> {
   });
 
   private readonly findController = new AgridFindController({
-    filteredItems: this.filteredItems,
+    dataSource: this.dataSource,
+    filteredSortedIndices: this.projection.filteredSortedIndices,
     visibleColDefs: this.visibleColDefs,
     locale: this.locale,
     selectedCell: this.selectedCell,
     selectedRange: this.selectedRange,
-    scrollToCell: (displayIndex, colIndex) =>
-      this.navigationController.scrollToKeepVisible(displayIndex, colIndex),
+    revealMatch: (originalIndex, colIndex) => this.revealFindMatch(originalIndex, colIndex),
     focusGrid: () => this.wrapperEl().nativeElement.focus(),
   });
 
@@ -694,6 +707,8 @@ export class AgridComponent<T extends object = any> {
     selectedRange: this.selectedRange,
     editingCell: this.editController.editingCell,
     isEditing: (originalIndex, colIndex) => this.isEditing(originalIndex, colIndex),
+    toggleTreeCell: (originalIndex, colIndex) =>
+      this.toggleTreeCell(originalIndex, colIndex),
     startEdit: (originalIndex, colIndex, seedChar) =>
       this.editController.start(originalIndex, colIndex, seedChar),
     commitEdit: () => this.editController.commit(),
@@ -971,6 +986,15 @@ export class AgridComponent<T extends object = any> {
       );
     });
 
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (this.closeOpenMenus()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    this.browser.addDocumentListener('keydown', onDocumentKeyDown);
+
     // Emit pageChange whenever page or pageSize changes in server-side pagination mode.
     effect(() => {
       const ctrl = this.control();
@@ -1001,6 +1025,7 @@ export class AgridComponent<T extends object = any> {
     };
     this.browser.addDocumentListener('pointerdown', onOutsidePointerDown);
     this.destroyRef.onDestroy(() => {
+      this.browser.removeDocumentListener('keydown', onDocumentKeyDown);
       this.browser.removeDocumentListener('pointerdown', onOutsidePointerDown);
       if (this.quickFilterTimer !== null) clearTimeout(this.quickFilterTimer);
     });
@@ -1079,8 +1104,18 @@ export class AgridComponent<T extends object = any> {
     return this._expandedDetailIds().has(originalIndex);
   }
 
+  /** @internal Whether a data row may show a master/detail panel. */
+  canToggleDetail(item: GridItem): boolean {
+    if (!this.masterDetail() || !isDataRowItemFn(item)) return false;
+    const config = this.treeConfig();
+    return !config || !this.treeParentIds().has(config.getId(item.row as T));
+  }
+
   /** Toggle the master/detail panel for a row by its original (data-source) index. */
   toggleDetail(originalIndex: number): void {
+    const row = this.dataSource().getRow(originalIndex);
+    const config = this.treeConfig();
+    if (!row || (config && this.treeParentIds().has(config.getId(row as T)))) return;
     this._expandedDetailIds.update(ids => {
       const next = new Set(ids);
       if (next.has(originalIndex)) next.delete(originalIndex);
@@ -1149,6 +1184,20 @@ export class AgridComponent<T extends object = any> {
     const config = this.treeConfig();
     if (!config || !isTreeRowItemFn(item)) return;
     this.treeController.toggle(config.getId(item.row as T));
+  }
+
+  private toggleTreeCell(originalIndex: number, colIndex: number): boolean {
+    const config = this.treeConfig();
+    const col = this.visibleColDefs()[colIndex];
+    if (!config || !col || config.treeField !== col.field) return false;
+
+    const item = this.displayItems().find(
+      candidate => isDataRowItemFn(candidate) && candidate.originalIndex === originalIndex,
+    );
+    if (!item || !isTreeRowItemFn(item) || !item.expandable) return false;
+
+    this.treeController.toggle(config.getId(item.row as T));
+    return true;
   }
 
   /** Expand every expandable node in the tree. No-op when not in tree mode. */
@@ -1403,6 +1452,11 @@ export class AgridComponent<T extends object = any> {
 
   /** @internal Main keyboard handler delegated from the wrapper div. */
   onKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.closeOpenMenus()) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (event.key === 'Escape' && this.pendingDeleteRow() !== null) {
       event.preventDefault();
       event.stopPropagation();
@@ -1437,6 +1491,39 @@ export class AgridComponent<T extends object = any> {
   /** @internal */
   goToFindMatch(direction: 1 | -1): void {
     this.findController.goToMatch(direction);
+  }
+
+  private revealFindMatch(originalIndex: number, colIndex: number): void {
+    const config = this.treeConfig();
+    if (config) {
+      const rows = this.dataSource().rows() as T[];
+      const idToRow = new Map(rows.map(row => [config.getId(row), row]));
+      const expanded = new Set(this.treeController.expandedIds());
+      const visited = new Set<string | number>();
+      let parentId = config.getParentId(rows[originalIndex]);
+      while (parentId !== null && parentId !== undefined && !visited.has(parentId)) {
+        visited.add(parentId);
+        expanded.add(parentId);
+        const parent = idToRow.get(parentId);
+        if (!parent) break;
+        parentId = config.getParentId(parent);
+      }
+      this.treeController.expandAll(expanded);
+    } else {
+      const control = this.control();
+      const pageSize = control?.pageSize() ?? 0;
+      const filteredIndex = this.projection.filteredSortedIndices().indexOf(originalIndex);
+      if (control && pageSize > 0 && control.totalRows() === 0 && filteredIndex >= 0) {
+        control.setPage(Math.floor(filteredIndex / pageSize) + 1);
+      }
+    }
+
+    setTimeout(() => {
+      const displayIndex = this.navigationController.findDisplayIndex(originalIndex);
+      if (displayIndex >= 0) {
+        this.navigationController.scrollToKeepVisible(displayIndex, colIndex);
+      }
+    });
   }
 
   // ── Row reorder ───────────────────────────────────────────────────────────────
@@ -1530,6 +1617,20 @@ export class AgridComponent<T extends object = any> {
 
   /** @internal */
   closeCellContextMenu(): void { this.rowController.closeCellContextMenu(); }
+
+  /** @internal Closes any row, cell, group-action, or column menu owned by this grid. */
+  closeOpenMenus(): boolean {
+    const hadOpenMenu = this.contextMenu() !== null
+      || this.cellContextMenuState() !== null
+      || this.groupActionsMenu() !== null
+      || this.filterMenu() !== null;
+    if (!hadOpenMenu) return false;
+    this.rowController.closeContextMenu();
+    this.rowController.closeCellContextMenu();
+    this.groupController.closeActionsMenu();
+    this.columnMenuController.close();
+    return true;
+  }
 
   /** @internal Runs a typed provider context-menu action against erased controller state. */
   runCellMenuItem(item: CellContextMenuItem<T>, menu: AgridCellContextMenu): void {

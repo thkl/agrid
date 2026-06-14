@@ -75,7 +75,7 @@ export class PageComponent {
 - Cell range selection with Shift+arrow and Shift+click.
 - Clipboard copy/paste using TSV/CSV-like plain text.
 - Fill handle for repeating selected cell/range values down or right.
-- Find panel with Ctrl/Cmd+F, match highlighting, next/previous navigation.
+- Find panel with Ctrl/Cmd+F, full filtered-dataset matching, and next/previous navigation.
 - Text filters, value filters, and single-column sorting.
 - Column menu with sort, clear sort, autosize, pin/unpin, hide, group, and clear filter actions.
 - Column resizing by drag and autosize by double-click.
@@ -246,7 +246,7 @@ readonly gridProvider = new AgridProvider({
 | `loading` | `boolean` | `false` | Initial value for the loading signal. Shows a loading overlay over the grid body. |
 | `getRowClass` | `(p: { row; index }) => string` | `undefined` | Returns CSS class names applied to a whole data row. Complements `ColDef.cellClass`. |
 | `pinRow` | `(row, index) => 'top' \| 'bottom' \| undefined` | `undefined` | Pins matching rows to the top/bottom of the body (see [Master/Detail and Pinned Rows](#masterdetail-and-pinned-rows)). |
-| `masterDetail` | `boolean` | `false` | Enables expandable detail panels. Requires `detailRenderer`. Flat mode only (not tree/grouped). |
+| `masterDetail` | `boolean` | `false` | Enables expandable detail panels. In tree mode, only leaf rows can expand details. Not available while grouped. |
 | `detailRenderer` | `(p: { row }) => string` | `undefined` | Returns sanitized HTML for an expanded detail panel. |
 | `detailRowHeight` | `number` | `200` | Fixed height in pixels of an expanded detail panel. |
 
@@ -946,15 +946,20 @@ Paste and fill store multiple entries as one `HistoryItem`, so Ctrl/Cmd+Z revers
 | Arrow keys | Move active cell. |
 | Shift+arrow | Extend cell range selection. |
 | Tab / Shift+Tab | Move right / left, wrapping rows. |
-| Enter / F2 | Start editing active cell. |
+| Enter | Start editing the active cell. |
+| Ctrl/Cmd+Enter | Toggle an expandable tree node. |
+| F2 | Start editing active cell. |
 | Printable key | Start editing active cell with typed seed character. |
-| Escape | Cancel edit, or close find when find input is focused. |
+| Escape | Close any open menu, cancel edit, or close find when its input is focused. |
 | Ctrl/Cmd+Z | Undo. |
 | Ctrl/Cmd+Y | Redo. |
 | Ctrl/Cmd+Shift+Z | Redo. |
 | Ctrl/Cmd+F | Open find panel. |
 | Enter in find | Next match. |
 | Shift+Enter in find | Previous match. |
+
+Opening find clears the active cell so typing remains in the find input. Tree searches include
+collapsed descendants; navigating to one expands its ancestor path before scrolling to the match.
 | Click cell | Select cell. |
 | Shift+click cell | Extend range selection. |
 | Double-click cell | Start editing. |
@@ -1007,8 +1012,9 @@ readonly provider = new AgridProvider<Order>({
 ```
 
 Detail panels are sized by a built-in variable-height virtual-scroll strategy, so large lists stay
-performant whether or not panels are open. Master/detail applies in **flat mode only** — it is
-disabled while grouping or tree mode is active. Toggle a panel imperatively with the public
+performant whether or not panels are open. In tree mode, only leaf rows expose detail panels;
+parent rows continue to control tree expansion. Master/detail remains disabled while grouping.
+Toggle a panel imperatively with the public
 `toggleDetail(originalIndex)` / `isDetailExpanded(originalIndex)` methods on the component.
 
 ### Pinned rows

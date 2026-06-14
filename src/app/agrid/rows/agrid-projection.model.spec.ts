@@ -227,6 +227,38 @@ describe('AgridProjectionModel', () => {
       expect(tree.map(i => (i.row as any).name)).toEqual(['Grandchild']);
       expect(tree[0].level).toBe(0);
     });
+
+    it('inserts master/detail panels for leaf rows but not parent rows', () => {
+      const { model } = createModel({
+        sourceRows: treeRows,
+        treeConfig,
+        expandedTreeIds: [1],
+        masterDetail: true,
+        expandedDetailIds: [1, 2],
+      });
+
+      const items = model.filteredItems();
+      const details = items.filter(isDetailRowItem);
+      expect(details.map(item => item.detailFor)).toEqual([2]);
+      const leafPos = items.findIndex(item =>
+        isDataRowItem(item) && item.originalIndex === 2,
+      );
+      expect(isDetailRowItem(items[leafPos + 1])).toBe(true);
+    });
+
+    it('does not treat a parent as a detail leaf when filtering hides its children', () => {
+      const control = new AgridControl();
+      control.setTextFilter('name', 'Child A');
+      const { model } = createModel({
+        control,
+        sourceRows: treeRows,
+        treeConfig: { ...treeConfig, keepAncestorsOnFilter: false },
+        masterDetail: true,
+        expandedDetailIds: [1],
+      });
+
+      expect(model.filteredItems().some(isDetailRowItem)).toBe(false);
+    });
   });
 
   describe('pinned rows', () => {
