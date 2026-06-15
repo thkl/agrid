@@ -23,6 +23,8 @@ export interface AgridLocaleText {
   toggleDetail: string;
   hiddenColumn: string;
   filterCondition: string;
+  filterConditionMenu: string;
+  filterValue: string;
   filterNoCondition: string;
   filterOpEquals: string;
   filterOpNotEquals: string;
@@ -34,6 +36,11 @@ export interface AgridLocaleText {
   filterOpBefore: string;
   filterOpAfter: string;
   filterOpOn: string;
+  filterOpLike: string;
+  filterOpStartsWith: string;
+  filterOpEndsWith: string;
+  filterOpIncludes: string;
+  filterOpNotIncludes: string;
   copyCellValue: string;
   copyRow: string;
   confirmDeleteRow: string;
@@ -100,6 +107,8 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     toggleDetail: 'Toggle detail panel',
     hiddenColumn: '(hidden)',
     filterCondition: 'Condition',
+    filterConditionMenu: 'Filter condition',
+    filterValue: 'Value',
     filterNoCondition: 'No condition',
     filterOpEquals: 'Equals',
     filterOpNotEquals: 'Not equal',
@@ -111,6 +120,11 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     filterOpBefore: 'Before',
     filterOpAfter: 'After',
     filterOpOn: 'On',
+    filterOpLike: 'Like (% and _ wildcards)',
+    filterOpStartsWith: 'Starts with',
+    filterOpEndsWith: 'Ends with',
+    filterOpIncludes: 'Includes',
+    filterOpNotIncludes: 'Does not include',
     copyCellValue: 'Copy cell',
     copyRow: 'Copy row',
     confirmDeleteRow: 'Sure to delete?',
@@ -171,6 +185,8 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     toggleDetail: 'Detailbereich umschalten',
     hiddenColumn: '(ausgeblendet)',
     filterCondition: 'Bedingung',
+    filterConditionMenu: 'Filterbedingung',
+    filterValue: 'Wert',
     filterNoCondition: 'Keine Bedingung',
     filterOpEquals: 'Gleich',
     filterOpNotEquals: 'Ungleich',
@@ -182,6 +198,11 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     filterOpBefore: 'Vor',
     filterOpAfter: 'Nach',
     filterOpOn: 'Am',
+    filterOpLike: 'Wie (% und _ Platzhalter)',
+    filterOpStartsWith: 'Beginnt mit',
+    filterOpEndsWith: 'Endet mit',
+    filterOpIncludes: 'Enthält',
+    filterOpNotIncludes: 'Enthält nicht',
     copyCellValue: 'Zelle kopieren',
     copyRow: 'Zeile kopieren',
     confirmDeleteRow: 'Wirklich löschen?',

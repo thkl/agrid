@@ -8,6 +8,7 @@ import {
   isDataRowItem,
   isDetailRowItem,
   isGroupHeaderItem,
+  isPathTreeNodeItem,
   isTreeRowItem,
 } from '../agrid.utils';
 
@@ -258,6 +259,28 @@ describe('AgridProjectionModel', () => {
       });
 
       expect(model.filteredItems().some(isDetailRowItem)).toBe(false);
+    });
+
+    it('builds generated branch nodes from getPath while preserving source row indices', () => {
+      const sourceRows = [
+        { oz: '01.01.0001', department: 'X', amount: 1 },
+        { oz: '01.01.0002', department: 'X', amount: 2 },
+        { oz: '01.02.0001', department: 'X', amount: 3 },
+      ];
+      const { model } = createModel({
+        sourceRows,
+        treeConfig: {
+          getPath: row => String((row as any).oz).split('.'),
+          treeField: 'name',
+        },
+        expandedTreeIds: ['__agrid_path__["01"]', '__agrid_path__["01","01"]'],
+      });
+
+      const items = model.filteredItems();
+      expect(items.filter(isPathTreeNodeItem).map(item => item.pathLabel))
+        .toEqual(['01', '01', '02']);
+      expect(items.filter(isTreeRowItem).map(item => [item.originalIndex, item.treeLabel]))
+        .toEqual([[0, '0001'], [1, '0002']]);
     });
   });
 

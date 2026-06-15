@@ -20,8 +20,12 @@ export type {
 export type { AgridProviderConfig } from './agrid-provider';
 export type {
   AgridField,
+  AgridParentTreeConfig,
+  AgridPathSegmentParams,
+  AgridPathTreeConfig,
   AgridTreeConfig,
   CellContextMenuItem,
+  CellInfoEvent,
   CellPosition,
   ColDef,
   DetailRowItem,
@@ -29,7 +33,9 @@ export type {
   GridEditEvent,
   GroupAction,
   HeaderGroup,
+  InputMaskParams,
   NewRecord,
+  PathTreeNodeItem,
   PageChangeEvent,
   RecordEditEvent,
   RowClickEvent,

@@ -7,8 +7,10 @@ import {
   applySortToIndices,
   applyTextAndValueFilters,
   buildGroupedItems,
+  buildPathTreeItems,
   buildTreeItems,
   computeAggregates,
+  isPathTreeConfig,
 } from '../agrid.utils';
 
 /** Expanded labels associated with the current grouping field. @internal */
@@ -179,6 +181,22 @@ export class AgridProjectionModel {
       const filterActive = !this.opts.serverSideFiltering()
         && Object.values(filters).some(f => f.text || f.selectedValues !== null);
 
+      if (isPathTreeConfig(treeConfig)) {
+        const items = this.appendTreeDetailItems(
+          buildPathTreeItems(
+            rows,
+            indices,
+            treeConfig,
+            expandedIds,
+            filterActive && treeConfig.keepAncestorsOnFilter !== false,
+          ),
+          rows,
+          treeConfig,
+        );
+        this.appendAddRow(items);
+        return items;
+      }
+
       if (filterActive && treeConfig.keepAncestorsOnFilter !== false) {
         const { getId, getParentId } = treeConfig;
         const idToIndex = new Map<string | number, number>();
@@ -294,11 +312,13 @@ export class AgridProjectionModel {
     const expandedDetail = this.opts.masterDetail?.() ? this.opts.expandedDetailIds?.() : null;
     if (!expandedDetail?.size) return items;
 
-    const parentIds = new Set(
-      rows
-        .map(row => treeConfig.getParentId(row))
-        .filter((id): id is string | number => id !== null && id !== undefined),
-    );
+    const parentIds = !isPathTreeConfig(treeConfig)
+      ? new Set(
+        rows
+          .map(row => treeConfig.getParentId(row))
+          .filter((id): id is string | number => id !== null && id !== undefined),
+      )
+      : new Set<string | number>();
     const result: GridItem[] = [];
     for (const item of items) {
       result.push(item);
@@ -306,7 +326,10 @@ export class AgridProjectionModel {
         item
         && typeof item === 'object'
         && 'originalIndex' in item
-        && !parentIds.has(treeConfig.getId(item.row))
+        && (
+          isPathTreeConfig(treeConfig)
+          || !parentIds.has(treeConfig.getId(item.row))
+        )
         && expandedDetail.has(item.originalIndex)
       ) {
         result.push({ detailFor: item.originalIndex, row: item.row });

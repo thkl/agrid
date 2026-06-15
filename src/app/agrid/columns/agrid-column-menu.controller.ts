@@ -4,6 +4,7 @@ import { AgridColumnMenuValueItem } from './agrid-column-menu.component';
 import { AgridControl, FilterOperator } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
 import { ColDef, FilterChangeEvent, SortChangeEvent, ValueOption } from '../agrid.types';
+import { passesConditionFilter } from '../agrid.utils';
 
 /** Position and target field of the open column menu. @internal */
 export type AgridColumnMenuState = {
@@ -84,6 +85,12 @@ export class AgridColumnMenuController {
           const allowed = new Set(filter.selectedValues);
           indices = indices.filter(index => allowed.has(String(rows[index][field] ?? '')));
         }
+        if (filter.operator && filter.operand != null && filter.operand !== '') {
+          const filterCol = this.getColDef(field);
+          indices = indices.filter(index =>
+            passesConditionFilter(filterCol, rows[index][field], filter),
+          );
+        }
       }
     }
     return new Set(indices.map(index => String(rows[index][menu.field] ?? '')));
@@ -117,28 +124,29 @@ export class AgridColumnMenuController {
     return this.opts.control()?.getFilter(field).text ?? '';
   }
 
-  /** Returns the range-filter input type for a field, or `null` when not range-filterable. */
-  getFilterType(field: string): 'number' | 'date' | null {
-    const type = this.getColDef(field)?.type;
-    return type === 'number' || type === 'date' ? type : null;
+  /** Returns the condition-filter input type for a filterable field. */
+  getFilterType(field: string): 'text' | 'number' | 'date' | null {
+    const col = this.getColDef(field);
+    if (!col?.filterable || col.type === 'boolean') return null;
+    return col.type === 'number' || col.type === 'date' ? col.type : 'text';
   }
 
-  /** Returns the typed range-filter operator for a field, or `null`. */
+  /** Returns the condition operator for a field, or `null`. */
   getFilterOperator(field: string): FilterOperator | null {
     return this.opts.control()?.getFilter(field).operator ?? null;
   }
 
-  /** Returns the primary range-filter operand for a field. */
+  /** Returns the primary condition operand for a field. */
   getFilterOperand(field: string): string {
     return this.opts.control()?.getFilter(field).operand ?? '';
   }
 
-  /** Returns the secondary range-filter operand (used by `between`). */
+  /** Returns the secondary condition operand (used by `between`). */
   getFilterOperand2(field: string): string {
     return this.opts.control()?.getFilter(field).operand2 ?? '';
   }
 
-  /** Sets the range-filter operator; clearing it (`null`) also drops the operands. */
+  /** Sets the condition operator; clearing it (`null`) also drops the operands. */
   setFilterOperator(field: string, operator: FilterOperator | null): void {
     const control = this.opts.control();
     if (!control) return;
@@ -151,7 +159,7 @@ export class AgridColumnMenuController {
     this.emitRangeServer(field, false);
   }
 
-  /** Sets the primary range-filter operand. */
+  /** Sets the primary condition operand. */
   setFilterOperand(field: string, value: string): void {
     const control = this.opts.control();
     if (!control) return;
@@ -160,7 +168,7 @@ export class AgridColumnMenuController {
     this.emitRangeServer(field, true);
   }
 
-  /** Sets the secondary range-filter operand (used by `between`). */
+  /** Sets the secondary condition operand (used by `between`). */
   setFilterOperand2(field: string, value: string): void {
     const control = this.opts.control();
     if (!control) return;
@@ -170,7 +178,7 @@ export class AgridColumnMenuController {
   }
 
   /**
-   * In server-side filtering mode, emit a {@link FilterChangeEvent} carrying the current range
+   * In server-side filtering mode, emit a {@link FilterChangeEvent} carrying the current
    * condition so the host can refetch. Operand edits are debounced; operator changes are immediate.
    * No-op in client mode (the projection layer filters locally).
    */
@@ -285,6 +293,14 @@ export class AgridColumnMenuController {
       if (previous.text) control.setTextFilter(field, previous.text);
       if (previous.selectedValues !== null) {
         control.setSelectedValues(field, previous.selectedValues);
+      }
+      if (previous.operator) {
+        control.setRangeFilter(
+          field,
+          previous.operator,
+          previous.operand ?? null,
+          previous.operand2 ?? null,
+        );
       }
       if (this.opts.serverSideFiltering()) {
         this.opts.onSortChange({ field, direction: null });

@@ -96,4 +96,38 @@ describe('AgridSidebarComponent', () => {
       value: 'Bob',
     }]);
   });
+
+  it('applies a row-aware mask to detail editor input', () => {
+    const emitted: AgridSidebarEdit[] = [];
+    const row = { code: '123456', numeric: true };
+    const column = {
+      field: 'code',
+      header: 'Code',
+      inputMask: ({ row: currentRow }: { row: typeof row }) =>
+        currentRow.numeric
+          ? /\d{0,3}(?:-\d{0,5})?/
+          : /[a-z0-9]{0,3}(?: [a-z0-9]{0,5})?/i,
+    };
+    component.detailEdit.subscribe(event => emitted.push(event));
+    fixture.componentRef.setInput('columns', [column]);
+    fixture.componentRef.setInput('row', row);
+    fixture.componentRef.setInput('activeTab', 'detail');
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.ag-detail-input') as HTMLInputElement;
+    expect(input.value).toBe('123456');
+
+    input.value = '987-65432';
+    input.dispatchEvent(new Event('input'));
+
+    expect(input.value).toBe('987-65432');
+    expect(emitted).toEqual([]);
+
+    input.value = '987-65x';
+    input.dispatchEvent(new Event('input'));
+    expect(input.value).toBe('987-65432');
+
+    input.dispatchEvent(new Event('change'));
+    expect(emitted).toEqual([{ field: 'code', col: column, value: '987-65432' }]);
+  });
 });

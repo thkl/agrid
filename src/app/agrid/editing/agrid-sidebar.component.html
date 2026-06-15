@@ -80,11 +80,8 @@
                 [class.ag-detail-input--invalid]="!!errors()[field.col.field]"
                 [type]="field.col.type === 'number' ? 'number' : field.col.type === 'date' ? 'date' : 'text'"
                 [value]="field.inputValue"
-                (change)="detailEdit.emit({
-                  field: field.col.field,
-                  col: field.col,
-                  value: $any($event.target).value
-                })"
+                (input)="onDetailMaskInput(field, $event)"
+                (change)="onDetailChange(field, $event)"
               />
             } @else {
               <span class="ag-detail-value">{{ field.value }}</span>

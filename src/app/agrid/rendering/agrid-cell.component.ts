@@ -14,6 +14,7 @@ import {
   coerceDateInputValue,
   getDisplayForField,
   getDateInputValue,
+  matchesInputMask,
 } from '../agrid.utils';
 
 /**
@@ -32,6 +33,7 @@ import {
     '[class.selected]': 'selected()',
     '[class.editing]': 'editing()',
     '[class.ag-cell--tree]': 'treeCell()',
+    '[class.ag-cell--with-info]': 'showInfoIcon() && !editing()',
     '[attr.aria-readonly]': 'col().editable === false ? "true" : null',
     '[attr.title]': 'displayValue()',
     '(click)': 'activate.emit($event)',
@@ -95,6 +97,17 @@ import {
         <span class="ag-cell-value">{{ displayValue() }}</span>
       }
     }
+    @if (showInfoIcon() && !editing()) {
+      <button
+        type="button"
+        class="ag-cell-info"
+        aria-label="More information"
+        title="More information"
+        (pointerdown)="$event.stopPropagation()"
+        (click)="onInfoClick($event)"
+        (dblclick)="$event.stopPropagation()"
+      >?</button>
+    }
   `,
   styleUrl: './agrid-cell.component.css',
 })
@@ -111,6 +124,9 @@ export class AgridCellComponent {
   /** Current field value from the data source (displayed when not editing). */
   value = input.required<unknown>();
 
+  /** Optional display-only text override; editing still uses the original {@link value}. */
+  displayValueOverride = input<string | null>(null);
+
   /** Full row data — passed to `cellRenderer` when set. */
   row = input<Record<string, unknown>>({});
 
@@ -125,6 +141,9 @@ export class AgridCellComponent {
 
   /** Whether this cell may be edited (drives the boolean checkbox enabled state). */
   editable = input<boolean>(true);
+
+  /** Whether a right-aligned information button is visible in this cell. */
+  showInfoIcon = input<boolean>(false);
 
   /** Validation error message to show under the editor, or `null` when the value is valid. */
   error = input<string | null>(null);
@@ -165,6 +184,9 @@ export class AgridCellComponent {
   /** Emitted when a boolean-column checkbox is toggled, carrying the new value. */
   booleanToggle = output<boolean>();
 
+  /** Emitted when the cell's optional information button is clicked. */
+  infoClick = output<void>();
+
   /**
    * Emitted on every keystroke inside the edit input or on every select change.
    * The grid stores the latest value in `currentDraft` so it can commit on Tab / Enter.
@@ -177,9 +199,23 @@ export class AgridCellComponent {
   /** String value accepted by the active native input element. */
   readonly editorValue = computed((): string => {
     const draft = this.draft();
-    return this.col().type === 'date'
-      ? getDateInputValue(draft)
-      : String(draft ?? '');
+    if (this.col().type === 'date') {
+      return getDateInputValue(draft);
+    }
+    return String(draft ?? '');
+  });
+
+  /** Mask selected for the current row and cell, if this is a maskable text column. */
+  readonly resolvedInputMask = computed((): RegExp | null => {
+    const col = this.col();
+    if (!col.inputMask || col.type === 'number' || col.type === 'date' || col.type === 'boolean') {
+      return null;
+    }
+    return col.inputMask({
+      row: this.row(),
+      value: this.value(),
+      column: col,
+    }) ?? null;
   });
 
   /** Whether this cell renders as an inline boolean checkbox (no edit mode). */
@@ -217,7 +253,8 @@ export class AgridCellComponent {
    * Priority: ValueOption label → `ColDef.formatter` → raw string.
    */
   readonly displayValue = computed((): string => {
-    return getDisplayForField(this.col(), this.value(), this.locale());
+    return this.displayValueOverride()
+      ?? getDisplayForField(this.col(), this.value(), this.locale());
   });
 
   /**
@@ -243,14 +280,18 @@ export class AgridCellComponent {
         const initialValue = isDate
           ? dateInitial
           : seed !== '' ? seed : this.value();
-        this.draft.set(initialValue);
+        const mask = this.resolvedInputMask();
+        const acceptedInitialValue = seed !== '' && mask && !matchesInputMask(initialValue, mask)
+          ? this.value()
+          : initialValue;
+        this.draft.set(acceptedInitialValue);
 
         setTimeout(() => {
           const input = this.inputEl()?.nativeElement;
           if (input) {
             const displaySeed = isDate
               ? dateInitial
-              : seed !== '' ? seed : String(this.value() ?? '');
+              : String(acceptedInitialValue ?? '');
             input.value = displaySeed;
             input.focus();
             if (input.type === 'text' && !seed) input.select();
@@ -291,9 +332,23 @@ export class AgridCellComponent {
     this.treeToggle.emit();
   }
 
+  /** Emits the information action without activating or editing the cell. */
+  onInfoClick(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.infoClick.emit();
+  }
+
   /** Forward `<input>` changes to the grid. */
   onInput(event: Event): void {
-    const val = (event.target as HTMLInputElement).value;
+    const input = event.target as HTMLInputElement;
+    const val = input.value;
+    const mask = this.resolvedInputMask();
+    if (mask && !matchesInputMask(val, mask)) {
+      input.value = String(this.draft() ?? '');
+      input.setSelectionRange(input.value.length, input.value.length);
+      return;
+    }
     const draft = this.col().type === 'date'
       ? coerceDateInputValue(val, this.value())
       : val;

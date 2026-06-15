@@ -6,6 +6,7 @@ import {
   applyTextAndValueFilters,
   applySortToIndices,
   buildGroupedItems,
+  buildPathTreeItems,
   computeAggregates,
   buildSelectionRange,
   buildTreeItems,
@@ -15,9 +16,26 @@ import {
   getDisplayForField,
   isDataRowItem,
   isGroupHeaderItem,
+  isPathTreeNodeItem,
   isTreeRowItem,
   looksLikeDate,
+  matchesInputMask,
 } from './agrid.utils';
+
+describe('input masks', () => {
+  it('matches complete and partial values', () => {
+    const mask = /\d{0,3}(?:-\d{0,5}(?:-\d{0,5})?)?/;
+    expect(matchesInputMask('', mask)).toBe(true);
+    expect(matchesInputMask('123-45678-90123', mask)).toBe(true);
+    expect(matchesInputMask('1234', mask)).toBe(false);
+    expect(matchesInputMask('123-a', mask)).toBe(false);
+  });
+
+  it('automatically anchors expressions and ignores stateful regex flags', () => {
+    expect(matchesInputMask('abc 12', /[a-z]{0,3}(?: \d{0,2})?/gi)).toBe(true);
+    expect(matchesInputMask('abc 123', /[a-z]{0,3}(?: \d{0,2})?/gi)).toBe(false);
+  });
+});
 
 describe('date input conversion', () => {
   it('formats supported date values for native date inputs', () => {
@@ -251,6 +269,62 @@ describe('applyTextAndValueFilters — typed range operators', () => {
     expect(applyTextAndValueFilters(rows, indices, dateFilter('lt', '2024-02-01'), colMap)).toEqual([0]);
     expect(applyTextAndValueFilters(rows, indices, dateFilter('gt', '2024-02-01'), colMap)).toEqual([1, 2]);
     expect(applyTextAndValueFilters(rows, indices, dateFilter('between', '2024-02-01', '2024-03-01'), colMap)).toEqual([1]);
+  });
+});
+
+describe('applyTextAndValueFilters — text condition operators', () => {
+  const rows = [
+    { name: 'Alice Smith', status: 'active' },
+    { name: 'Bob Stone', status: 'inactive' },
+    { name: 'Alicia Jones', status: 'active' },
+  ];
+  const indices = [0, 1, 2];
+  const colMap = new Map<string, ColDef>([
+    ['name', { field: 'name', header: 'Name' }],
+    ['status', {
+      field: 'status',
+      header: 'Status',
+      values: [
+        { value: 'active', label: 'Enabled' },
+        { value: 'inactive', label: 'Disabled' },
+      ],
+    }],
+  ]);
+  const textFilter = (
+    operator: ColumnFilter['operator'],
+    operand: string,
+    field = 'name',
+  ): Record<string, ColumnFilter> => ({
+    [field]: { text: '', selectedValues: null, sort: null, operator, operand },
+  });
+
+  it('filters with equals, not equals, starts with, and ends with', () => {
+    expect(applyTextAndValueFilters(rows, indices, textFilter('eq', 'alice smith'), colMap))
+      .toEqual([0]);
+    expect(applyTextAndValueFilters(rows, indices, textFilter('neq', 'alice smith'), colMap))
+      .toEqual([1, 2]);
+    expect(applyTextAndValueFilters(rows, indices, textFilter('startsWith', 'ali'), colMap))
+      .toEqual([0, 2]);
+    expect(applyTextAndValueFilters(rows, indices, textFilter('endsWith', 'stone'), colMap))
+      .toEqual([1]);
+  });
+
+  it('filters with includes, not includes, and SQL-style like', () => {
+    expect(applyTextAndValueFilters(rows, indices, textFilter('includes', 'lic'), colMap))
+      .toEqual([0, 2]);
+    expect(applyTextAndValueFilters(rows, indices, textFilter('notIncludes', 'lic'), colMap))
+      .toEqual([1]);
+    expect(applyTextAndValueFilters(rows, indices, textFilter('like', 'ali% _ones'), colMap))
+      .toEqual([2]);
+  });
+
+  it('matches formatted value labels rather than raw values', () => {
+    expect(applyTextAndValueFilters(
+      rows,
+      indices,
+      textFilter('startsWith', 'enab', 'status'),
+      colMap,
+    )).toEqual([0, 2]);
   });
 });
 
@@ -666,5 +740,69 @@ describe('buildTreeItems', () => {
     // Node 1 forced, node 2 explicitly expanded → grandchild 4 shows too.
     const items = buildTreeItems(rows, allIndices, accessors, new Set([2]), new Set([1]));
     expect(idsOf(items)).toEqual([1, 2, 4, 3, 5]);
+  });
+});
+
+describe('buildPathTreeItems', () => {
+  const rows = [
+    { oz: '01.01.0001' },
+    { oz: '01.01.0002' },
+    { oz: '01.02.0001' },
+  ];
+  const config = {
+    getPath: (row: { oz: string }) => row.oz.split('.'),
+    treeField: 'oz' as const,
+  };
+
+  it('creates display-only branches and datasource-backed leaves', () => {
+    const items = buildPathTreeItems(
+      rows,
+      [0, 1, 2],
+      config,
+      new Set(['__agrid_path__["01"]', '__agrid_path__["01","01"]']),
+    );
+
+    expect(items.filter(isPathTreeNodeItem).map(item => item.pathLabel))
+      .toEqual(['01', '01', '02']);
+    expect(items.filter(isTreeRowItem).map(item => ({
+      index: item.originalIndex,
+      label: item.treeLabel,
+      level: item.level,
+    }))).toEqual([
+      { index: 0, label: '0001', level: 2 },
+      { index: 1, label: '0002', level: 2 },
+    ]);
+  });
+
+  it('force-opens generated ancestors for filtered rows', () => {
+    const items = buildPathTreeItems(rows, [2], config, new Set(), true);
+
+    expect(items.filter(isPathTreeNodeItem).map(item => item.pathLabel)).toEqual(['01', '02']);
+    expect(items.filter(isTreeRowItem).map(item => item.treeLabel)).toEqual(['0001']);
+  });
+
+  it('formats labels without changing raw path identity or leaf indices', () => {
+    const items = buildPathTreeItems(
+      rows,
+      [0, 1, 2],
+      {
+        ...config,
+        formatPathSegment: ({ row, segment, level, path, leaf }) =>
+          `${leaf ? 'Item' : `Level ${level + 1}`} ${path.join('.')} (${segment}:${row.oz})`,
+      },
+      new Set(['__agrid_path__["01"]', '__agrid_path__["01","01"]']),
+    );
+
+    const branches = items.filter(isPathTreeNodeItem);
+    expect(branches.map(item => [item.pathNodeId, item.pathLabel])).toEqual([
+      ['__agrid_path__["01"]', 'Level 1 01 (01:01.01.0001)'],
+      ['__agrid_path__["01","01"]', 'Level 2 01.01 (01:01.01.0001)'],
+      ['__agrid_path__["01","02"]', 'Level 2 01.02 (02:01.02.0001)'],
+    ]);
+    expect(items.filter(isTreeRowItem).map(item => [item.originalIndex, item.treeLabel]))
+      .toEqual([
+        [0, 'Item 01.01.0001 (0001:01.01.0001)'],
+        [1, 'Item 01.01.0002 (0002:01.01.0002)'],
+      ]);
   });
 });

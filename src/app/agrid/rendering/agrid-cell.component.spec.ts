@@ -66,6 +66,33 @@ describe('AgridCellComponent custom renderer', () => {
     expect(emitted).toEqual([]);
   });
 
+  it('emits the optional info action without activating the cell', () => {
+    fixture.componentRef.setInput('col', { field: 'status', header: 'Status' });
+    fixture.componentRef.setInput('showInfoIcon', true);
+    let infoClicks = 0;
+    let activations = 0;
+    fixture.componentInstance.infoClick.subscribe(() => infoClicks++);
+    fixture.componentInstance.activate.subscribe(() => activations++);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('.ag-cell-info') as HTMLButtonElement;
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(infoClicks).toBe(1);
+    expect(activations).toBe(0);
+  });
+
+  it('shows the info action for boolean cells and hides it while editing', () => {
+    fixture.componentRef.setInput('col', { field: 'done', header: 'Done', type: 'boolean' });
+    fixture.componentRef.setInput('showInfoIcon', true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.ag-cell-info')).not.toBeNull();
+
+    fixture.componentRef.setInput('editing', true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.ag-cell-info')).toBeNull();
+  });
+
   it('formats the displayed value and tooltip once per input change', () => {
     let formatterCalls = 0;
     fixture.componentRef.setInput('col', {
@@ -109,5 +136,43 @@ describe('AgridCellComponent custom renderer', () => {
 
     expect(emitted).toEqual(['2025-04-20T14:30:00.000Z']);
     expect(fixture.componentInstance.editorValue()).toBe('2025-04-20');
+  });
+
+  it('resolves and applies an input mask for the current row and cell', async () => {
+    const row = { reference: '123456', numeric: true };
+    let received: unknown;
+    const column = {
+      field: 'reference',
+      header: 'Reference',
+      inputMask: (params: unknown) => {
+        received = params;
+        return /\d{0,3}(?:-\d{0,5})?/;
+      },
+    };
+    fixture.componentRef.setInput('col', column);
+    fixture.componentRef.setInput('value', row.reference);
+    fixture.componentRef.setInput('row', row);
+    fixture.componentRef.setInput('editing', true);
+    const emitted: unknown[] = [];
+    fixture.componentInstance.draftChange.subscribe(value => emitted.push(value));
+    fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.ag-cell-input') as HTMLInputElement;
+    expect(input.value).toBe('123456');
+    expect(received).toEqual({ row, value: row.reference, column });
+
+    input.value = '987-65432';
+    input.dispatchEvent(new Event('input'));
+
+    expect(input.value).toBe('987-65432');
+    expect(emitted).toEqual(['987-65432']);
+
+    input.value = '987-65x';
+    input.dispatchEvent(new Event('input'));
+
+    expect(input.value).toBe('987-65432');
+    expect(emitted).toEqual(['987-65432']);
   });
 });

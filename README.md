@@ -76,7 +76,7 @@ export class PageComponent {
 - Clipboard copy/paste using TSV/CSV-like plain text.
 - Fill handle for repeating selected cell/range values down or right.
 - Find panel with Ctrl/Cmd+F, full filtered-dataset matching, and next/previous navigation.
-- Text filters, value filters, and single-column sorting.
+- Text filters, string/number/date condition filters, value filters, and single-column sorting.
 - Column menu with sort, clear sort, autosize, pin/unpin, hide, group, and clear filter actions.
 - Column resizing by drag and autosize by double-click.
 - Column reordering by header drag.
@@ -158,6 +158,7 @@ The `AgridLocaleTextOverrides` type covers all overridable labels.
 | `prepareAddRecord` | `NewRecord` | Emitted after the grid inserts a blank row. Patch `event.datasource` to target the correct grid when multiple providers are rendered. |
 | `rowReorder` | `RowReorderEvent` | Emitted after the user drops a reordered row. The host must call `dataSource.moveRow()`. |
 | `rowSelect` | `RowSelectEvent \| null` | Emitted when row selection changes. `null` means selection was cleared. |
+| `cellInfo` | `CellInfoEvent<T>` | Emitted when a column's optional cell info icon is clicked. |
 | `filterChange` | `FilterChangeEvent` | Emitted for text filter changes when `serverSideFiltering` is enabled. |
 | `sortChange` | `SortChangeEvent` | Emitted for sort changes when `serverSideFiltering` is enabled. |
 
@@ -246,6 +247,7 @@ readonly gridProvider = new AgridProvider({
 | `loading` | `boolean` | `false` | Initial value for the loading signal. Shows a loading overlay over the grid body. |
 | `getRowClass` | `(p: { row; index }) => string` | `undefined` | Returns CSS class names applied to a whole data row. Complements `ColDef.cellClass`. |
 | `pinRow` | `(row, index) => 'top' \| 'bottom' \| undefined` | `undefined` | Pins matching rows to the top/bottom of the body (see [Master/Detail and Pinned Rows](#masterdetail-and-pinned-rows)). |
+| `treeConfig` | `AgridTreeConfig<T> \| null` | `null` | Builds a tree from id/parent-id accessors or `getPath` segments. Path labels can be customized with `formatPathSegment` without changing sorting. |
 | `masterDetail` | `boolean` | `false` | Enables expandable detail panels. In tree mode, only leaf rows can expand details. Not available while grouped. |
 | `detailRenderer` | `(p: { row }) => string` | `undefined` | Returns sanitized HTML for an expanded detail panel. |
 | `detailRowHeight` | `number` | `200` | Fixed height in pixels of an expanded detail panel. |
@@ -385,6 +387,7 @@ interface ColDef {
   locked?: boolean;
   values?: string[] | ValueOption[];
   formatter?: (value: unknown) => string;
+  inputMask?: (params: { value: unknown; row: Record<string, unknown>; column: ColDef }) => RegExp | null;
   filterable?: boolean;
   groupable?: boolean;
   hidden?: boolean;
@@ -392,6 +395,7 @@ interface ColDef {
   aggregate?: 'sum' | 'avg' | 'min' | 'max' | 'count';
   cellRenderer?: (params: { value: unknown; row: Record<string, unknown> }) => string;
   cellClass?: (params: { value: unknown; row: Record<string, unknown> }) => string;
+  infoIcon?: boolean | ((params: { value: unknown; row: Record<string, unknown> }) => boolean);
 }
 ```
 
@@ -406,6 +410,7 @@ interface ColDef {
 | `locked` | No | Prevents the column from being hidden, reordered, or unpinned through the column menu. |
 | `values` | No | Fixed editor/filter values. Use `string[]` or `{ value, label }[]`. |
 | `formatter` | No | Custom display formatter. Takes precedence over date auto-formatting. |
+| `inputMask` | No | Resolves a regular-expression input constraint for each string cell from its `row`, `value`, and `column`. Invalid proposed values are rejected. |
 | `filterable` | No | Enables text filter and value picker for the column. |
 | `groupable` | No | Enables "group by" in the column menu. |
 | `hidden` | No | Hides the column on first render. |
@@ -413,6 +418,31 @@ interface ColDef {
 | `aggregate` | No | Shows an aggregate footer value: `'sum'`, `'avg'`, `'min'`, `'max'`, or `'count'`. |
 | `cellRenderer` | No | Custom HTML renderer. Return an HTML string; Angular sanitizes it automatically. See [Custom Cell Renderers](#custom-cell-renderers). |
 | `cellClass` | No | Returns a CSS class name for each cell. Applied alongside built-in state classes. |
+| `infoIcon` | No | Shows a right-aligned `?` action. Set it to `true` or return a boolean per cell. Clicking it emits `cellInfo` with the row, field, value, original index, and column definition. |
+
+```html
+<agrid [provider]="provider" (cellInfo)="showCellInfo($event)" />
+```
+
+### Input masks
+
+Return a mask per row when string values need a structured format:
+
+```ts
+{
+  field: 'reference',
+  header: 'Reference',
+  inputMask: ({ row }) =>
+    row.numeric
+      ? /\d{0,3}(?:-\d{0,5}(?:-\d{0,5})?)?/
+      : /[a-z0-9]{0,3}(?: [a-z0-9]{0,3}(?: [a-z0-9]{0,5})?)?/i,
+}
+```
+
+The expression is matched against the entire proposed value, so explicit `^`
+and `$` anchors are optional. It must accept partial input, including the empty
+string and any intermediate separators users need to type. Return `null` when
+a particular row should use an unrestricted text editor.
 
 ### ColDefAutoSize
 

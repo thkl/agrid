@@ -1,5 +1,14 @@
 import { ColumnFilter } from './agrid-control';
-import { ColDef, DetailRowItem, GridItem, TreeRowItem, ValueOption } from './agrid.types';
+import {
+  AgridPathTreeConfig,
+  AgridTreeConfig,
+  ColDef,
+  DetailRowItem,
+  GridItem,
+  PathTreeNodeItem,
+  TreeRowItem,
+  ValueOption,
+} from './agrid.types';
 
 // Display resolution
 
@@ -75,7 +84,9 @@ export function getDisplayForField(col: ColDef | undefined, raw: unknown, locale
 }
 
 /** Returns whether a virtual-scroll item represents a data row. */
-export function isDataRowItem(item: GridItem): item is { row: Record<string, unknown>; originalIndex: number } {
+export function isDataRowItem<T extends object>(
+  item: GridItem<T>,
+): item is { row: T; originalIndex: number } {
   return typeof item === 'object' && item !== null && 'row' in item && !('detailFor' in item);
 }
 
@@ -98,7 +109,19 @@ export function isGroupHeaderItem(
  * additionally narrows to the indentation/expansion fields via the `level` discriminator.
  */
 export function isTreeRowItem<T extends object>(item: GridItem<T>): item is TreeRowItem<T> {
-  return typeof item === 'object' && item !== null && 'level' in item;
+  return isDataRowItem(item) && 'level' in item;
+}
+
+/** Returns whether a virtual-scroll item is a generated path-tree branch node. */
+export function isPathTreeNodeItem(item: GridItem): item is PathTreeNodeItem {
+  return typeof item === 'object' && item !== null && 'pathNodeId' in item;
+}
+
+/** Returns whether a tree configuration derives its hierarchy from path segments. */
+export function isPathTreeConfig<T extends object>(
+  config: AgridTreeConfig<T>,
+): config is AgridPathTreeConfig<T> {
+  return typeof config.getPath === 'function';
 }
 
 // Filtering
@@ -123,22 +146,40 @@ export function applyTextAndValueFilters(
       result = result.filter(i => allowed.has(String(rows[i][field] ?? '')));
     }
     if (filter.operator && filter.operand != null && filter.operand !== '') {
-      result = result.filter(i => passesRangeFilter(col, rows[i][field], filter));
+      result = result.filter(i => passesConditionFilter(col, rows[i][field], filter, locale));
     }
   }
   return result;
 }
 
 /**
- * Evaluate a typed range filter (`number` / `date`) for one cell value.
- * Date columns compare epoch-millis; everything else compares as numbers.
- * Rows whose value can't be parsed to the comparison type are excluded.
+ * Evaluate a text, number, or date condition for one cell value.
  */
-export function passesRangeFilter(
+export function passesConditionFilter(
   col: ColDef | undefined,
   raw: unknown,
   filter: ColumnFilter,
+  locale?: string,
 ): boolean {
+  if (col?.type !== 'number' && col?.type !== 'date') {
+    const value = getDisplayForField(col, raw, locale).toLocaleLowerCase(locale);
+    const operand = String(filter.operand ?? '').toLocaleLowerCase(locale);
+    switch (filter.operator) {
+      case 'eq': return value === operand;
+      case 'neq': return value !== operand;
+      case 'startsWith': return value.startsWith(operand);
+      case 'endsWith': return value.endsWith(operand);
+      case 'includes': return value.includes(operand);
+      case 'notIncludes': return !value.includes(operand);
+      case 'like': {
+        const escaped = operand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const pattern = escaped.replace(/%/g, '.*').replace(/_/g, '.');
+        return new RegExp(`^${pattern}$`, 'u').test(value);
+      }
+      default: return true;
+    }
+  }
+
   const isDate = col?.type === 'date' || looksLikeDate(raw);
   const toNum = (v: unknown): number =>
     isDate
@@ -451,6 +492,100 @@ export function buildTreeItems<T extends object>(
   return items;
 }
 
+/** Stable expansion id for a generated path prefix. */
+export function pathTreeNodeId(path: readonly (string | number)[]): string {
+  return `__agrid_path__${JSON.stringify(path.map(String))}`;
+}
+
+/** Builds display-only branch nodes and datasource-backed leaves from path segments. */
+export function buildPathTreeItems<T extends object>(
+  rows: T[],
+  indices: number[],
+  config: AgridPathTreeConfig<T>,
+  expandedIds: Set<string | number>,
+  forceExpanded = false,
+): GridItem<T>[] {
+  type Branch = {
+    id: string;
+    label: string;
+    level: number;
+    children: Map<string, Branch>;
+    leaves: { originalIndex: number; label: string }[];
+  };
+
+  const roots = new Map<string, Branch>();
+  for (const originalIndex of indices) {
+    const rawPath = config.getPath(rows[originalIndex]).filter(
+      segment => String(segment).length > 0,
+    );
+    if (rawPath.length === 0) continue;
+    const path = rawPath.map(String);
+    const formatSegment = (level: number, leaf: boolean): string =>
+      config.formatPathSegment?.({
+        row: rows[originalIndex],
+        segment: rawPath[level],
+        level,
+        path: rawPath.slice(0, level + 1),
+        leaf,
+      }) ?? path[level];
+    let branches = roots;
+    for (let level = 0; level < path.length - 1; level++) {
+      const prefix = path.slice(0, level + 1);
+      const id = pathTreeNodeId(prefix);
+      let branch = branches.get(id);
+      if (!branch) {
+        branch = { id, label: formatSegment(level, false), level, children: new Map(), leaves: [] };
+        branches.set(id, branch);
+      }
+      if (level === path.length - 2) {
+        branch.leaves.push({
+          originalIndex,
+          label: formatSegment(path.length - 1, true),
+        });
+      }
+      branches = branch.children;
+    }
+    if (path.length === 1) {
+      const id = pathTreeNodeId([]);
+      let branch = roots.get(id);
+      if (!branch) {
+        branch = { id, label: '', level: -1, children: new Map(), leaves: [] };
+        roots.set(id, branch);
+      }
+      branch.leaves.push({ originalIndex, label: formatSegment(0, true) });
+    }
+  }
+
+  const items: GridItem<T>[] = [];
+  const visit = (branch: Branch): void => {
+    const isHiddenRoot = branch.level < 0;
+    const expanded = forceExpanded || expandedIds.has(branch.id);
+    if (!isHiddenRoot) {
+      items.push({
+        pathNodeId: branch.id,
+        pathLabel: branch.label,
+        level: branch.level,
+        expandable: true,
+        expanded,
+      });
+    }
+    if (!isHiddenRoot && !expanded) return;
+    for (const child of branch.children.values()) visit(child);
+    for (const leaf of branch.leaves) {
+      items.push({
+        row: rows[leaf.originalIndex],
+        originalIndex: leaf.originalIndex,
+        level: isHiddenRoot ? 0 : branch.level + 1,
+        expandable: false,
+        expanded: false,
+        treeLabel: leaf.label,
+      });
+    }
+  };
+  for (const branch of roots.values()) visit(branch);
+  return items;
+}
+
 // Selection range
 
 /** Build the set of original indices spanning from `fromOrig` to `toOrig` in display order. */
@@ -465,4 +600,10 @@ export function buildSelectionRange(fromOrig: number, toOrig: number, items: Gri
     if (isDataRowItem(item)) next.add(item.originalIndex);
   }
   return next;
+}
+
+/** Test a complete proposed editor value against a regex input mask. */
+export function matchesInputMask(value: unknown, mask: RegExp): boolean {
+  const flags = mask.flags.replace(/[gy]/g, '');
+  return new RegExp(`^(?:${mask.source})$`, flags).test(String(value ?? ''));
 }

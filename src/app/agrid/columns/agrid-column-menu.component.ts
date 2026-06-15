@@ -1,6 +1,35 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from '../agrid-localization';
 import { FilterOperator } from '../agrid-control';
+import { AgridBrowserAdapter } from '../infrastructure/agrid-browser.adapter';
+
+/** Clamp a floating menu so it remains inside the browser viewport. @internal */
+export function fitColumnMenuToViewport(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  viewportWidth: number,
+  viewportHeight: number,
+  margin = 8,
+): { x: number; y: number } {
+  return {
+    x: Math.max(margin, Math.min(x, viewportWidth - width - margin)),
+    y: Math.max(margin, Math.min(y, viewportHeight - height - margin)),
+  };
+}
 
 /** Display model for one value-filter option in the column menu. */
 export interface AgridColumnMenuValueItem {
@@ -22,6 +51,11 @@ export interface AgridColumnMenuValueItem {
   styleUrl: './agrid-column-menu.component.css',
 })
 export class AgridColumnMenuComponent {
+  private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly browser = new AgridBrowserAdapter();
+  private resizeObserver: ResizeObserver | null = null;
+
   /** Localized labels used in the menu. */
   localeText = input<AgridLocaleText>(AGRID_LOCALE_TEXT.en);
 
@@ -30,6 +64,9 @@ export class AgridColumnMenuComponent {
 
   /** Fixed viewport y-position for the menu. */
   y = input.required<number>();
+
+  /** Viewport-fitted coordinates used by the rendered menu. */
+  readonly position = signal({ x: 0, y: 0 });
 
   /** Header label for the active column. */
   header = input.required<string>();
@@ -58,25 +95,25 @@ export class AgridColumnMenuComponent {
   /** Whether to show the Excel-style distinct-value picker. */
   showValueFilter = input<boolean>(true);
 
-  /** Range-filter input type for the active column, or `null` to hide the condition UI. */
-  filterType = input<'number' | 'date' | null>(null);
+  /** Condition-filter input type for the active column, or `null` to hide the condition UI. */
+  filterType = input<'text' | 'number' | 'date' | null>(null);
 
-  /** Current range-filter operator, or `null` when none is selected. */
+  /** Current condition operator, or `null` when none is selected. */
   operator = input<FilterOperator | null>(null);
 
-  /** Current primary range-filter operand. */
+  /** Current primary condition operand. */
   operand = input<string>('');
 
-  /** Current secondary range-filter operand (used by `between`). */
+  /** Current secondary condition operand (used by `between`). */
   operand2 = input<string>('');
 
-  /** Emits the selected range-filter operator, or `null` to clear the condition. */
+  /** Emits the selected condition operator, or `null` to clear it. */
   operatorChange = output<FilterOperator | null>();
 
-  /** Emits the primary range-filter operand text. */
+  /** Emits the primary condition operand text. */
   operandChange = output<string>();
 
-  /** Emits the secondary range-filter operand text (used by `between`). */
+  /** Emits the secondary condition operand text (used by `between`). */
   operand2Change = output<string>();
 
   /** Current search text for the value-filter option list. */
@@ -150,7 +187,7 @@ export class AgridColumnMenuComponent {
     ];
   });
 
-  /** Range-filter operators offered for the active column, labeled per column type. */
+  /** Condition operators offered for the active column, labeled per column type. */
   readonly operatorOptions = computed<{ value: FilterOperator; label: string }[]>(() => {
     const t = this.localeText();
     if (this.filterType() === 'date') {
@@ -159,6 +196,17 @@ export class AgridColumnMenuComponent {
         { value: 'lt',      label: t.filterOpBefore },
         { value: 'gt',      label: t.filterOpAfter },
         { value: 'between', label: t.filterOpBetween },
+      ];
+    }
+    if (this.filterType() === 'text') {
+      return [
+        { value: 'eq',          label: t.filterOpEquals },
+        { value: 'neq',         label: t.filterOpNotEquals },
+        { value: 'like',        label: t.filterOpLike },
+        { value: 'startsWith',  label: t.filterOpStartsWith },
+        { value: 'endsWith',    label: t.filterOpEndsWith },
+        { value: 'includes',    label: t.filterOpIncludes },
+        { value: 'notIncludes', label: t.filterOpNotIncludes },
       ];
     }
     return [
@@ -173,5 +221,47 @@ export class AgridColumnMenuComponent {
   });
 
   /** Native input type for operand fields (date columns use a date picker). */
-  readonly operandInputType = computed(() => (this.filterType() === 'date' ? 'date' : 'number'));
+  readonly operandInputType = computed(() =>
+    this.filterType() === 'date' ? 'date' : this.filterType() === 'number' ? 'number' : 'text',
+  );
+
+  constructor() {
+    effect(() => {
+      this.position.set({ x: this.x(), y: this.y() });
+      this.scheduleViewportFit();
+    });
+
+    afterNextRender(() => {
+      const menu = this.menuElement();
+      this.fitToViewport();
+      if (menu && typeof ResizeObserver !== 'undefined') {
+        this.resizeObserver = new ResizeObserver(() => this.fitToViewport());
+        this.resizeObserver.observe(menu);
+      }
+    });
+
+    this.destroyRef.onDestroy(() => this.resizeObserver?.disconnect());
+  }
+
+  private scheduleViewportFit(): void {
+    setTimeout(() => this.fitToViewport());
+  }
+
+  private fitToViewport(): void {
+    const menu = this.menuElement();
+    if (!menu || !this.browser.available) return;
+    const rect = menu.getBoundingClientRect();
+    this.position.set(fitColumnMenuToViewport(
+      this.x(),
+      this.y(),
+      rect.width,
+      rect.height,
+      this.browser.viewportWidth(),
+      this.browser.viewportHeight(),
+    ));
+  }
+
+  private menuElement(): HTMLElement | null {
+    return this.elementRef.nativeElement.querySelector<HTMLElement>('.ag-filter-menu');
+  }
 }

@@ -49,11 +49,14 @@ import {
   isDataRowItem as isDataRowItemFn,
   isDetailRowItem as isDetailRowItemFn,
   isGroupHeaderItem as isGroupHeaderItemFn,
+  isPathTreeNodeItem as isPathTreeNodeItemFn,
+  isPathTreeConfig,
   isTreeRowItem as isTreeRowItemFn,
+  pathTreeNodeId,
 } from './agrid.utils';
 import { AgridVariableRowSizeDirective } from './infrastructure/agrid-variable-row-size.strategy';
 import {
-  AgridField, CellContextMenuItem, CellPosition, ColDef, DetailRowItem, FilterChangeEvent, GridEditEvent,
+  AgridField, CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, DetailRowItem, FilterChangeEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, RecordEditEvent, RowClickEvent,
   RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, ValidationFailedEvent,
 } from './agrid.types';
@@ -184,7 +187,7 @@ export class AgridComponent<T extends object = any> {
 
   private readonly treeParentIds = computed(() => {
     const config = this.treeConfig();
-    if (!config) return new Set<string | number>();
+    if (!config || isPathTreeConfig(config)) return new Set<string | number>();
     const ids = new Set<string | number>();
     for (const row of this.dataSource().rows()) {
       const parentId = config.getParentId(row as T);
@@ -262,6 +265,9 @@ export class AgridComponent<T extends object = any> {
 
   /** Emitted when a `ColDef.validate` hook rejects a committed value (inline or sidebar). */
   validationFailed = output<ValidationFailedEvent>();
+
+  /** Emitted when a column's optional cell information button is clicked. */
+  cellInfo = output<CellInfoEvent<T>>();
 
   // ── Public state ─────────────────────────────────────────────────────────────
 
@@ -1079,6 +1085,11 @@ export class AgridComponent<T extends object = any> {
   }
 
   /** @internal */
+  isPathTreeNodeItem(item: GridItem): boolean {
+    return isPathTreeNodeItemFn(item);
+  }
+
+  /** @internal */
   getItemOriginalIndex(item: GridItem): number | null {
     return isDataRowItemFn(item) ? item.originalIndex : null;
   }
@@ -1113,14 +1124,23 @@ export class AgridComponent<T extends object = any> {
   canToggleDetail(item: GridItem): boolean {
     if (!this.masterDetail() || !isDataRowItemFn(item)) return false;
     const config = this.treeConfig();
-    return !config || !this.treeParentIds().has(config.getId(item.row as T));
+    return !config
+      || isPathTreeConfig(config)
+      || !this.treeParentIds().has(config.getId(item.row as T));
   }
 
   /** Toggle the master/detail panel for a row by its original (data-source) index. */
   toggleDetail(originalIndex: number): void {
     const row = this.dataSource().getRow(originalIndex);
     const config = this.treeConfig();
-    if (!row || (config && this.treeParentIds().has(config.getId(row as T)))) return;
+    if (
+      !row
+      || (
+        config
+        && !isPathTreeConfig(config)
+        && this.treeParentIds().has(config.getId(row as T))
+      )
+    ) return;
     this._expandedDetailIds.update(ids => {
       const next = new Set(ids);
       if (next.has(originalIndex)) next.delete(originalIndex);
@@ -1171,24 +1191,56 @@ export class AgridComponent<T extends object = any> {
 
   /** @internal Tree depth of a row item (0 when not a tree row). */
   treeRowLevel(item: GridItem): number {
-    return isTreeRowItemFn(item) ? item.level : 0;
+    return isTreeRowItemFn(item) || isPathTreeNodeItemFn(item) ? item.level : 0;
   }
 
   /** @internal Whether a tree row has children and can be expanded. */
   treeRowExpandable(item: GridItem): boolean {
-    return isTreeRowItemFn(item) && item.expandable;
+    return (isTreeRowItemFn(item) || isPathTreeNodeItemFn(item)) && item.expandable;
   }
 
   /** @internal Whether a tree row is currently expanded. */
   treeRowExpanded(item: GridItem): boolean {
-    return isTreeRowItemFn(item) && item.expanded;
+    return (isTreeRowItemFn(item) || isPathTreeNodeItemFn(item)) && item.expanded;
+  }
+
+  /** @internal Display-only final path segment for a datasource-backed path-tree leaf. */
+  treeCellDisplayOverride(item: GridItem, col: ColDef): string | null {
+    return isTreeRowItemFn(item) && this.isTreeCell(col) ? item.treeLabel ?? null : null;
+  }
+
+  /** @internal Whether the configured info action is visible for this cell. */
+  showCellInfoIcon(col: ColDef, row: Record<string, unknown>): boolean {
+    return typeof col.infoIcon === 'function'
+      ? col.infoIcon({ value: row[col.field], row })
+      : col.infoIcon === true;
+  }
+
+  /** @internal Emits the typed cell information action. */
+  onCellInfo(originalIndex: number, col: ColDef, row: Record<string, unknown>): void {
+    this.cellInfo.emit({
+      row: row as T,
+      field: col.field as AgridField<T>,
+      value: row[col.field],
+      originalIndex,
+      column: col,
+    } as unknown as CellInfoEvent<T>);
+  }
+
+  /** @internal Label of a generated path-tree branch. */
+  pathTreeLabel(item: GridItem): string {
+    return isPathTreeNodeItemFn(item) ? item.pathLabel : '';
   }
 
   /** @internal Toggle the expand/collapse state of a tree row from its twisty. */
   onTreeToggle(item: GridItem): void {
     const config = this.treeConfig();
-    if (!config || !isTreeRowItemFn(item)) return;
-    this.treeController.toggle(config.getId(item.row as T));
+    if (!config) return;
+    if (isPathTreeNodeItemFn(item)) {
+      this.treeController.toggle(item.pathNodeId);
+    } else if (isTreeRowItemFn(item) && !isPathTreeConfig(config)) {
+      this.treeController.toggle(config.getId(item.row as T));
+    }
   }
 
   private toggleTreeCell(originalIndex: number, colIndex: number): boolean {
@@ -1199,7 +1251,7 @@ export class AgridComponent<T extends object = any> {
     const item = this.displayItems().find(
       candidate => isDataRowItemFn(candidate) && candidate.originalIndex === originalIndex,
     );
-    if (!item || !isTreeRowItemFn(item) || !item.expandable) return false;
+    if (!item || !isTreeRowItemFn(item) || !item.expandable || isPathTreeConfig(config)) return false;
 
     this.treeController.toggle(config.getId(item.row as T));
     return true;
@@ -1209,6 +1261,17 @@ export class AgridComponent<T extends object = any> {
   expandAllNodes(): void {
     const config = this.treeConfig();
     if (!config) return;
+    if (isPathTreeConfig(config)) {
+      const ids = new Set<string>();
+      for (const row of this.dataSource().rows() as T[]) {
+        const path = config.getPath(row).map(String).filter(Boolean);
+        for (let length = 1; length < path.length; length++) {
+          ids.add(pathTreeNodeId(path.slice(0, length)));
+        }
+      }
+      this.treeController.expandAll(ids);
+      return;
+    }
     const expandable = new Set<string | number>();
     for (const row of this.dataSource().rows()) {
       const parentId = config.getParentId(row as T);
@@ -1228,6 +1291,7 @@ export class AgridComponent<T extends object = any> {
     if (item === null) return -1;
     if (isGroupHeaderItemFn(item)) return `__group__${item.groupLabel}`;
     if (isDetailRowItemFn(item)) return `__detail__${item.detailFor}`;
+    if (isPathTreeNodeItemFn(item)) return item.pathNodeId;
     return item.originalIndex;
   };
 
@@ -1279,9 +1343,28 @@ export class AgridComponent<T extends object = any> {
 
   getTextFilter(field: string): string { return this.columnMenuController.getTextFilter(field); }
 
-  /** @internal Range-filter input type for a column, or `null` when not range-filterable. */
-  getMenuFilterType(field: string): 'number' | 'date' | null {
+  /** @internal Condition input type for a column, or `null` when unsupported. */
+  getMenuFilterType(field: string): 'text' | 'number' | 'date' | null {
     return this.columnMenuController.getFilterType(field);
+  }
+
+  /** @internal Short label for an active header condition. */
+  getConditionButtonLabel(field: string): string {
+    switch (this.getMenuOperator(field)) {
+      case 'eq': return '=';
+      case 'neq': return '≠';
+      case 'gt': return '>';
+      case 'gte': return '≥';
+      case 'lt': return '<';
+      case 'lte': return '≤';
+      case 'between': return '↔';
+      case 'like': return '~';
+      case 'startsWith': return 'A…';
+      case 'endsWith': return '…Z';
+      case 'includes': return '⊃';
+      case 'notIncludes': return '⊅';
+      default: return '⋯';
+    }
   }
 
   /** @internal */
@@ -1502,16 +1585,23 @@ export class AgridComponent<T extends object = any> {
     const config = this.treeConfig();
     if (config) {
       const rows = this.dataSource().rows() as T[];
-      const idToRow = new Map(rows.map(row => [config.getId(row), row]));
       const expanded = new Set(this.treeController.expandedIds());
-      const visited = new Set<string | number>();
-      let parentId = config.getParentId(rows[originalIndex]);
-      while (parentId !== null && parentId !== undefined && !visited.has(parentId)) {
-        visited.add(parentId);
-        expanded.add(parentId);
-        const parent = idToRow.get(parentId);
-        if (!parent) break;
-        parentId = config.getParentId(parent);
+      if (isPathTreeConfig(config)) {
+        const path = config.getPath(rows[originalIndex]).map(String).filter(Boolean);
+        for (let length = 1; length < path.length; length++) {
+          expanded.add(pathTreeNodeId(path.slice(0, length)));
+        }
+      } else {
+        const idToRow = new Map(rows.map(row => [config.getId(row), row]));
+        const visited = new Set<string | number>();
+        let parentId = config.getParentId(rows[originalIndex]);
+        while (parentId !== null && parentId !== undefined && !visited.has(parentId)) {
+          visited.add(parentId);
+          expanded.add(parentId);
+          const parent = idToRow.get(parentId);
+          if (!parent) break;
+          parentId = config.getParentId(parent);
+        }
       }
       this.treeController.expandAll(expanded);
     } else {

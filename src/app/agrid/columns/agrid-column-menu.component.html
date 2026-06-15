@@ -2,8 +2,8 @@
   class="ag-filter-menu"
   role="dialog"
   [attr.aria-label]="localeText().columnMenu + ': ' + header()"
-  [style.left.px]="x()"
-  [style.top.px]="y()"
+  [style.left.px]="position().x"
+  [style.top.px]="position().y"
   (click)="$event.stopPropagation()"
 >
   @if (sortable()) {
@@ -93,18 +93,28 @@
     @if (filterType()) {
       <div class="ag-filter-menu-section ag-filter-menu-section--border ag-filter-menu-condition">
         <span class="ag-filter-menu-aggregate-label">{{ localeText().filterCondition }}</span>
-        <select
-          class="ag-filter-menu-operator"
-          (change)="operatorChange.emit($any($event.target).value || null)"
-          (click)="$event.stopPropagation()"
-        >
-          <option value="" [selected]="!operator()">{{ localeText().filterNoCondition }}</option>
+        <div class="ag-filter-menu-operators">
+          <button
+            type="button"
+            class="ag-filter-menu-operator-btn ag-filter-menu-operator-btn--clear"
+            [class.ag-filter-menu-operator-btn--active]="!operator()"
+            (click)="operatorChange.emit(null)"
+          >{{ localeText().filterNoCondition }}</button>
           @for (op of operatorOptions(); track op.value) {
-            <option [value]="op.value" [selected]="op.value === operator()">{{ op.label }}</option>
+            <button
+              type="button"
+              class="ag-filter-menu-operator-btn"
+              [class.ag-filter-menu-operator-btn--active]="op.value === operator()"
+              (click)="operatorChange.emit(op.value)"
+            >{{ op.label }}</button>
           }
-        </select>
+        </div>
         @if (operator()) {
+          <label class="ag-filter-menu-operand-label" for="agrid-filter-operand">
+            {{ localeText().filterValue }}
+          </label>
           <input
+            id="agrid-filter-operand"
             class="ag-filter-menu-operand"
             [type]="operandInputType()"
             [value]="operand()"

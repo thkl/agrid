@@ -179,9 +179,28 @@ readonly provider = new AgridProvider<OrgRow>({
   columns,
   datasource: new AgridDataSource(rows),
   treeConfig,
-});`;
+});
+
+// Alternative: derive display-only branches from a path-like field.
+interface OzRow {
+  oz: string;
+  description: string;
+  areaLabel: string;
+  groupLabel: string;
+}
+
+const pathTreeConfig: AgridTreeConfig<OzRow> = {
+  getPath: row => row.oz.split('.'),
+  formatPathSegment: ({ row, segment, level, leaf }) =>
+    leaf
+      ? \`\${segment} \${row.description}\`
+      : \`\${segment} \${level === 0 ? row.areaLabel : row.groupLabel}\`,
+  treeField: 'oz',
+};`;
 
   readonly typedFilterCode = `const columns: ColDef<Order>[] = [
+  // text column → equals, not equal, like, starts/ends with, includes
+  { field: 'reference', header: 'Reference', filterable: true },
   // number column → =, ≠, >, ≥, <, ≤, between
   { field: 'total', header: 'Total', type: 'number', filterable: true },
   // date column → on / before / after / between
@@ -190,7 +209,8 @@ readonly provider = new AgridProvider<OrgRow>({
   { field: 'paid', header: 'Paid', type: 'boolean' },
 ];
 
-// The number/date condition is also available programmatically:
+// Conditions are also available programmatically:
+control.setRangeFilter('reference', 'startsWith', 'INV-');
 control.setRangeFilter('total', 'between', '100', '500');
 control.setRangeFilter('total', null, null); // clear it`;
 
@@ -227,7 +247,7 @@ control.setQuickFilter('alice');`;
 
 onFilter(event: FilterChangeEvent): void {
   if (event.operator) {
-    // typed range condition on a number/date column
+    // menu condition on a text, number, or date column
     fetchRange(event.field, event.operator, event.operand, event.operand2);
   } else {
     // free-text filter ('' clears it)

@@ -56,6 +56,36 @@
   min-width: 0;
 }
 
+:host(.ag-cell--with-info) .ag-cell-value {
+  padding-right: 22px;
+}
+
+.ag-cell-info {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 50%;
+  color: var(--agrid-color-text-muted);
+  background: var(--agrid-color-bg);
+  font: 600 11px/1 sans-serif;
+  cursor: pointer;
+}
+
+.ag-cell-info:hover,
+.ag-cell-info:focus-visible {
+  color: var(--agrid-color-accent);
+  border-color: var(--agrid-color-accent);
+  outline: none;
+}
+
 .ag-tree-prefix {
   flex: 0 0 auto;
   display: inline-flex;

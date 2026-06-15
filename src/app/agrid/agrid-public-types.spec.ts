@@ -4,6 +4,7 @@ import { AgridComponent } from './agrid.component';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridProvider } from './agrid-provider';
 import {
+  CellInfoEvent,
   ColDef,
   GridEditEvent,
   NewRecord,
@@ -27,6 +28,7 @@ interface PersonRow {
       [provider]="provider"
       (recordEdit)="onRecordEdit($event)"
       (rowChanged)="onRowChanged($event)"
+      (cellInfo)="onCellInfo($event)"
     />
   `,
 })
@@ -43,6 +45,11 @@ class TypedGridHost {
   onRowChanged(event: RowUpdateEvent<PersonRow>): void {
     expectTypeOf(event.row).toEqualTypeOf<PersonRow>();
   }
+
+  onCellInfo(event: CellInfoEvent<PersonRow>): void {
+    expectTypeOf(event.row).toEqualTypeOf<PersonRow>();
+    expectTypeOf(event.field).toEqualTypeOf<'id' | 'name' | 'active'>();
+  }
 }
 
 describe('typed public contracts', () => {
@@ -57,6 +64,13 @@ describe('typed public contracts', () => {
         field: 'name',
         header: 'Name',
         formatter: value => value.toUpperCase(),
+        infoIcon: ({ value, row }) => value === row.name,
+        inputMask: ({ value, row, column }) => {
+          expectTypeOf(value).toEqualTypeOf<string>();
+          expectTypeOf(row).toEqualTypeOf<PersonRow>();
+          expectTypeOf(column.field).toEqualTypeOf<'name'>();
+          return row.active ? /[a-z]{0,3}(?: [a-z]{0,5})?/i : null;
+        },
       },
       {
         field: 'active',
@@ -82,6 +96,7 @@ describe('typed public contracts', () => {
     expectTypeOf<RowReorderEvent<PersonRow>['row']>().toEqualTypeOf<PersonRow>();
     expectTypeOf<RowSelectEvent<PersonRow>['rows'][number]['row']>()
       .toEqualTypeOf<PersonRow>();
+    expectTypeOf<CellInfoEvent<PersonRow>['row']>().toEqualTypeOf<PersonRow>();
 
     const edit = null as GridEditEvent<PersonRow> | null;
     if (edit?.field === 'name') {

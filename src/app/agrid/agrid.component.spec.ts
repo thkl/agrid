@@ -124,6 +124,28 @@ describe('AgridComponent Tab navigation', () => {
 
   afterEach(() => fixture.destroy());
 
+  it('evaluates and emits typed cell info actions', () => {
+    const row = provider.datasource.getRow(0);
+    const column = {
+      field: 'name',
+      header: 'Name',
+      infoIcon: ({ row: current }: { row: typeof row }) => current.name === 'Alice',
+    };
+    const emitted: unknown[] = [];
+    component.cellInfo.subscribe(event => emitted.push(event));
+
+    expect(component.showCellInfoIcon(column, row)).toBe(true);
+    component.onCellInfo(0, column, row);
+
+    expect(emitted).toEqual([{
+      row,
+      field: 'name',
+      value: 'Alice',
+      originalIndex: 0,
+      column,
+    }]);
+  });
+
   it('adds a row when Tab moves past the last cell and keeps focus in the grid', () => {
     const wrapper = fixture.nativeElement.querySelector('.ag-wrapper') as HTMLElement;
     component.selectedCell.set({ rowIndex: 0, colIndex: 1 });
@@ -1145,6 +1167,43 @@ describe('AgridComponent tree mode', () => {
 function isTreeRow(item: GridItem): boolean {
   return typeof item === 'object' && item !== null && 'level' in item;
 }
+
+describe('AgridComponent path tree mode', () => {
+  it('renders generated branches while editing leaves with their original path value', async () => {
+    const provider = new AgridProvider({
+      columns: [{ field: 'oz', header: 'OZ' }],
+      datasource: new AgridDataSource([
+        { oz: '01.01.0001' },
+        { oz: '01.01.0002' },
+        { oz: '01.02.0001' },
+      ]),
+      treeConfig: {
+        getPath: row => row.oz.split('.'),
+        treeField: 'oz',
+      },
+    });
+    await TestBed.configureTestingModule({ imports: [AgridComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(AgridComponent);
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.expandAllNodes();
+    fixture.detectChanges();
+
+    expect(component.displayItems().filter(component.isPathTreeNodeItem).length).toBe(3);
+    const firstLeaf = component.displayItems()
+      .find(item => isTreeRow(item) && (item as any).originalIndex === 0)!;
+    expect(component.treeCellDisplayOverride(firstLeaf, { field: 'oz', header: 'OZ' }))
+      .toBe('0001');
+
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    component.onStartEdit(0, 0);
+
+    expect(component.currentDraft()).toBe('01.01.0001');
+    fixture.destroy();
+  });
+});
 
 describe('AgridComponent pinned rows and master/detail', () => {
   let fixture: ComponentFixture<AgridComponent>;

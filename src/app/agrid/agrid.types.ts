@@ -110,6 +110,25 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
    */
   formatter?: (value: T[K]) => string;
   /**
+   * Resolve an input mask for this specific string cell. The callback receives the current
+   * row, cell value, and column definition, so different rows in one column can use different
+   * regular expressions. Return `null` or `undefined` to leave the cell unrestricted.
+   *
+   * The expression is matched against the complete proposed editor value. It should accept
+   * partial values so the user can build the final value one character at a time.
+   *
+   * @example
+   * ```ts
+   * {
+   *   field: 'reference',
+   *   inputMask: ({ row }) => row.numeric
+   *     ? /\d{0,3}(?:-\d{0,5}(?:-\d{0,5})?)?/
+   *     : /[a-z0-9]{0,3}(?: [a-z0-9]{0,3}(?: [a-z0-9]{0,5})?)?/i,
+   * }
+   * ```
+   */
+  inputMask?: (params: InputMaskParams<T, K>) => RegExp | null | undefined;
+  /**
    * Set to `true` to show a filter input and value-picker in the filter row for this column.
    * At least one filterable column must exist for the filter row to appear.
    */
@@ -180,6 +199,11 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
    * ```
    */
   cellRenderer?: (params: { value: T[K]; row: T }) => string;
+  /**
+   * Show a right-aligned info button in this column's cells.
+   * Pass a predicate to show it only for selected rows or values.
+   */
+  infoIcon?: boolean | ((params: { value: T[K]; row: T }) => boolean);
 }
 
 /**
@@ -190,6 +214,16 @@ export type ColDef<
   T extends object = any,
   K extends AgridField<T> = AgridField<T>,
 > = K extends AgridField<T> ? ColDefBase<T, K> : never;
+
+/** Parameters passed to a row-aware {@link ColDefBase.inputMask} resolver. */
+export interface InputMaskParams<
+  T extends object = any,
+  K extends AgridField<T> = AgridField<T>,
+> {
+  row: T;
+  value: T[K];
+  column: ColDef<T, K>;
+}
 
 /**
  * Defines a single action shown in the group header's action menu.
@@ -217,7 +251,22 @@ export type GridItem<T extends object = Record<string, unknown>> =
   | 'ghost'
   | { groupLabel: string; count: number; collapsed: boolean; aggregates?: Record<string, unknown> }
   | TreeRowItem<T>
+  | PathTreeNodeItem
   | DetailRowItem<T>;
+
+/** A generated, display-only branch node produced by path-based tree data. */
+export interface PathTreeNodeItem {
+  /** Stable expansion id derived from the complete path to this node. */
+  pathNodeId: string;
+  /** Segment label shown for this branch. */
+  pathLabel: string;
+  /** Zero-based depth in the generated tree. */
+  level: number;
+  /** Path branch nodes always have descendants. */
+  expandable: true;
+  /** Whether the branch's descendants are currently visible. */
+  expanded: boolean;
+}
 
 /**
  * A master/detail panel row rendered immediately beneath its expanded parent data row.
@@ -251,15 +300,16 @@ export interface TreeRowItem<T extends object = Record<string, unknown>> {
   expandable: boolean;
   /** `true` when this row is expandable and currently expanded (its children are visible). */
   expanded: boolean;
+  /** Optional display-only label for the tree cell, used by path-based trees. */
+  treeLabel?: string;
 }
 
 /**
  * Host-supplied configuration that turns the grid into a tree.
  *
- * Hierarchy is expressed over the existing flat row array: every row exposes a stable id and a
- * parent id, so no nested `children` arrays are required and `originalIndex`-based selection and
- * editing keep working unchanged. A row whose `getParentId` is `null`/`undefined` — or whose
- * parent id is not present in the data — is treated as a root.
+ * Hierarchy is expressed over the existing flat row array using either stable id/parent-id
+ * accessors or a path accessor. Path mode creates display-only branch nodes while leaves retain
+ * their original datasource indices, so selection, editing, and persistence remain row-based.
  *
  * @example
  * ```ts
@@ -268,13 +318,15 @@ export interface TreeRowItem<T extends object = Record<string, unknown>> {
  *   getParentId: row => row.managerId,
  *   treeField: 'name',
  * }
+ *
+ * // Or derive branches from a delimited field:
+ * treeConfig: {
+ *   getPath: row => row.oz.split('.'),
+ *   treeField: 'oz',
+ * }
  * ```
  */
-export interface AgridTreeConfig<T extends object = any> {
-  /** Return a stable, unique id for a row. Used as the expansion key and for parent lookups. */
-  getId: (row: T) => string | number;
-  /** Return the id of a row's parent, or `null`/`undefined` for a root row. */
-  getParentId: (row: T) => string | number | null | undefined;
+interface AgridTreeConfigBase<T extends object> {
   /** Field whose cell shows the indentation and expand/collapse twisty. */
   treeField: AgridField<T>;
   /** Expand all nodes when the tree first renders. Defaults to `false` (all collapsed). */
@@ -285,6 +337,44 @@ export interface AgridTreeConfig<T extends object = any> {
    */
   keepAncestorsOnFilter?: boolean;
 }
+
+/** Tree configuration for rows that already expose stable id and parent-id values. */
+export interface AgridParentTreeConfig<T extends object = any> extends AgridTreeConfigBase<T> {
+  /** Return a stable, unique id for a row. Used as the expansion key and for parent lookups. */
+  getId: (row: T) => string | number;
+  /** Return the id of a row's parent, or `null`/`undefined` for a root row. */
+  getParentId: (row: T) => string | number | null | undefined;
+  getPath?: never;
+}
+
+/** Values supplied when formatting one path-tree segment for display. */
+export interface AgridPathSegmentParams<T extends object = any> {
+  /** Datasource row that produced this path. Shared branches use the first matching row. */
+  row: T;
+  /** Raw segment returned by `getPath`. */
+  segment: string | number;
+  /** Zero-based position of the segment in the path. */
+  level: number;
+  /** Raw path prefix ending at this segment. */
+  path: readonly (string | number)[];
+  /** Whether this segment represents the datasource-backed leaf row. */
+  leaf: boolean;
+}
+
+/** Tree configuration that derives display-only branch nodes from each row's path segments. */
+export interface AgridPathTreeConfig<T extends object = any> extends AgridTreeConfigBase<T> {
+  /** Return ordered path segments, for example `['01', '01', '0001']`. */
+  getPath: (row: T) => readonly (string | number)[];
+  /** Format a segment for display without changing its identity, grouping, or sort order. */
+  formatPathSegment?: (params: AgridPathSegmentParams<T>) => string;
+  getId?: never;
+  getParentId?: never;
+}
+
+/** Supported tree data modes: explicit parent links or generated path segments. */
+export type AgridTreeConfig<T extends object = any> =
+  | AgridParentTreeConfig<T>
+  | AgridPathTreeConfig<T>;
 
 /** Zero-based position of a cell inside the grid. */
 export interface CellPosition {
@@ -322,6 +412,22 @@ export type GridEditEvent<T extends object = any> = {
     oldValue: T[K];
     /** New field value after the edit. */
     newValue: T[K];
+  }
+}[AgridField<T>];
+
+/** Emitted when the optional info button inside a cell is clicked. */
+export type CellInfoEvent<T extends object = any> = {
+  [K in AgridField<T>]: {
+    /** Datasource row containing the clicked cell. */
+    row: T;
+    /** Column field containing the clicked info button. */
+    field: K;
+    /** Current raw field value. */
+    value: T[K];
+    /** Zero-based index of the row in the datasource. */
+    originalIndex: number;
+    /** Column definition for the clicked cell. */
+    column: ColDef<T, K>;
   }
 }[AgridField<T>];
 
@@ -409,19 +515,19 @@ export interface PageChangeEvent {
   endRow: number;
 }
 
-/** Emitted when a text filter changes in server-side filtering mode. */
+/** Emitted when a header text filter or column-menu condition changes server-side. */
 export interface FilterChangeEvent {
   /** Field name of the filtered column. */
   field: string;
   /** Current free-text filter value. An empty string clears the text filter. */
   value: string;
   /**
-   * Typed range-filter operator for `number` / `date` columns, present only when the change
-   * came from the column-menu condition UI. `null` clears the range condition.
+   * Text, number, or date condition operator from the column-menu UI.
+   * `null` clears the condition.
    * When set, `value` is empty and the operands live in {@link operand} / {@link operand2}.
    */
   operator?: FilterOperator | null;
-  /** Primary range operand (number as string, or `yyyy-mm-dd`). Present with {@link operator}. */
+  /** Primary condition operand. Present with {@link operator}. */
   operand?: string | null;
   /** Upper-bound operand, present only when {@link operator} is `'between'`. */
   operand2?: string | null;

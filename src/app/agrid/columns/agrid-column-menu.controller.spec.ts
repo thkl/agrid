@@ -119,6 +119,48 @@ describe('AgridColumnMenuController', () => {
       field: 'score', value: '', operator: null, operand: null, operand2: null,
     });
   });
+
+  it('exposes and emits text conditions for string columns', () => {
+    const { controller, control, filterEvents } = setup();
+
+    expect(controller.getFilterType('name')).toBe('text');
+    controller.setFilterOperator('name', 'startsWith');
+    controller.setFilterOperand('name', 'Al');
+
+    expect(control.getFilter('name')).toMatchObject({
+      operator: 'startsWith',
+      operand: 'Al',
+    });
+    expect(filterEvents.at(-1)).toEqual({
+      field: 'name',
+      value: '',
+      operator: 'startsWith',
+      operand: 'Al',
+      operand2: '',
+    });
+  });
+
+  it('does not expose condition filters for boolean columns', () => {
+    const { controller } = setup({
+      columns: [{ field: 'active', header: 'Active', type: 'boolean', filterable: true }],
+    });
+
+    expect(controller.getFilterType('active')).toBeNull();
+  });
+
+  it('preserves a condition when clearing sort through the menu', () => {
+    const { controller, control } = setup();
+    control.setRangeFilter('name', 'includes', 'ali');
+    control.setSort('name', 'asc');
+
+    controller.sort('name', 'asc');
+
+    expect(control.getFilter('name')).toMatchObject({
+      sort: null,
+      operator: 'includes',
+      operand: 'ali',
+    });
+  });
 });
 
 function setup(overrides: {

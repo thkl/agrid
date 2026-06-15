@@ -16,6 +16,7 @@ export const DEMO_GUIDES: DemoGuide[] = [
       'The overview combines editing, validation, grouping, row marking, selection, the column sidebar, and CSV export.',
     points: [
       'Define typed columns and validation rules.',
+      'Use the small condition button beside First Name or Last Name to choose includes, starts with, ends with, like, and related operators.',
       'Keep rows in AgridDataSource and interaction state in AgridControl.',
       'Pass both through one AgridProvider and subscribe only to the events you need.',
     ],

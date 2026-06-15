@@ -21,10 +21,22 @@ export type HistoryItem = HistoryEntry | HistoryEntry[];
  * when computing the visible rows.
  */
 /**
- * Comparison operator for a typed (number / date) range filter.
+ * Comparison operator for a column condition filter.
  * For `date` columns `gt`/`lt`/`eq` read as after / before / on.
  */
-export type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'between';
+export type FilterOperator =
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'between'
+  | 'like'
+  | 'startsWith'
+  | 'endsWith'
+  | 'includes'
+  | 'notIncludes';
 
 export interface ColumnFilter {
   /** Free-text substring filter (case-insensitive). Empty string = no text filter. */
@@ -38,7 +50,7 @@ export interface ColumnFilter {
   /** Sort direction, or `null` when this column is not sorted. */
   sort: 'asc' | 'desc' | null;
   /**
-   * Typed range-filter operator for `number` / `date` columns, or `null`/omitted when none.
+   * Condition operator for text, number, or date columns, or `null`/omitted when none.
    * Combined with text and value filters using AND semantics.
    */
   operator?: FilterOperator | null;
@@ -481,7 +493,8 @@ export class AgridControl {
   }
 
   /**
-   * Set the typed range filter for a `number` / `date` column.
+   * Set a column condition filter. Text columns support string operators while number/date
+   * columns support comparison operators.
    * Pass `operator: null` (or an empty `operand`) to clear it. `operand2` is only used
    * by the `'between'` operator.
    */

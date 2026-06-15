@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from '../agrid-localization';
-import { getDateInputValue, getDisplayForField, looksLikeDate } from '../agrid.utils';
+import { getDateInputValue, getDisplayForField, looksLikeDate, matchesInputMask } from '../agrid.utils';
 import { ColDef, HeaderGroup } from '../agrid.types';
 
 /** Field edit emitted by the sidebar detail form. @internal */
@@ -115,6 +115,34 @@ export class AgridSidebarComponent {
     this.toggleColumnGroup.emit({
       fields: columns.map(col => col.field),
       visible: (event.target as HTMLInputElement).checked,
+    });
+  }
+
+  /** Apply the row-aware input mask while preserving the sidebar's change-to-commit behavior. */
+  onDetailMaskInput(field: AgridSidebarDetailField, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const row = this.row();
+    if (row && field.col.inputMask && field.col.type !== 'number' && field.col.type !== 'date') {
+      const mask = field.col.inputMask({
+        row,
+        value: field.rawValue,
+        column: field.col,
+      });
+      if (mask && !matchesInputMask(input.value, mask)) {
+        input.value = input.dataset['agridMaskValue'] ?? field.inputValue;
+        return;
+      }
+      input.dataset['agridMaskValue'] = input.value;
+    }
+  }
+
+  /** Forward the final sidebar value after native change/blur. */
+  onDetailChange(field: AgridSidebarDetailField, event: Event): void {
+    this.onDetailMaskInput(field, event);
+    this.detailEdit.emit({
+      field: field.col.field,
+      col: field.col,
+      value: (event.target as HTMLInputElement).value,
     });
   }
 

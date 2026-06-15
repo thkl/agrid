@@ -53,6 +53,11 @@ export class AgridBrowserAdapter {
     return this.win?.innerWidth ?? Number.POSITIVE_INFINITY;
   }
 
+  /** Returns the viewport height or infinity during server rendering. */
+  viewportHeight(): number {
+    return this.win?.innerHeight ?? Number.POSITIVE_INFINITY;
+  }
+
   /** Returns computed styles when a window is available. */
   computedStyle(element: Element): CSSStyleDeclaration | null {
     return this.win?.getComputedStyle?.(element) ?? null;

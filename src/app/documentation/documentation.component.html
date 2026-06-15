@@ -52,7 +52,7 @@
         <span>Edit validation</span>
         <span>Undo and redo</span>
         <span>Filtering and sorting</span>
-        <span>Typed range filters</span>
+        <span>Column conditions</span>
         <span>Quick filter</span>
         <span>Boolean checkbox columns</span>
         <span>Grouping</span>
@@ -224,6 +224,8 @@
             <tr><td><code>aggregate</code></td><td>No</td><td><code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>count</code>, or a custom function. Shown in the footer and as per-group subtotals.</td></tr>
             <tr><td><code>cellRenderer</code></td><td>No</td><td>Returns sanitized HTML for the cell.</td></tr>
             <tr><td><code>cellClass</code></td><td>No</td><td>Returns a CSS class for the cell.</td></tr>
+            <tr><td><code>infoIcon</code></td><td>No</td><td>Shows a right-aligned <code>?</code> action. A function can enable it per cell.</td></tr>
+            <tr><td><code>inputMask</code></td><td>No</td><td>Returns a regular expression per row and cell. It is matched against the complete proposed value and should allow partial input.</td></tr>
           </tbody>
         </table>
       </div>
@@ -261,10 +263,11 @@
     <section id="filtering">
       <h2>Filtering, typed columns, and validation</h2>
 
-      <h3>Typed range filters and boolean columns</h3>
+      <h3>Column conditions and boolean columns</h3>
       <p>
-        Mark a <code>number</code> or <code>date</code> column <code>filterable</code> and its
-        column menu gains a <strong>condition</strong> filter beside the value picker. Numbers offer
+        Mark a column <code>filterable</code> and its column menu gains a
+        <strong>condition</strong> filter beside the value picker. Text columns offer equals,
+        not equal, like, starts with, ends with, includes, and does not include. Numbers offer
         <code>=</code>, <code>≠</code>, <code>&gt;</code>, <code>≥</code>, <code>&lt;</code>,
         <code>≤</code>, and <code>between</code>; dates offer on / before / after / between. A
         <code>boolean</code> column renders an inline checkbox that toggles the value on click — no
@@ -288,7 +291,7 @@
       <p>
         With <code>serverSideFiltering: true</code> the grid never filters locally — it emits
         events so the host can refetch. Text filters emit <code>&#123; field, value &#125;</code>;
-        typed range conditions add <code>operator</code>, <code>operand</code>, and
+        menu conditions add <code>operator</code>, <code>operand</code>, and
         <code>operand2</code>; the quick filter emits its text through
         <code>quickFilterChange</code>. All three are debounced by <code>filterDebounceMs</code>
         (default 300 ms).
@@ -313,10 +316,9 @@
       <h2>Tree data</h2>
       <p>
         Set <code>treeConfig</code> on the provider to render rows as a hierarchical tree. The
-        hierarchy is expressed over the existing flat row array — every row exposes a stable id
-        and a parent id — so there are no nested <code>children</code> arrays and selection,
-        editing, and <code>originalIndex</code> all keep working unchanged. The designated
-        <code>treeField</code> column shows an indented expand/collapse twisty.
+        hierarchy is expressed over the existing flat row array using either stable id/parent-id
+        accessors or a path accessor. The designated <code>treeField</code> column shows an
+        indented expand/collapse twisty.
       </p>
       <p>
         Tree mode can be combined with <code>masterDetail: true</code> and a
@@ -330,14 +332,23 @@
             <tr><th>Property</th><th>Required</th><th>Description</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>getId</code></td><td>Yes</td><td>Returns a stable, unique id for a row.</td></tr>
-            <tr><td><code>getParentId</code></td><td>Yes</td><td>Returns the parent row's id, or <code>null</code> for a root.</td></tr>
+            <tr><td><code>getId</code></td><td>Parent mode</td><td>Returns a stable, unique id for a row.</td></tr>
+            <tr><td><code>getParentId</code></td><td>Parent mode</td><td>Returns the parent row's id, or <code>null</code> for a root.</td></tr>
+            <tr><td><code>getPath</code></td><td>Alternative</td><td>Returns ordered path segments and creates display-only branch nodes.</td></tr>
+            <tr><td><code>formatPathSegment</code></td><td>No</td><td>Formats labels using the segment, path, level, leaf flag, and source row without changing identity or sorting.</td></tr>
             <tr><td><code>treeField</code></td><td>Yes</td><td>Field whose cell shows the indentation and twisty.</td></tr>
             <tr><td><code>defaultExpanded</code></td><td>No</td><td>Expand all nodes on first render. Defaults to <code>false</code>.</td></tr>
             <tr><td><code>keepAncestorsOnFilter</code></td><td>No</td><td>Keep ancestors of filter matches visible. Defaults to <code>true</code>.</td></tr>
           </tbody>
         </table>
       </div>
+      <p>
+        Path example: <code>getPath: row =&gt; row.oz.split('.')</code> renders
+        <code>01.01.0001</code> as <code>01 / 01 / 0001</code>. Only the leaf is a datasource row;
+        generated branch nodes cannot be edited or selected. Use
+        <code>formatPathSegment</code> to append labels while keeping raw segments for grouping and
+        sorting. Shared branch nodes receive the first row encountered for their raw path prefix.
+      </p>
       <ul>
         <li>A row whose parent id is <code>null</code> or missing from the data renders as a root.</li>
         <li>Filtering, sorting, and the column filter UI work the same as in a flat grid; siblings follow the active sort.</li>
@@ -419,7 +430,8 @@
             <tr><td><code>prepareAddRecord</code></td><td><code>NewRecord&lt;T&gt;</code></td><td>Emitted after inserting a blank row so defaults can be patched.</td></tr>
             <tr><td><code>rowReorder</code></td><td><code>RowReorderEvent&lt;T&gt;</code></td><td>The host applies the move with <code>datasource.moveRow()</code>.</td></tr>
             <tr><td><code>rowSelect</code></td><td><code>RowSelectEvent&lt;T&gt; | null</code></td><td>Selected rows or null when selection clears.</td></tr>
-            <tr><td><code>filterChange</code></td><td><code>FilterChangeEvent</code></td><td>Server-side text or typed range filter request (carries <code>operator</code>/<code>operand</code> for ranges).</td></tr>
+            <tr><td><code>cellInfo</code></td><td><code>CellInfoEvent&lt;T&gt;</code></td><td>The selected cell's row, field, value, original index, and column definition.</td></tr>
+            <tr><td><code>filterChange</code></td><td><code>FilterChangeEvent</code></td><td>Server-side header text or menu condition request. Conditions carry <code>operator</code> and operands.</td></tr>
             <tr><td><code>sortChange</code></td><td><code>SortChangeEvent</code></td><td>Server-side sort request.</td></tr>
             <tr><td><code>quickFilterChange</code></td><td><code>string</code></td><td>Debounced quick-filter text in server-side mode.</td></tr>
             <tr><td><code>validationFailed</code></td><td><code>ValidationFailedEvent&lt;T&gt;</code></td><td>A <code>validate</code> hook rejected a committed value (inline or sidebar).</td></tr>
