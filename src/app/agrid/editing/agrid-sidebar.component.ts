@@ -57,11 +57,15 @@ export class AgridSidebarComponent {
   columns = input<ColDef[]>([]);
   headerGroups = input<HeaderGroup[]>([]);
   row = input<Record<string, unknown> | null>(null);
+  rowIndex = input<number | null>(null);
   hiddenColumns = input<ReadonlySet<string>>(new Set());
   locale = input<string | undefined>(undefined);
   localeText = input<AgridLocaleText>(AGRID_LOCALE_TEXT.en);
   readonlyGrid = input<boolean>(false);
   useSidebarEditor = input<boolean>(false);
+  isCellEditable = input<(col: ColDef, originalIndex: number) => boolean>(
+    col => col.editable !== false,
+  );
   /** Per-field validation messages (`field → message`) for rejected detail edits. */
   errors = input<Record<string, string>>({});
 
@@ -152,6 +156,7 @@ export class AgridSidebarComponent {
     const locale = this.locale();
     const readonlyGrid = this.readonlyGrid();
     const hiddenColumns = this.hiddenColumns();
+    const rowIndex = this.rowIndex();
     return this.columns().map(col => {
       const rawValue = row[col.field];
       let inputValue = String(rawValue ?? '');
@@ -164,7 +169,7 @@ export class AgridSidebarComponent {
         rawValue,
         inputValue,
         hidden: hiddenColumns.has(col.field),
-        editable: !readonlyGrid && col.editable !== false,
+        editable: !readonlyGrid && rowIndex !== null && this.isCellEditable()(col, rowIndex),
         col,
       };
     });

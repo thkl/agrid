@@ -84,6 +84,24 @@ describe('AgridEditController', () => {
     expect(columnController.editingCell()).toBeNull();
   });
 
+  it('does not start or directly commit runtime readonly cells', () => {
+    const { controller, dataSource, edits } = createController(false, [
+      {
+        field: 'name',
+        header: 'Name',
+        cellReadonly: ({ row }) => row['locked'] === 'fixed',
+      },
+      { field: 'locked', header: 'Locked' },
+    ]);
+
+    controller.start(0, 0, '');
+    expect(controller.editingCell()).toBeNull();
+
+    expect(controller.setCellValue(0, 0, 'Carol')).toBe(false);
+    expect(dataSource.getRow(0).name).toBe('Alice');
+    expect(edits).toHaveLength(0);
+  });
+
   it('applies undo and redo through the datasource and emits both changes', () => {
     const { controller, dataSource, edits } = createController();
     controller.start(0, 0, '');

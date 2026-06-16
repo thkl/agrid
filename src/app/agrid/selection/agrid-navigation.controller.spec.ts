@@ -64,7 +64,8 @@ describe('AgridNavigationController', () => {
 
   it('commits edits before moving and routes undo and redo shortcuts', () => {
     const editingCell = signal<CellPosition | null>({ rowIndex: 0, colIndex: 0 });
-    const { controller, commitEdit, undoEdit, redoEdit } = setup({ editingCell });
+    const { controller, commitEdit, undoEdit, redoEdit, selectedCell } = setup({ editingCell });
+    selectedCell.set({ rowIndex: 0, colIndex: 0 });
 
     controller.handleKeyDown(keyboardEvent('Tab'));
     controller.handleKeyDown(keyboardEvent('z', { ctrlKey: true }));
@@ -74,6 +75,52 @@ describe('AgridNavigationController', () => {
     expect(commitEdit).toHaveBeenCalledOnce();
     expect(undoEdit).toHaveBeenCalledOnce();
     expect(redoEdit).toHaveBeenCalledTimes(2);
+  });
+
+  it('commits Enter edits and keeps the current cell selected when configured', () => {
+    const editingCell = signal<CellPosition | null>({ rowIndex: 0, colIndex: 0 });
+    const { controller, commitEdit, selectedCell, focusGrid } = setup({
+      editingCell,
+      enterEditAction: 'nothing',
+    });
+    selectedCell.set({ rowIndex: 0, colIndex: 0 });
+
+    controller.handleKeyDown(keyboardEvent('Enter'));
+
+    expect(commitEdit).toHaveBeenCalledOnce();
+    expect(selectedCell()).toEqual({ rowIndex: 0, colIndex: 0 });
+    expect(focusGrid).toHaveBeenCalledOnce();
+  });
+
+  it('commits Enter edits, skips read-only columns, and starts editing the next text column', () => {
+    const editingCell = signal<CellPosition | null>({ rowIndex: 0, colIndex: 0 });
+    const { controller, selectedCell, startEdit, focusGrid } = setup({
+      editingCell,
+      enterEditAction: 'nextColumn',
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'locked', header: 'Locked', editable: false },
+        { field: 'notes', header: 'Notes', type: 'text' },
+      ],
+      initialRows: [{ name: 'Alice', locked: 'skip', notes: 'ready' }],
+    });
+    selectedCell.set({ rowIndex: 0, colIndex: 0 });
+
+    controller.handleKeyDown(keyboardEvent('Enter'));
+
+    expect(selectedCell()).toEqual({ rowIndex: 0, colIndex: 2 });
+    expect(startEdit).toHaveBeenCalledWith(0, 2, '', false);
+    expect(focusGrid).not.toHaveBeenCalled();
+  });
+
+  it('commits Enter edits and moves down by default', () => {
+    const editingCell = signal<CellPosition | null>({ rowIndex: 0, colIndex: 0 });
+    const { controller, selectedCell } = setup({ editingCell });
+    selectedCell.set({ rowIndex: 0, colIndex: 0 });
+
+    controller.handleKeyDown(keyboardEvent('Enter'));
+
+    expect(selectedCell()).toEqual({ rowIndex: 1, colIndex: 0 });
   });
 
   it('toggles a tree cell with Ctrl/Cmd+Enter without starting an edit', () => {
@@ -152,8 +199,10 @@ function setup(overrides: {
   viewport?: AgridVerticalViewport & { scrollToOffset: Mock<(offset: number) => void> };
   scrollColumn?: Mock<(colIndex: number) => void>;
   toggleTreeCell?: Mock<(originalIndex: number, colIndex: number) => boolean>;
+  enterEditAction?: 'nothing' | 'nextColumn' | 'nextRow';
+  columns?: ColDef[];
 } = {}) {
-  const columns: ColDef[] = [
+  const columns: ColDef[] = overrides.columns ?? [
     { field: 'name', header: 'Name' },
     { field: 'amount', header: 'Amount', type: 'number' },
     { field: 'hidden', header: 'Hidden', hidden: true },
@@ -188,12 +237,23 @@ function setup(overrides: {
     rowHeight: signal(40),
     allowAddRows: signal(true),
     autoAddRows: signal(overrides.autoAddRows ?? false),
+    enterEditAction: signal(overrides.enterEditAction ?? 'nextRow'),
     selectedCell,
     selectedRange,
     editingCell,
     isEditing: (rowIndex, colIndex) => {
       const current = editingCell();
       return current?.rowIndex === rowIndex && current.colIndex === colIndex;
+    },
+    isCellEditable: (col, originalIndex) => {
+      if (!col || col.editable === false) return false;
+      const row = dataSource.getRow(originalIndex);
+      return !col.cellReadonly?.({
+        row,
+        value: row[col.field],
+        column: col,
+        originalIndex,
+      });
     },
     toggleTreeCell: overrides.toggleTreeCell ?? vi.fn(() => false),
     startEdit,

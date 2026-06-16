@@ -22,7 +22,7 @@ export interface AgridRangeControllerOptions {
   visibleColDefs: Signal<ColDef[]>;
   selectedCell: WritableSignal<CellPosition | null>;
   selectedRange: WritableSignal<CellRange | null>;
-  isCellEditable: (col: ColDef) => boolean;
+  isCellEditable: (col: ColDef, originalIndex: number) => boolean;
   cancelEdit: () => void;
   findDisplayIndex: (originalIndex: number) => number;
   scrollToCell: (displayIndex: number, colIndex: number) => void;
@@ -154,7 +154,7 @@ export class AgridRangeController {
           && colIndex >= source.colStart && colIndex <= source.colEnd;
         if (insideSource) continue;
         const col = cols[colIndex];
-        if (!col || !this.opts.isCellEditable(col)) continue;
+        if (!col || !this.opts.isCellEditable(col, item.originalIndex)) continue;
         const sourceRowIndex = rowOffset % sourceValues.length;
         const sourceRowValues = sourceValues[sourceRowIndex];
         if (sourceRowValues.length === 0) continue;

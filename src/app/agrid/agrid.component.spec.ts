@@ -8,6 +8,7 @@ import {
   NewRecord,
   RecordEditEvent,
   RowSelectEvent,
+  TreeNodeClickEvent,
   RowUpdateEvent,
 } from './agrid.types';
 import { isDetailRowItem } from './agrid.utils';
@@ -524,6 +525,34 @@ describe('AgridComponent Tab navigation', () => {
 
     expect(event.defaultPrevented).toBe(true);
     expect(component.filterMenu()).toBeNull();
+  });
+
+  it('closes open menus from a document-level pointerdown outside the grid', () => {
+    component.contextMenu.set({ x: 1, y: 2, rowIndex: 0 });
+    component.cellContextMenuState.set({
+      x: 3,
+      y: 4,
+      rowIndex: 0,
+      colIndex: 0,
+      field: 'name',
+      value: 'Alice',
+      row: { name: 'Alice', department: 'Engineering' },
+    });
+    component.groupActionsMenu.set({ x: 5, y: 6, label: 'Engineering' });
+    component.filterMenu.set({ field: 'name', x: 7, y: 8 });
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+
+    outside.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      cancelable: true,
+    }));
+
+    expect(component.contextMenu()).toBeNull();
+    expect(component.cellContextMenuState()).toBeNull();
+    expect(component.groupActionsMenu()).toBeNull();
+    expect(component.filterMenu()).toBeNull();
+    outside.remove();
   });
 
   it('identifies the source datasource when multiple grids auto-add rows', async () => {
@@ -1201,6 +1230,56 @@ describe('AgridComponent path tree mode', () => {
     component.onStartEdit(0, 0);
 
     expect(component.currentDraft()).toBe('01.01.0001');
+    fixture.destroy();
+  });
+
+  it('emits click and double-click events for generated branch nodes', async () => {
+    const provider = new AgridProvider({
+      columns: [{ field: 'oz', header: 'OZ' }],
+      datasource: new AgridDataSource([
+        { oz: '01.01.0001', uuid: 'node-01' },
+        { oz: '01.01.0002', uuid: 'node-02' },
+        { oz: '01.02.0001', uuid: 'node-03' },
+      ]),
+      treeConfig: {
+        getPath: row => row.oz.split('.'),
+        treeField: 'oz',
+        nodeUuid: row => row.uuid,
+      },
+    });
+    await TestBed.configureTestingModule({ imports: [AgridComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(AgridComponent);
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const clicks: TreeNodeClickEvent[] = [];
+    const doubleClicks: TreeNodeClickEvent[] = [];
+    component.treeNodeClick.subscribe(event => clicks.push(event));
+    component.treeNodeDoubleClicked.subscribe(event => doubleClicks.push(event));
+
+    component.expandAllNodes();
+    fixture.detectChanges();
+    const branch = component.displayItems().find(component.isPathTreeNodeItem)!;
+
+    component.onTreeNodeClick(branch);
+    component.onTreeNodeDoubleClick(branch);
+
+    expect(clicks).toEqual([{
+      uuid: 'node-01',
+      pathNodeId: '__agrid_path__["01"]',
+      pathLabel: '01',
+      level: 0,
+      expanded: true,
+      node: {
+        uuid: 'node-01',
+        pathNodeId: '__agrid_path__["01"]',
+        pathLabel: '01',
+        level: 0,
+        expandable: true,
+        expanded: true,
+      },
+    }]);
+    expect(doubleClicks).toEqual(clicks);
     fixture.destroy();
   });
 });

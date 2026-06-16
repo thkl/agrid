@@ -158,6 +158,8 @@ The `AgridLocaleTextOverrides` type covers all overridable labels.
 | `prepareAddRecord` | `NewRecord` | Emitted after the grid inserts a blank row. Patch `event.datasource` to target the correct grid when multiple providers are rendered. |
 | `rowReorder` | `RowReorderEvent` | Emitted after the user drops a reordered row. The host must call `dataSource.moveRow()`. |
 | `rowSelect` | `RowSelectEvent \| null` | Emitted when row selection changes. `null` means selection was cleared. |
+| `treeNodeClick` | `TreeNodeClickEvent` | Emitted when a generated path-tree branch node is clicked. |
+| `treeNodeDoubleClicked` | `TreeNodeClickEvent` | Emitted when a generated path-tree branch node is double-clicked. |
 | `cellInfo` | `CellInfoEvent<T>` | Emitted when a column's optional cell info icon is clicked. |
 | `filterChange` | `FilterChangeEvent` | Emitted for text filter changes when `serverSideFiltering` is enabled. |
 | `sortChange` | `SortChangeEvent` | Emitted for sort changes when `serverSideFiltering` is enabled. |
@@ -236,6 +238,7 @@ readonly gridProvider = new AgridProvider({
 | `filterDebounceMs` | `number` | `300` | Debounce delay for server-side `filterChange` events. Set to `0` to disable. |
 | `sortOption` | `'single' \| 'multi' \| 'none'` | `'multi'` | Allows one sort, multiple sorts, or disables sorting. |
 | `rowSelection` | `'single' \| 'multi' \| 'none'` | `'none'` | Row selection behavior. |
+| `enterEditAction` | `'nothing' \| 'nextColumn' \| 'nextRow'` | `'nextRow'` | Behavior after pressing Enter while editing a cell. |
 | `groupDescription` | `((label: string) => string) \| null` | `null` | Optional description text shown next to each group label. |
 | `groupActions` | `GroupAction[]` | `[]` | Actions shown in each group header menu. |
 | `cellMenuItems` | `(CellContextMenuItem \| null)[]` | `[]` | Additional items in the cell right-click context menu. `null` inserts a divider. |
@@ -247,7 +250,7 @@ readonly gridProvider = new AgridProvider({
 | `loading` | `boolean` | `false` | Initial value for the loading signal. Shows a loading overlay over the grid body. |
 | `getRowClass` | `(p: { row; index }) => string` | `undefined` | Returns CSS class names applied to a whole data row. Complements `ColDef.cellClass`. |
 | `pinRow` | `(row, index) => 'top' \| 'bottom' \| undefined` | `undefined` | Pins matching rows to the top/bottom of the body (see [Master/Detail and Pinned Rows](#masterdetail-and-pinned-rows)). |
-| `treeConfig` | `AgridTreeConfig<T> \| null` | `null` | Builds a tree from id/parent-id accessors or `getPath` segments. Path labels can be customized with `formatPathSegment` without changing sorting. |
+| `treeConfig` | `AgridTreeConfig<T> \| null` | `null` | Builds a tree from id/parent-id accessors or `getPath` segments. Path labels and branch UUIDs can be customized with `formatPathSegment` and `nodeUuid`. |
 | `masterDetail` | `boolean` | `false` | Enables expandable detail panels. In tree mode, only leaf rows can expand details. Not available while grouped. |
 | `detailRenderer` | `(p: { row }) => string` | `undefined` | Returns sanitized HTML for an expanded detail panel. |
 | `detailRowHeight` | `number` | `200` | Fixed height in pixels of an expanded detail panel. |
@@ -382,8 +385,9 @@ interface ColDef {
   header: string;
   group?: string;          // references AgridProvider.headerGroups
   width: number;           // use ColDefAutoSize (-1) to autosize on first render
-  type?: 'text' | 'number' | 'date';
+  type?: 'text' | 'number' | 'date' | 'boolean';
   editable?: boolean;
+  cellReadonly?: (params: { value: unknown; row: Record<string, unknown>; column: ColDef; originalIndex: number }) => boolean;
   locked?: boolean;
   values?: string[] | ValueOption[];
   formatter?: (value: unknown) => string;
@@ -406,7 +410,8 @@ interface ColDef {
 | `group` | No | Header-group ID. Adjacent columns with the same ID share a grouped header. |
 | `width` | Yes | Default width in pixels. Set to `ColDefAutoSize` (`-1`) to fit the column to its content on first render. |
 | `type` | No | Semantic type. `number` initializes blank rows with `0`. `date` treats the ISO date prefix as a calendar date, with localized display formatting and a native inline editor. |
-| `editable` | No | Set to `false` for read-only cells. Defaults to editable. |
+| `editable` | No | Set to `false` for a read-only column. Defaults to editable. |
+| `cellReadonly` | No | Return `true` to make one cell read-only from its current row, value, column, and original row index. Applies to inline edit, boolean toggles, paste, fill, and sidebar edits. |
 | `locked` | No | Prevents the column from being hidden, reordered, or unpinned through the column menu. |
 | `values` | No | Fixed editor/filter values. Use `string[]` or `{ value, label }[]`. |
 | `formatter` | No | Custom display formatter. Takes precedence over date auto-formatting. |
@@ -977,6 +982,7 @@ Paste and fill store multiple entries as one `HistoryItem`, so Ctrl/Cmd+Z revers
 | Shift+arrow | Extend cell range selection. |
 | Tab / Shift+Tab | Move right / left, wrapping rows. |
 | Enter | Start editing the active cell. |
+| Enter while editing | Commit and follow `enterEditAction` (`nextRow` by default). |
 | Ctrl/Cmd+Enter | Toggle an expandable tree node. |
 | F2 | Start editing active cell. |
 | Printable key | Start editing active cell with typed seed character. |

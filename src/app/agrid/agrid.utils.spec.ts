@@ -20,6 +20,7 @@ import {
   isTreeRowItem,
   looksLikeDate,
   matchesInputMask,
+  pathTreeNodeUuid,
 } from './agrid.utils';
 
 describe('input masks', () => {
@@ -754,6 +755,12 @@ describe('buildPathTreeItems', () => {
     treeField: 'oz' as const,
   };
 
+  it('creates stable UUIDs from path segments', () => {
+    expect(pathTreeNodeUuid(['01'])).toBe('81c12a0e-6567-55cc-95b6-f7120af948e8');
+    expect(pathTreeNodeUuid(['01', '01']))
+      .toBe('01c0bd7b-a2f6-5661-aca4-7c0770f72625');
+  });
+
   it('creates display-only branches and datasource-backed leaves', () => {
     const items = buildPathTreeItems(
       rows,
@@ -772,6 +779,45 @@ describe('buildPathTreeItems', () => {
       { index: 0, label: '0001', level: 2 },
       { index: 1, label: '0002', level: 2 },
     ]);
+  });
+
+  it('uses the configured row UUID for generated branch nodes', () => {
+    const items = buildPathTreeItems(
+      [
+        { oz: '01.01.0001', uuid: 'row-1' },
+        { oz: '01.02.0001', uuid: 'row-2' },
+      ],
+      [0, 1],
+      {
+        getPath: row => row.oz.split('.'),
+        treeField: 'oz',
+        nodeUuid: row => row.uuid,
+      },
+      new Set(['__agrid_path__["01"]']),
+    );
+
+    expect(items.filter(isPathTreeNodeItem).map(item => [item.pathNodeId, item.uuid]))
+      .toEqual([
+        ['__agrid_path__["01"]', 'row-1'],
+        ['__agrid_path__["01","01"]', 'row-1'],
+        ['__agrid_path__["01","02"]', 'row-2'],
+      ]);
+  });
+
+  it('accepts nodeUUid as a compatibility alias', () => {
+    const items = buildPathTreeItems(
+      [{ oz: '01.01.0001', uuid: 'legacy-node-1' }],
+      [0],
+      {
+        getPath: row => row.oz.split('.'),
+        treeField: 'oz',
+        nodeUUid: row => row.uuid,
+      },
+      new Set(),
+      true,
+    );
+
+    expect(items.filter(isPathTreeNodeItem)[0].uuid).toBe('legacy-node-1');
   });
 
   it('force-opens generated ancestors for filtered rows', () => {
@@ -794,10 +840,10 @@ describe('buildPathTreeItems', () => {
     );
 
     const branches = items.filter(isPathTreeNodeItem);
-    expect(branches.map(item => [item.pathNodeId, item.pathLabel])).toEqual([
-      ['__agrid_path__["01"]', 'Level 1 01 (01:01.01.0001)'],
-      ['__agrid_path__["01","01"]', 'Level 2 01.01 (01:01.01.0001)'],
-      ['__agrid_path__["01","02"]', 'Level 2 01.02 (02:01.02.0001)'],
+    expect(branches.map(item => [item.uuid, item.pathNodeId, item.pathLabel])).toEqual([
+      ['81c12a0e-6567-55cc-95b6-f7120af948e8', '__agrid_path__["01"]', 'Level 1 01 (01:01.01.0001)'],
+      ['01c0bd7b-a2f6-5661-aca4-7c0770f72625', '__agrid_path__["01","01"]', 'Level 2 01.01 (01:01.01.0001)'],
+      ['31a26b7a-afb6-51de-82fc-089213c94636', '__agrid_path__["01","02"]', 'Level 2 01.02 (02:01.02.0001)'],
     ]);
     expect(items.filter(isTreeRowItem).map(item => [item.originalIndex, item.treeLabel]))
       .toEqual([

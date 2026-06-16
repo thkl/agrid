@@ -41,7 +41,16 @@ describe('AgridRangeController', () => {
       visibleColDefs: signal(columns),
       selectedCell,
       selectedRange,
-      isCellEditable: col => col.editable !== false,
+      isCellEditable: (col, originalIndex) => {
+        if (col.editable === false) return false;
+        const row = dataSource.getRow(originalIndex) as Record<string, unknown>;
+        return !col.cellReadonly?.({
+          row,
+          value: row[col.field],
+          column: col,
+          originalIndex,
+        });
+      },
       cancelEdit: vi.fn(),
       findDisplayIndex: originalIndex =>
         filteredItems().findIndex(item =>
@@ -115,6 +124,21 @@ describe('AgridRangeController', () => {
     const history = control.undo();
     expect(Array.isArray(history)).toBe(true);
     expect(history).toHaveLength(4);
+  });
+
+  it('skips runtime readonly cells during fill', () => {
+    const { controller, dataSource, edits } = createController();
+    columns[0].cellReadonly = ({ row }) => row['amount'] === 2;
+
+    controller.applyFill(
+      { rowStart: 0, rowEnd: 0, colStart: 0, colEnd: 0 },
+      { rowStart: 0, rowEnd: 2, colStart: 0, colEnd: 0 },
+    );
+
+    expect(dataSource.rows().map(row => row.name)).toEqual(['A', 'B', 'A']);
+    expect(edits).toHaveLength(1);
+
+    delete columns[0].cellReadonly;
   });
 
   it('cancels an active fill drag without applying changes', () => {

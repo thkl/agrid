@@ -175,4 +175,21 @@ describe('AgridCellComponent custom renderer', () => {
     expect(input.value).toBe('987-65432');
     expect(emitted).toEqual(['987-65432']);
   });
+
+  it('places the caret at the end of an unseeded text edit when text selection is disabled', async () => {
+    fixture.componentRef.setInput('col', { field: 'status', header: 'Status', type: 'text' });
+    fixture.componentRef.setInput('value', 'Active');
+    fixture.componentRef.setInput('row', { status: 'Active' });
+    fixture.componentRef.setInput('selectTextOnEdit', false);
+    fixture.componentRef.setInput('editing', true);
+    fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.ag-cell-input') as HTMLInputElement;
+
+    expect(input.value).toBe('Active');
+    expect(input.selectionStart).toBe(6);
+    expect(input.selectionEnd).toBe(6);
+  });
 });

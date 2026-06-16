@@ -34,7 +34,7 @@ import {
     '[class.editing]': 'editing()',
     '[class.ag-cell--tree]': 'treeCell()',
     '[class.ag-cell--with-info]': 'showInfoIcon() && !editing()',
-    '[attr.aria-readonly]': 'col().editable === false ? "true" : null',
+    '[attr.aria-readonly]': '!editable() ? "true" : null',
     '[attr.title]': 'displayValue()',
     '(click)': 'activate.emit($event)',
     '(dblclick)': 'startEdit.emit()',
@@ -172,6 +172,9 @@ export class AgridCellComponent {
    */
   seedChar = input<string>('');
 
+  /** Whether an unseeded text editor should select all text when focused. */
+  selectTextOnEdit = input<boolean>(true);
+
   /**
    * Emitted on single click — the grid selects this cell.
    * For `values` columns the grid also enters edit mode immediately.
@@ -294,7 +297,7 @@ export class AgridCellComponent {
               : String(acceptedInitialValue ?? '');
             input.value = displaySeed;
             input.focus();
-            if (input.type === 'text' && !seed) input.select();
+            if (input.type === 'text' && !seed && this.selectTextOnEdit()) input.select();
             else if (input.type === 'text') {
               const len = displaySeed.length;
               input.setSelectionRange(len, len);

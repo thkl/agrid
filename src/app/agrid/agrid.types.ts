@@ -5,6 +5,24 @@ import type { FilterOperator } from './agrid-control';
 /** String-valued property names available on a row type. */
 export type AgridField<T extends object> = Extract<keyof T, string>;
 
+/** Behavior after pressing Enter while an inline cell editor is active. */
+export type AgridEnterEditAction = 'nothing' | 'nextColumn' | 'nextRow';
+
+/** Parameters passed to a row-aware cell readonly resolver. */
+export interface CellReadonlyParams<
+  T extends object = any,
+  K extends AgridField<T> = AgridField<T>,
+> {
+  /** Datasource row containing the cell. */
+  row: T;
+  /** Current raw field value. */
+  value: T[K];
+  /** Column definition for the cell. */
+  column: ColDef<T, K>;
+  /** Zero-based index of the row in the datasource. */
+  originalIndex: number;
+}
+
 /** Global options shared by grid providers. */
 export interface AGridOptions {
   /**
@@ -91,6 +109,17 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
    * Defaults to `true` (editable) when omitted.
    */
   editable?: boolean;
+  /**
+   * Return `true` to make this specific cell read-only at runtime.
+   * Runs with the current row, value, column definition, and original datasource index.
+   * `editable: false` still makes the whole column read-only before this callback is checked.
+   *
+   * @example
+   * ```ts
+   * { field: 'approval', cellReadonly: ({ row }) => row.status !== 'Draft' }
+   * ```
+   */
+  cellReadonly?: (params: CellReadonlyParams<T, K>) => boolean;
   /**
    * Fixed list of allowed values shown in a `<select>` dropdown when editing.
    *
@@ -256,6 +285,8 @@ export type GridItem<T extends object = Record<string, unknown>> =
 
 /** A generated, display-only branch node produced by path-based tree data. */
 export interface PathTreeNodeItem {
+  /** Stable UUID for this generated branch node. */
+  uuid: string;
   /** Stable expansion id derived from the complete path to this node. */
   pathNodeId: string;
   /** Segment label shown for this branch. */
@@ -365,6 +396,16 @@ export interface AgridPathSegmentParams<T extends object = any> {
 export interface AgridPathTreeConfig<T extends object = any> extends AgridTreeConfigBase<T> {
   /** Return ordered path segments, for example `['01', '01', '0001']`. */
   getPath: (row: T) => readonly (string | number)[];
+  /**
+   * Return a stable UUID for generated branch nodes created from this row.
+   * Shared branches use the first matching row, matching {@link formatPathSegment}.
+   */
+  nodeUuid?: (row: T) => string | number;
+  /**
+   * Return a stable UUID for generated branch nodes created from this row.
+   * @deprecated Use {@link nodeUuid}. Kept as a compatibility alias for the original typo.
+   */
+  nodeUUid?: (row: T) => string | number;
   /** Format a segment for display without changing its identity, grouping, or sort order. */
   formatPathSegment?: (params: AgridPathSegmentParams<T>) => string;
   getId?: never;
@@ -469,6 +510,22 @@ export interface RowClickEvent<T extends object = any> {
   row: T;
   /** Zero-based index of the row in the data source. */
   originalIndex: number;
+}
+
+/** Emitted when the user clicks or double-clicks a generated path-tree branch node. */
+export interface TreeNodeClickEvent {
+  /** Stable UUID for the generated branch node. */
+  uuid: string;
+  /** Stable expansion id derived from the complete path to this node. */
+  pathNodeId: string;
+  /** Segment label shown for this branch. */
+  pathLabel: string;
+  /** Zero-based depth in the generated tree. */
+  level: number;
+  /** Whether the branch's descendants are currently visible. */
+  expanded: boolean;
+  /** Snapshot of the generated branch node. */
+  node: PathTreeNodeItem;
 }
 
 /**

@@ -150,6 +150,7 @@
             <tr><td><code>enableQuickFilter</code></td><td><code>false</code></td><td>Shows a search box above the grid that matches across all visible columns.</td></tr>
             <tr><td><code>sortOption</code></td><td><code>'multi'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
             <tr><td><code>rowSelection</code></td><td><code>'none'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
+            <tr><td><code>enterEditAction</code></td><td><code>'nextRow'</code></td><td>What Enter does after an inline edit commit: <code>'nothing'</code>, <code>'nextColumn'</code>, or <code>'nextRow'</code>.</td></tr>
             <tr><td><code>zebraStripes</code></td><td><code>false</code></td><td>Alternates data-row backgrounds.</td></tr>
             <tr><td><code>showChangedCellIndicator</code></td><td><code>false</code></td><td>Marks changed cells until persistence clears them.</td></tr>
             <tr><td><code>confirmRowDelete</code></td><td><code>false</code></td><td>Fades the target row and shows a localized in-row Yes/No confirmation.</td></tr>
@@ -212,7 +213,8 @@
             <tr><td><code>group</code></td><td>No</td><td>Header-group ID shared by adjacent columns.</td></tr>
             <tr><td><code>width</code></td><td>No</td><td>Pixel width or <code>ColDefAutoSize</code>.</td></tr>
             <tr><td><code>type</code></td><td>No</td><td><code>'text'</code>, <code>'number'</code>, <code>'date'</code>, or <code>'boolean'</code> (inline checkbox).</td></tr>
-            <tr><td><code>editable</code></td><td>No</td><td>Set to false for readonly cells.</td></tr>
+            <tr><td><code>editable</code></td><td>No</td><td>Set to false for a readonly column.</td></tr>
+            <tr><td><code>cellReadonly</code></td><td>No</td><td>Returns true to make a cell readonly from its current row, value, column, and original row index.</td></tr>
             <tr><td><code>validate</code></td><td>No</td><td>Rejects a committed value, returning an error message or <code>null</code>. See <a href="#filtering">Validation</a>.</td></tr>
             <tr><td><code>locked</code></td><td>No</td><td>Prevents hiding, reordering, and unpinning.</td></tr>
             <tr><td><code>values</code></td><td>No</td><td>Fixed editor and filter values or value-label pairs.</td></tr>
@@ -335,6 +337,7 @@
             <tr><td><code>getId</code></td><td>Parent mode</td><td>Returns a stable, unique id for a row.</td></tr>
             <tr><td><code>getParentId</code></td><td>Parent mode</td><td>Returns the parent row's id, or <code>null</code> for a root.</td></tr>
             <tr><td><code>getPath</code></td><td>Alternative</td><td>Returns ordered path segments and creates display-only branch nodes.</td></tr>
+            <tr><td><code>nodeUuid</code></td><td>No</td><td>Returns the UUID included on generated branch nodes and branch-node click events.</td></tr>
             <tr><td><code>formatPathSegment</code></td><td>No</td><td>Formats labels using the segment, path, level, leaf flag, and source row without changing identity or sorting.</td></tr>
             <tr><td><code>treeField</code></td><td>Yes</td><td>Field whose cell shows the indentation and twisty.</td></tr>
             <tr><td><code>defaultExpanded</code></td><td>No</td><td>Expand all nodes on first render. Defaults to <code>false</code>.</td></tr>
@@ -347,7 +350,8 @@
         <code>01.01.0001</code> as <code>01 / 01 / 0001</code>. Only the leaf is a datasource row;
         generated branch nodes cannot be edited or selected. Use
         <code>formatPathSegment</code> to append labels while keeping raw segments for grouping and
-        sorting. Shared branch nodes receive the first row encountered for their raw path prefix.
+        sorting. Shared branch nodes receive the first row encountered for their raw path prefix;
+        <code>nodeUuid</code> uses that same row.
       </p>
       <ul>
         <li>A row whose parent id is <code>null</code> or missing from the data renders as a root.</li>
@@ -430,6 +434,8 @@
             <tr><td><code>prepareAddRecord</code></td><td><code>NewRecord&lt;T&gt;</code></td><td>Emitted after inserting a blank row so defaults can be patched.</td></tr>
             <tr><td><code>rowReorder</code></td><td><code>RowReorderEvent&lt;T&gt;</code></td><td>The host applies the move with <code>datasource.moveRow()</code>.</td></tr>
             <tr><td><code>rowSelect</code></td><td><code>RowSelectEvent&lt;T&gt; | null</code></td><td>Selected rows or null when selection clears.</td></tr>
+            <tr><td><code>treeNodeClick</code></td><td><code>TreeNodeClickEvent</code></td><td>Generated path-tree branch node click.</td></tr>
+            <tr><td><code>treeNodeDoubleClicked</code></td><td><code>TreeNodeClickEvent</code></td><td>Generated path-tree branch node double-click.</td></tr>
             <tr><td><code>cellInfo</code></td><td><code>CellInfoEvent&lt;T&gt;</code></td><td>The selected cell's row, field, value, original index, and column definition.</td></tr>
             <tr><td><code>filterChange</code></td><td><code>FilterChangeEvent</code></td><td>Server-side header text or menu condition request. Conditions carry <code>operator</code> and operands.</td></tr>
             <tr><td><code>sortChange</code></td><td><code>SortChangeEvent</code></td><td>Server-side sort request.</td></tr>
@@ -471,6 +477,7 @@
             <tr><td>Shift + arrow/click</td><td>Extend the cell range.</td></tr>
             <tr><td>Tab / Shift + Tab</td><td>Move horizontally and wrap rows.</td></tr>
             <tr><td>Enter</td><td>Start editing.</td></tr>
+            <tr><td>Enter while editing</td><td>Commit and follow <code>enterEditAction</code>.</td></tr>
             <tr><td>Ctrl/Cmd + Enter</td><td>Toggle an expandable tree node.</td></tr>
             <tr><td>F2 / printable key</td><td>Start editing.</td></tr>
             <tr><td>Escape</td><td>Close any open menu, cancel editing, or close find.</td></tr>

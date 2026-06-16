@@ -21,6 +21,7 @@ describe('AgridSidebarComponent', () => {
       name: 'Alice',
       department: 'Engineering',
     });
+    fixture.componentRef.setInput('rowIndex', 0);
   });
 
   afterEach(() => fixture.destroy());

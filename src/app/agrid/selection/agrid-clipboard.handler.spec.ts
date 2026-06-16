@@ -45,7 +45,16 @@ describe('AgridClipboardHandler', () => {
       selectedCell,
       selectedRange,
       markedRowIndices,
-      isCellEditable: col => col.editable !== false,
+      isCellEditable: (col, originalIndex) => {
+        if (col.editable === false) return false;
+        const row = dataSource.getRow(originalIndex) as Record<string, unknown>;
+        return !col.cellReadonly?.({
+          row,
+          value: row[col.field],
+          column: col,
+          originalIndex,
+        });
+      },
       onCellEdit: event => edits.push(event),
       scrollToCell,
     });
@@ -108,5 +117,17 @@ describe('AgridClipboardHandler', () => {
       focus: { rowIndex: 0, colIndex: 2 },
     });
     expect(scrollToCell).toHaveBeenCalledWith(0, 2);
+  });
+
+  it('skips runtime readonly cells when pasting', () => {
+    const { dataSource, edits, handler } = createHandler();
+    columns[0].cellReadonly = ({ row }) => row['status'] === 1;
+
+    handler.pasteTextAtSelection('Carol');
+
+    expect(dataSource.getRow(0).name).toBe('Alice');
+    expect(edits).toHaveLength(0);
+
+    delete columns[0].cellReadonly;
   });
 });

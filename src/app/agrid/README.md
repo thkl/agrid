@@ -115,6 +115,22 @@ const columns: ColDef<Person>[] = [
 ];
 ```
 
+## Runtime readonly cells
+
+Use `cellReadonly` when editability depends on the current row. Returning `true` blocks inline
+editing, boolean toggles, paste, fill, and sidebar edits for that cell.
+
+```ts
+const columns: ColDef<Order>[] = [
+  { field: 'status', header: 'Status' },
+  {
+    field: 'approvedBy',
+    header: 'Approved by',
+    cellReadonly: ({ row }) => row.status !== 'Draft',
+  },
+];
+```
+
 ## Condition filters
 
 Mark a column `filterable: true` and its column menu gains a **condition** filter in addition to
@@ -236,6 +252,7 @@ For path-like values such as `01.01.0001`, return the ordered segments:
 ```ts
 const treeConfig: AgridTreeConfig<Row> = {
   getPath: row => row.oz.split('.'),
+  nodeUuid: row => row.uuid,
   formatPathSegment: ({ row, segment, level, leaf }) =>
     leaf
       ? `${segment} ${row.description}`
@@ -248,7 +265,8 @@ This renders `01 / 01 / 0001, 0002`. Generated `01` branch rows are display-only
 the original datasource row. Its tree cell displays `0001`, while editing still uses the complete
 `01.01.0001` value. `formatPathSegment` changes labels only; raw segments still control grouping,
 expansion identity, and sort order. The callback receives the original `row`; shared branch nodes
-use the first row encountered for that raw path prefix.
+use the first row encountered for that raw path prefix. `nodeUuid` uses the same source row and is
+included in generated branch-node click events.
 
 The `treeField` column shows an indented expand/collapse twisty. Filtering and sorting behave as
 in a flat grid; with `keepAncestorsOnFilter` (default `true`) a match deep in the tree keeps its

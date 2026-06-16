@@ -497,6 +497,30 @@ export function pathTreeNodeId(path: readonly (string | number)[]): string {
   return `__agrid_path__${JSON.stringify(path.map(String))}`;
 }
 
+export function pathTreeNodeUuid(path: readonly (string | number)[]): string {
+  const source = JSON.stringify(path.map(String));
+  let a = 0x9e3779b9;
+  let b = 0x85ebca6b;
+  let c = 0xc2b2ae35;
+  let d = 0x27d4eb2f;
+
+  for (let i = 0; i < source.length; i++) {
+    const code = source.charCodeAt(i);
+    a = Math.imul(a ^ code, 0x85ebca6b);
+    b = Math.imul(b ^ code, 0xc2b2ae35);
+    c = Math.imul(c ^ code, 0x27d4eb2f);
+    d = Math.imul(d ^ code, 0x165667b1);
+  }
+
+  const hex = [a, b, c, d]
+    .map(value => (value >>> 0).toString(16).padStart(8, '0'))
+    .join('')
+    .split('');
+  hex[12] = '5';
+  hex[16] = ((parseInt(hex[16], 16) & 0x3) | 0x8).toString(16);
+  return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex.slice(20, 32).join('')}`;
+}
+
 /** Builds display-only branch nodes and datasource-backed leaves from path segments. */
 export function buildPathTreeItems<T extends object>(
   rows: T[],
@@ -507,6 +531,7 @@ export function buildPathTreeItems<T extends object>(
 ): GridItem<T>[] {
   type Branch = {
     id: string;
+    uuid: string;
     label: string;
     level: number;
     children: Map<string, Branch>;
@@ -528,13 +553,24 @@ export function buildPathTreeItems<T extends object>(
         path: rawPath.slice(0, level + 1),
         leaf,
       }) ?? path[level];
+    const resolveNodeUuid = (prefix: readonly string[]): string =>
+      String(config.nodeUuid?.(rows[originalIndex])
+        ?? config.nodeUUid?.(rows[originalIndex])
+        ?? pathTreeNodeUuid(prefix));
     let branches = roots;
     for (let level = 0; level < path.length - 1; level++) {
       const prefix = path.slice(0, level + 1);
       const id = pathTreeNodeId(prefix);
       let branch = branches.get(id);
       if (!branch) {
-        branch = { id, label: formatSegment(level, false), level, children: new Map(), leaves: [] };
+        branch = {
+          id,
+          uuid: resolveNodeUuid(prefix),
+          label: formatSegment(level, false),
+          level,
+          children: new Map(),
+          leaves: [],
+        };
         branches.set(id, branch);
       }
       if (level === path.length - 2) {
@@ -549,7 +585,14 @@ export function buildPathTreeItems<T extends object>(
       const id = pathTreeNodeId([]);
       let branch = roots.get(id);
       if (!branch) {
-        branch = { id, label: '', level: -1, children: new Map(), leaves: [] };
+        branch = {
+          id,
+          uuid: resolveNodeUuid([]),
+          label: '',
+          level: -1,
+          children: new Map(),
+          leaves: [],
+        };
         roots.set(id, branch);
       }
       branch.leaves.push({ originalIndex, label: formatSegment(0, true) });
@@ -562,6 +605,7 @@ export function buildPathTreeItems<T extends object>(
     const expanded = forceExpanded || expandedIds.has(branch.id);
     if (!isHiddenRoot) {
       items.push({
+        uuid: branch.uuid,
         pathNodeId: branch.id,
         pathLabel: branch.label,
         level: branch.level,

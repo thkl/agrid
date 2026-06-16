@@ -2,7 +2,7 @@ import { Signal, WritableSignal } from '@angular/core';
 import { CellRange } from './agrid-clipboard.handler';
 import { AgridControl } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
-import { CellPosition, ColDef, GridItem, NewRecord } from '../agrid.types';
+import { AgridEnterEditAction, CellPosition, ColDef, GridItem, NewRecord } from '../agrid.types';
 import { isDataRowItem, isGroupHeaderItem } from '../agrid.utils';
 
 /** Minimal vertical viewport API used by grid navigation. @internal */
@@ -26,12 +26,14 @@ export interface AgridNavigationControllerOptions {
   rowHeight: Signal<number>;
   allowAddRows: Signal<boolean>;
   autoAddRows: Signal<boolean>;
+  enterEditAction: Signal<AgridEnterEditAction>;
   selectedCell: WritableSignal<CellPosition | null>;
   selectedRange: WritableSignal<CellRange | null>;
   editingCell: Signal<CellPosition | null>;
   isEditing: (originalIndex: number, colIndex: number) => boolean;
+  isCellEditable: (col: ColDef | undefined, originalIndex: number) => boolean;
   toggleTreeCell: (originalIndex: number, colIndex: number) => boolean;
-  startEdit: (originalIndex: number, colIndex: number, seedChar: string) => void;
+  startEdit: (originalIndex: number, colIndex: number, seedChar: string, selectText?: boolean) => void;
   commitEdit: () => boolean;
   cancelEdit: () => void;
   undoEdit: () => void;
@@ -131,7 +133,7 @@ export class AgridNavigationController {
           break;
         case 'Enter':
           event.preventDefault();
-          if (this.opts.commitEdit()) this.moveSelection(1, 0);
+          if (this.opts.commitEdit()) this.applyEnterEditAction(event.shiftKey);
           break;
         case 'Escape':
           event.preventDefault();
@@ -186,6 +188,70 @@ export class AgridNavigationController {
           else this.opts.startEdit(sel.rowIndex, sel.colIndex, event.key);
         }
     }
+  }
+
+  private applyEnterEditAction(reverse: boolean): void {
+    switch (this.opts.enterEditAction()) {
+      case 'nextColumn':
+        this.moveToNextEditableColumn(reverse ? -1 : 1);
+        break;
+      case 'nextRow':
+        this.moveSelection(reverse ? -1 : 1, 0);
+        break;
+      case 'nothing':
+        this.opts.focusGrid();
+        break;
+    }
+  }
+
+  private moveToNextEditableColumn(direction: 1 | -1): void {
+    const items = this.opts.filteredItems();
+    const cols = this.opts.visibleColDefs();
+    const selected = this.opts.selectedCell();
+    if (!selected || items.length === 0 || cols.length === 0) {
+      this.opts.focusGrid();
+      return;
+    }
+
+    const currentDisplayIndex = this.selectedDisplayIndex();
+    if (currentDisplayIndex < 0) {
+      this.opts.focusGrid();
+      return;
+    }
+
+    let displayIndex = currentDisplayIndex;
+    let colIndex = selected.colIndex + direction;
+
+    while (displayIndex >= 0 && displayIndex < items.length) {
+      while (colIndex >= 0 && colIndex < cols.length) {
+        const item = items[displayIndex];
+        const col = cols[colIndex];
+        if (isDataRowItem(item) && this.opts.isCellEditable(col, item.originalIndex)) {
+          this.opts.selectedRange.set(null);
+          this.opts.selectedCell.set({ rowIndex: item.originalIndex, colIndex });
+          this.scrollToKeepVisible(displayIndex, colIndex);
+          if (this.isTextColumn(col)) this.opts.startEdit(item.originalIndex, colIndex, '', false);
+          else this.opts.focusGrid();
+          return;
+        }
+        colIndex += direction;
+      }
+      displayIndex += direction;
+      colIndex = direction > 0 ? 0 : cols.length - 1;
+      while (
+        displayIndex >= 0
+        && displayIndex < items.length
+        && isGroupHeaderItem(items[displayIndex])
+      ) {
+        displayIndex += direction;
+      }
+    }
+
+    this.opts.focusGrid();
+  }
+
+  private isTextColumn(col: ColDef): boolean {
+    return !col.values?.length && (col.type === undefined || col.type === 'text');
   }
 
   /** Finds a data row's current index in the projected display items. */

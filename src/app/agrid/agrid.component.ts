@@ -57,8 +57,8 @@ import {
 import { AgridVariableRowSizeDirective } from './infrastructure/agrid-variable-row-size.strategy';
 import {
   AgridField, CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, DetailRowItem, FilterChangeEvent, GridEditEvent,
-  GridItem, GroupAction, NewRecord, PageChangeEvent, RecordEditEvent, RowClickEvent,
-  RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, ValidationFailedEvent,
+  GridItem, GroupAction, NewRecord, PageChangeEvent, PathTreeNodeItem, RecordEditEvent, RowClickEvent,
+  RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent,
 } from './agrid.types';
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
@@ -82,7 +82,7 @@ export type { GridItem };
  * | F2 | Enter edit mode |
  * | Printable key | Enter edit mode with seeded character |
  * | Escape | Close any open menu or cancel edit |
- * | Tab / Enter (while editing) | Commit and move right / down |
+ * | Tab / Enter (while editing) | Commit and move according to navigation settings |
  */
 @Component({
   selector: 'agrid',
@@ -130,6 +130,7 @@ export class AgridComponent<T extends object = any> {
   readonly quickFilterValue = computed(() => this.control()?.quickFilter() ?? '');
   readonly sortOption = computed(() => this.provider().sortOption);
   readonly rowSelection = computed(() => this.provider().rowSelection);
+  readonly enterEditAction = computed(() => this.provider().enterEditAction);
   readonly groupDescription = computed(() => this.provider().groupDescription);
   readonly groupActions = computed(() => this.provider().groupActions);
   readonly cellMenuItems = computed(() => this.provider().cellMenuItems);
@@ -238,6 +239,12 @@ export class AgridComponent<T extends object = any> {
   /** Emitted when the user single-clicks a data row. */
   rowClick = output<RowClickEvent<T>>();
 
+  /** Emitted when the user single-clicks a generated path-tree branch node. */
+  treeNodeClick = output<TreeNodeClickEvent>();
+
+  /** Emitted when the user double-clicks a generated path-tree branch node. */
+  treeNodeDoubleClicked = output<TreeNodeClickEvent>();
+
   /**
    * Emitted once after a changed row is left during inline editing, or when the sidebar editor
    * save button is used.
@@ -302,6 +309,10 @@ export class AgridComponent<T extends object = any> {
   /** Rectangular cell range selected by Shift+arrow or Shift+click. */
   readonly selectedRange = signal<CellRange | null>(null);
 
+  /** @internal Stable callback passed to child components for row-aware editability checks. */
+  readonly isCellEditableForRow = (col: ColDef, originalIndex: number): boolean =>
+    this.isCellEditable(col, originalIndex);
+
   /** Fill-handle drag preview bounds, in visible row/column coordinates. */
   get fillPreviewBounds() { return this.rangeController.fillPreviewBounds; }
 
@@ -313,6 +324,9 @@ export class AgridComponent<T extends object = any> {
 
   /** Seed character typed to enter edit mode (e.g. pressing 'A'). */
   get editSeedChar() { return this.editController.editSeedChar; }
+
+  /** Whether the active text editor should select all text when it opens. */
+  get selectTextOnEdit() { return this.editController.selectTextOnEdit; }
 
   /** Toggle the sidebar open/closed. */
   toggleSidebar(): void { this.sidebarController.toggle(); }
@@ -637,7 +651,7 @@ export class AgridComponent<T extends object = any> {
     visibleColDefs: this.visibleColDefs,
     selectedCell: this.selectedCell,
     selectedRange: this.selectedRange,
-    isCellEditable: col => this.isCellEditable(col),
+    isCellEditable: (col, originalIndex) => this.isCellEditable(col, originalIndex),
     cancelEdit: () => this.cancelCurrent(),
     findDisplayIndex: originalIndex => this.findDisplayIndex(originalIndex),
     scrollToCell: (displayIndex, colIndex) => this.scrollToKeepVisible(displayIndex, colIndex),
@@ -709,14 +723,16 @@ export class AgridComponent<T extends object = any> {
     rowHeight: this.rowHeight,
     allowAddRows: this.allowAddRows,
     autoAddRows: this.autoAddRows,
+    enterEditAction: this.enterEditAction,
     selectedCell: this.selectedCell,
     selectedRange: this.selectedRange,
     editingCell: this.editController.editingCell,
     isEditing: (originalIndex, colIndex) => this.isEditing(originalIndex, colIndex),
+    isCellEditable: (col, originalIndex) => this.editController.isCellEditable(col, originalIndex),
     toggleTreeCell: (originalIndex, colIndex) =>
       this.toggleTreeCell(originalIndex, colIndex),
-    startEdit: (originalIndex, colIndex, seedChar) =>
-      this.editController.start(originalIndex, colIndex, seedChar),
+    startEdit: (originalIndex, colIndex, seedChar, selectText) =>
+      this.editController.start(originalIndex, colIndex, seedChar, selectText),
     commitEdit: () => this.editController.commit(),
     cancelEdit: () => this.editController.cancel(),
     undoEdit: () => this.editController.undo(),
@@ -774,6 +790,7 @@ export class AgridComponent<T extends object = any> {
     selectedRowIndex: this.selectedRowIndex,
     autoOpenDetail: this.autoOpenDetail,
     useSidebarEditor: this.useSidebarEditor,
+    isCellEditable: (col, originalIndex) => this.isCellEditable(col, originalIndex),
     onFieldChange: event => this.markCellChanged(event),
     onCellEdit: event => this.emitSidebarEditEvents(event),
     onValidationFailed: event => this.validationFailed.emit({ ...event, source: 'sidebar' }),
@@ -795,7 +812,7 @@ export class AgridComponent<T extends object = any> {
     selectedCell: this.selectedCell,
     selectedRange: this.selectedRange,
     markedRowIndices: this.markedRowIndices,
-    isCellEditable: col => this.isCellEditable(col),
+    isCellEditable: (col, originalIndex) => this.isCellEditable(col, originalIndex),
     onCellEdit: event => this.emitEditEvents(event),
     scrollToCell: (displayIndex, colIndex) => this.scrollToKeepVisible(displayIndex, colIndex),
   });
@@ -1026,12 +1043,14 @@ export class AgridComponent<T extends object = any> {
 
     // Deselect when clicking outside the grid.
     const onOutsidePointerDown = (e: PointerEvent) => {
-      if (!this._hostEl.nativeElement.contains(e.target as Node)) {
+      const isInsideGrid = this._hostEl.nativeElement.contains(e.target as Node);
+      if (!isInsideGrid) {
+        this.closeOpenMenus();
         queueMicrotask(() => this.flushDirtyInlineRows());
       }
       if (this.rowSelection() === 'none') return;
       if (this.selectedRowIndices().size === 0) return;
-      if (this._hostEl.nativeElement.contains(e.target as Node)) return;
+      if (isInsideGrid) return;
       this.rowController.clearSelection();
     };
     this.browser.addDocumentListener('pointerdown', onOutsidePointerDown);
@@ -1241,6 +1260,29 @@ export class AgridComponent<T extends object = any> {
     } else if (isTreeRowItemFn(item) && !isPathTreeConfig(config)) {
       this.treeController.toggle(config.getId(item.row as T));
     }
+  }
+
+  /** @internal Emits the generated path-tree branch click event. */
+  onTreeNodeClick(item: GridItem): void {
+    if (!isPathTreeNodeItemFn(item)) return;
+    this.treeNodeClick.emit(this.toTreeNodeClickEvent(item));
+  }
+
+  /** @internal Emits the generated path-tree branch double-click event. */
+  onTreeNodeDoubleClick(item: GridItem): void {
+    if (!isPathTreeNodeItemFn(item)) return;
+    this.treeNodeDoubleClicked.emit(this.toTreeNodeClickEvent(item));
+  }
+
+  private toTreeNodeClickEvent(item: PathTreeNodeItem): TreeNodeClickEvent {
+    return {
+      uuid: item.uuid,
+      pathNodeId: item.pathNodeId,
+      pathLabel: item.pathLabel,
+      level: item.level,
+      expanded: item.expanded,
+      node: { ...item },
+    };
   }
 
   private toggleTreeCell(originalIndex: number, colIndex: number): boolean {
@@ -1520,7 +1562,9 @@ export class AgridComponent<T extends object = any> {
   }
 
   /** @internal Whether a column is editable in the current grid state (drives boolean checkboxes). */
-  isColEditable(col: ColDef): boolean { return this.editController.isCellEditable(col); }
+  isColEditable(col: ColDef, originalIndex?: number): boolean {
+    return this.editController.isCellEditable(col, originalIndex);
+  }
 
   /** @internal Inline validation message for a cell, or `null` when the cell has no active error. */
   cellValidationError(originalIndex: number, ci: number): string | null {
@@ -1980,12 +2024,12 @@ export class AgridComponent<T extends object = any> {
     })));
   }
 
-  private isCellEditable(col: ColDef): boolean {
-    return this.editController.isCellEditable(col);
+  private isCellEditable(col: ColDef, originalIndex?: number): boolean {
+    return this.editController.isCellEditable(col, originalIndex);
   }
 
-  private enterEdit(originalIndex: number, ci: number, seedChar: string): void {
-    this.editController.start(originalIndex, ci, seedChar);
+  private enterEdit(originalIndex: number, ci: number, seedChar: string, selectText = true): void {
+    this.editController.start(originalIndex, ci, seedChar, selectText);
   }
 
   private cancelCurrent(): void {

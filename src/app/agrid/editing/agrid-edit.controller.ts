@@ -36,14 +36,25 @@ export class AgridEditController {
   readonly editingCell = signal<CellPosition | null>(null);
   readonly currentDraft = signal<unknown>(null);
   readonly editSeedChar = signal<string>('');
+  /** Whether a newly focused text editor should select all text. */
+  readonly selectTextOnEdit = signal<boolean>(true);
   /** The active cell validation error, or `null` when the last commit was accepted. */
   readonly validationError = signal<CellValidationError | null>(null);
 
   constructor(private readonly opts: AgridEditControllerOptions) {}
 
-  /** Returns whether a column can be edited in the current grid state. */
-  isCellEditable(col: ColDef | undefined): boolean {
-    return !!col && !this.opts.readonlyGrid() && col.editable !== false;
+  /** Returns whether a cell can be edited in the current grid state. */
+  isCellEditable(col: ColDef | undefined, originalIndex?: number): boolean {
+    if (!col || this.opts.readonlyGrid() || col.editable === false) return false;
+    if (originalIndex === undefined || !col.cellReadonly) return true;
+    const row = this.opts.dataSource().getRow(originalIndex);
+    if (!row) return false;
+    return !col.cellReadonly({
+      row,
+      value: row[col.field],
+      column: col,
+      originalIndex,
+    });
   }
 
   /** Replaces the value currently staged by the active editor. */
@@ -52,9 +63,9 @@ export class AgridEditController {
   }
 
   /** Starts editing a cell, optionally seeded by a typed character. */
-  start(originalIndex: number, colIndex: number, seedChar: string): void {
+  start(originalIndex: number, colIndex: number, seedChar: string, selectText = true): void {
     const col = this.opts.visibleColDefs()[colIndex];
-    if (!this.isCellEditable(col)) return;
+    if (!this.isCellEditable(col, originalIndex)) return;
     this.validationError.set(null);
     const currentValue = this.opts.dataSource().getRow(originalIndex)[col.field];
     this.opts.selectedRange.set(null);
@@ -69,6 +80,7 @@ export class AgridEditController {
     }
     this.currentDraft.set(initialDraft);
     this.editSeedChar.set(seedChar);
+    this.selectTextOnEdit.set(selectText);
     this.editingCell.set({ rowIndex: originalIndex, colIndex });
     const displayIndex = this.opts.findDisplayIndex(originalIndex);
     if (displayIndex >= 0) this.opts.scrollToCell(displayIndex, colIndex);
@@ -89,6 +101,10 @@ export class AgridEditController {
     }
 
     const row = this.opts.dataSource().getRow(position.rowIndex);
+    if (!this.isCellEditable(col, position.rowIndex)) {
+      this.cancel();
+      return true;
+    }
     const oldValue = row[col.field];
     const newValue = this.currentDraft();
     if (oldValue !== newValue) {
@@ -119,7 +135,7 @@ export class AgridEditController {
    */
   setCellValue(rowIndex: number, colIndex: number, newValue: unknown): boolean {
     const col = this.opts.visibleColDefs()[colIndex];
-    if (!this.isCellEditable(col)) return false;
+    if (!this.isCellEditable(col, rowIndex)) return false;
     const row = this.opts.dataSource().getRow(rowIndex);
     const oldValue = row[col.field];
     if (oldValue === newValue) return true;
@@ -190,5 +206,6 @@ export class AgridEditController {
   private clearEditState(): void {
     this.editingCell.set(null);
     this.editSeedChar.set('');
+    this.selectTextOnEdit.set(true);
   }
 }

@@ -18,6 +18,7 @@ describe('AgridSidebarController', () => {
       selectedRowIndex: signal(0),
       autoOpenDetail: signal(false),
       useSidebarEditor: signal(false),
+      isCellEditable: col => col.editable !== false,
       onFieldChange: () => undefined,
       onCellEdit: event => events.push(event),
       onValidationFailed: () => undefined,
@@ -42,6 +43,7 @@ describe('AgridSidebarController', () => {
       selectedRowIndex: signal(0),
       autoOpenDetail: signal(false),
       useSidebarEditor: signal(false),
+      isCellEditable: col => col.editable !== false,
       onFieldChange: () => undefined,
       onCellEdit: () => undefined,
       onValidationFailed: () => undefined,
@@ -68,6 +70,7 @@ describe('AgridSidebarController', () => {
       selectedRowIndex: signal(0),
       autoOpenDetail: signal(false),
       useSidebarEditor: signal(false),
+      isCellEditable: col => col.editable !== false,
       onFieldChange: () => undefined,
       onCellEdit: () => undefined,
       onValidationFailed: event => failures.push(event),
@@ -82,5 +85,27 @@ describe('AgridSidebarController', () => {
     controller.commitEdit('amount', col, '7');
     expect(dataSource.getRow(0)['amount']).toBe(7);
     expect(controller.validationErrors()['amount']).toBeUndefined();
+  });
+
+  it('does not commit detail edits for runtime readonly cells', () => {
+    const dataSource = new AgridDataSource([{ status: 'Closed', comment: 'Locked' }]);
+    const col = { field: 'comment', header: 'Comment' };
+    const controller = new AgridSidebarController({
+      control: signal(new AgridControl()),
+      dataSource: signal(dataSource),
+      colDefs: signal([col]),
+      visibleColDefs: signal([col]),
+      selectedRowIndex: signal(0),
+      autoOpenDetail: signal(false),
+      useSidebarEditor: signal(false),
+      isCellEditable: () => false,
+      onFieldChange: () => undefined,
+      onCellEdit: () => undefined,
+      onValidationFailed: () => undefined,
+    });
+
+    controller.commitEdit('comment', col, 'Changed');
+
+    expect(dataSource.getRow(0)['comment']).toBe('Locked');
   });
 });

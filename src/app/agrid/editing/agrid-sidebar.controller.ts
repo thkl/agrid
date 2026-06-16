@@ -14,6 +14,7 @@ export interface AgridSidebarControllerOptions {
   selectedRowIndex: Signal<number | null>;
   autoOpenDetail: Signal<boolean>;
   useSidebarEditor: Signal<boolean>;
+  isCellEditable: (col: ColDef, originalIndex: number) => boolean;
   onFieldChange: (event: GridEditEvent) => void;
   onCellEdit: (event: GridEditEvent) => void;
   /** Called when a `ColDef.validate` hook rejects a sidebar value. */
@@ -93,6 +94,7 @@ export class AgridSidebarController {
   commitEdit(field: string, col: ColDef, stringValue: string): void {
     const index = this.opts.selectedRowIndex();
     if (index === null) return;
+    if (!this.opts.isCellEditable(col, index)) return;
     let newValue: unknown = stringValue;
     if (col.type === 'number') {
       newValue = stringValue === '' ? null : Number(stringValue);

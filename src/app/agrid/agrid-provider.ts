@@ -4,6 +4,7 @@ import { AgridDataSource } from './agrid-datasource';
 import { AgridLocaleTextOverrides } from './agrid-localization';
 import {
   AGridOptions,
+  AgridEnterEditAction,
   AgridTreeConfig,
   CellContextMenuItem,
   ColDef,
@@ -70,6 +71,14 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
    * - `'multi'` — Ctrl+click toggles, Shift+click extends range, click+drag sweeps
    */
   rowSelection?: 'single' | 'multi' | 'none';
+  /**
+   * Behavior after pressing Enter while an inline cell editor is active.
+   * - `'nothing'` — commit and keep the current cell selected
+   * - `'nextColumn'` — commit and move to the next column in the same row
+   * - `'nextRow'` — commit and move to the same column one row down
+   * @default 'nextRow'
+   */
+  enterEditAction?: AgridEnterEditAction;
   /** Returns a short description string shown next to the group label. */
   groupDescription?: ((label: string) => string) | null;
   /** Actions shown in the group header's `⋮` menu. */
@@ -209,6 +218,8 @@ export class AgridProvider<T extends object = any> {
   readonly autoAddRows: WritableSignal<boolean>;
   /** Enabled row-selection mode. */
   rowSelection: 'single' | 'multi' | 'none';
+  /** Behavior after pressing Enter while an inline cell editor is active. */
+  enterEditAction: AgridEnterEditAction;
   /** Optional description shown beside each group heading. */
   groupDescription: ((label: string) => string) | null;
   /** Actions available from group headers. */
@@ -265,6 +276,7 @@ export class AgridProvider<T extends object = any> {
     this.enableQuickFilter = config.enableQuickFilter ?? false;
     this.sortOption = config.sortOption ?? 'multi';
     this.rowSelection     = config.rowSelection ?? 'none';
+    this.enterEditAction  = config.enterEditAction ?? 'nextRow';
     this.groupDescription = config.groupDescription ?? null;
     this.groupActions     = config.groupActions ?? [];
     this.cellMenuItems    = config.cellMenuItems ?? [];

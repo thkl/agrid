@@ -24,7 +24,7 @@ export interface AgridClipboardHandlerOptions {
   selectedCell: WritableSignal<CellPosition | null>;
   selectedRange: WritableSignal<CellRange | null>;
   markedRowIndices: Signal<ReadonlySet<number>>;
-  isCellEditable: (col: ColDef) => boolean;
+  isCellEditable: (col: ColDef, originalIndex: number) => boolean;
   onCellEdit: (event: GridEditEvent) => void;
   scrollToCell: (displayIndex: number, colIndex: number) => void;
 }
@@ -125,7 +125,7 @@ export class AgridClipboardHandler {
       for (let colOffset = 0; colOffset < rows[rowOffset].length; colOffset++) {
         const colIndex = start.colIndex + colOffset;
         const col = cols[colIndex];
-        if (!col || !this.opts.isCellEditable(col)) continue;
+        if (!col || !this.opts.isCellEditable(col, item.originalIndex)) continue;
         const oldValue = dataSource.getRow(item.originalIndex)[col.field];
         const newValue = this.coercePastedValue(rows[rowOffset][colOffset], col);
         if (oldValue === newValue) continue;

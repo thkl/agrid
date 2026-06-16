@@ -54,7 +54,7 @@
                 <span class="ag-detail-hidden">{{ localeText().hiddenColumn }}</span>
               }
             </span>
-            @if ((field.editable || useSidebarEditor()) && field.col.values?.length) {
+            @if (field.editable && field.col.values?.length) {
               <select
                 class="ag-detail-input"
                 [class.ag-detail-input--invalid]="!!errors()[field.col.field]"
@@ -74,7 +74,7 @@
                   }
                 }
               </select>
-            } @else if (field.editable || useSidebarEditor()) {
+            } @else if (field.editable) {
               <input
                 class="ag-detail-input"
                 [class.ag-detail-input--invalid]="!!errors()[field.col.field]"

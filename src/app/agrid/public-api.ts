@@ -19,6 +19,7 @@ export type {
 } from './agrid-localization';
 export type { AgridProviderConfig } from './agrid-provider';
 export type {
+  AgridEnterEditAction,
   AgridField,
   AgridParentTreeConfig,
   AgridPathSegmentParams,
@@ -27,6 +28,7 @@ export type {
   CellContextMenuItem,
   CellInfoEvent,
   CellPosition,
+  CellReadonlyParams,
   ColDef,
   DetailRowItem,
   FilterChangeEvent,
@@ -44,6 +46,7 @@ export type {
   RowSelectEvent,
   RowUpdateEvent,
   SortChangeEvent,
+  TreeNodeClickEvent,
   TreeRowItem,
   ValidationFailedEvent,
   ValueOption,
