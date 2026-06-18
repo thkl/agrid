@@ -52,6 +52,48 @@ export interface CellContextMenuItem<T extends object = any> {
   danger?: boolean;
 }
 
+/** Current grid state supplied to menu-bar visibility, active, and disabled resolvers. */
+export interface AgridMenuBarContext<T extends object = any> {
+  /** Current datasource rows. */
+  rows: readonly T[];
+  /** Currently selected rows with their original datasource indices. */
+  selectedRows: readonly { row: T; originalIndex: number }[];
+  /** Currently selected cell, or `null`. */
+  selectedCell: CellPosition | null;
+  /** Provider that owns the menu bar. */
+  provider: AgridProvider<T>;
+  /** Datasource that owns the current rows. */
+  datasource: AgridDataSource<T>;
+}
+
+/** Static or runtime-resolved menu-bar state. */
+export type AgridMenuBarState<T extends object = any> =
+  | boolean
+  | ((context: AgridMenuBarContext<T>) => boolean);
+
+/** Shared configuration for menu-bar buttons and dropdown items. */
+export interface AgridMenuBarMenuItem<T extends object = any> {
+  /** Stable command id emitted through `(menuBarAction)`. */
+  id: string;
+  /** Visible command label. */
+  label: string;
+  /** Optional compact icon or glyph shown before the label. */
+  icon?: string;
+  /** Whether the command is rendered. Defaults to `true`. */
+  visible?: AgridMenuBarState<T>;
+  /** Whether the command receives active styling. Defaults to `false`. */
+  active?: AgridMenuBarState<T>;
+  /** Whether the command is disabled. Defaults to `false`. */
+  disabled?: AgridMenuBarState<T>;
+}
+
+/** Top-level menu-bar button with optional additional dropdown commands. */
+export interface AgridMenuBarItem<T extends object = any>
+  extends AgridMenuBarMenuItem<T> {
+  /** Additional commands opened from the button's dropdown chevron. */
+  items?: AgridMenuBarMenuItem<T>[];
+}
+
 /**
  * A structured value option used when the data field stores a raw value (e.g. a numeric ID)
  * but the cell should display a human-readable label.
@@ -416,6 +458,27 @@ export interface AgridPathTreeConfig<T extends object = any> extends AgridTreeCo
 export type AgridTreeConfig<T extends object = any> =
   | AgridParentTreeConfig<T>
   | AgridPathTreeConfig<T>;
+
+/** Selection behavior for the standalone tree control. */
+export type AgridTreeSelectionMode = 'none' | 'single' | 'multi';
+
+/** Normalized row or generated-branch event emitted by the standalone tree control. */
+export interface AgridTreeNodeEvent<T extends object = any> {
+  kind: 'row' | 'branch';
+  id: string | number;
+  uuid?: string;
+  label: string;
+  level: number;
+  expandable: boolean;
+  expanded: boolean;
+  row?: T;
+  originalIndex?: number;
+}
+
+/** Current standalone-tree selection after a user interaction. */
+export interface AgridTreeSelectionEvent<T extends object = any> {
+  nodes: AgridTreeNodeEvent<T>[];
+}
 
 /** Zero-based position of a cell inside the grid. */
 export interface CellPosition {

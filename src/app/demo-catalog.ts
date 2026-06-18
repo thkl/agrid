@@ -266,35 +266,29 @@ readonly provider = new AgridProvider({
   },
   {
     path: '/tree',
-    label: 'Tree data',
-    title: 'Tree data from flat rows',
+    label: 'Standalone tree',
+    title: 'Standalone tree from flat rows',
     summary:
-      'Agrid builds hierarchy from stable row and parent IDs, so the datasource remains flat and normal editing indices are preserved.',
+      'AgridTree uses the grid hierarchy engine for compact navigation without rendering grid columns.',
     points: [
-      'Provide getId and getParentId accessors.',
-      'Choose the column that displays indentation and expand controls.',
-      'Use component methods to expand or collapse all nodes.',
+      'Use the same parent-ID or path-based tree configuration as the grid.',
+      'Navigate and expand nodes with standard tree keyboard controls.',
+      'Receive typed row and generated branch events from one component.',
     ],
-    code: `const treeConfig: AgridTreeConfig<OrgRow> = {
-  getId: row => row.id,
-  getParentId: row => row.parentId,
-  treeField: 'name',
-};
-
-readonly provider = new AgridProvider<OrgRow>({
-  columns: [
-    { field: 'name', header: 'Name', width: 240, filterable: true },
-    { field: 'role', header: 'Role', width: 160 },
-    { field: 'team', header: 'Team', width: 140 },
-  ],
+    code: `readonly provider = new AgridTreeProvider<OrgRow>({
   datasource: new AgridDataSource(rows),
-  control: new AgridControl(),
-  treeConfig,
-  rowSelection: 'single',
+  treeConfig: {
+    getId: row => row.id,
+    getParentId: row => row.parentId,
+    treeField: 'name',
+    defaultExpanded: true,
+  },
+  getDescription: row => \`\${row.role} · \${row.team}\`,
+  selection: 'single',
 });
 
-// grid()?.expandAllNodes();
-// grid()?.collapseAllNodes();`,
+// tree()?.expandAllNodes();
+// tree()?.collapseAllNodes();`,
   },
   {
     path: '/master-detail',

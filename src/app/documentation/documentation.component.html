@@ -148,6 +148,7 @@
             <tr><td><code>showSidebar</code></td><td><code>false</code></td><td>Shows the column visibility sidebar.</td></tr>
             <tr><td><code>serverSideFiltering</code></td><td><code>false</code></td><td>Emits filter, sort, and quick-filter requests instead of applying them locally. See <a href="#filtering">Filtering</a>.</td></tr>
             <tr><td><code>enableQuickFilter</code></td><td><code>false</code></td><td>Shows a search box above the grid that matches across all visible columns.</td></tr>
+            <tr><td><code>menuBarItems</code></td><td><code>[]</code></td><td>Optional command buttons above the headers, with dropdown items and runtime visible, active, and disabled states.</td></tr>
             <tr><td><code>sortOption</code></td><td><code>'multi'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
             <tr><td><code>rowSelection</code></td><td><code>'none'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
             <tr><td><code>enterEditAction</code></td><td><code>'nextRow'</code></td><td>What Enter does after an inline edit commit: <code>'nothing'</code>, <code>'nextColumn'</code>, or <code>'nextRow'</code>.</td></tr>
@@ -434,6 +435,7 @@
             <tr><td><code>prepareAddRecord</code></td><td><code>NewRecord&lt;T&gt;</code></td><td>Emitted after inserting a blank row so defaults can be patched.</td></tr>
             <tr><td><code>rowReorder</code></td><td><code>RowReorderEvent&lt;T&gt;</code></td><td>The host applies the move with <code>datasource.moveRow()</code>.</td></tr>
             <tr><td><code>rowSelect</code></td><td><code>RowSelectEvent&lt;T&gt; | null</code></td><td>Selected rows or null when selection clears.</td></tr>
+            <tr><td><code>menuBarAction</code></td><td><code>string</code></td><td>Configured id of an enabled menu-bar button or dropdown item.</td></tr>
             <tr><td><code>treeNodeClick</code></td><td><code>TreeNodeClickEvent</code></td><td>Generated path-tree branch node click.</td></tr>
             <tr><td><code>treeNodeDoubleClicked</code></td><td><code>TreeNodeClickEvent</code></td><td>Generated path-tree branch node double-click.</td></tr>
             <tr><td><code>cellInfo</code></td><td><code>CellInfoEvent&lt;T&gt;</code></td><td>The selected cell's row, field, value, original index, and column definition.</td></tr>

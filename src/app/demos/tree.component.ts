@@ -1,7 +1,10 @@
-import { ChangeDetectionStrategy, Component, afterNextRender, viewChild } from '@angular/core';
-import { AgridComponent, AgridControl, AgridDataSource, ColDef } from '../agrid';
-import { AgridProvider } from '../agrid/agrid-provider';
-import { AgridTreeConfig } from '../agrid/agrid.types';
+import { ChangeDetectionStrategy, Component, signal, viewChild } from '@angular/core';
+import {
+  AgridDataSource,
+  AgridTreeComponent,
+  AgridTreeNodeEvent,
+  AgridTreeProvider,
+} from '../agrid';
 
 interface OrgRow {
   id: number;
@@ -36,37 +39,23 @@ const ROWS: OrgRow[] = [
   { id: 17, parentId: 15,   name: 'Pablo Gómez',     role: 'Brand Designer',   team: 'Design',      headcount: 0 },
 ];
 
-const COLUMNS: ColDef<OrgRow>[] = [
-  { field: 'name',      header: 'Name',      width: 240, filterable: true },
-  { field: 'role',      header: 'Role',      width: 160, filterable: true },
-  { field: 'team',      header: 'Team',      width: 140, filterable: true },
-  { field: 'headcount', header: 'Reports',   width: 100, type: 'number', editable: false },
-];
-
-const TREE_CONFIG: AgridTreeConfig<OrgRow> = {
-  getId: row => row.id,
-  getParentId: row => row.parentId,
-  treeField: 'name',
-};
-
 @Component({
   selector: 'demo-tree',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AgridComponent],
+  imports: [AgridTreeComponent],
   template: `
     <div class="demo-wrap">
       <div class="demo-header">
         <h2>Tree</h2>
-        <span class="demo-meta">Flat rows linked by parentId · click a twisty to expand · the Name column is editable</span>
+        <span class="demo-meta">Standalone control using the same parent/child tree projection as the grid</span>
       </div>
       <div class="demo-toolbar">
-        <button type="button" (click)="grid()?.expandAllNodes()">Expand all</button>
-        <button type="button" (click)="grid()?.collapseAllNodes()">Collapse all</button>
+        <button type="button" (click)="tree()?.expandAllNodes()">Expand all</button>
+        <button type="button" (click)="tree()?.collapseAllNodes()">Collapse all</button>
       </div>
-      <agrid
-        class="demo-grid"
-        [provider]="provider"
-      />
+      <agrid-tree class="demo-tree" [provider]="provider"
+        (nodeClick)="onNodeClick($event)" />
+      <div class="demo-event">{{ lastEvent() }}</div>
     </div>
   `,
   styles: [`
@@ -78,23 +67,27 @@ const TREE_CONFIG: AgridTreeConfig<OrgRow> = {
     .demo-toolbar { display: flex; gap: 8px; }
     .demo-toolbar button { font: inherit; font-size: 12px; padding: 4px 12px; border: 1px solid #d0d7de; border-radius: 6px; background: #f6f8fa; cursor: pointer; }
     .demo-toolbar button:hover { background: #eef1f4; }
-    .demo-grid { flex: 1; min-height: 0; }
+    .demo-tree { flex: 1; min-height: 0; border: 1px solid var(--agrid-color-border); border-radius: 6px; }
+    .demo-event { min-height: 18px; color: #57606a; font-size: 12px; }
   `],
 })
 export class TreeDemoComponent {
-  readonly provider = new AgridProvider<OrgRow>({
-    columns: COLUMNS,
+  readonly provider = new AgridTreeProvider<OrgRow>({
     datasource: new AgridDataSource(ROWS),
-    control: new AgridControl(),
-    treeConfig: TREE_CONFIG,
-    zebraStripes: true,
-    rowSelection: 'single',
+    treeConfig: {
+      getId: row => row.id,
+      getParentId: row => row.parentId,
+      treeField: 'name',
+      defaultExpanded: true,
+    },
+    getDescription: row => `${row.role} · ${row.team}`,
+    selection: 'single',
+    ariaLabel: 'Organization',
   });
+  readonly lastEvent = signal('Select a node to inspect its event.');
+  readonly tree = viewChild(AgridTreeComponent);
 
-  readonly grid = viewChild(AgridComponent);
-
-  constructor() {
-    // Start with the top two levels open so the hierarchy is visible immediately.
-    afterNextRender(() => this.grid()?.expandAllNodes());
+  onNodeClick(event: AgridTreeNodeEvent<OrgRow>): void {
+    this.lastEvent.set(`${event.kind} ${event.id}: ${event.label}`);
   }
 }

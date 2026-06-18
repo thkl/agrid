@@ -80,6 +80,38 @@ Marking is independent from row selection. Cell and range copy use the same copi
 every marked row, while Copy row uses every visible column. Duplicate rows are omitted, and marked
 rows remain included when filters hide them.
 
+## Menu bar
+
+Set `menuBarItems` to render command buttons above the headers. An item with `items` becomes a
+split button: its label emits the parent id and its chevron opens additional commands. Every
+command emits through the single `(menuBarAction)` output.
+
+```ts
+readonly provider = new AgridProvider<Person>({
+  columns,
+  datasource,
+  menuBarItems: [
+    { id: 'refresh', label: 'Refresh', icon: '↻' },
+    {
+      id: 'selection',
+      label: 'Selection',
+      disabled: ({ selectedRows }) => selectedRows.length === 0,
+      items: [
+        { id: 'activate', label: 'Activate' },
+        { id: 'deactivate', label: 'Deactivate', active: ({ rows }) => rows.some(row => !row.active) },
+      ],
+    },
+  ],
+});
+```
+
+```html
+<agrid [provider]="provider" (menuBarAction)="runCommand($event)" />
+```
+
+`visible`, `active`, and `disabled` may be booleans or callbacks. Callback context includes
+`rows`, `selectedRows`, `selectedCell`, `provider`, and `datasource`.
+
 ## Input masks
 
 Use `inputMask` to select a string mask for each row and cell. The callback
@@ -276,6 +308,39 @@ tree.
 
 Tree mode can be combined with `masterDetail: true` and a `detailRenderer`. Detail expanders are
 shown only for leaf rows; parent rows retain their tree expand/collapse control.
+
+## Standalone tree control
+
+Use `<agrid-tree>` for the same parent-ID or path hierarchy without grid columns. It adds tree
+keyboard navigation and optional single or multi-selection.
+
+```ts
+readonly treeProvider = new AgridTreeProvider<OrgRow>({
+  datasource: new AgridDataSource(rows),
+  treeConfig: {
+    getId: row => row.id,
+    getParentId: row => row.parentId,
+    treeField: 'name',
+    defaultExpanded: true,
+  },
+  getDescription: row => row.role,
+  selection: 'single',
+  ariaLabel: 'Organization',
+});
+```
+
+```html
+<agrid-tree [provider]="treeProvider"
+  (nodeClick)="openNode($event)"
+  (nodeDoubleClicked)="openNode($event)"
+  (selectionChange)="selectionChanged($event)" />
+```
+
+Row and generated path-branch clicks emit `AgridTreeNodeEvent<T>`. Branch events include their
+configured or generated `uuid`. `expandAllNodes()` and `collapseAllNodes()` are public methods.
+The tree uses the shared `--agrid-color-text`, `--agrid-color-text-muted`,
+`--agrid-color-accent`, `--agrid-color-accent-subtle`, `--agrid-color-accent-fg`,
+`--agrid-color-border`, `--agrid-color-bg`, and `--agrid-color-bg-muted` CSS variables.
 
 ## Saving edited rows
 

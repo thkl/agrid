@@ -35,6 +35,7 @@ import { AgridTreeController } from './rows/agrid-tree.controller';
 import { AgridLocaleText, resolveAgridLocaleText, resolveLocale } from './agrid-localization';
 import { AgridNavigationController } from './selection/agrid-navigation.controller';
 import { AgridPresentationService } from './rendering/agrid-presentation.service';
+import { AgridMenuBarComponent } from './rendering/agrid-menu-bar.component';
 import { AgridProvider } from './agrid-provider';
 import { AgridProjectionModel } from './rows/agrid-projection.model';
 import { AgridRangeController } from './selection/agrid-range.controller';
@@ -56,7 +57,8 @@ import {
 } from './agrid.utils';
 import { AgridVariableRowSizeDirective } from './infrastructure/agrid-variable-row-size.strategy';
 import {
-  AgridField, CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, DetailRowItem, FilterChangeEvent, GridEditEvent,
+  AgridField, AgridMenuBarContext, AgridMenuBarItem, AgridMenuBarMenuItem, AgridMenuBarState,
+  CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, DetailRowItem, FilterChangeEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, PathTreeNodeItem, RecordEditEvent, RowClickEvent,
   RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent,
 } from './agrid.types';
@@ -92,6 +94,7 @@ export type { GridItem };
     NgTemplateOutlet,
     AgridVariableRowSizeDirective,
     AgridCellComponent,
+    AgridMenuBarComponent,
     AgridColumnMenuComponent,
     AgridFindPanelComponent,
     AgridSidebarComponent,
@@ -127,6 +130,7 @@ export class AgridComponent<T extends object = any> {
   readonly serverSideFiltering = computed(() => this.provider().serverSideFiltering);
   readonly filterDebounceMs = computed(() => this.provider().filterDebounceMs);
   readonly enableQuickFilter = computed(() => this.provider().enableQuickFilter);
+  readonly menuBarItems = computed(() => this.provider().menuBarItems);
   readonly quickFilterValue = computed(() => this.control()?.quickFilter() ?? '');
   readonly sortOption = computed(() => this.provider().sortOption);
   readonly rowSelection = computed(() => this.provider().rowSelection);
@@ -275,6 +279,9 @@ export class AgridComponent<T extends object = any> {
 
   /** Emitted when a column's optional cell information button is clicked. */
   cellInfo = output<CellInfoEvent<T>>();
+
+  /** Emitted for every enabled menu-bar button or dropdown item, carrying its configured id. */
+  menuBarAction = output<string>();
 
   // ── Public state ─────────────────────────────────────────────────────────────
 
@@ -781,6 +788,31 @@ export class AgridComponent<T extends object = any> {
   readonly selectedRowIndex = this.rowController.selectedRowIndex;
   readonly contextMenu = this.rowController.contextMenu;
   readonly cellContextMenuState = this.rowController.cellContextMenu;
+
+  /** Id of the menu-bar button whose dropdown is open, or `null`. */
+  readonly openMenuBarItemId = signal<string | null>(null);
+
+  /** Runtime state passed to menu-bar visibility, active, and disabled resolvers. */
+  readonly menuBarContext = computed<AgridMenuBarContext<T>>(() => {
+    const datasource = this.dataSource();
+    const rows = datasource.rows() as T[];
+    const selectedRows = [...this.selectedRowIndices()]
+      .sort((a, b) => a - b)
+      .map(originalIndex => ({ row: rows[originalIndex], originalIndex }))
+      .filter((entry): entry is { row: T; originalIndex: number } => !!entry.row);
+    return {
+      rows,
+      selectedRows,
+      selectedCell: this.selectedCell(),
+      provider: this.provider(),
+      datasource,
+    };
+  });
+
+  /** Menu-bar buttons currently allowed by their visibility resolvers. */
+  readonly visibleMenuBarItems = computed(() =>
+    this.menuBarItems().filter(item => this.isMenuBarItemVisible(item)),
+  );
 
   private readonly sidebarController = new AgridSidebarController({
     control: this.control,
@@ -1757,18 +1789,128 @@ export class AgridComponent<T extends object = any> {
   /** @internal */
   closeCellContextMenu(): void { this.rowController.closeCellContextMenu(); }
 
-  /** @internal Closes any row, cell, group-action, or column menu owned by this grid. */
+  /** @internal Closes any row, cell, menu-bar, group-action, or column menu owned by this grid. */
   closeOpenMenus(): boolean {
     const hadOpenMenu = this.contextMenu() !== null
       || this.cellContextMenuState() !== null
+      || this.openMenuBarItemId() !== null
       || this.groupActionsMenu() !== null
       || this.filterMenu() !== null;
     if (!hadOpenMenu) return false;
     this.rowController.closeContextMenu();
     this.rowController.closeCellContextMenu();
+    this.closeMenuBarMenu();
     this.groupController.closeActionsMenu();
     this.columnMenuController.close();
     return true;
+  }
+
+  /** @internal Resolves a menu-bar state callback against the current grid state. */
+  resolveMenuBarState(state: AgridMenuBarState<T> | undefined, fallback: boolean): boolean {
+    if (typeof state === 'function') return state(this.menuBarContext());
+    return state ?? fallback;
+  }
+
+  /** @internal Whether a menu-bar button or dropdown item should be rendered. */
+  isMenuBarItemVisible(item: AgridMenuBarMenuItem<T>): boolean {
+    return this.resolveMenuBarState(item.visible, true);
+  }
+
+  /** @internal Whether a menu-bar button or dropdown item is active. */
+  isMenuBarItemActive(item: AgridMenuBarMenuItem<T>): boolean {
+    return this.resolveMenuBarState(item.active, false);
+  }
+
+  /** @internal Whether a menu-bar button or dropdown item is disabled. */
+  isMenuBarItemDisabled(item: AgridMenuBarMenuItem<T>): boolean {
+    return this.resolveMenuBarState(item.disabled, false);
+  }
+
+  /** @internal Visible dropdown entries for a menu-bar button. */
+  visibleMenuBarChildren(item: AgridMenuBarItem<T>): AgridMenuBarMenuItem<T>[] {
+    return (item.items ?? []).filter(child => this.isMenuBarItemVisible(child));
+  }
+
+  /** @internal Emits one menu-bar action and closes its dropdown. */
+  runMenuBarAction(event: Event, item: AgridMenuBarMenuItem<T>): void {
+    event.stopPropagation();
+    if (!this.isMenuBarItemVisible(item) || this.isMenuBarItemDisabled(item)) return;
+    this.menuBarAction.emit(item.id);
+    this.closeMenuBarMenu();
+  }
+
+  /** @internal Opens or closes a split button's additional command menu. */
+  toggleMenuBarMenu(event: Event, item: AgridMenuBarItem<T>): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.visibleMenuBarChildren(item).length === 0) return;
+    this.rowController.closeContextMenu();
+    this.rowController.closeCellContextMenu();
+    this.groupController.closeActionsMenu();
+    this.columnMenuController.close();
+    this.openMenuBarItemId.update(id => id === item.id ? null : item.id);
+  }
+
+  /** @internal Opens a dropdown from the keyboard and focuses its first/last enabled item. */
+  onMenuBarTriggerKeydown(event: KeyboardEvent, item: AgridMenuBarItem<T>): void {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.visibleMenuBarChildren(item).length === 0) return;
+    this.openMenuBarItemId.set(item.id);
+    const group = (event.currentTarget as HTMLElement).closest('.ag-menu-bar-group');
+    setTimeout(() => {
+      const enabled = group?.querySelectorAll<HTMLButtonElement>(
+        '.ag-menu-bar-dropdown [role="menuitem"]:not(:disabled)',
+      );
+      const target = event.key === 'ArrowUp' ? enabled?.[enabled.length - 1] : enabled?.[0];
+      target?.focus();
+    });
+  }
+
+  /** @internal Provides standard keyboard navigation within an open menu-bar dropdown. */
+  onMenuBarMenuKeydown(event: KeyboardEvent): void {
+    const menu = event.currentTarget as HTMLElement;
+    const items = [...menu.querySelectorAll<HTMLButtonElement>(
+      '[role="menuitem"]:not(:disabled)',
+    )];
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeMenuBarMenu();
+      menu.closest('.ag-menu-bar-group')
+        ?.querySelector<HTMLButtonElement>('.ag-menu-bar-trigger')
+        ?.focus();
+      return;
+    }
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key) || items.length === 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const current = items.indexOf(event.target as HTMLButtonElement);
+    const next = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? items.length - 1
+        : event.key === 'ArrowDown'
+          ? (current + 1 + items.length) % items.length
+          : (current - 1 + items.length) % items.length;
+    items[next].focus();
+  }
+
+  /** @internal Closes the currently open menu-bar dropdown. */
+  closeMenuBarMenu(): void {
+    this.openMenuBarItemId.set(null);
+  }
+
+  /** @internal Synchronizes dropdown state and closes competing grid menus when one opens. */
+  onMenuBarOpenItemChange(id: string | null): void {
+    if (id !== null) {
+      this.rowController.closeContextMenu();
+      this.rowController.closeCellContextMenu();
+      this.groupController.closeActionsMenu();
+      this.columnMenuController.close();
+    }
+    this.openMenuBarItemId.set(id);
   }
 
   /** @internal Runs a typed provider context-menu action against erased controller state. */

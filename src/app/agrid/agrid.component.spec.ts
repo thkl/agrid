@@ -93,6 +93,97 @@ describe('AgridComponent grouped control column selection', () => {
   });
 });
 
+describe('AgridComponent menu bar', () => {
+  let fixture: ComponentFixture<AgridComponent>;
+  let component: AgridComponent;
+
+  beforeEach(async () => {
+    const provider = new AgridProvider({
+      columns: [{ field: 'name', header: 'Name' }],
+      datasource: new AgridDataSource([
+        { name: 'Alice' },
+        { name: 'Bob' },
+      ]),
+      showControlColumn: true,
+      rowSelection: 'single',
+      menuBarItems: [
+        {
+          id: 'refresh',
+          label: 'Refresh',
+          icon: '↻',
+          active: ({ rows }) => rows.length === 2,
+        },
+        {
+          id: 'selected-actions',
+          label: 'Selected',
+          disabled: ({ selectedRows }) => selectedRows.length === 0,
+          items: [
+            {
+              id: 'export-selected',
+              label: 'Export selected',
+              active: ({ rows }) => rows.length === 2,
+            },
+            { id: 'locked-action', label: 'Locked action', disabled: true },
+            { id: 'hidden-action', label: 'Hidden action', visible: false },
+          ],
+        },
+        { id: 'empty-only', label: 'Empty only', visible: ({ rows }) => rows.length === 0 },
+      ],
+    });
+
+    await TestBed.configureTestingModule({ imports: [AgridComponent] }).compileComponents();
+    fixture = TestBed.createComponent(AgridComponent);
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+  });
+
+  afterEach(() => fixture.destroy());
+
+  it('resolves item states and emits one action output for buttons and dropdown items', () => {
+    const emitted: string[] = [];
+    component.menuBarAction.subscribe(id => emitted.push(id));
+    const refresh = fixture.nativeElement.querySelector(
+      '[data-menu-id="refresh"] .ag-menu-bar-button',
+    ) as HTMLButtonElement;
+    const selected = fixture.nativeElement.querySelector(
+      '[data-menu-id="selected-actions"] .ag-menu-bar-button',
+    ) as HTMLButtonElement;
+
+    expect(refresh.textContent).toContain('↻');
+    expect(refresh.textContent).toContain('Refresh');
+    expect(refresh.classList.contains('ag-menu-bar-button--active')).toBe(true);
+    expect(selected.disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('[data-menu-id="empty-only"]')).toBeNull();
+
+    refresh.click();
+    component.onControlPointerDown(primaryPointerEvent(), 0);
+    fixture.detectChanges();
+    expect(selected.disabled).toBe(false);
+
+    const trigger = fixture.nativeElement.querySelector(
+      '[data-menu-id="selected-actions"] .ag-menu-bar-trigger',
+    ) as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    const dropdownItems = [
+      ...fixture.nativeElement.querySelectorAll('.ag-menu-bar-dropdown-item'),
+    ] as HTMLButtonElement[];
+    expect(dropdownItems.map(item => item.textContent?.trim())).toEqual([
+      '✓Export selected',
+      'Locked action',
+    ]);
+    expect(dropdownItems[0].classList.contains('ag-menu-bar-dropdown-item--active')).toBe(true);
+    expect(dropdownItems[1].disabled).toBe(true);
+
+    dropdownItems[0].click();
+
+    expect(emitted).toEqual(['refresh', 'export-selected']);
+    expect(component.openMenuBarItemId()).toBeNull();
+  });
+});
+
 describe('AgridComponent Tab navigation', () => {
   let fixture: ComponentFixture<AgridComponent>;
   let component: AgridComponent;
@@ -499,6 +590,7 @@ describe('AgridComponent Tab navigation', () => {
     });
     component.groupActionsMenu.set({ x: 5, y: 6, label: 'Engineering' });
     component.filterMenu.set({ field: 'name', x: 7, y: 8 });
+    component.openMenuBarItemId.set('actions');
     const event = new KeyboardEvent('keydown', {
       key: 'Escape',
       cancelable: true,
@@ -511,6 +603,7 @@ describe('AgridComponent Tab navigation', () => {
     expect(component.cellContextMenuState()).toBeNull();
     expect(component.groupActionsMenu()).toBeNull();
     expect(component.filterMenu()).toBeNull();
+    expect(component.openMenuBarItemId()).toBeNull();
   });
 
   it('closes an open header menu from the document-level Escape hotkey', () => {
@@ -540,6 +633,7 @@ describe('AgridComponent Tab navigation', () => {
     });
     component.groupActionsMenu.set({ x: 5, y: 6, label: 'Engineering' });
     component.filterMenu.set({ field: 'name', x: 7, y: 8 });
+    component.openMenuBarItemId.set('actions');
     const outside = document.createElement('button');
     document.body.appendChild(outside);
 
@@ -552,6 +646,7 @@ describe('AgridComponent Tab navigation', () => {
     expect(component.cellContextMenuState()).toBeNull();
     expect(component.groupActionsMenu()).toBeNull();
     expect(component.filterMenu()).toBeNull();
+    expect(component.openMenuBarItemId()).toBeNull();
     outside.remove();
   });
 

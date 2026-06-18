@@ -5,6 +5,7 @@ import { AgridLocaleTextOverrides } from './agrid-localization';
 import {
   AGridOptions,
   AgridEnterEditAction,
+  AgridMenuBarItem,
   AgridTreeConfig,
   CellContextMenuItem,
   ColDef,
@@ -59,6 +60,11 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
    * instead of filtering locally. @default false
    */
   enableQuickFilter?: boolean;
+  /**
+   * Optional command bar rendered above the column headers. Buttons and dropdown items emit
+   * their id through the grid's single `(menuBarAction)` output.
+   */
+  menuBarItems?: AgridMenuBarItem<T>[];
   /**
    * Sorting behavior: one active column, multiple columns, or disabled entirely.
    * @default 'multi'
@@ -212,6 +218,8 @@ export class AgridProvider<T extends object = any> {
   filterDebounceMs: number;
   /** Whether the global quick-filter box is shown above the grid. */
   enableQuickFilter: boolean;
+  /** Commands rendered in the optional menu bar above the column headers. */
+  menuBarItems: AgridMenuBarItem<T>[];
   /** Enabled sorting mode. */
   sortOption: 'single' | 'multi' | 'none';
   /** Toggle auto-add-rows without recreating the provider. @default signal(false) */
@@ -274,6 +282,7 @@ export class AgridProvider<T extends object = any> {
     this.serverSideFiltering = config.serverSideFiltering ?? false;
     this.filterDebounceMs = Math.max(0, config.filterDebounceMs ?? 300);
     this.enableQuickFilter = config.enableQuickFilter ?? false;
+    this.menuBarItems = config.menuBarItems ?? [];
     this.sortOption = config.sortOption ?? 'multi';
     this.rowSelection     = config.rowSelection ?? 'none';
     this.enterEditAction  = config.enterEditAction ?? 'nextRow';

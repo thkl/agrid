@@ -1,4 +1,6 @@
 export { AgridComponent } from './agrid.component';
+export { AgridTreeComponent } from './agrid-tree.component';
+export { AgridTreeProvider } from './agrid-tree-provider';
 export { AgridControl } from './agrid-control';
 export { AgridDataSource } from './agrid-datasource';
 export { AGRID_LOCALE_TEXT } from './agrid-localization';
@@ -18,13 +20,21 @@ export type {
   AgridLocaleTextOverrides,
 } from './agrid-localization';
 export type { AgridProviderConfig } from './agrid-provider';
+export type { AgridTreeProviderConfig } from './agrid-tree-provider';
 export type {
   AgridEnterEditAction,
   AgridField,
+  AgridMenuBarContext,
+  AgridMenuBarItem,
+  AgridMenuBarMenuItem,
+  AgridMenuBarState,
   AgridParentTreeConfig,
   AgridPathSegmentParams,
   AgridPathTreeConfig,
   AgridTreeConfig,
+  AgridTreeNodeEvent,
+  AgridTreeSelectionEvent,
+  AgridTreeSelectionMode,
   CellContextMenuItem,
   CellInfoEvent,
   CellPosition,

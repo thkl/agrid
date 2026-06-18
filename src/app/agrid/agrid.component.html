@@ -3,11 +3,18 @@
   [attr.aria-multiselectable]="rowSelection() === 'multi' ? 'true' : null"
   [attr.aria-readonly]="readonlyGrid() ? 'true' : null" [attr.aria-busy]="loading() ? 'true' : null"
   (copy)="onCopy($event)" (paste)="onPaste($event)" (focusin)="onGridFocusIn($event)"
-  (click)="closeContextMenu(); closeCellContextMenu(); closeFilterMenu(); closeGroupActionsMenu()">
-  @if (enableQuickFilter()) {
+  (click)="closeContextMenu(); closeCellContextMenu(); closeFilterMenu(); closeGroupActionsMenu(); closeMenuBarMenu()">
+  @if (visibleMenuBarItems().length > 0 || enableQuickFilter()) {
   <div class="ag-toolbar">
+    @if (visibleMenuBarItems().length > 0) {
+    <agrid-menu-bar [items]="visibleMenuBarItems()" [context]="menuBarContext()"
+      [label]="localeText().actions" [openItemId]="openMenuBarItemId()"
+      (openItemIdChange)="onMenuBarOpenItemChange($event)" (action)="menuBarAction.emit($event)" />
+    }
+    @if (enableQuickFilter()) {
     <input class="ag-quick-filter" type="search" [value]="quickFilterValue()" (input)="onQuickFilterInput($event)"
       [placeholder]="localeText().quickFilterPlaceholder" [attr.aria-label]="localeText().quickFilterPlaceholder" />
+    }
   </div>
   }
   <div class="ag-main-area">

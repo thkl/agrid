@@ -78,6 +78,7 @@ function generateRows(count: number): Record<string, unknown>[] {
         (rowReorder)="onRowReorder($event)"
         (rowSelect)="onRowSelect($event)"
         (rowDoubleClicked)="onRowClick($event)"
+        (menuBarAction)="onMenuBarAction($event)"
       />
       <div class="demo-footer">
         @if (lastEdit()) {
@@ -179,7 +180,22 @@ export class AgridDemoComponent {
     rowSelection: 'multi',
     enableRowMarking: true,
     confirmRowDelete:true,
-    enableQuickFilter: true
+    enableQuickFilter: true,
+    menuBarItems: [
+      { id: 'refresh', label: 'Refresh', icon: '\u21bb' },
+      {
+        id: 'export',
+        label: 'Export',
+        items: [
+          { id: 'export-csv', label: 'All rows' },
+          {
+            id: 'export-selected',
+            label: 'Selected rows',
+            disabled: context => context.selectedRows.length === 0,
+          },
+        ],
+      },
+    ],
   });
   readonly lastEdit = signal('');
   readonly autoAdd = signal(false);
@@ -229,6 +245,15 @@ export class AgridDemoComponent {
     this.lastEdit.set(
       `Edited row ${event.position.rowIndex + 1} · "${event.field}": ${JSON.stringify(event.oldValue)} → ${JSON.stringify(event.newValue)}`
     );
+  }
+
+  onMenuBarAction(id: string): void {
+    if (id === 'refresh') {
+      this.lastEdit.set('Grid data refreshed');
+      return;
+    }
+    if (id === 'export' || id === 'export-csv') this._grid()?.exportCsv();
+    this.lastEdit.set(`Menu action: ${id}`);
   }
 
   onPrepareAdd(event: NewRecord): void {

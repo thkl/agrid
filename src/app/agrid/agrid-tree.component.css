@@ -1,0 +1,100 @@
+@layer agrid-defaults {
+  :host {
+    --agrid-color-text: #24292f;
+    --agrid-color-text-muted: #57606a;
+    --agrid-color-accent: #1a73e8;
+    --agrid-color-accent-subtle: #e8f0fe;
+    --agrid-color-accent-fg: #1558b0;
+    --agrid-color-border: #d0d7de;
+    --agrid-color-bg: #ffffff;
+    --agrid-color-bg-muted: #f6f8fa;
+  }
+}
+
+:host {
+  display: block;
+  min-width: 180px;
+  min-height: 0;
+  overflow: auto;
+  color: var(--agrid-color-text);
+  background: var(--agrid-color-bg);
+  font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.ag-tree { min-width: max-content; padding: 4px; }
+
+.ag-tree-node {
+  display: flex;
+  align-items: center;
+  min-width: 100%;
+  height: var(--agrid-tree-row-height);
+  padding-right: 10px;
+  border-radius: 4px;
+  box-sizing: border-box;
+  cursor: default;
+  outline: none;
+  user-select: none;
+}
+
+.ag-tree-node--selected {
+  color: var(--agrid-color-accent-fg);
+  background: var(--agrid-color-accent-subtle);
+}
+
+.ag-tree-node:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--agrid-color-accent);
+}
+
+.ag-tree-toggle {
+  display: inline-flex;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  color: var(--agrid-color-text-muted);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.ag-tree-toggle--expanded { transform: rotate(90deg); }
+.ag-tree-toggle--hidden { visibility: hidden; }
+.ag-tree-toggle:active { scale: 0.92; }
+
+.ag-tree-content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ag-tree-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.ag-tree-description {
+  overflow: hidden;
+  color: var(--agrid-color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.ag-tree-empty { padding: 16px 12px; color: var(--agrid-color-text-muted); }
+
+@media (hover: hover) and (pointer: fine) {
+  .ag-tree-node:hover:not(.ag-tree-node--selected),
+  .ag-tree-toggle:hover { background: var(--agrid-color-bg-muted); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-tree-toggle { transition: none; }
+}

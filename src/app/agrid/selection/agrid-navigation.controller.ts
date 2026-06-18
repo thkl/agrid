@@ -91,7 +91,9 @@ export class AgridNavigationController {
 
   /** Handles grid-level navigation, editing, history, find, and add-row shortcuts. */
   handleKeyDown(event: KeyboardEvent): void {
-    if ((event.target as Element)?.closest('.ag-sidebar, .ag-filter-input, .ag-filter-menu')) return;
+    if ((event.target as Element)?.closest(
+      '.ag-sidebar, .ag-filter-input, .ag-filter-menu, .ag-menu-bar',
+    )) return;
 
     if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'f') {
       event.preventDefault();

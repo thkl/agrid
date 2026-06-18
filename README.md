@@ -158,6 +158,7 @@ The `AgridLocaleTextOverrides` type covers all overridable labels.
 | `prepareAddRecord` | `NewRecord` | Emitted after the grid inserts a blank row. Patch `event.datasource` to target the correct grid when multiple providers are rendered. |
 | `rowReorder` | `RowReorderEvent` | Emitted after the user drops a reordered row. The host must call `dataSource.moveRow()`. |
 | `rowSelect` | `RowSelectEvent \| null` | Emitted when row selection changes. `null` means selection was cleared. |
+| `menuBarAction` | `string` | Emitted for every enabled menu-bar button or dropdown item with its configured `id`. |
 | `treeNodeClick` | `TreeNodeClickEvent` | Emitted when a generated path-tree branch node is clicked. |
 | `treeNodeDoubleClicked` | `TreeNodeClickEvent` | Emitted when a generated path-tree branch node is double-clicked. |
 | `cellInfo` | `CellInfoEvent<T>` | Emitted when a column's optional cell info icon is clicked. |
@@ -236,6 +237,7 @@ readonly gridProvider = new AgridProvider({
 | `autoOpenDetail` | `boolean` | `false` | Opens the detail row automatically when a row is selected. |
 | `serverSideFiltering` | `boolean` | `false` | Emits filter/sort events instead of applying them locally and hides the value checklist. |
 | `filterDebounceMs` | `number` | `300` | Debounce delay for server-side `filterChange` events. Set to `0` to disable. |
+| `menuBarItems` | `AgridMenuBarItem<T>[]` | `[]` | Optional buttons above the headers. Buttons may expose additional dropdown commands. |
 | `sortOption` | `'single' \| 'multi' \| 'none'` | `'multi'` | Allows one sort, multiple sorts, or disables sorting. |
 | `rowSelection` | `'single' \| 'multi' \| 'none'` | `'none'` | Row selection behavior. |
 | `enterEditAction` | `'nothing' \| 'nextColumn' \| 'nextRow'` | `'nextRow'` | Behavior after pressing Enter while editing a cell. |
@@ -254,6 +256,65 @@ readonly gridProvider = new AgridProvider({
 | `masterDetail` | `boolean` | `false` | Enables expandable detail panels. In tree mode, only leaf rows can expand details. Not available while grouped. |
 | `detailRenderer` | `(p: { row }) => string` | `undefined` | Returns sanitized HTML for an expanded detail panel. |
 | `detailRowHeight` | `number` | `200` | Fixed height in pixels of an expanded detail panel. |
+
+### Standalone tree
+
+`AgridTreeComponent` and `AgridTreeProvider` provide the same hierarchy without grid columns.
+The control accepts `AgridTreeConfig<T>`, supports keyboard navigation and selection, and emits
+normalized row/path-branch events.
+
+```ts
+readonly treeProvider = new AgridTreeProvider<Node>({
+  datasource: new AgridDataSource(nodes),
+  treeConfig: {
+    getId: node => node.id,
+    getParentId: node => node.parentId,
+    treeField: 'name',
+    defaultExpanded: true,
+  },
+  getDescription: node => node.type,
+});
+```
+
+```html
+<agrid-tree [provider]="treeProvider" (nodeClick)="openNode($event)" />
+```
+
+### Menu bar
+
+Configure `menuBarItems` to render commands above the column headers. Main buttons and dropdown
+items share the single `(menuBarAction)` output. `visible`, `active`, and `disabled` accept either
+a boolean or a resolver receiving current rows, selected rows, selected cell, provider, and
+datasource.
+
+```ts
+readonly provider = new AgridProvider<Order>({
+  columns,
+  datasource,
+  rowSelection: 'multi',
+  menuBarItems: [
+    { id: 'refresh', label: 'Refresh', icon: '↻' },
+    {
+      id: 'selection',
+      label: 'Selection',
+      disabled: ({ selectedRows }) => selectedRows.length === 0,
+      active: ({ selectedRows }) => selectedRows.length > 0,
+      items: [
+        { id: 'approve', label: 'Approve', visible: ({ selectedRows }) => selectedRows.length > 0 },
+        { id: 'archive', label: 'Archive', disabled: ({ selectedRows }) => selectedRows.some(({ row }) => row.locked) },
+      ],
+    },
+  ],
+});
+
+onMenuBarAction(id: string): void {
+  // refresh, selection, approve, archive, ...
+}
+```
+
+```html
+<agrid [provider]="provider" (menuBarAction)="onMenuBarAction($event)" />
+```
 
 ### Dynamic Provider Options
 
@@ -1142,8 +1203,8 @@ Override these on the `agrid` host element to theme the grid.
 
 | Property | Default | Description |
 | --- | --- | --- |
-| `--agrid-color-text` | `#24292f` | Primary text color. |
-| `--agrid-color-text-muted` | `#57606a` | Secondary / placeholder text. |
+| `--agrid-color-text` | `#24292f` | Primary text color. Also used by `agrid-tree`. |
+| `--agrid-color-text-muted` | `#57606a` | Secondary / placeholder text. Also used by `agrid-tree`. |
 | `--agrid-color-accent` | `#1a73e8` | Selection, focus, and active state color. |
 | `--agrid-color-border` | `#d0d7de` | Cell and header borders. |
 | `--agrid-color-bg` | `#ffffff` | Cell background. |

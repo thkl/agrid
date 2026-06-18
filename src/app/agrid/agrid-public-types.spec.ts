@@ -3,6 +3,8 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import { AgridComponent } from './agrid.component';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridProvider } from './agrid-provider';
+import { AgridTreeComponent } from './agrid-tree.component';
+import { AgridTreeProvider } from './agrid-tree-provider';
 import {
   CellInfoEvent,
   ColDef,
@@ -22,20 +24,42 @@ interface PersonRow {
 }
 
 @Component({
-  imports: [AgridComponent],
+  imports: [AgridComponent, AgridTreeComponent],
   template: `
     <agrid
       [provider]="provider"
       (recordEdit)="onRecordEdit($event)"
       (rowChanged)="onRowChanged($event)"
       (cellInfo)="onCellInfo($event)"
+      (menuBarAction)="onMenuBarAction($event)"
     />
+    <agrid-tree [provider]="treeProvider" (nodeClick)="onTreeNode($event)" />
   `,
 })
 class TypedGridHost {
   readonly provider = new AgridProvider<PersonRow>({
     columns: [{ field: 'name', header: 'Name' }],
     datasource: new AgridDataSource<PersonRow>([]),
+    menuBarItems: [{
+      id: 'activate',
+      label: 'Activate',
+      visible: ({ rows, selectedRows }) => {
+        expectTypeOf(rows).toEqualTypeOf<readonly PersonRow[]>();
+        expectTypeOf(selectedRows).toEqualTypeOf<readonly {
+          row: PersonRow;
+          originalIndex: number;
+        }[]>();
+        return rows.length > 0;
+      },
+    }],
+  });
+  readonly treeProvider = new AgridTreeProvider<PersonRow>({
+    datasource: new AgridDataSource<PersonRow>([]),
+    treeConfig: {
+      getId: row => row.id,
+      getParentId: () => null,
+      treeField: 'name',
+    },
   });
 
   onRecordEdit(event: RecordEditEvent<PersonRow>): void {
@@ -49,6 +73,14 @@ class TypedGridHost {
   onCellInfo(event: CellInfoEvent<PersonRow>): void {
     expectTypeOf(event.row).toEqualTypeOf<PersonRow>();
     expectTypeOf(event.field).toEqualTypeOf<'id' | 'name' | 'active'>();
+  }
+
+  onMenuBarAction(id: string): void {
+    expectTypeOf(id).toEqualTypeOf<string>();
+  }
+
+  onTreeNode(event: import('./agrid.types').AgridTreeNodeEvent<PersonRow>): void {
+    expectTypeOf(event.row).toEqualTypeOf<PersonRow | undefined>();
   }
 }
 

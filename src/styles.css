@@ -16,7 +16,8 @@ body {
   height: 100% !important;
 }
 
-.app-shell--dark agrid {
+.app-shell--dark agrid,
+.app-shell--dark agrid-tree {
   --agrid-color-text: #dce8df !important;
   --agrid-color-text-muted: #91a399 !important;
   --agrid-color-accent: #4ade80 !important;
@@ -44,6 +45,7 @@ body {
 
 .app-shell--dark .demo-meta,
 .app-shell--dark .demo-toggle,
+.app-shell--dark .demo-event,
 .app-shell--dark .edit-hint,
 .app-shell--dark .page-sizes,
 .app-shell--dark .fetch-info,
