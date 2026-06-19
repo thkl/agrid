@@ -342,6 +342,27 @@ The tree uses the shared `--agrid-color-text`, `--agrid-color-text-muted`,
 `--agrid-color-accent`, `--agrid-color-accent-subtle`, `--agrid-color-accent-fg`,
 `--agrid-color-border`, `--agrid-color-bg`, and `--agrid-color-bg-muted` CSS variables.
 
+## Page selector
+
+Use `<agrid-page-selector>` to navigate pages by previous/next button, dropdown, or typed ID.
+All three interactions emit an `AgridPageItem<TId>` through the single `(selectPage)` output.
+
+```ts
+readonly pages: AgridPageItem<number>[] = [
+  { id: 1, label: 'Cover' },
+  { id: 2, label: 'Measurements' },
+  { id: 3, label: 'Summary' },
+];
+```
+
+```html
+<agrid-page-selector [items]="pages" [selectedId]="currentPageId()"
+  (selectPage)="currentPageId.set($event.id)" />
+```
+
+IDs can be strings or numbers. Typed IDs are selected with Enter. Available inputs are
+`disabled`, `previousLabel`, `nextLabel`, `inputLabel`, `menuLabel`, and `emptyText`.
+
 ## Saving edited rows
 
 Use `rowChanged` to send one request after the user edits one or more fields in a row:

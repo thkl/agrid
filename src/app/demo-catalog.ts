@@ -104,7 +104,7 @@ readonly provider = new AgridProvider({
     points: [
       'Provide the full local dataset once.',
       'Set pageSize on AgridControl.',
-      'Change page size at runtime without recreating the provider.',
+      'Use the page selector to navigate by button, dropdown, or typed page ID.',
     ],
     code: `readonly datasource = new AgridDataSource<Product>(rows);
 readonly control = new AgridControl({ pageSize: 25 });
@@ -122,6 +122,9 @@ setPageSize(size: number): void {
 }
 
 // Template
+// <agrid-page-selector [items]="pages()"
+//   [selectedId]="control.currentPage()"
+//   (selectPage)="control.setPage($event.id)" />
 // <agrid [provider]="provider" />`,
   },
   {

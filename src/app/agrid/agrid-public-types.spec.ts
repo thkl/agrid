@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import { AgridComponent } from './agrid.component';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridProvider } from './agrid-provider';
+import { AgridPageItem, AgridPageSelectorComponent } from './agrid-page-selector.component';
 import { AgridTreeComponent } from './agrid-tree.component';
 import { AgridTreeProvider } from './agrid-tree-provider';
 import {
@@ -24,7 +25,7 @@ interface PersonRow {
 }
 
 @Component({
-  imports: [AgridComponent, AgridTreeComponent],
+  imports: [AgridComponent, AgridTreeComponent, AgridPageSelectorComponent],
   template: `
     <agrid
       [provider]="provider"
@@ -34,9 +35,11 @@ interface PersonRow {
       (menuBarAction)="onMenuBarAction($event)"
     />
     <agrid-tree [provider]="treeProvider" (nodeClick)="onTreeNode($event)" />
+    <agrid-page-selector [items]="pages" [selectedId]="1" (selectPage)="onSelectPage($event)" />
   `,
 })
 class TypedGridHost {
+  readonly pages: AgridPageItem<number>[] = [{ id: 1, label: 'First' }];
   readonly provider = new AgridProvider<PersonRow>({
     columns: [{ field: 'name', header: 'Name' }],
     datasource: new AgridDataSource<PersonRow>([]),
@@ -81,6 +84,10 @@ class TypedGridHost {
 
   onTreeNode(event: import('./agrid.types').AgridTreeNodeEvent<PersonRow>): void {
     expectTypeOf(event.row).toEqualTypeOf<PersonRow | undefined>();
+  }
+
+  onSelectPage(item: AgridPageItem<number>): void {
+    expectTypeOf(item.id).toEqualTypeOf<number>();
   }
 }
 

@@ -1,0 +1,48 @@
+<div class="ag-page-selector" [class.ag-page-selector--disabled]="disabled()">
+  <button type="button" class="ag-page-nav" [disabled]="!hasPrevious()"
+    [attr.aria-label]="previousLabel()" [title]="previousLabel()" (click)="previous()">
+    <span aria-hidden="true">&#8249;</span>
+  </button>
+
+  <div class="ag-page-combo">
+    <div class="ag-page-input-group" [class.ag-page-input-group--open]="menuOpen()"
+      [class.ag-page-input-group--invalid]="invalid()">
+      <input class="ag-page-input" type="text" inputmode="text" autocomplete="off"
+        role="combobox" [value]="draft()" [disabled]="disabled()"
+        [attr.aria-label]="inputLabel()" [attr.aria-expanded]="menuOpen()"
+        [attr.aria-controls]="menuOpen() ? listboxId : null"
+        [attr.aria-activedescendant]="menuOpen() && focusedOptionIndex() >= 0 ? optionId(focusedOptionIndex()) : null"
+        [attr.aria-invalid]="invalid() ? 'true' : null"
+        (input)="onInput($event)" (keydown)="onInputKeydown($event)" />
+      <button type="button" class="ag-page-trigger" [disabled]="disabled() || items().length === 0"
+        [attr.aria-label]="menuLabel()" [title]="menuLabel()"
+        [attr.aria-expanded]="menuOpen()" aria-haspopup="listbox"
+        (click)="toggleMenu($event)">
+        <span aria-hidden="true">&#9662;</span>
+      </button>
+    </div>
+
+    @if (menuOpen()) {
+      <div [id]="listboxId" class="ag-page-options" role="listbox"
+        [attr.aria-label]="menuLabel()" (pointerdown)="$event.stopPropagation()">
+        @for (item of items(); track item.id; let index = $index) {
+          <button type="button" class="ag-page-option" role="option" [id]="optionId(index)"
+            [class.ag-page-option--selected]="isSelected(item)"
+            [class.ag-page-option--focused]="focusedOptionIndex() === index"
+            [attr.aria-selected]="isSelected(item)"
+            (mouseenter)="focusedOptionIndex.set(index)" (click)="choose(item)">
+            <span class="ag-page-option-id">{{ item.id }}</span>
+            <span class="ag-page-option-label">{{ item.label }}</span>
+          </button>
+        } @empty {
+          <div class="ag-page-empty">{{ emptyText() }}</div>
+        }
+      </div>
+    }
+  </div>
+
+  <button type="button" class="ag-page-nav" [disabled]="!hasNext()"
+    [attr.aria-label]="nextLabel()" [title]="nextLabel()" (click)="next()">
+    <span aria-hidden="true">&#8250;</span>
+  </button>
+</div>

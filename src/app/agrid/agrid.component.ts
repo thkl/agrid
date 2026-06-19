@@ -1871,9 +1871,9 @@ export class AgridComponent<T extends object = any> {
   /** @internal Provides standard keyboard navigation within an open menu-bar dropdown. */
   onMenuBarMenuKeydown(event: KeyboardEvent): void {
     const menu = event.currentTarget as HTMLElement;
-    const items = [...menu.querySelectorAll<HTMLButtonElement>(
+    const items = Array.from(menu.querySelectorAll<HTMLButtonElement>(
       '[role="menuitem"]:not(:disabled)',
-    )];
+    ));
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();

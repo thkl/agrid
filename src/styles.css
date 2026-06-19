@@ -17,7 +17,8 @@ body {
 }
 
 .app-shell--dark agrid,
-.app-shell--dark agrid-tree {
+.app-shell--dark agrid-tree,
+.app-shell--dark agrid-page-selector {
   --agrid-color-text: #dce8df !important;
   --agrid-color-text-muted: #91a399 !important;
   --agrid-color-accent: #4ade80 !important;

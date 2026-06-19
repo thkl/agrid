@@ -1,4 +1,6 @@
 export { AgridComponent } from './agrid.component';
+export { AgridPageSelectorComponent } from './agrid-page-selector.component';
+export type { AgridPageId, AgridPageItem } from './agrid-page-selector.component';
 export { AgridTreeComponent } from './agrid-tree.component';
 export { AgridTreeProvider } from './agrid-tree-provider';
 export { AgridControl } from './agrid-control';

@@ -71,7 +71,9 @@ export class AgridMenuBarComponent<T extends object = any> {
 
   onMenuKeydown(event: KeyboardEvent): void {
     const menu = event.currentTarget as HTMLElement;
-    const items = [...menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')];
+    const items = Array.from(
+      menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)'),
+    );
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();

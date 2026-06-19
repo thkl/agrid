@@ -1,5 +1,12 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, viewChild } from '@angular/core';
-import { AgridComponent, AgridControl, AgridDataSource, ColDef } from '../agrid';
+import {
+  AgridComponent,
+  AgridControl,
+  AgridDataSource,
+  AgridPageItem,
+  AgridPageSelectorComponent,
+  ColDef,
+} from '../agrid';
 import { AgridProvider } from '../agrid/agrid-provider';
 
 const COLUMNS: ColDef[] = [
@@ -32,7 +39,7 @@ function makeRows(n: number) {
 @Component({
   selector: 'demo-pagination',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AgridComponent],
+  imports: [AgridComponent, AgridPageSelectorComponent],
   template: `
     <div class="demo-wrap">
       <div class="demo-header">
@@ -44,6 +51,8 @@ function makeRows(n: number) {
             <button class="ps-btn" [class.ps-btn--active]="ctrl.pageSize() === n" (click)="ctrl.setPageSize(n)">{{ n }}</button>
           }
         </div>
+        <agrid-page-selector [items]="pages()" [selectedId]="ctrl.currentPage()"
+          (selectPage)="selectPage($event)" />
       </div>
       <agrid
         class="demo-grid"
@@ -71,8 +80,22 @@ export class PaginationDemoComponent {
   readonly pageSizes = [10, 25, 50, 100];
   readonly _grid = viewChild(AgridComponent);
   readonly filteredCount = computed(() => this._grid()?.filteredRowCount() ?? this.ds.length);
+  readonly pages = computed<AgridPageItem<number>[]>(() => {
+    const pageSize = this.ctrl.pageSize();
+    const count = Math.max(1, Math.ceil(this.filteredCount() / pageSize));
+    return Array.from({ length: count }, (_, index) => {
+      const page = index + 1;
+      const first = index * pageSize + 1;
+      const last = Math.min(page * pageSize, this.filteredCount());
+      return { id: page, label: `Rows ${first}-${last}` };
+    });
+  });
 
   constructor() {
     afterNextRender(() => this._grid()?.autosizeAllColumns());
+  }
+
+  selectPage(item: AgridPageItem<number>): void {
+    this.ctrl.setPage(item.id);
   }
 }

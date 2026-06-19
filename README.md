@@ -280,6 +280,31 @@ readonly treeProvider = new AgridTreeProvider<Node>({
 <agrid-tree [provider]="treeProvider" (nodeClick)="openNode($event)" />
 ```
 
+### Page selector
+
+`AgridPageSelectorComponent` navigates a labeled list using previous/next buttons, a typed ID,
+or a dropdown. Every navigation path emits the complete selected item through `(selectPage)`.
+
+```ts
+readonly pages: AgridPageItem<number>[] = Array.from({ length: 100 }, (_, index) => ({
+  id: index + 1,
+  label: `Page ${index + 1}`,
+}));
+readonly selectedPageId = signal(1);
+
+selectPage(item: AgridPageItem<number>): void {
+  this.selectedPageId.set(item.id);
+}
+```
+
+```html
+<agrid-page-selector [items]="pages" [selectedId]="selectedPageId()"
+  (selectPage)="selectPage($event)" />
+```
+
+IDs may be strings or numbers. Type an exact ID and press Enter to jump. The component uses the
+shared `--agrid-color-*` theme variables and accepts optional labels plus a disabled state.
+
 ### Menu bar
 
 Configure `menuBarItems` to render commands above the column headers. Main buttons and dropdown
