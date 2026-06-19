@@ -161,6 +161,46 @@ onPageChange({ page, pageSize }: PageChangeEvent): void {
 //   (sortChange)="onSort($event)" />`,
   },
   {
+    path: '/server-side-row-model',
+    label: 'Server row model',
+    title: 'Lazy block loading from a remote dataset',
+    summary:
+      'The virtual viewport requests sparse row blocks while filters and sorting invalidate the cache and issue a fresh query.',
+    points: [
+      'Serve the dataset from a deployable GitHub Pages asset.',
+      'Implement getRows with the requested startRow/endRow range and query metadata.',
+      'Return rowCount so the virtual scrollbar represents the complete result set.',
+      'Limit maxBlocksInCache to bound loaded row memory.',
+    ],
+    code: `const dataUrl = new URL(
+  'demo/server-side-orders.json',
+  document.baseURI,
+).href;
+
+const rowModel = new AgridServerSideRowModel<Order>({
+  blockSize: 50,
+  maxBlocksInCache: 6,
+  initialRowCount: 2_000,
+  datasource: {
+    async getRows(request) {
+      const allRows = await fetch(dataUrl).then(response => response.json());
+      const matchingRows = applyServerQuery(allRows, request);
+      return {
+        rows: matchingRows.slice(request.startRow, request.endRow),
+        rowCount: matchingRows.length,
+      };
+    },
+  },
+});
+
+readonly provider = new AgridProvider<Order>({
+  columns,
+  control: new AgridControl(),
+  serverSideRowModel: rowModel,
+  enableQuickFilter: true,
+});`,
+  },
+  {
     path: '/aggregates',
     label: 'Aggregates',
     title: 'Aggregate footers and grouped subtotals',

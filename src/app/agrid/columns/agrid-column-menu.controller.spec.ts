@@ -43,6 +43,20 @@ describe('AgridColumnMenuController', () => {
     expect(formatter).not.toHaveBeenCalled();
   });
 
+  it('keeps configured value options active in server-side mode before their rows are loaded', () => {
+    const { controller } = setup({
+      columns: [{
+        field: 'status',
+        header: 'Status',
+        filterable: true,
+        values: ['backlog', 'done', 'pending'],
+      }],
+    });
+    controller.menu.set({ field: 'status', x: 0, y: 0 });
+
+    expect(controller.valueItems().find(item => item.rawStr === 'pending')?.active).toBe(true);
+  });
+
   it('debounces server-side text filter events per field', () => {
     vi.useFakeTimers();
     const { controller, control, filterEvents } = setup({ filterDebounceMs: 300 });

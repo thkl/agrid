@@ -69,6 +69,10 @@ export class AgridColumnMenuController {
   readonly activeValues = computed(() => {
     const menu = this.menu();
     if (!menu) return new Set<string>();
+    const col = this.getColDef(menu.field);
+    if (this.opts.serverSideFiltering() && col?.values?.length) {
+      return new Set(this.items().map(item => item.rawStr));
+    }
     const rows = this.opts.dataSource().rows();
     const control = this.opts.control();
     let indices = rows.map((_, index) => index);

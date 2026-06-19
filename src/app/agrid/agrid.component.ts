@@ -1044,11 +1044,15 @@ export class AgridComponent<T extends object = any> {
     afterNextRender(() => {
       this.viewReady = true;
       const wrapper = this.wrapperEl().nativeElement;
+      const renderedRangeSubscription = this.viewport().renderedRangeStream.subscribe(() =>
+        this.ensureServerRowsVisible()
+      );
       const onKeyDown = (event: KeyboardEvent) => this.onKeyDown(event);
       wrapper.addEventListener('keydown', onKeyDown, { capture: true });
-      this.destroyRef.onDestroy(() =>
-        wrapper.removeEventListener('keydown', onKeyDown, { capture: true })
-      );
+      this.destroyRef.onDestroy(() => {
+        renderedRangeSubscription.unsubscribe();
+        wrapper.removeEventListener('keydown', onKeyDown, { capture: true });
+      });
       this.ensureServerRowsVisible();
     });
 
@@ -1061,7 +1065,8 @@ export class AgridComponent<T extends object = any> {
       ctrl?.filters();
       ctrl?.sortOrder();
       ctrl?.quickFilter();
-      model.setQuery(ctrl, this.projection.effectiveSortOrder());
+      const changed = model.setQuery(ctrl, this.projection.effectiveSortOrder());
+      if (changed && this.viewReady) this.viewport().scrollToIndex(0);
       queueMicrotask(() => this.ensureServerRowsVisible());
     });
 
@@ -1387,6 +1392,7 @@ export class AgridComponent<T extends object = any> {
   readonly trackByItem = (_di: number, item: GridItem): string | number => {
     if (item === 'ghost') return '__ghost__';
     if (item === null) return -1;
+    if (this.isLoadingRow(item)) return `__loading__${item.originalIndex}`;
     if (isGroupHeaderItemFn(item)) return `__group__${item.groupLabel}`;
     if (isDetailRowItemFn(item)) return `__detail__${item.detailFor}`;
     if (isPathTreeNodeItemFn(item)) return item.pathNodeId;
@@ -2115,7 +2121,6 @@ export class AgridComponent<T extends object = any> {
     const offset = this.viewport().measureScrollOffset();
     this.pinnedViewport()?.scrollToOffset(offset);
     this.rightPinnedViewport()?.scrollToOffset(offset);
-    this.ensureServerRowsVisible();
   }
 
   private ensureServerRowsVisible(): void {

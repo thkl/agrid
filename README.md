@@ -702,7 +702,7 @@ In server-side mode:
 
 - Filter and sort state remains visible in the grid headers.
 - The grid does not filter or sort loaded rows locally.
-- The Excel-style distinct-value checklist is hidden.
+- The distinct-value checklist is hidden unless `ColDef.values` supplies the complete server-side value set.
 - Clearing emits an empty filter value or a `null` sort direction.
 - Multi-column sorting emits one event for each changed column.
 - Text filter events are debounced by `filterDebounceMs` (300 ms by default).

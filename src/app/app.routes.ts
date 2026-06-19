@@ -26,6 +26,10 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/server-pagination.component').then(m => m.ServerPaginationDemoComponent),
   },
   {
+    path: 'server-side-row-model',
+    loadComponent: () => import('./demos/server-side-row-model.component').then(m => m.ServerSideRowModelDemoComponent),
+  },
+  {
     path: 'aggregates',
     loadComponent: () => import('./demos/aggregates.component').then(m => m.AggregatesDemoComponent),
   },

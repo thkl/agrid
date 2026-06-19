@@ -97,6 +97,18 @@ describe('AgridServerSideRowModel', () => {
     expect(model.rowCount()).toBe(4);
     expect(model.rows()).toHaveLength(4);
   });
+
+  it('reports whether query state invalidated the block cache', () => {
+    const model = new AgridServerSideRowModel<Row>({
+      datasource: { async getRows() { return { rows: [] }; } },
+    });
+    const control = new AgridControl();
+
+    expect(model.setQuery(control, [])).toBe(true);
+    expect(model.setQuery(control, [])).toBe(false);
+    control.setTextFilter('name', 'alice');
+    expect(model.setQuery(control, [])).toBe(true);
+  });
 });
 
 async function settle(): Promise<void> {

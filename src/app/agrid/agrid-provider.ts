@@ -55,7 +55,8 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   autoOpenDetail?: boolean;
   /**
    * Emit filter and sort changes for server processing instead of applying them locally.
-   * The Excel-style value picker is hidden in this mode. @default false
+   * The distinct-value picker is hidden unless the column supplies an explicit `values` list.
+   * @default false
    */
   serverSideFiltering?: boolean;
   /** Delay before emitting server-side text filter changes. Set to `0` to disable. @default 300 */

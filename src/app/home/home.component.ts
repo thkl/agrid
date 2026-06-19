@@ -173,6 +173,11 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
               <div class="demo-card-desc">Remote data source with simulated API latency.</div>
               <span class="demo-card-link">Open →</span>
             </a>
+            <a class="demo-card" routerLink="/server-side-row-model">
+              <div class="demo-card-title">Server row model</div>
+              <div class="demo-card-desc">Lazy block loading from a GitHub Pages JSON dataset.</div>
+              <span class="demo-card-link">Open →</span>
+            </a>
             <a class="demo-card" routerLink="/aggregates">
               <div class="demo-card-title">Aggregates</div>
               <div class="demo-card-desc">Sum, average, and count footers per column.</div>

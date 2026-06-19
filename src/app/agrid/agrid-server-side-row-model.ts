@@ -89,7 +89,7 @@ export class AgridServerSideRowModel<T extends object = any> extends AgridDataSo
   }
 
   /** Update server query state. A changed query invalidates cached blocks and starts at row zero. */
-  setQuery(control: AgridControl | null, sortFields: readonly string[]): void {
+  setQuery(control: AgridControl | null, sortFields: readonly string[]): boolean {
     const filters = cloneFilters(control?.filters() ?? {});
     const sort = sortFields.flatMap(field => {
       const direction = filters[field]?.sort;
@@ -97,10 +97,11 @@ export class AgridServerSideRowModel<T extends object = any> extends AgridDataSo
     });
     const quickFilter = control?.quickFilter() ?? '';
     const key = JSON.stringify({ filters, sort, quickFilter });
-    if (key === this.queryKey) return;
+    if (key === this.queryKey) return false;
     this.queryKey = key;
     this.query = { filters, sort, quickFilter };
     this.reset();
+    return true;
   }
 
   /** Invalidate all cached blocks while preserving a known total row count. */

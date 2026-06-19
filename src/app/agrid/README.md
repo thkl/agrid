@@ -237,7 +237,8 @@ refetch:
 ```
 
 Text/range/quick events are debounced by `filterDebounceMs` (default 300 ms; `0` disables). The
-Excel-style value picker stays client-only and is hidden in this mode.
+The distinct-value picker is hidden in this mode unless the column supplies an explicit `values`
+list representing the complete server-side value set.
 
 ## Grouping and aggregates
 
