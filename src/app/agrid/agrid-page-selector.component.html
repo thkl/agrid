@@ -31,7 +31,7 @@
             [class.ag-page-option--focused]="focusedOptionIndex() === index"
             [attr.aria-selected]="isSelected(item)"
             (mouseenter)="focusedOptionIndex.set(index)" (click)="choose(item)">
-            <span class="ag-page-option-id">{{ item.id }}</span>
+            <span class="ag-page-option-id">{{ item.pageNumber }}</span>
             <span class="ag-page-option-label">{{ item.label }}</span>
           </button>
         } @empty {

@@ -51,7 +51,7 @@ function makeRows(n: number) {
             <button class="ps-btn" [class.ps-btn--active]="ctrl.pageSize() === n" (click)="ctrl.setPageSize(n)">{{ n }}</button>
           }
         </div>
-        <agrid-page-selector [items]="pages()" [selectedId]="ctrl.currentPage()"
+        <agrid-page-selector [items]="pages()" [selectedPageNumber]="ctrl.currentPage()"
           (selectPage)="selectPage($event)" />
       </div>
       <agrid
@@ -87,7 +87,7 @@ export class PaginationDemoComponent {
       const page = index + 1;
       const first = index * pageSize + 1;
       const last = Math.min(page * pageSize, this.filteredCount());
-      return { id: page, label: `Rows ${first}-${last}` };
+      return { id:crypto.randomUUID(), pageNumber : page, label: `Rows ${first}-${last}` };
     });
   });
 
@@ -96,6 +96,6 @@ export class PaginationDemoComponent {
   }
 
   selectPage(item: AgridPageItem<number>): void {
-    this.ctrl.setPage(item.id);
+    this.ctrl.setPage(item.pageNumber);
   }
 }

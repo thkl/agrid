@@ -16,7 +16,8 @@ export type AgridPageId = string | number;
 
 /** One selectable page. IDs must be unique within the item list. */
 export interface AgridPageItem<TId extends AgridPageId = AgridPageId> {
-  id: TId;
+  id: string;
+  pageNumber: TId;
   label: string;
 }
 
@@ -34,7 +35,8 @@ export class AgridPageSelectorComponent<TId extends AgridPageId = AgridPageId> {
   readonly listboxId = `agrid-page-options-${nextPageSelectorId++}`;
 
   items = input<readonly AgridPageItem<TId>[]>([]);
-  selectedId = input<TId | null>(null);
+  selectedId = input<string | null>(null);
+  selectedPageNumber = input<TId | null>(null);
   disabled = input<boolean>(false);
   previousLabel = input<string>('Previous page');
   nextLabel = input<string>('Next page');
@@ -47,7 +49,7 @@ export class AgridPageSelectorComponent<TId extends AgridPageId = AgridPageId> {
   readonly menuOpen = signal(false);
   readonly draft = signal('');
   readonly invalid = signal(false);
-  readonly activeId = signal<TId | null>(null);
+  readonly activeId = signal<string | null>(null);
   readonly focusedOptionIndex = signal(-1);
 
   readonly activeIndex = computed(() =>
@@ -63,7 +65,18 @@ export class AgridPageSelectorComponent<TId extends AgridPageId = AgridPageId> {
     effect(() => {
       const id = this.selectedId();
       this.activeId.set(id);
+      const item = this.items().find(i=>i.id===id);
+      this.draft.set(item?.pageNumber == null ? '' : String(item?.pageNumber));
       this.draft.set(id == null ? '' : String(id));
+      this.invalid.set(false);
+    });
+
+     effect(() => {
+      const nr = this.selectedPageNumber();
+      // fetch the page 
+      const item = this.items().find(i=>i.pageNumber===nr);
+      this.activeId.set(item?.id??null);
+      this.draft.set(item?.pageNumber == null ? '' : String(item?.pageNumber));
       this.invalid.set(false);
     });
   }
@@ -186,7 +199,7 @@ export class AgridPageSelectorComponent<TId extends AgridPageId = AgridPageId> {
       ?.scrollIntoView?.({ block: 'nearest' }));
   }
 
-  private idsEqual(left: TId, right: TId | null): boolean {
+  private idsEqual(left: string, right: string | null): boolean {
     return right !== null && left === right;
   }
 }

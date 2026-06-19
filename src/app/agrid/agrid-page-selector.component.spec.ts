@@ -8,9 +8,9 @@ describe('AgridPageSelectorComponent', () => {
   let fixture: ComponentFixture<AgridPageSelectorComponent<number>>;
   let component: AgridPageSelectorComponent<number>;
   const items: AgridPageItem<number>[] = [
-    { id: 1, label: 'Introduction' },
-    { id: 2, label: 'Measurements' },
-    { id: 100, label: 'Appendix' },
+    { id: '1' , pageNumber: 1, label: 'Introduction' },
+    { id: "2", pageNumber: 2, label: 'Measurements' },
+    { id: "100", pageNumber: 100 , label: 'Appendix' },
   ];
 
   beforeEach(async () => {
