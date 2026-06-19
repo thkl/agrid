@@ -18,7 +18,7 @@ describe('AgridPageSelectorComponent', () => {
       .compileComponents();
     fixture = TestBed.createComponent(AgridPageSelectorComponent<number>);
     fixture.componentRef.setInput('items', items);
-    fixture.componentRef.setInput('selectedId', 2);
+    fixture.componentRef.setInput('selectedPageNumber', 2);
     fixture.detectChanges();
     component = fixture.componentInstance;
   });

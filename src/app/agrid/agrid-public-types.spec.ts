@@ -35,11 +35,11 @@ interface PersonRow {
       (menuBarAction)="onMenuBarAction($event)"
     />
     <agrid-tree [provider]="treeProvider" (nodeClick)="onTreeNode($event)" />
-    <agrid-page-selector [items]="pages" [selectedId]="1" (selectPage)="onSelectPage($event)" />
+    <agrid-page-selector [items]="pages" [selectedPageNumber]="1" (selectPage)="onSelectPage($event)" />
   `,
 })
 class TypedGridHost {
-  readonly pages: AgridPageItem<number>[] = [{ id: 1, label: 'First' }];
+  readonly pages: AgridPageItem<number>[] = [{ id: "1" , pageNumber : 1, label: 'First' }];
   readonly provider = new AgridProvider<PersonRow>({
     columns: [{ field: 'name', header: 'Name' }],
     datasource: new AgridDataSource<PersonRow>([]),
@@ -87,7 +87,7 @@ class TypedGridHost {
   }
 
   onSelectPage(item: AgridPageItem<number>): void {
-    expectTypeOf(item.id).toEqualTypeOf<number>();
+    expectTypeOf(item.pageNumber).toEqualTypeOf<number>();
   }
 }
 
