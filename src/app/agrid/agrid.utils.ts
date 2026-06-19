@@ -67,6 +67,19 @@ export function coerceDateInputValue(value: string, originalValue: unknown): unk
   return value;
 }
 
+/**
+ * Converts a numeric editor draft to its storage value.
+ * Both dot and comma are accepted as decimal separators; invalid drafts are preserved so
+ * column validation can report them instead of silently changing the user's input.
+ */
+export function coerceNumberInputValue(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (trimmed === '') return null;
+  const numeric = Number(trimmed.includes('.') ? trimmed : trimmed.replace(',', '.'));
+  return Number.isNaN(numeric) ? value : numeric;
+}
+
 /** Resolve the display string for a raw cell value via ValueOption label, formatter, or coercion. */
 export function getDisplayForField(col: ColDef | undefined, raw: unknown, locale?: string): string {
   if (!col) return String(raw ?? '');

@@ -3,6 +3,7 @@ import { CellRange } from '../selection/agrid-clipboard.handler';
 import { AgridControl, HistoryEntry, HistoryItem } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
 import { CellPosition, ColDef, GridEditEvent } from '../agrid.types';
+import { coerceNumberInputValue } from '../agrid.utils';
 
 /** Dependencies and callbacks required by {@link AgridEditController}. @internal */
 export interface AgridEditControllerOptions {
@@ -106,7 +107,9 @@ export class AgridEditController {
       return true;
     }
     const oldValue = row[col.field];
-    const newValue = this.currentDraft();
+    const newValue = col.type === 'number'
+      ? coerceNumberInputValue(this.currentDraft())
+      : this.currentDraft();
     if (oldValue !== newValue) {
       const message = col.validate?.(newValue as never, row as never) ?? null;
       if (message) {

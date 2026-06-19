@@ -98,6 +98,13 @@ describe('typed public contracts', () => {
         field: 'id',
         header: 'ID',
         formatter: value => value.toFixed(0),
+        cellFormat: ({ value, row, column, originalIndex }) => {
+          expectTypeOf(value).toEqualTypeOf<number>();
+          expectTypeOf(row).toEqualTypeOf<PersonRow>();
+          expectTypeOf(column.field).toEqualTypeOf<'id'>();
+          expectTypeOf(originalIndex).toEqualTypeOf<number>();
+          return value === row.id ? { fontWeight: 600, textAlign: 'right' } : undefined;
+        },
       },
       {
         field: 'name',

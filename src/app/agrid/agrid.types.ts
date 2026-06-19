@@ -23,6 +23,36 @@ export interface CellReadonlyParams<
   originalIndex: number;
 }
 
+/** Parameters passed to a row-aware cell formatting resolver. */
+export type CellFormatParams<
+  T extends object = any,
+  K extends AgridField<T> = AgridField<T>,
+> = CellReadonlyParams<T, K>;
+
+/** Supported visual overrides returned by {@link ColDefBase.cellFormat}. */
+export interface CellFormat {
+  /** CSS background color, such as `'#fff4cc'` or `'var(--warning-bg)'`. */
+  backgroundColor?: string;
+  /** CSS border color. The cell's existing right and bottom borders use this color. */
+  borderColor?: string;
+  /** CSS text color. */
+  color?: string;
+  /** CSS `font` shorthand. Individual font properties below can override parts of it. */
+  font?: string;
+  /** CSS font family. */
+  fontFamily?: string;
+  /** CSS font size, including its unit (for example `'0.875rem'`). */
+  fontSize?: string;
+  /** CSS font style. */
+  fontStyle?: 'normal' | 'italic' | 'oblique' | string;
+  /** CSS font weight. */
+  fontWeight?: string | number;
+  /** CSS text decoration. */
+  textDecoration?: string;
+  /** CSS horizontal text alignment. */
+  textAlign?: 'left' | 'right' | 'center' | 'justify' | string;
+}
+
 /** Global options shared by grid providers. */
 export interface AGridOptions {
   /**
@@ -162,6 +192,22 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
    * ```
    */
   cellReadonly?: (params: CellReadonlyParams<T, K>) => boolean;
+  /**
+   * Return visual overrides for this specific cell at runtime.
+   * Runs with the current row, value, column definition, and original datasource index.
+   * Return `null` or `undefined` to use the grid's normal styling.
+   *
+   * @example
+   * ```ts
+   * {
+   *   field: 'balance',
+   *   cellFormat: ({ value }) => value < 0
+   *     ? { backgroundColor: '#fee2e2', color: '#991b1b', fontWeight: 600 }
+   *     : undefined,
+   * }
+   * ```
+   */
+  cellFormat?: (params: CellFormatParams<T, K>) => CellFormat | null | undefined;
   /**
    * Fixed list of allowed values shown in a `<select>` dropdown when editing.
    *

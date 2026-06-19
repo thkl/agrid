@@ -9,7 +9,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { ColDef, ValueOption } from '../agrid.types';
+import { CellFormat, ColDef, ValueOption } from '../agrid.types';
 import {
   coerceDateInputValue,
   getDisplayForField,
@@ -36,6 +36,16 @@ import {
     '[class.ag-cell--with-info]': 'showInfoIcon() && !editing()',
     '[attr.aria-readonly]': '!editable() ? "true" : null',
     '[attr.title]': 'displayValue()',
+    '[style.background-color]': 'resolvedCellFormat().backgroundColor ?? null',
+    '[style.border-color]': 'resolvedCellFormat().borderColor ?? null',
+    '[style.color]': 'resolvedCellFormat().color ?? null',
+    '[style.font]': 'resolvedCellFormat().font ?? null',
+    '[style.font-family]': 'resolvedCellFormat().fontFamily ?? null',
+    '[style.font-size]': 'resolvedCellFormat().fontSize ?? null',
+    '[style.font-style]': 'resolvedCellFormat().fontStyle ?? null',
+    '[style.font-weight]': 'resolvedCellFormat().fontWeight ?? null',
+    '[style.text-decoration]': 'resolvedCellFormat().textDecoration ?? null',
+    '[style.text-align]': 'resolvedCellFormat().textAlign ?? null',
     '(click)': 'activate.emit($event)',
     '(dblclick)': 'startEdit.emit()',
     tabindex: '-1',
@@ -67,7 +77,8 @@ import {
           #editInput
           class="ag-cell-input"
           [class.ag-cell-input--invalid]="!!error()"
-          [type]="col().type === 'date' ? 'date' : col().type === 'number' ? 'number' : 'text'"
+          [type]="col().type === 'date' ? 'date' : 'text'"
+          [attr.inputmode]="col().type === 'number' ? 'decimal' : null"
           [value]="editorValue()"
           (input)="onInput($event)"
         />
@@ -129,6 +140,17 @@ export class AgridCellComponent {
 
   /** Full row data — passed to `cellRenderer` when set. */
   row = input<Record<string, unknown>>({});
+
+  /** Runtime formatting resolved from the column definition and current cell context. */
+  readonly resolvedCellFormat = computed((): CellFormat => {
+    const col = this.col();
+    return col.cellFormat?.({
+      row: this.row(),
+      value: this.value(),
+      column: col,
+      originalIndex: this.rowIndex(),
+    }) ?? {};
+  });
 
   /** Locale used for built-in date formatting. */
   locale = input<string | undefined>(undefined);

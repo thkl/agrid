@@ -46,6 +46,8 @@ export type {
   AgridTreeSelectionEvent,
   AgridTreeSelectionMode,
   CellContextMenuItem,
+  CellFormat,
+  CellFormatParams,
   CellInfoEvent,
   CellPosition,
   CellReadonlyParams,

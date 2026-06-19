@@ -155,6 +155,22 @@ test.describe('agrid browser interactions', () => {
     await expect(grid).not.toHaveAttribute('aria-readonly', 'true');
   });
 
+  test('updates conditional cell formatting after an edit', async ({ page }) => {
+    await page.goto('/#/conditional-formatting');
+    const status = page.locator(cell(0, 3)).first();
+
+    await expect(status).toHaveCSS('background-color', 'rgb(236, 253, 243)');
+    await expect(status).toHaveCSS('color', 'rgb(22, 101, 52)');
+
+    await status.dblclick();
+    await status.locator('select').selectOption({ label: 'Blocked' });
+    await page.getByRole('grid').press('Enter');
+
+    await expect(status.locator('.ag-cell-value')).toHaveText('Blocked');
+    await expect(status).toHaveCSS('background-color', 'rgb(254, 242, 242)');
+    await expect(status).toHaveCSS('color', 'rgb(153, 27, 27)');
+  });
+
   test('navigates client-side pages with labelled controls', async ({ page }) => {
     await page.goto('/#/pagination');
     const pageInfo = page.locator('.ag-page-info');

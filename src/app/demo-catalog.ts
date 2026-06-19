@@ -96,6 +96,47 @@ readonly provider = new AgridProvider({
 });`,
   },
   {
+    path: '/conditional-formatting',
+    label: 'Conditional formatting',
+    title: 'Row-aware cell styling',
+    summary:
+      'Use cellFormat to calculate colors, borders, typography, and alignment from each cell’s current data.',
+    points: [
+      'Receive the typed row, value, column, and original datasource index.',
+      'Return only the visual properties that should override the grid theme.',
+      'Use CSS variables to keep conditional colors compatible with light and dark themes.',
+    ],
+    code: `const columns: ColDef<PortfolioRow>[] = [
+  {
+    field: 'status',
+    header: 'Status',
+    cellFormat: ({ value }) => ({
+      backgroundColor: value === 'On track' ? '#ecfdf3' : '#fef2f2',
+      borderColor: value === 'On track' ? '#86efac' : '#fca5a5',
+      color: value === 'On track' ? '#166534' : '#991b1b',
+      fontWeight: 650,
+    }),
+  },
+  {
+    field: 'variance',
+    header: 'Variance',
+    formatter: value => \`\${Number(value) > 0 ? '+' : ''}\${value}%\`,
+    cellFormat: ({ value }) => ({
+      color: Number(value) >= 0 ? '#166534' : '#991b1b',
+      fontWeight: 700,
+      textAlign: 'right',
+    }),
+  },
+];
+
+readonly provider = new AgridProvider({
+  columns,
+  datasource: new AgridDataSource(rows),
+  control: new AgridControl(),
+  zebraStripes: true,
+});`,
+  },
+  {
     path: '/pagination',
     label: 'Pagination',
     title: 'Client-side pagination',

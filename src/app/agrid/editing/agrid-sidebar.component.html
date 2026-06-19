@@ -78,7 +78,8 @@
               <input
                 class="ag-detail-input"
                 [class.ag-detail-input--invalid]="!!errors()[field.col.field]"
-                [type]="field.col.type === 'number' ? 'number' : field.col.type === 'date' ? 'date' : 'text'"
+                [type]="field.col.type === 'date' ? 'date' : 'text'"
+                [attr.inputmode]="field.col.type === 'number' ? 'decimal' : null"
                 [value]="field.inputValue"
                 (input)="onDetailMaskInput(field, $event)"
                 (change)="onDetailChange(field, $event)"

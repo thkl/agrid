@@ -18,6 +18,10 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/custom-cells.component').then(m => m.CustomCellsDemoComponent),
   },
   {
+    path: 'conditional-formatting',
+    loadComponent: () => import('./demos/conditional-formatting.component').then(m => m.ConditionalFormattingDemoComponent),
+  },
+  {
     path: 'pagination',
     loadComponent: () => import('./demos/pagination.component').then(m => m.PaginationDemoComponent),
   },

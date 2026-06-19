@@ -112,6 +112,46 @@ describe('AgridCellComponent custom renderer', () => {
     expect(formatterCalls).toBe(1);
   });
 
+  it('applies conditional formatting from the current cell context', () => {
+    const row = { status: 'Active' };
+    let received: unknown;
+    const column = {
+      field: 'status',
+      header: 'Status',
+      cellFormat: (params: unknown) => {
+        received = params;
+        return {
+          backgroundColor: 'rgb(254, 242, 242)',
+          borderColor: 'rgb(220, 38, 38)',
+          color: 'rgb(153, 27, 27)',
+          fontFamily: 'serif',
+          fontSize: '14px',
+          fontStyle: 'italic',
+          fontWeight: 700,
+          textDecoration: 'underline',
+          textAlign: 'right',
+        };
+      },
+    };
+    fixture.componentRef.setInput('col', column);
+    fixture.componentRef.setInput('rowIndex', 3);
+    fixture.componentRef.setInput('row', row);
+
+    fixture.detectChanges();
+
+    const cell = fixture.nativeElement as HTMLElement;
+    expect(received).toEqual({ row, value: 'Active', column, originalIndex: 3 });
+    expect(cell.style.backgroundColor).toBe('rgb(254, 242, 242)');
+    expect(cell.style.borderColor).toBe('rgb(220, 38, 38)');
+    expect(cell.style.color).toBe('rgb(153, 27, 27)');
+    expect(cell.style.fontFamily).toBe('serif');
+    expect(cell.style.fontSize).toBe('14px');
+    expect(cell.style.fontStyle).toBe('italic');
+    expect(cell.style.fontWeight).toBe('700');
+    expect(cell.style.textDecoration).toBe('underline');
+    expect(cell.style.textAlign).toBe('right');
+  });
+
   it('uses a native date input and preserves an ISO time suffix', async () => {
     fixture.componentRef.setInput('col', {
       field: 'hiredAt',
@@ -136,6 +176,29 @@ describe('AgridCellComponent custom renderer', () => {
 
     expect(emitted).toEqual(['2025-04-20T14:30:00.000Z']);
     expect(fixture.componentInstance.editorValue()).toBe('2025-04-20');
+  });
+
+  it('preserves a comma decimal draft in a number editor', async () => {
+    fixture.componentRef.setInput('col', { field: 'amount', header: 'Amount', type: 'number' });
+    fixture.componentRef.setInput('value', 12);
+    fixture.componentRef.setInput('row', { amount: 12 });
+    fixture.componentRef.setInput('editing', true);
+    const emitted: unknown[] = [];
+    fixture.componentInstance.draftChange.subscribe(value => emitted.push(value));
+    fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.ag-cell-input') as HTMLInputElement;
+    expect(input.type).toBe('text');
+    expect(input.inputMode).toBe('decimal');
+
+    input.value = '12,';
+    input.dispatchEvent(new Event('input'));
+
+    expect(input.value).toBe('12,');
+    expect(fixture.componentInstance.editorValue()).toBe('12,');
+    expect(emitted).toEqual(['12,']);
   });
 
   it('resolves and applies an input mask for the current row and cell', async () => {

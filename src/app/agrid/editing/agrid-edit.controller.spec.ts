@@ -74,6 +74,19 @@ describe('AgridEditController', () => {
     expect(focusGrid).toHaveBeenCalled();
   });
 
+  it('commits comma decimal drafts as numbers', () => {
+    const { controller, dataSource, edits } = createController(false, [
+      { field: 'name', header: 'Amount', type: 'number' },
+    ]);
+
+    controller.start(0, 0, '');
+    controller.setDraft('12,34');
+    controller.commit();
+
+    expect(dataSource.getRow(0).name as unknown).toBe(12.34);
+    expect(edits[0].newValue).toBe(12.34);
+  });
+
   it('does not start edits for readonly grids or columns', () => {
     const readonlyController = createController(true).controller;
     readonlyController.start(0, 0, '');
