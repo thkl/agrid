@@ -114,7 +114,7 @@
             [class.ag-row--pending-delete]="isDataRowItem(item) && isRowPendingDelete(item.originalIndex)"
             [class]="isDataRowItem(item) ? getRowClass(item.row, item.originalIndex) : ''"
             [attr.data-original-index]="getItemOriginalIndex(item)" [style.height.px]="rowPx(item)"
-            [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? pinnedGridTemplateColumns() : null"
+            [style.grid-template-columns]="isDataRowItem(item) || isLoadingRow(item) || item === 'ghost' ? pinnedGridTemplateColumns() : null"
             (pointerdown)="isDataRowItem(item) && onRowPointerDown($event, item.originalIndex)"
             (click)="isDataRowItem(item) && onRowClick($event, item)">
             @if (isDataRowItem(item)) {
@@ -168,6 +168,8 @@
               (treeToggle)="onTreeToggle(item)"
               (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
             }
+            } @else if (isLoadingRow(item)) {
+            <div class="ag-loading-row" aria-hidden="true"><span></span></div>
             } @else if (item === null) {
             <div class="ag-pinned-row-spacer"></div>
             } @else if (item === 'ghost') {
@@ -323,7 +325,7 @@
               [class.ag-row--pending-delete]="isDataRowItem(item) && isRowPendingDelete(item.originalIndex)"
               [class]="isDataRowItem(item) ? getRowClass(item.row, item.originalIndex) : ''"
               [attr.data-original-index]="getItemOriginalIndex(item)" [style.height.px]="rowPx(item)"
-              [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? scrollableGridTemplateColumns() : null"
+              [style.grid-template-columns]="isDataRowItem(item) || isLoadingRow(item) || item === 'ghost' ? scrollableGridTemplateColumns() : null"
               (pointerdown)="isDataRowItem(item) && onRowPointerDown($event, item.originalIndex)"
               (click)="isDataRowItem(item) && onRowClick($event, item)">
               @if (isDataRowItem(item)) {
@@ -357,6 +359,8 @@
                 (infoClick)="onCellInfo(item.originalIndex, col, item.row)"
                 (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
               }
+              } @else if (isLoadingRow(item)) {
+              <div class="ag-loading-row" aria-hidden="true"><span></span></div>
               } @else if (item === null) {
               <div class="ag-add-row-label" (click)="onActivateAddRow()">
                 <span class="ag-add-row-icon">+</span> {{ localeText().addRow }}
@@ -557,7 +561,7 @@
             [class.ag-row--pending-delete]="isDataRowItem(item) && isRowPendingDelete(item.originalIndex)"
             [class]="isDataRowItem(item) ? getRowClass(item.row, item.originalIndex) : ''"
             [style.height.px]="rowPx(item)"
-            [style.grid-template-columns]="isDataRowItem(item) || item === 'ghost' ? rightGridTemplateColumns() : null">
+            [style.grid-template-columns]="isDataRowItem(item) || isLoadingRow(item) || item === 'ghost' ? rightGridTemplateColumns() : null">
             @if (isDataRowItem(item)) {
             @for (col of rightPinnedColDefs(); track col.field) {
             @let ci = getVisibleColIndex(col.field);
@@ -589,6 +593,8 @@
               (treeToggle)="onTreeToggle(item)"
               (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
             }
+            } @else if (isLoadingRow(item)) {
+            <div class="ag-loading-row" aria-hidden="true"><span></span></div>
             } @else if (item === null) {
             <div class="ag-pinned-row-spacer"></div>
             } @else if (item === 'ghost') {

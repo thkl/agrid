@@ -1,6 +1,7 @@
 import { signal, WritableSignal } from '@angular/core';
-import { AgridControl } from './agrid-control';
+import { AgridControl, ɵgetAgridControlRuntimeState } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
+import { AgridServerSideRowModel } from './agrid-server-side-row-model';
 import { AgridLocaleTextOverrides } from './agrid-localization';
 import {
   AGridOptions,
@@ -17,6 +18,11 @@ import {
 export interface AgridProviderConfig<T extends object = any> extends Partial<AGridOptions> {
   /** Row data source. A new empty data source is created when omitted. */
   datasource?: AgridDataSource<T>;
+  /**
+   * Lazy block-based server-side row model. When supplied it becomes the provider datasource and
+   * filtering, sorting, and quick filtering are included in block requests automatically.
+   */
+  serverSideRowModel?: AgridServerSideRowModel<T>;
   /** Stateful grid control. A default control is created when omitted. */
   control?: AgridControl;
   /** Initial column definitions in display order. */
@@ -165,6 +171,8 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
 export class AgridProvider<T extends object = any> {
   /** Mutable row data consumed by the grid. */
   datasource: AgridDataSource<T>;
+  /** Lazy server-side model, or `null` for the regular client-side datasource. */
+  serverSideRowModel: AgridServerSideRowModel<T> | null;
   /** Runtime UI state and imperative grid controls. */
   control: AgridControl;
   /** Reactive column definitions in display order. */
@@ -222,7 +230,7 @@ export class AgridProvider<T extends object = any> {
   menuBarItems: AgridMenuBarItem<T>[];
   /** Enabled sorting mode. */
   sortOption: 'single' | 'multi' | 'none';
-  /** Toggle auto-add-rows without recreating the provider. @default signal(false) */
+  /** @deprecated Use `control.autoAddRows` and `control.setAutoAddRows()` instead. */
   readonly autoAddRows: WritableSignal<boolean>;
   /** Enabled row-selection mode. */
   rowSelection: 'single' | 'multi' | 'none';
@@ -256,16 +264,21 @@ export class AgridProvider<T extends object = any> {
   /** Fixed height in pixels of an expanded detail panel row. */
   detailRowHeight: number;
 
-  /** Toggle the loading overlay without recreating the provider. @default signal(false) */
+  /** @deprecated Use `control.loading` and `control.setLoading()` instead. */
   readonly loading: WritableSignal<boolean>;
-  /** Toggle readonly mode without recreating the provider. @default signal(false) */
+  /** @deprecated Use `control.readonly` and `control.setReadonly()` instead. */
   readonly readonlyGrid: WritableSignal<boolean>;
 
   /** Creates a provider from the supplied data, state, columns, and display options. */
   constructor(config: AgridProviderConfig<T> = {}) {
+    if (config.serverSideRowModel && config.treeConfig) {
+      throw new Error('AgridServerSideRowModel does not support treeConfig in the initial flat row model.');
+    }
     this.options      = { locale: config.locale ?? 'auto' };
-    this.datasource   = config.datasource ?? new AgridDataSource<T>([]);
+    this.serverSideRowModel = config.serverSideRowModel ?? null;
+    this.datasource   = this.serverSideRowModel ?? config.datasource ?? new AgridDataSource<T>([]);
     this.control      = config.control ?? new AgridControl({ allowRowReorder: true });
+    const runtimeState = ɵgetAgridControlRuntimeState(this.control);
     this.columns      = signal(config.columns ?? []);
     this.headerGroups = config.headerGroups ?? [];
     this.treeConfig   = config.treeConfig ?? null;
@@ -274,12 +287,13 @@ export class AgridProvider<T extends object = any> {
     this.minHeight        = config.minHeight;
     this.maxHeight        = config.maxHeight;
     this.allowAddRows     = config.allowAddRows ?? false;
-    this.autoAddRows      = signal(config.autoAddRows ?? false);
+    if (config.autoAddRows !== undefined) this.control.setAutoAddRows(config.autoAddRows);
+    this.autoAddRows      = runtimeState.autoAddRows;
     this.showControlColumn = config.showControlColumn ?? false;
     this.enableRowMarking = config.enableRowMarking ?? false;
     this.showSidebar      = config.showSidebar ?? false;
     this.autoOpenDetail   = config.autoOpenDetail ?? false;
-    this.serverSideFiltering = config.serverSideFiltering ?? false;
+    this.serverSideFiltering = this.serverSideRowModel ? true : config.serverSideFiltering ?? false;
     this.filterDebounceMs = Math.max(0, config.filterDebounceMs ?? 300);
     this.enableQuickFilter = config.enableQuickFilter ?? false;
     this.menuBarItems = config.menuBarItems ?? [];
@@ -293,8 +307,10 @@ export class AgridProvider<T extends object = any> {
     this.showChangedCellIndicator = config.showChangedCellIndicator ?? false;
     this.confirmRowDelete = config.confirmRowDelete ?? false;
     this.emptyText        = config.emptyText;
-    this.loading          = signal(config.loading ?? false);
-    this.readonlyGrid     = signal(config.readonly ?? false);
+    if (config.loading !== undefined) this.control.setLoading(config.loading);
+    if (config.readonly !== undefined) this.control.setReadonly(config.readonly);
+    this.loading          = runtimeState.loading;
+    this.readonlyGrid     = runtimeState.readonly;
     this.useSidebarEditor = config.useSidebarEditor ?? false;
     this.getRowClass      = config.getRowClass;
     this.pinRow           = config.pinRow;

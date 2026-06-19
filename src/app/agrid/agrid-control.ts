@@ -1,4 +1,13 @@
-import { Signal, computed, signal } from '@angular/core';
+import { Signal, WritableSignal, computed, signal } from '@angular/core';
+
+/** @internal */
+export interface ɵAgridControlRuntimeState {
+  loading: WritableSignal<boolean>;
+  readonly: WritableSignal<boolean>;
+  autoAddRows: WritableSignal<boolean>;
+}
+
+const CONTROL_RUNTIME_STATE = new WeakMap<AgridControl, ɵAgridControlRuntimeState>();
 
 /**
  * A single reversible cell edit stored in the undo/redo history.
@@ -128,9 +137,17 @@ export class AgridControl {
   private readonly _totalRows = signal<number>(0);
   private readonly _aggregates = signal<Record<string, 'sum' | 'avg' | 'min' | 'max' | 'count'>>({});
   private readonly _sortOrder = signal<string[]>([]);
+  private readonly _loading = signal(false);
+  private readonly _readonly = signal(false);
+  private readonly _autoAddRows = signal(false);
 
   /** @param state Optional initial state, e.g. deserialized from storage. */
   constructor(state?: Partial<AgridControlState>) {
+    CONTROL_RUNTIME_STATE.set(this, {
+      loading: this._loading,
+      readonly: this._readonly,
+      autoAddRows: this._autoAddRows,
+    });
     if (state?.columnWidths) this._columnWidths.set({ ...state.columnWidths });
     if (state?.filters) this._filters.set({ ...state.filters });
     if (state?.quickFilter) this._quickFilter.set(state.quickFilter);
@@ -145,6 +162,32 @@ export class AgridControl {
     if (state?.totalRows) this._totalRows.set(state.totalRows);
     if (state?.aggregates) this._aggregates.set({ ...state.aggregates });
     if (state?.sortOrder?.length) this._sortOrder.set([...state.sortOrder]);
+  }
+
+  // ── Runtime grid state ────────────────────────────────────────────────────
+
+  /** Whether the grid displays its loading overlay. This transient state is not serialized. */
+  readonly loading: Signal<boolean> = this._loading.asReadonly();
+
+  /** Show or hide the grid loading overlay. */
+  setLoading(value: boolean): void {
+    this._loading.set(value);
+  }
+
+  /** Whether all grid editing and mutation UI is disabled. This transient state is not serialized. */
+  readonly readonly: Signal<boolean> = this._readonly.asReadonly();
+
+  /** Enable or disable readonly mode at runtime. */
+  setReadonly(value: boolean): void {
+    this._readonly.set(value);
+  }
+
+  /** Whether navigation beyond the final row automatically inserts a row. Not serialized. */
+  readonly autoAddRows: Signal<boolean> = this._autoAddRows.asReadonly();
+
+  /** Enable or disable automatic row insertion at runtime. */
+  setAutoAddRows(value: boolean): void {
+    this._autoAddRows.set(value);
   }
 
   /**
@@ -614,4 +657,9 @@ export class AgridControl {
   static fromJSON(state: Partial<AgridControlState>): AgridControl {
     return new AgridControl(state);
   }
+}
+
+/** @internal Bridge for deprecated writable signals on AgridProvider. */
+export function ɵgetAgridControlRuntimeState(control: AgridControl): ɵAgridControlRuntimeState {
+  return CONTROL_RUNTIME_STATE.get(control)!;
 }

@@ -17,6 +17,36 @@ describe('AgridControl', () => {
     it('starts with no groupByField', () => expect(ctrl.groupByField()).toBeNull());
     it('canUndo is false initially', () => expect(ctrl.canUndo()).toBe(false));
     it('canRedo is false initially', () => expect(ctrl.canRedo()).toBe(false));
+    it('starts with transient runtime flags disabled', () => {
+      expect(ctrl.loading()).toBe(false);
+      expect(ctrl.readonly()).toBe(false);
+      expect(ctrl.autoAddRows()).toBe(false);
+    });
+  });
+
+  describe('runtime grid state', () => {
+    it('updates loading, readonly, and auto-add state through commands', () => {
+      const ctrl = new AgridControl();
+      ctrl.setLoading(true);
+      ctrl.setReadonly(true);
+      ctrl.setAutoAddRows(true);
+
+      expect(ctrl.loading()).toBe(true);
+      expect(ctrl.readonly()).toBe(true);
+      expect(ctrl.autoAddRows()).toBe(true);
+    });
+
+    it('does not serialize transient runtime state', () => {
+      const ctrl = new AgridControl();
+      ctrl.setLoading(true);
+      ctrl.setReadonly(true);
+      ctrl.setAutoAddRows(true);
+
+      const restored = AgridControl.fromJSON(ctrl.toJSON());
+      expect(restored.loading()).toBe(false);
+      expect(restored.readonly()).toBe(false);
+      expect(restored.autoAddRows()).toBe(false);
+    });
   });
 
   // ── fromJSON / toJSON ────────────────────────────────────────────────────────

@@ -223,6 +223,7 @@ readonly gridProvider = new AgridProvider({
 | `columns` | `ColDef[]` | `[]` | Column definitions. |
 | `headerGroups` | `HeaderGroup[]` | `[]` | Labels for optional grouped column headers. |
 | `datasource` | `AgridDataSource` | New empty datasource | Row data container. |
+| `serverSideRowModel` | `AgridServerSideRowModel` | `undefined` | Lazy block-based datasource with virtual placeholders, caching, and automatic filter/sort query forwarding. |
 | `control` | `AgridControl` | New default control | Manages filters, sort, grouping, pagination, and undo/redo. |
 | `locale` | `string` | `'auto'` | BCP-47 locale tag for grid text and date formatting. `'auto'` reads `navigator.language` and falls back to `'en-US'`. |
 | `localization` | `AgridLocaleTextOverrides` | `undefined` | Overrides individual labels. See [Localization](#localization). |
@@ -249,7 +250,7 @@ readonly gridProvider = new AgridProvider({
 | `confirmRowDelete` | `boolean` | `false` | Fades the target row and shows a localized in-row Yes/No confirmation. |
 | `emptyText` | `string` | `undefined` | Text shown when the grid has no rows. Falls back to the locale default. |
 | `readonly` | `boolean` | `false` | Initial value for the readonly signal. Makes all cells non-editable. |
-| `loading` | `boolean` | `false` | Initial value for the loading signal. Shows a loading overlay over the grid body. |
+| `loading` | `boolean` | `false` | Initial value for `control.loading`. Shows a loading overlay over the grid body. |
 | `getRowClass` | `(p: { row; index }) => string` | `undefined` | Returns CSS class names applied to a whole data row. Complements `ColDef.cellClass`. |
 | `pinRow` | `(row, index) => 'top' \| 'bottom' \| undefined` | `undefined` | Pins matching rows to the top/bottom of the body (see [Master/Detail and Pinned Rows](#masterdetail-and-pinned-rows)). |
 | `treeConfig` | `AgridTreeConfig<T> \| null` | `null` | Builds a tree from id/parent-id accessors or `getPath` segments. Path labels and branch UUIDs can be customized with `formatPathSegment` and `nodeUuid`. |
@@ -347,9 +348,9 @@ Three options are `WritableSignal` properties on the provider instance — updat
 
 | Signal | Type | Description |
 | --- | --- | --- |
-| `provider.loading` | `WritableSignal<boolean>` | Show or hide the loading overlay. |
-| `provider.readonlyGrid` | `WritableSignal<boolean>` | Toggle readonly mode. |
-| `provider.autoAddRows` | `WritableSignal<boolean>` | Toggle automatic row insertion. |
+| `control.loading` | `Signal<boolean>` | Whether the loading overlay is visible. Change with `setLoading()`. |
+| `control.readonly` | `Signal<boolean>` | Whether readonly mode is active. Change with `setReadonly()`. |
+| `control.autoAddRows` | `Signal<boolean>` | Whether automatic row insertion is active. Change with `setAutoAddRows()`. |
 
 Example — toggle readonly in a host component:
 
@@ -358,7 +359,7 @@ readonly provider = new AgridProvider({ ..., readonly: true });
 readonly isEditing = signal(false);
 
 constructor() {
-  effect(() => this.provider.readonlyGrid.set(!this.isEditing()));
+  effect(() => this.provider.control.setReadonly(!this.isEditing()));
 }
 ```
 
@@ -366,9 +367,9 @@ Example — server-side loading state:
 
 ```ts
 async loadPage(page: number) {
-  this.provider.loading.set(true);
+  this.provider.control.setLoading(true);
   this.ds.setData(await fetchPage(page));
-  this.provider.loading.set(false);
+  this.provider.control.setLoading(false);
 }
 ```
 
@@ -626,13 +627,13 @@ Set `readonly: true` in the provider to make the entire grid non-editable:
 readonly provider = new AgridProvider({ ..., readonly: true });
 ```
 
-To toggle readonly at runtime, use the `readonlyGrid` signal on the provider:
+To toggle readonly at runtime, update the control:
 
 ```ts
 readonly isReadonly = signal(true);
 
 constructor() {
-  effect(() => this.provider.readonlyGrid.set(this.isReadonly()));
+  effect(() => this.provider.control.setReadonly(this.isReadonly()));
 }
 ```
 
@@ -714,6 +715,40 @@ The grid updates its visible filter state immediately, but only emits the final 
 after the debounce delay. Set `filterDebounceMs: 0` when immediate events are required. For server
 pagination, call `control.setTotalRows(total)` after each response and replace the datasource
 contents with the returned page.
+
+### Server-side row model
+
+Use `AgridServerSideRowModel` when rows should be loaded in blocks as the virtual viewport scrolls.
+Global row indices remain stable, unloaded rows render as placeholders, stale responses are ignored
+after query changes, and old blocks are evicted at the configured cache limit.
+
+```ts
+const rowModel = new AgridServerSideRowModel<Order>({
+  blockSize: 100,
+  maxBlocksInCache: 8,
+  initialRowCount: 1_000_000, // optional; the server can return rowCount instead
+  datasource: {
+    async getRows(request) {
+      const response = await api.searchOrders(request);
+      return { rows: response.rows, rowCount: response.total };
+    },
+  },
+});
+
+const provider = new AgridProvider<Order>({
+  columns,
+  serverSideRowModel: rowModel,
+  enableQuickFilter: true,
+});
+```
+
+Requests contain the half-open `startRow`/`endRow` range, complete column filter state, ordered sort
+entries, and the quick-filter string. Returning `rowCount` sets the exact scrollbar extent. Without
+it, a short block marks the end and a full block extends the unknown extent by one block.
+
+The initial row model is flat: client-side grouping, tree data, pinned rows, master/detail,
+pagination, and local aggregate footers are not applied. Editing updates the loaded cache; persist
+edits from grid events because an evicted block is fetched again.
 
 ## Custom Cell Renderers
 
@@ -882,6 +917,9 @@ interface ColumnFilter {
 
 | Signal | Description |
 | --- | --- |
+| `loading` | Whether the loading overlay is visible. Change with `setLoading()`. |
+| `readonly` | Whether all editing and mutation UI is disabled. Change with `setReadonly()`. |
+| `autoAddRows` | Whether navigation can insert rows automatically. Change with `setAutoAddRows()`. |
 | `allowRowReorder` | Whether row drag handles can reorder rows. |
 | `groupByField` | Field currently used for grouping, or `null`. |
 | `hiddenColumns` | Set of hidden field names. |
@@ -898,6 +936,9 @@ interface ColumnFilter {
 
 | Method | Description |
 | --- | --- |
+| `setLoading(value)` | Shows or hides the loading overlay. |
+| `setReadonly(value)` | Enables or disables readonly mode. |
+| `setAutoAddRows(value)` | Enables or disables automatic row insertion. |
 | `setAllowRowReorder(value)` | Enables or disables row reorder. |
 | `setGroupBy(field)` | Groups by a field or clears grouping with `null`. |
 | `isColumnHidden(field)` | Returns whether a column is hidden. |

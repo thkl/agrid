@@ -150,7 +150,8 @@ export class AgridDataSource<T extends object = any> {
     this.setRows(update(this._rows()));
   }
 
-  private setRows(rows: T[]): void {
+  /** Replace the backing row array without copying. Intended for specialized datasource models. */
+  protected setRows(rows: T[]): void {
     this._writableLinkedRows?.set(rows);
     this._rows.set(rows);
   }

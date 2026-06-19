@@ -129,7 +129,7 @@ export class ServerPaginationDemoComponent {
 
   private loadPage(page: number, pageSize: number): void {
     const request = ++this.requestSequence;
-    this.provider.loading.set(true);
+    this.ctrl.setLoading(true);
     setTimeout(() => {
       if (request !== this.requestSequence) return;
       let rows = ALL_ROWS.filter(row =>
@@ -153,7 +153,7 @@ export class ServerPaginationDemoComponent {
       const startRow = (page - 1) * pageSize;
       const endRow = Math.min(startRow + pageSize, rows.length);
       this.ds.setData(rows.slice(startRow, endRow));
-      this.provider.loading.set(false);
+      this.ctrl.setLoading(false);
       this.lastFetch.set(`rows ${startRow}–${Math.max(startRow, endRow - 1)} (page ${page}/${Math.max(1, Math.ceil(rows.length / pageSize))})`);
     }, 180);
   }

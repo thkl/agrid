@@ -112,7 +112,7 @@ export class ReadonlyDemoComponent {
   });
 
   constructor() {
-    effect(() => this.provider.readonlyGrid.set(this.isReadonly()));
+    effect(() => this.provider.control.setReadonly(this.isReadonly()));
     afterNextRender(() => this._grid()?.autosizeAllColumns());
   }
 }

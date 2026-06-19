@@ -1,6 +1,7 @@
 import { Signal, computed } from '@angular/core';
 import { AgridControl, ColumnFilter } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
+import { AgridServerSideRowModel } from '../agrid-server-side-row-model';
 import { AgridTreeConfig, ColDef, GridItem } from '../agrid.types';
 import {
   applyQuickFilter,
@@ -83,7 +84,11 @@ export class AgridProjectionModel {
   readonly filteredRowCount = computed(() => this.filteredSortedIndices().length);
 
   /** Whether row pinning is active: a `pinRow` callback is supplied and not in tree mode. */
-  private readonly pinningActive = computed(() => !!this.opts.pinRow?.() && !this.opts.treeConfig());
+  private readonly pinningActive = computed(() =>
+    !(this.opts.dataSource() instanceof AgridServerSideRowModel)
+    && !!this.opts.pinRow?.()
+    && !this.opts.treeConfig()
+  );
 
   /**
    * Partitions the filtered+sorted indices into top-pinned, bottom-pinned, and a body set.
@@ -142,6 +147,7 @@ export class AgridProjectionModel {
 
   /** Whether client or server pagination controls should be rendered. */
   readonly showPagination = computed(() => {
+    if (this.opts.dataSource() instanceof AgridServerSideRowModel) return false;
     const control = this.opts.control();
     if (this.opts.treeConfig()) return false;
     return (control?.pageSize() ?? 0) > 0 && !control?.groupByField();
@@ -149,6 +155,7 @@ export class AgridProjectionModel {
 
   /** Whether at least one visible column has an aggregate footer. */
   readonly showFooter = computed(() => {
+    if (this.opts.dataSource() instanceof AgridServerSideRowModel) return false;
     const aggregates = this.opts.control()?.aggregates() ?? {};
     return this.opts.visibleColDefs().some(col => col.aggregate || aggregates[col.field]);
   });
@@ -166,8 +173,19 @@ export class AgridProjectionModel {
   /** Filtered, sorted, paginated, and optionally grouped virtual-scroll items. */
   readonly filteredItems = computed<GridItem[]>(() => {
     const rows = this.opts.dataSource().rows();
+    const serverModel = this.opts.dataSource() instanceof AgridServerSideRowModel
+      ? this.opts.dataSource() as AgridServerSideRowModel
+      : null;
     const control = this.opts.control();
     let indices = this.filteredSortedIndices();
+
+    // Server-side blocks already arrive filtered and sorted. Preserve their global indices and
+    // represent unloaded sparse slots as non-interactive virtual rows.
+    if (serverModel) {
+      return indices.map(originalIndex => serverModel.isPlaceholder(originalIndex)
+        ? { loading: true, originalIndex }
+        : { row: rows[originalIndex], originalIndex });
+    }
 
     // Tree mode takes precedence over grouping/pagination: the already filtered-and-sorted
     // indices are flattened into a hierarchy honoring the expanded-id set.
@@ -326,6 +344,7 @@ export class AgridProjectionModel {
         item
         && typeof item === 'object'
         && 'originalIndex' in item
+        && 'row' in item
         && (
           isPathTreeConfig(treeConfig)
           || !parentIds.has(treeConfig.getId(item.row))

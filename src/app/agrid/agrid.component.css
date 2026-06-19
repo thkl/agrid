@@ -165,6 +165,22 @@
   will-change: transform;
 }
 
+.ag-loading-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--agrid-color-border);
+}
+
+.ag-loading-row span {
+  width: min(220px, 55%);
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--agrid-color-text-muted) 18%, transparent);
+}
+
 .ag-header-cell--dragging {
   opacity: 0.12;
   cursor: grabbing;

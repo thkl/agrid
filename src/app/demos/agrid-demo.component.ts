@@ -204,7 +204,7 @@ export class AgridDemoComponent {
   constructor() {
     this.gridProvider.groupDescription = this.groupDescriptionFn;
     this.gridProvider.groupActions = this.groupActionsList;
-    effect(() => this.gridProvider.autoAddRows.set(this.autoAdd()));
+    effect(() => this.gridProvider.control.setAutoAddRows(this.autoAdd()));
     afterNextRender(() => this._grid()?.autosizeAllColumns());
   }
 

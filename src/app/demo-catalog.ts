@@ -201,10 +201,10 @@ readonly provider = new AgridProvider({
     label: 'Readonly',
     title: 'Runtime readonly mode',
     summary:
-      'The provider exposes a writable readonly signal, allowing the same grid to switch between viewer and editor modes.',
+      'The control owns readonly state, allowing the same grid to switch between viewer and editor modes.',
     points: [
       'Start with readonly enabled in the provider.',
-      'Toggle provider.readonlyGrid without rebuilding the grid.',
+      'Toggle control readonly state without rebuilding the grid.',
       'Context menu actions can still provide controlled mutations.',
     ],
     code: `readonly isReadonly = signal(true);
@@ -226,7 +226,7 @@ readonly provider = new AgridProvider({
 });
 
 constructor() {
-  effect(() => this.provider.readonlyGrid.set(this.isReadonly()));
+  effect(() => this.provider.control.setReadonly(this.isReadonly()));
 }`,
   },
   {

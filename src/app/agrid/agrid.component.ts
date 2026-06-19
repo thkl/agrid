@@ -119,7 +119,7 @@ export class AgridComponent<T extends object = any> {
   readonly minHeight = computed(() => this.provider().minHeight);
   readonly maxHeight = computed(() => this.provider().maxHeight);
   readonly allowAddRows = computed(() => this.provider().allowAddRows);
-  readonly autoAddRows = computed(() => this.provider().autoAddRows());
+  readonly autoAddRows = computed(() => this.control()?.autoAddRows() ?? false);
   readonly enableRowMarking = computed(() => this.provider().enableRowMarking);
   readonly showControlColumn = computed(() =>
     this.provider().showControlColumn || this.enableRowMarking() || this.masterDetail()
@@ -145,8 +145,8 @@ export class AgridComponent<T extends object = any> {
     () => this.provider().showChangedCellIndicator,
   );
   readonly confirmRowDelete = computed(() => this.provider().confirmRowDelete);
-  readonly readonlyGrid = computed(() => this.provider().readonlyGrid());
-  readonly loading = computed(() => this.provider().loading());
+  readonly readonlyGrid = computed(() => this.control()?.readonly() ?? false);
+  readonly loading = computed(() => this.control()?.loading() ?? false);
   readonly emptyText = computed(() => this.provider().emptyText);
   readonly useSidebarEditor = computed(() => this.provider().useSidebarEditor);
 
@@ -189,6 +189,9 @@ export class AgridComponent<T extends object = any> {
 
   /** Signal-based data container from the active provider. */
   readonly dataSource = computed<AgridDataSource>(() => this.provider().datasource);
+
+  /** Active lazy server-side row model, when configured on the provider. */
+  readonly serverSideRowModel = computed(() => this.provider().serverSideRowModel);
 
   private readonly treeParentIds = computed(() => {
     const config = this.treeConfig();
@@ -650,6 +653,7 @@ export class AgridComponent<T extends object = any> {
   private readonly destroyRef = inject(DestroyRef);
   private readonly _hostEl = inject(ElementRef<HTMLElement>);
   private readonly browser = new AgridBrowserAdapter();
+  private viewReady = false;
 
   private readonly rangeController = new AgridRangeController({
     control: this.control,
@@ -1038,12 +1042,27 @@ export class AgridComponent<T extends object = any> {
     });
 
     afterNextRender(() => {
+      this.viewReady = true;
       const wrapper = this.wrapperEl().nativeElement;
       const onKeyDown = (event: KeyboardEvent) => this.onKeyDown(event);
       wrapper.addEventListener('keydown', onKeyDown, { capture: true });
       this.destroyRef.onDestroy(() =>
         wrapper.removeEventListener('keydown', onKeyDown, { capture: true })
       );
+      this.ensureServerRowsVisible();
+    });
+
+    // Query changes invalidate lazy blocks. The model owns request cancellation by generation,
+    // so late responses from an old filter/sort state cannot overwrite current rows.
+    effect(() => {
+      const model = this.serverSideRowModel();
+      const ctrl = this.control();
+      if (!model) return;
+      ctrl?.filters();
+      ctrl?.sortOrder();
+      ctrl?.quickFilter();
+      model.setQuery(ctrl, this.projection.effectiveSortOrder());
+      queueMicrotask(() => this.ensureServerRowsVisible());
     });
 
     const onDocumentKeyDown = (event: KeyboardEvent) => {
@@ -1128,6 +1147,11 @@ export class AgridComponent<T extends object = any> {
   /** @internal */
   isDataRowItem(item: GridItem): item is { row: Record<string, unknown>; originalIndex: number } {
     return isDataRowItemFn(item);
+  }
+
+  /** @internal Whether this virtual row is waiting for a server-side block. */
+  isLoadingRow(item: GridItem): item is { loading: true; originalIndex: number } {
+    return !!item && typeof item === 'object' && 'loading' in item;
   }
 
   /** @internal */
@@ -2091,6 +2115,17 @@ export class AgridComponent<T extends object = any> {
     const offset = this.viewport().measureScrollOffset();
     this.pinnedViewport()?.scrollToOffset(offset);
     this.rightPinnedViewport()?.scrollToOffset(offset);
+    this.ensureServerRowsVisible();
+  }
+
+  private ensureServerRowsVisible(): void {
+    const model = this.serverSideRowModel();
+    if (!model || !this.viewReady) return;
+    const viewport = this.viewport();
+    const range = viewport.getRenderedRange();
+    const start = Math.max(0, range.start - model.blockSize);
+    const end = Math.max(range.end, range.start + model.blockSize) + model.blockSize;
+    model.ensureRange(start, end);
   }
 
   /** @internal Keeps the row-delete prompt visible while columns scroll horizontally. */

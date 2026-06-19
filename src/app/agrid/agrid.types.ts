@@ -318,6 +318,7 @@ export interface GroupAction {
  */
 export type GridItem<T extends object = Record<string, unknown>> =
   | { row: T; originalIndex: number }
+  | { loading: true; originalIndex: number }
   | null
   | 'ghost'
   | { groupLabel: string; count: number; collapsed: boolean; aggregates?: Record<string, unknown> }
