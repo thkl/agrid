@@ -80,15 +80,6 @@
   cursor: not-allowed;
 }
 
-.ag-menu-bar-icon {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  min-width: 14px;
-  line-height: 1;
-}
-
 .ag-menu-bar-label {
   min-width: 0;
   overflow: hidden;

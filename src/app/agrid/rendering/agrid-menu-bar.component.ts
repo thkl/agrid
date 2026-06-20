@@ -5,10 +5,12 @@ import {
   AgridMenuBarMenuItem,
   AgridMenuBarState,
 } from '../agrid.types';
+import { AgridMenuBarIcon } from './agrid-menu-icon.component';
 
 /** Internal renderer for provider-configured grid commands and dropdown items. */
 @Component({
   selector: 'agrid-menu-bar',
+  imports:[AgridMenuBarIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './agrid-menu-bar.component.html',
   styleUrl: './agrid-menu-bar.component.css',

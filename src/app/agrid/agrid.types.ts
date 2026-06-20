@@ -141,6 +141,8 @@ export interface AgridMenuBarMenuItem<T extends object = any> {
   active?: AgridMenuBarState<T>;
   /** Whether the command is disabled. Defaults to `false`. */
   disabled?: AgridMenuBarState<T>;
+  /** Additional classes */
+  class?:string;
 }
 
 /** Top-level menu-bar button with optional additional dropdown commands. */

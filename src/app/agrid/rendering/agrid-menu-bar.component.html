@@ -9,7 +9,7 @@
         [attr.aria-pressed]="item.active !== undefined ? isActive(item) : null"
         (click)="runAction($event, item)">
         @if (item.icon) {
-          <span class="ag-menu-bar-icon" aria-hidden="true">{{ item.icon }}</span>
+          <agrid-menu-icon [class]="item.class">{{item.icon}}</agrid-menu-icon>
         }
         <span class="ag-menu-bar-label">{{ item.label }}</span>
       </button>
@@ -32,7 +32,7 @@
                 (click)="runAction($event, child)">
                 <span class="ag-menu-bar-dropdown-check" aria-hidden="true">{{ isActive(child) ? '&#10003;' : '' }}</span>
                 @if (child.icon) {
-                  <span class="ag-menu-bar-icon" aria-hidden="true">{{ child.icon }}</span>
+                 <agrid-menu-icon [class]="item.class">{{child.icon}}</agrid-menu-icon>
                 }
                 <span class="ag-menu-bar-label">{{ child.label }}</span>
               </button>

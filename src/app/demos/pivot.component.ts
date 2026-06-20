@@ -141,9 +141,9 @@ export class PivotDemoComponent {
     zebraStripes: true,
     showSidebar: true,
     menuBarItems: [
-      { id: 'saveControl', label: 'Save Table config'},
+      { id: 'saveControl', class:'material-symbols-outlined', icon:'save', label: 'Save Table config'},
       {
-        id: 'pivot', label: "Pivot", icon:'\u2632', items: [
+        id: 'pivot', label: "Pivot", class:'material-symbols-outlined', icon:'pivot_table_chart', items: [
           { id: 'addPivot', label: 'Add Pivot', disabled: (context => context.provider.pivotConfig !== null) },
           { id: 'removePivot', label: 'Remove Pivot', disabled: (context => context.provider.pivotConfig === null) }
         ]
