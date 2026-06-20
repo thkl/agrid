@@ -24,7 +24,7 @@ const PRODUCTS = ['Platform', 'Analytics', 'Support'];
 const SALES: PivotSale[] = REGIONS.flatMap((region, regionIndex) =>
   QUARTERS.flatMap((quarter, quarterIndex) =>
     PRODUCTS.flatMap((product, productIndex) =>
-      Array.from({ length: 2 }, (_, dealIndex) => ({
+      Array.from({ length: 20 }, (_, dealIndex) => ({
         region,
         quarter,
         product,

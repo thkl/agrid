@@ -32,7 +32,7 @@ interface BenchmarkResult {
   durationMs: number;
 }
 
-const ROW_COUNTS = new Set([10_000, 50_000, 100_000,250_000]);
+const ROW_COUNTS = new Set([10_000, 50_000, 100_000,250_000,500_000, 1000_000]);
 const DEPARTMENTS = ['Engineering', 'Sales', 'Marketing', 'Finance', 'Operations'];
 const REGIONS = ['North', 'South', 'East', 'West'];
 
@@ -84,6 +84,8 @@ function createRows(count: number): PerformanceRow[] {
           <a routerLink="." [queryParams]="{ rows: 50000 }">50k</a>
           <a routerLink="." [queryParams]="{ rows: 100000 }">100k</a>
           <a routerLink="." [queryParams]="{ rows: 250000 }">250k</a>
+          <a routerLink="." [queryParams]="{ rows: 500000 }">500k</a>
+          <a routerLink="." [queryParams]="{ rows: 1000000 }">1Mio</a>
         </nav>
       </header>
 

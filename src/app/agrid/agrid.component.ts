@@ -81,6 +81,9 @@ export type { GridItem };
  * | Key | Action |
  * |-----|--------|
  * | Arrow keys | Move selection |
+ * | Page Up / Page Down | Move by one visible viewport page |
+ * | Home / End | Move to the first / last cell in the current row |
+ * | Ctrl/Cmd+Home / Ctrl/Cmd+End | Move to the first / last cell in the grid |
  * | Tab / Shift+Tab | Move right / left (wraps rows) |
  * | Enter | Enter edit mode |
  * | Ctrl/Cmd+Enter | Toggle an expandable tree node |

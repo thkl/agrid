@@ -402,6 +402,9 @@ export class AgridProvider<T extends object = any> {
       throw new Error(`Unsupported aGrid settings version: ${settings.version}`);
     }
     if (settings.pivotConfig) {
+      if (this.serverSideRowModel || this.treeConfig) {
+        throw new Error('Saved pivot settings cannot be loaded with treeConfig or a server-side row model.');
+      }
       const fields = new Set<string>(this.columns().map(column => column.field as string));
       const pivotFields = [
         settings.pivotConfig.rowField,

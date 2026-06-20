@@ -1,13 +1,28 @@
-<div class="docs-page">
+<div class="docs-page" (click)="onAnchorClick($event)">
   <aside class="docs-toc" aria-label="Documentation sections">
-    <div class="docs-toc-title">On this page</div>
+    <div class="docs-toc-title">Documentation</div>
+    <div class="docs-toc-group">Start</div>
     <a href="#quick-start">Quick start</a>
-    <a href="#features">Features</a>
+    <a href="#guides">How-to guides</a>
+
+    <div class="docs-toc-group">Common tasks</div>
+    <a href="#guide-sort-filter">Sort and filter</a>
+    <a href="#guide-columns">Configure columns</a>
+    <a href="#guide-editing">Edit and validate</a>
+    <a href="#guide-selection">Select and copy</a>
+    <a href="#guide-grouping">Group and aggregate</a>
+    <a href="#guide-pivot">Build a pivot</a>
+    <a href="#guide-tree">Display tree data</a>
+    <a href="#guide-pagination">Load and paginate</a>
+    <a href="#guide-settings">Save user settings</a>
+    <a href="#features">Feature checklist</a>
+
+    <div class="docs-toc-group">API reference</div>
     <a href="#component-api">Component API</a>
     <a href="#provider">Provider</a>
     <a href="#columns">Columns</a>
-    <a href="#filtering">Filtering and validation</a>
-    <a href="#treedata">Tree data</a>
+    <a href="#filtering">Filter reference</a>
+    <a href="#treedata">Tree reference</a>
     <a href="#datasource">Data source</a>
     <a href="#control">Control</a>
     <a href="#events">Events</a>
@@ -42,6 +57,184 @@
       <pre><code>{{ quickStartCode }}</code></pre>
     </section>
 
+    <section id="guides" class="guide-index">
+      <div class="chapter-kicker">Task-oriented guides</div>
+      <h2>Start with what you want to build</h2>
+      <p>
+        These chapters show complete workflows first. Use the API reference later when you need
+        every option or exact type signature.
+      </p>
+      <div class="guide-card-grid">
+        <a href="#guide-sort-filter"><strong>Sort and filter</strong><span>Column sorts, conditions, and quick search</span></a>
+        <a href="#guide-columns"><strong>Configure columns</strong><span>Visibility, order, width, and pinning</span></a>
+        <a href="#guide-editing"><strong>Edit and validate</strong><span>Editors, validation, and persistence events</span></a>
+        <a href="#guide-selection"><strong>Select and copy</strong><span>Rows, ranges, clipboard, and marking</span></a>
+        <a href="#guide-grouping"><strong>Group and aggregate</strong><span>Groups, footers, and subtotals</span></a>
+        <a href="#guide-pivot"><strong>Build a pivot</strong><span>Dimensions, values, sidebar, and aggregates</span></a>
+        <a href="#guide-tree"><strong>Display tree data</strong><span>Parent IDs, paths, and descendant rollups</span></a>
+        <a href="#guide-pagination"><strong>Load and paginate</strong><span>Local pages and lazy server blocks</span></a>
+        <a href="#guide-settings"><strong>Save user settings</strong><span>Backend-safe snapshots and restoration</span></a>
+      </div>
+    </section>
+
+    <section id="guide-sort-filter" class="guide-chapter">
+      <div class="chapter-kicker">Chapter 1</div>
+      <h2>How to sort and filter rows</h2>
+      <p>
+        Give users header controls with <code>filterable</code>, or drive the same state through
+        <code>AgridControl</code>. Client-side sorting and filtering are reactive and operate on
+        resolved display values.
+      </p>
+      <div class="guide-facts">
+        <div><strong>Header sorting</strong><span>Click for one sort; Shift-click builds a multi-sort.</span></div>
+        <div><strong>Typed conditions</strong><span>Text, number, and date columns receive appropriate operators.</span></div>
+        <div><strong>Quick filter</strong><span>Search all visible columns with one input.</span></div>
+      </div>
+      <h3>Configure sorting</h3>
+      <pre><code>{{ sortingGuideCode }}</code></pre>
+      <h3>Configure filters</h3>
+      <pre><code>{{ filteringGuideCode }}</code></pre>
+      <div class="callout">
+        Use <code>serverSideFiltering</code> when the backend owns the dataset. The same controls
+        emit requests instead of changing rows locally.
+      </div>
+    </section>
+
+    <section id="guide-columns" class="guide-chapter">
+      <div class="chapter-kicker">Chapter 2</div>
+      <h2>How to configure columns</h2>
+      <p>
+        Static column definitions establish defaults. The control stores each user's runtime
+        visibility, order, width, and pinning choices.
+      </p>
+      <pre><code>{{ columnsGuideCode }}</code></pre>
+      <ul>
+        <li>Use <code>locked</code> for structural columns users must not move or hide.</li>
+        <li>Use <code>showSidebar</code> to expose a visibility selector.</li>
+        <li>Use <code>headerGroups</code> to label adjacent presentation columns.</li>
+        <li>Persist runtime choices with the settings API from Chapter 9.</li>
+      </ul>
+    </section>
+
+    <section id="guide-editing" class="guide-chapter">
+      <div class="chapter-kicker">Chapter 3</div>
+      <h2>How to edit, validate, and save rows</h2>
+      <p>
+        Cells are editable by default. Disable editing per column or row, provide fixed values for
+        select editors, and reject invalid commits with a message.
+      </p>
+      <pre><code>{{ editingGuideCode }}</code></pre>
+      <div class="guide-facts">
+        <div><strong>cellEdit</strong><span>One committed cell change, paste, fill, undo, or redo.</span></div>
+        <div><strong>rowChanged</strong><span>The latest complete row after navigation leaves it.</span></div>
+        <div><strong>validationFailed</strong><span>The rejected value, message, row, and edit source.</span></div>
+      </div>
+      <p>
+        Use <code>showChangedCellIndicator</code> while a save request is pending, then call
+        <code>clearChangedCells()</code> after the backend confirms success.
+      </p>
+    </section>
+
+    <section id="guide-selection" class="guide-chapter">
+      <div class="chapter-kicker">Chapter 4</div>
+      <h2>How to select, copy, paste, and fill</h2>
+      <p>
+        Row selection and spreadsheet-style cell ranges are independent. Configure row selection
+        on the provider; cell selection, keyboard copying, pasting, and fill handles work without
+        additional setup.
+      </p>
+      <pre><code>{{ selectionGuideCode }}</code></pre>
+      <ul>
+        <li>Shift+click or Shift+arrow extends a cell range.</li>
+        <li>Ctrl/Cmd+C and Ctrl/Cmd+V use tab-separated clipboard text.</li>
+        <li>The fill handle repeats a value or pattern down or right.</li>
+        <li>Row marking creates a persistent copy basket independent from selection.</li>
+      </ul>
+    </section>
+
+    <section id="guide-grouping" class="guide-chapter">
+      <div class="chapter-kicker">Chapter 5</div>
+      <h2>How to group and aggregate</h2>
+      <p>
+        Mark dimension columns as <code>groupable</code> and value columns with an aggregate.
+        Aggregates appear in the footer and automatically become subtotals when grouping is active.
+      </p>
+      <pre><code>{{ groupingGuideCode }}</code></pre>
+      <div class="callout">
+        Built-ins are <code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, and
+        <code>count</code>. Column definitions may also provide a custom function.
+      </div>
+    </section>
+
+    <section id="guide-pivot" class="guide-chapter">
+      <div class="chapter-kicker">Chapter 6</div>
+      <h2>How to build a pivot table</h2>
+      <p>
+        A pivot converts flat source records into a read-only cross-tabulation. Choose one row
+        dimension, one column dimension, one value field, and one aggregate.
+      </p>
+      <pre><code>{{ pivotGuideCode }}</code></pre>
+      <div class="guide-facts">
+        <div><strong>Reactive</strong><span>Datasource updates immediately rebuild the matrix.</span></div>
+        <div><strong>Configurable</strong><span>The Pivot sidebar changes dimensions and visible columns.</span></div>
+        <div><strong>Persistable</strong><span>Save pivot and column settings as one JSON object.</span></div>
+      </div>
+      <p>
+        Pivot mode remains sortable, filterable, selectable, and pageable. Generated cells are
+        intentionally read-only because they do not map to one source record.
+      </p>
+      <a class="chapter-demo-link" routerLink="/pivot">Open the live pivot demo <span>→</span></a>
+    </section>
+
+    <section id="guide-tree" class="guide-chapter">
+      <div class="chapter-kicker">Chapter 7</div>
+      <h2>How to display tree data</h2>
+      <p>
+        Keep source rows flat and describe the hierarchy with parent IDs, or derive display-only
+        branches from path segments. Editing and selection continue to use datasource indices.
+      </p>
+      <pre><code>{{ treeCode }}</code></pre>
+      <ul>
+        <li><code>keepAncestorsOnFilter</code> reveals the path to matching descendants.</li>
+        <li><code>aggregateTreeNodes</code> rolls aggregate columns up from descendant leaves.</li>
+        <li>Use <code>expandAllNodes()</code> and <code>collapseAllNodes()</code> for bulk control.</li>
+      </ul>
+    </section>
+
+    <section id="guide-pagination" class="guide-chapter">
+      <div class="chapter-kicker">Chapter 8</div>
+      <h2>How to paginate and load server data</h2>
+      <p>
+        Use a page size when all rows are local. Use <code>AgridServerSideRowModel</code> when the
+        dataset must be fetched in blocks and filtered or sorted by the backend.
+      </p>
+      <pre><code>{{ paginationGuideCode }}</code></pre>
+      <div class="guide-facts">
+        <div><strong>Local pages</strong><span>The control slices filtered rows automatically.</span></div>
+        <div><strong>Remote pages</strong><span>Set totalRows and respond to page/filter/sort events.</span></div>
+        <div><strong>Lazy blocks</strong><span>The server row model caches viewport-sized blocks.</span></div>
+      </div>
+    </section>
+
+    <section id="guide-settings" class="guide-chapter">
+      <div class="chapter-kicker">Chapter 9</div>
+      <h2>How to save and restore user settings</h2>
+      <p>
+        Save one versioned object containing pivot configuration and control state. The snapshot is
+        detached and JSON-safe, so it can be sent directly to a backend.
+      </p>
+      <pre><code>{{ settingsGuideCode }}</code></pre>
+      <p>
+        Settings include visibility, widths, order, pinning, filters, sorting, pagination,
+        aggregates, and pivot configuration. Rows, selection, loading state, and edit history are
+        intentionally excluded.
+      </p>
+      <div class="callout">
+        Custom aggregate functions are executable code and cannot be serialized. Register those in
+        application code; save only built-in aggregate names.
+      </div>
+    </section>
+
     <section id="features">
       <h2>Features</h2>
       <div class="feature-list">
@@ -57,6 +250,7 @@
         <span>Boolean checkbox columns</span>
         <span>Grouping</span>
         <span>Aggregates and group subtotals</span>
+        <span>Client-side pivot tables</span>
         <span>Tree data</span>
         <span>Pagination</span>
         <span>Pinned columns</span>
@@ -108,6 +302,8 @@
             <tr><td><code>deleteRow(index)</code></td><td>Removes a row and emits <code>rowRemoved</code>, after confirmation when enabled.</td></tr>
             <tr><td><code>clearChangedCells(index?, fields?)</code></td><td>Clears all markers, one row, or selected fields.</td></tr>
             <tr><td><code>clearMarkedRows()</code></td><td>Clears all rows marked for clipboard inclusion.</td></tr>
+            <tr><td><code>saveSettings()</code></td><td>Returns a versioned, JSON-safe snapshot of pivot and control settings.</td></tr>
+            <tr><td><code>loadSettings(settings)</code></td><td>Applies a saved snapshot to the live grid.</td></tr>
           </tbody>
         </table>
       </div>
@@ -137,6 +333,7 @@
             <tr><td><code>columns</code></td><td><code>[]</code></td><td>Typed column definitions.</td></tr>
             <tr><td><code>headerGroups</code></td><td><code>[]</code></td><td>Labels for optional grouped column headers.</td></tr>
             <tr><td><code>treeConfig</code></td><td><code>null</code></td><td>Renders rows as a hierarchical tree. See <a href="#treedata">Tree data</a>.</td></tr>
+            <tr><td><code>pivotConfig</code></td><td><code>null</code></td><td>Creates a read-only client-side pivot. See <a href="#guide-pivot">Build a pivot</a>.</td></tr>
             <tr><td><code>datasource</code></td><td>Empty</td><td>Signal-based row container.</td></tr>
             <tr><td><code>control</code></td><td>New control</td><td>Filters, sorting, grouping, pagination, and history.</td></tr>
             <tr><td><code>locale</code></td><td><code>'auto'</code></td><td>BCP-47 locale for labels and date formatting.</td></tr>
@@ -344,6 +541,7 @@
             <tr><td><code>treeField</code></td><td>Yes</td><td>Field whose cell shows the indentation and twisty.</td></tr>
             <tr><td><code>defaultExpanded</code></td><td>No</td><td>Expand all nodes on first render. Defaults to <code>false</code>.</td></tr>
             <tr><td><code>keepAncestorsOnFilter</code></td><td>No</td><td>Keep ancestors of filter matches visible. Defaults to <code>true</code>.</td></tr>
+            <tr><td><code>aggregateTreeNodes</code></td><td>No</td><td>Display aggregate-column rollups from descendant leaves.</td></tr>
           </tbody>
         </table>
       </div>
@@ -414,7 +612,7 @@
             <tr><td>Grouping</td><td><code>setGroupBy</code>, <code>groupByField</code></td></tr>
             <tr><td>Pagination</td><td><code>setPageSize</code>, <code>setPage</code>, <code>pageSize</code>, <code>currentPage</code></td></tr>
             <tr><td>History</td><td><code>undo</code>, <code>redo</code>, <code>clearHistory</code>, <code>canUndo</code>, <code>canRedo</code></td></tr>
-            <tr><td>Persistence</td><td><code>toJSON</code>, <code>AgridControl.fromJSON</code></td></tr>
+            <tr><td>Persistence</td><td><code>toJSON</code>, <code>loadState</code>, <code>AgridControl.fromJSON</code>, or provider <code>saveSettings</code> / <code>loadSettings</code></td></tr>
           </tbody>
         </table>
       </div>
@@ -444,6 +642,7 @@
             <tr><td><code>sortChange</code></td><td><code>SortChangeEvent</code></td><td>Server-side sort request.</td></tr>
             <tr><td><code>quickFilterChange</code></td><td><code>string</code></td><td>Debounced quick-filter text in server-side mode.</td></tr>
             <tr><td><code>validationFailed</code></td><td><code>ValidationFailedEvent&lt;T&gt;</code></td><td>A <code>validate</code> hook rejected a committed value (inline or sidebar).</td></tr>
+            <tr><td><code>settingsChange</code></td><td><code>AgridSettings</code></td><td>Complete persistable snapshot after Pivot-sidebar or sidebar visibility changes.</td></tr>
           </tbody>
         </table>
       </div>
@@ -478,6 +677,9 @@
           <tbody>
             <tr><td>Arrow keys</td><td>Move the active cell.</td></tr>
             <tr><td>Shift + arrow/click</td><td>Extend the cell range.</td></tr>
+            <tr><td>Page Up / Page Down</td><td>Move by one visible viewport page.</td></tr>
+            <tr><td>Home / End (Pos1 / Ende)</td><td>Move to the first or last cell in the current row.</td></tr>
+            <tr><td>Ctrl/Cmd + Home / End</td><td>Move to the first or last cell in the projected grid.</td></tr>
             <tr><td>Tab / Shift + Tab</td><td>Move horizontally and wrap rows.</td></tr>
             <tr><td>Enter</td><td>Start editing.</td></tr>
             <tr><td>Enter while editing</td><td>Commit and follow <code>enterEditAction</code>.</td></tr>

@@ -1179,6 +1179,9 @@ Paste and fill store multiple entries as one `HistoryItem`, so Ctrl/Cmd+Z revers
 | --- | --- |
 | Arrow keys | Move active cell. |
 | Shift+arrow | Extend cell range selection. |
+| Page Up / Page Down | Move by the number of complete rows visible in the viewport. |
+| Home / End (Pos1 / Ende) | Move to the first / last cell in the current row. |
+| Ctrl/Cmd+Home / Ctrl/Cmd+End | Move to the first / last cell in the projected grid. |
 | Tab / Shift+Tab | Move right / left, wrapping rows. |
 | Enter | Start editing the active cell. |
 | Enter while editing | Commit and follow `enterEditAction` (`nextRow` by default). |

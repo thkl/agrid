@@ -166,6 +166,22 @@ export class AgridNavigationController {
         event.preventDefault();
         this.moveSelection(0, 1, event.shiftKey);
         break;
+      case 'PageUp':
+        event.preventDefault();
+        this.moveSelectionByPage(-1, event.shiftKey);
+        break;
+      case 'PageDown':
+        event.preventDefault();
+        this.moveSelectionByPage(1, event.shiftKey);
+        break;
+      case 'Home':
+        event.preventDefault();
+        this.moveSelectionToBoundary('start', event.ctrlKey || event.metaKey, event.shiftKey);
+        break;
+      case 'End':
+        event.preventDefault();
+        this.moveSelectionToBoundary('end', event.ctrlKey || event.metaKey, event.shiftKey);
+        break;
       case 'Tab':
         event.preventDefault();
         this.moveSelection(0, event.shiftKey ? -1 : 1);
@@ -360,6 +376,85 @@ export class AgridNavigationController {
       }
     }
     this.scrollToKeepVisible(newDi, newCi);
+    this.opts.focusGrid();
+  }
+
+  /** Move by the number of complete data rows currently visible in the viewport. */
+  private moveSelectionByPage(direction: -1 | 1, extendRange: boolean): void {
+    const items = this.opts.filteredItems();
+    const dataRows = items
+      .map((item, displayIndex) => ({ item, displayIndex }))
+      .filter((entry): entry is {
+        item: Extract<GridItem, { row: object; originalIndex: number }>;
+        displayIndex: number;
+      } => isDataRowItem(entry.item));
+    if (dataRows.length === 0) return;
+
+    const selected = this.opts.selectedCell();
+    const current = selected
+      ? dataRows.findIndex(entry => entry.item.originalIndex === selected.rowIndex)
+      : -1;
+    const rowsPerPage = Math.max(
+      1,
+      Math.floor(this.opts.viewport().getViewportSize() / this.opts.rowHeight()),
+    );
+    const target = current < 0
+      ? direction > 0 ? 0 : dataRows.length - 1
+      : Math.max(0, Math.min(dataRows.length - 1, current + direction * rowsPerPage));
+    this.selectProjectedRow(
+      dataRows[target].item.originalIndex,
+      dataRows[target].displayIndex,
+      selected?.colIndex ?? 0,
+      extendRange,
+    );
+  }
+
+  /**
+   * Home/End move horizontally within the selected row; Ctrl/Cmd moves to the corresponding
+   * corner of the projected grid, matching common spreadsheet and ARIA-grid conventions.
+   */
+  private moveSelectionToBoundary(
+    edge: 'start' | 'end',
+    wholeGrid: boolean,
+    extendRange: boolean,
+  ): void {
+    const items = this.opts.filteredItems();
+    const cols = this.opts.visibleColDefs();
+    if (items.length === 0 || cols.length === 0) return;
+
+    const selected = this.opts.selectedCell();
+    let displayIndex = selected ? this.selectedDisplayIndex() : -1;
+    if (wholeGrid || displayIndex < 0 || !isDataRowItem(items[displayIndex])) {
+      const step = edge === 'start' ? 1 : -1;
+      displayIndex = edge === 'start' ? 0 : items.length - 1;
+      while (displayIndex >= 0 && displayIndex < items.length && !isDataRowItem(items[displayIndex])) {
+        displayIndex += step;
+      }
+    }
+    const item = items[displayIndex];
+    if (!isDataRowItem(item)) return;
+    this.selectProjectedRow(
+      item.originalIndex,
+      displayIndex,
+      edge === 'start' ? 0 : cols.length - 1,
+      extendRange,
+    );
+  }
+
+  /** Apply a projected keyboard destination and keep both axes visible. */
+  private selectProjectedRow(
+    originalIndex: number,
+    displayIndex: number,
+    colIndex: number,
+    extendRange: boolean,
+  ): void {
+    if (extendRange && this.opts.selectedCell()) {
+      this.opts.extendRangeTo(originalIndex, colIndex);
+    } else {
+      this.opts.selectedRange.set(null);
+      this.opts.selectedCell.set({ rowIndex: originalIndex, colIndex });
+    }
+    this.scrollToKeepVisible(displayIndex, colIndex);
     this.opts.focusGrid();
   }
 

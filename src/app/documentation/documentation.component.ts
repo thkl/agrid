@@ -9,6 +9,18 @@ import { RouterLink } from '@angular/router';
   styleUrl: './documentation.component.css',
 })
 export class DocumentationComponent {
+  /** Keep in-page chapter links inside the hash-routed documentation page. */
+  onAnchorClick(event: MouseEvent): void {
+    const anchor = (event.target as Element).closest<HTMLAnchorElement>('a[href^="#"]');
+    if (!anchor) return;
+    const id = anchor.getAttribute('href')?.slice(1);
+    if (!id) return;
+    const target = document.getElementById(id);
+    if (!target) return;
+    event.preventDefault();
+    target.scrollIntoView({ block: 'start' });
+  }
+
   readonly installCode = 'pnpm add @thkl/agrid @angular/cdk';
 
   readonly quickStartCode = `import { Component } from '@angular/core';
@@ -259,6 +271,145 @@ onFilter(event: FilterChangeEvent): void {
 const control = AgridControl.fromJSON(saved ? JSON.parse(saved) : {});
 
 localStorage.setItem('agrid-state', JSON.stringify(control.toJSON()));`;
+
+  readonly sortingGuideCode = `const control = new AgridControl();
+
+// Replace the current sort.
+control.setSort('total', 'desc');
+
+// Add a secondary sort (when sortOption is 'multi').
+control.addSort('customer', 'asc');
+
+// Clear one sort.
+control.setSort('total', null);
+
+readonly provider = new AgridProvider({
+  columns,
+  datasource,
+  control,
+  sortOption: 'multi', // 'single' | 'multi' | 'none'
+});`;
+
+  readonly filteringGuideCode = `const columns: ColDef<Order>[] = [
+  { field: 'customer', header: 'Customer', filterable: true },
+  { field: 'total', header: 'Total', type: 'number', filterable: true },
+  { field: 'placedAt', header: 'Placed', type: 'date', filterable: true },
+];
+
+control.setTextFilter('customer', 'alice');
+control.setRangeFilter('total', 'between', '100', '500');
+control.setQuickFilter('priority');
+control.clearFilter('total');`;
+
+  readonly columnsGuideCode = `const columns: ColDef<Person>[] = [
+  { field: 'id', header: 'ID', width: 72, pinned: 'left', locked: true },
+  { field: 'name', header: 'Name', width: 180 },
+  { field: 'email', header: 'Email', hidden: true },
+];
+
+control.setColumnVisibility('email', true);
+control.setPinned('name', true);
+control.setColumnOrder(['id', 'name', 'email']);
+control.setColumnWidth('name', 240);
+
+// Let users make the same changes in the grid.
+const provider = new AgridProvider({ columns, datasource, control, showSidebar: true });`;
+
+  readonly editingGuideCode = `const columns: ColDef<Person>[] = [
+  { field: 'id', header: 'ID', editable: false },
+  {
+    field: 'email',
+    header: 'Email',
+    validate: value => /@/.test(String(value))
+      ? null
+      : 'Enter a valid email',
+  },
+  {
+    field: 'status',
+    header: 'Status',
+    values: ['Active', 'Paused'],
+  },
+];
+
+// Template:
+// <agrid [provider]="provider"
+//   (cellEdit)="onCellEdit($event)"
+//   (rowChanged)="saveRow($event)"
+//   (validationFailed)="showError($event)" />`;
+
+  readonly selectionGuideCode = `readonly grid = viewChild(AgridComponent<Person>);
+
+readonly provider = new AgridProvider<Person>({
+  columns,
+  datasource,
+  rowSelection: 'multi',
+  enableRowMarking: true,
+});
+
+// Cell ranges support Shift+click, copy/paste, and fill handles.
+// Marked rows are appended to clipboard operations.
+const selectedRows = [...(grid()?.selectedRowIndices() ?? [])]
+  .map(index => datasource.getRow(index));
+grid()?.clearMarkedRows();`;
+
+  readonly groupingGuideCode = `const columns: ColDef<Sale>[] = [
+  { field: 'region', header: 'Region', groupable: true },
+  { field: 'revenue', header: 'Revenue', type: 'number', aggregate: 'sum' },
+  { field: 'margin', header: 'Margin', type: 'number', aggregate: 'avg' },
+];
+
+control.setGroupBy('region');
+control.setAggregate('revenue', 'sum');
+
+grid()?.expandGroups();
+grid()?.collapseGroups();
+control.setGroupBy(null);`;
+
+  readonly pivotGuideCode = `const provider = new AgridProvider<Sale>({
+  columns: [
+    { field: 'region', header: 'Region' },
+    { field: 'quarter', header: 'Quarter' },
+    { field: 'revenue', header: 'Revenue', type: 'number' },
+  ],
+  datasource: new AgridDataSource(sales),
+  pivotConfig: {
+    rowField: 'region',
+    columnField: 'quarter',
+    valueField: 'revenue',
+    aggregate: 'sum',
+  },
+  showSidebar: true, // users can reconfigure the pivot here
+});`;
+
+  readonly paginationGuideCode = `// Client-side pagination.
+const control = new AgridControl({ pageSize: 25 });
+control.setPage(2);
+control.setPageSize(50);
+
+// For lazy server data, provide a row model instead of a datasource.
+const rowModel = new AgridServerSideRowModel<Order>({
+  blockSize: 100,
+  datasource: {
+    getRows: request => api.getOrders(request),
+  },
+});
+
+const provider = new AgridProvider({ columns, control, serverSideRowModel: rowModel });`;
+
+  readonly settingsGuideCode = `// Save after a user changes pivot or column visibility.
+saveSettings(settings: AgridSettings): void {
+  this.http.put('/api/users/me/grid-settings/orders', settings).subscribe();
+}
+
+// Template:
+// <agrid #grid [provider]="provider" (settingsChange)="saveSettings($event)" />
+
+// Restore before or after rendering.
+provider.loadSettings(savedSettings);
+grid()?.loadSettings(savedSettings);
+
+// Create a snapshot on demand.
+const snapshot = provider.saveSettings();`;
 
   readonly layoutCode = `mat-card {
   height: 600px;

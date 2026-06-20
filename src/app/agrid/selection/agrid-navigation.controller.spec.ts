@@ -36,6 +36,60 @@ describe('AgridNavigationController', () => {
     expect(extendRangeTo).toHaveBeenCalledWith(1, 0);
   });
 
+  it('moves Page Up and Page Down by the visible viewport row count', () => {
+    const rows = Array.from({ length: 12 }, (_, index) => ({
+      name: `Row ${index}`, amount: index, hidden: 'x',
+    }));
+    const { controller, selectedCell } = setup({
+      initialRows: rows,
+      filteredItems: rows.map((_, index) => dataItem(index)),
+      viewport: createViewport(0, 120),
+    });
+    selectedCell.set({ rowIndex: 5, colIndex: 1 });
+
+    controller.handleKeyDown(keyboardEvent('PageDown'));
+    expect(selectedCell()).toEqual({ rowIndex: 8, colIndex: 1 });
+
+    controller.handleKeyDown(keyboardEvent('PageUp'));
+    expect(selectedCell()).toEqual({ rowIndex: 5, colIndex: 1 });
+  });
+
+  it('uses Home and End for row edges and Ctrl/Cmd for grid corners', () => {
+    const rows = Array.from({ length: 4 }, (_, index) => ({
+      name: `Row ${index}`, amount: index, hidden: 'x',
+    }));
+    const { controller, selectedCell } = setup({
+      initialRows: rows,
+      filteredItems: rows.map((_, index) => dataItem(index)),
+    });
+    selectedCell.set({ rowIndex: 2, colIndex: 1 });
+
+    controller.handleKeyDown(keyboardEvent('Home'));
+    expect(selectedCell()).toEqual({ rowIndex: 2, colIndex: 0 });
+    controller.handleKeyDown(keyboardEvent('End'));
+    expect(selectedCell()).toEqual({ rowIndex: 2, colIndex: 1 });
+    controller.handleKeyDown(keyboardEvent('Home', { ctrlKey: true }));
+    expect(selectedCell()).toEqual({ rowIndex: 0, colIndex: 0 });
+    controller.handleKeyDown(keyboardEvent('End', { metaKey: true }));
+    expect(selectedCell()).toEqual({ rowIndex: 3, colIndex: 1 });
+  });
+
+  it('extends the selected range with Shift+PageDown', () => {
+    const rows = Array.from({ length: 6 }, (_, index) => ({
+      name: `Row ${index}`, amount: index, hidden: 'x',
+    }));
+    const { controller, selectedCell, extendRangeTo } = setup({
+      initialRows: rows,
+      filteredItems: rows.map((_, index) => dataItem(index)),
+      viewport: createViewport(0, 80),
+    });
+    selectedCell.set({ rowIndex: 1, colIndex: 0 });
+
+    controller.handleKeyDown(keyboardEvent('PageDown', { shiftKey: true }));
+
+    expect(extendRangeTo).toHaveBeenCalledWith(3, 0);
+  });
+
   it('clears cell and range navigation when a grid control takes focus', () => {
     const { controller, selectedCell, selectedRange, cancelEdit } = setup();
     selectedCell.set({ rowIndex: 0, colIndex: 0 });

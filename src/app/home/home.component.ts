@@ -38,7 +38,7 @@ const PREVIEW_ROWS = [
   { name: 'James Nguyen',   role: 'PM',               department: 'product', salary: 138000, joined: '2021-08-03' },
 ];
 
-const FEATURES: { color: string; bg: string; label: string; title: string; desc: string }[] = [
+const FEATURES: { color: string; bg: string; label: string; title: string; desc: string; isNew?: boolean }[] = [
   { color: '#4f46e5', bg: '#eef2ff', label: '⌨', title: 'Keyboard-driven editing',  desc: 'Enter or F2 to edit, Tab to confirm, Escape to cancel. No mouse required.' },
   { color: '#0891b2', bg: '#ecfeff', label: '⇅', title: 'Sorting & filtering',       desc: 'Multi-column sort with Shift-click. Per-column dropdown filters with label resolution.' },
   { color: '#7c3aed', bg: '#f5f3ff', label: '⊞', title: 'Grouping & aggregates',     desc: 'Group by any column with custom group descriptions and aggregate footer rows.' },
@@ -55,6 +55,10 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
   { color: '#2563eb', bg: '#eff6ff', label: '▦', title: 'Clipboard & cell ranges',     desc: 'Select rectangular ranges, copy and paste TSV data, or drag to fill adjacent cells.' },
   { color: '#c2410c', bg: '#fff7ed', label: '⊕', title: 'Master-detail & pinned rows', desc: 'Expand rich detail panels and keep summary rows fixed at the top or bottom.' },
   { color: '#be123c', bg: '#fff1f2', label: '✓', title: 'Readonly & validation',       desc: 'Switch modes at runtime and reject invalid edits with field-level feedback.' },
+  { color: '#6d28d9', bg: '#f5f3ff', label: '▥', title: 'Pivot tables',                 desc: 'Build cross-tab views from the grid sidebar, including row, column, value, aggregate, and generated-column controls.', isNew: true },
+  { color: '#047857', bg: '#ecfdf5', label: '∑', title: 'Tree node aggregates',         desc: 'Roll up sum, average, count, or custom aggregates from descendant entries into every expandable tree node.', isNew: true },
+  { color: '#0369a1', bg: '#f0f9ff', label: '↻', title: 'Persistable grid settings',    desc: 'Load and save one serializable settings object so user layouts and pivot choices can round-trip through your backend.', isNew: true },
+  { color: '#a16207', bg: '#fefce8', label: '⇥', title: 'Extended keyboard navigation', desc: 'Move by viewport with Page Up and Page Down, or jump to row and grid edges with Home and End.', isNew: true },
 ];
 
 @Component({
@@ -73,8 +77,8 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
             <div class="hero-badge"><span></span> Built for Angular 21</div>
             <h1 class="hero-title">A powerful data grid that feels <em>native</em> to Angular.</h1>
             <p class="hero-sub">
-              Fast, keyboard-first, and signal-powered. Editing, grouping, filtering, and
-              virtual scrolling are ready from a single provider.
+              Fast, keyboard-first, and signal-powered. Editing, pivoting, tree rollups,
+              filtering, and persistable user settings are ready from a single provider.
             </p>
             <div class="hero-actions">
               <a class="btn btn-white" routerLink="/demo">Explore the grid <span>→</span></a>
@@ -133,7 +137,10 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
               <div class="feature-card">
                 <span class="feature-badge" [style.background]="f.bg" [style.color]="f.color">{{ f.label }}</span>
                 <div class="feature-text">
-                  <div class="feature-name">{{ f.title }}</div>
+                  <div class="feature-name">
+                    {{ f.title }}
+                    @if (f.isNew) { <span class="feature-new">New</span> }
+                  </div>
                   <div class="feature-desc">{{ f.desc }}</div>
                 </div>
               </div>
@@ -190,7 +197,7 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
             </a>
             <a class="demo-card" routerLink="/pivot">
               <div class="demo-card-title">Pivot table</div>
-              <div class="demo-card-desc">Cross-tabulate flat records by row, column, value, and aggregate.</div>
+              <div class="demo-card-desc">Configure row, column, value, aggregation, and visible result columns from one in-grid sidebar.</div>
               <span class="demo-card-link">Open →</span>
             </a>
             <a class="demo-card" routerLink="/pinning">
@@ -202,7 +209,7 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
             </a>
             <a class="demo-card" routerLink="/tree">
               <div class="demo-card-title">Tree data</div>
-              <div class="demo-card-desc">Hierarchical rows with expand/collapse, built from flat parent/child data.</div>
+              <div class="demo-card-desc">Hierarchical rows with expand/collapse and aggregate values rolled up from descendant entries.</div>
               <span class="demo-card-link">Open →</span>
             </a>
             <a class="demo-card" routerLink="/performance">
@@ -459,6 +466,24 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
       font-weight: 700;
       color: #111827;
       margin-bottom: 4px;
+    }
+
+    .feature-new {
+      display: inline-flex;
+      align-items: center;
+      min-height: 17px;
+      margin-left: 5px;
+      padding: 1px 6px;
+      border: 1px solid #bbf7d0;
+      border-radius: 999px;
+      background: #f0fdf4;
+      color: #15803d;
+      font-size: 8px;
+      font-weight: 750;
+      letter-spacing: 0.5px;
+      line-height: 1;
+      text-transform: uppercase;
+      vertical-align: 1px;
     }
 
     .feature-desc {
@@ -974,6 +999,12 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
     .dark-theme .feature-name,
     .dark-theme .demo-card-title {
       color: #e5eee8;
+    }
+
+    .dark-theme .feature-new {
+      border-color: #356e49;
+      background: #163822;
+      color: #86efac;
     }
 
     .dark-theme .feature-badge {
