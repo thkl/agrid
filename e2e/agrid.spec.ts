@@ -176,7 +176,9 @@ test.describe('agrid browser interactions', () => {
     const pageInfo = page.locator('.ag-page-info');
 
     await expect(pageInfo).toHaveText('1 / 20');
-    await page.getByRole('button', { name: 'Next' }).click();
+    // `exact` avoids matching the demo's page-selector "Next page" button alongside
+    // the grid's built-in "Next" pager control.
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(pageInfo).toHaveText('2 / 20');
     await expect(page.getByRole('row', { name: /^26 / })).toBeVisible();
     await page.getByRole('button', { name: 'First page' }).click();
@@ -184,6 +186,9 @@ test.describe('agrid browser interactions', () => {
   });
 
   test('keeps left and right pinned columns fixed during horizontal scrolling', async ({ page }) => {
+    // Narrow the viewport so the scrollable pane actually overflows: at the default width the
+    // demo's autosizeAllColumns() shrinks columns enough to fit, leaving nothing to scroll.
+    await page.setViewportSize({ width: 640, height: 720 });
     await page.goto('/#/pinning');
     const leftHeader = page.locator(
       '.ag-pinned-pane:not(.ag-pinned-pane--right) .ag-header-cell[data-col-field="id"]',
