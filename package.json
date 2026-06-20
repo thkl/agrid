@@ -4,6 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "start:dev": "ng serve",
     "build": "ng build",
     "build:lib": "node scripts/bump-library-version.mjs && ng build agrid-package",
     "build:demo": "ng build",
