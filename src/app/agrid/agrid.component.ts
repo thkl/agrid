@@ -1362,10 +1362,21 @@ export class AgridComponent<T extends object = any> {
     return isDetailRowItemFn(item) ? this.detailRowHeight() : this.rowHeight();
   }
 
+  /**
+   * Memoized detail-panel HTML keyed by the detail item. The projection recreates detail items
+   * only when their data changes, so the cache hits across change-detection passes and invalidates
+   * naturally when the row (and thus the item reference) changes — old items are GC'd via WeakMap.
+   */
+  private readonly detailHtmlCache = new WeakMap<object, string>();
+
   /** @internal Resolved HTML for an expanded detail panel (auto-sanitized by `[innerHTML]`). */
   detailHtml(item: GridItem): string {
     if (!isDetailRowItemFn(item)) return '';
-    return this.provider().detailRenderer?.({ row: item.row as T }) ?? '';
+    const cached = this.detailHtmlCache.get(item);
+    if (cached !== undefined) return cached;
+    const html = this.provider().detailRenderer?.({ row: item.row as T }) ?? '';
+    this.detailHtmlCache.set(item, html);
+    return html;
   }
 
   /** @internal Resolved per-row CSS classes from the host `getRowClass` callback. */
