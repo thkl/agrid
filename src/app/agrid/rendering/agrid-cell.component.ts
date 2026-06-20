@@ -10,6 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { CellFormat, ColDef, ValueOption } from '../agrid.types';
+import { AgridLocaleText, AGRID_LOCALE_TEXT } from '../agrid-localization';
 import {
   coerceDateInputValue,
   getDisplayForField,
@@ -94,7 +95,7 @@ import {
               type="button"
               class="ag-tree-twisty"
               [class.ag-tree-twisty--expanded]="treeExpanded()"
-              [attr.aria-label]="treeExpanded() ? 'Collapse' : 'Expand'"
+              [attr.aria-label]="treeExpanded() ? localeText().collapse : localeText().expand"
               (click)="onTreeToggle($event)"
             >▶</button>
           } @else {
@@ -112,8 +113,8 @@ import {
       <button
         type="button"
         class="ag-cell-info"
-        aria-label="More information"
-        title="More information"
+        [attr.aria-label]="localeText().moreInformation"
+        [title]="localeText().moreInformation"
         (pointerdown)="$event.stopPropagation()"
         (click)="onInfoClick($event)"
         (dblclick)="$event.stopPropagation()"
@@ -123,6 +124,7 @@ import {
   styleUrl: './agrid-cell.component.css',
 })
 export class AgridCellComponent {
+  localeText = input<AgridLocaleText>(AGRID_LOCALE_TEXT.en);
   /** Column definition for this cell. */
   col = input.required<ColDef>();
 

@@ -20,6 +20,7 @@ export interface AgridLocaleText {
   close: string;
   columnMenu: string;
   columns: string;
+  collapse: string;
   detail: string;
   toggleDetail: string;
   hiddenColumn: string;
@@ -59,6 +60,7 @@ export interface AgridLocaleText {
   lastPage: string;
   loading: string;
   markRow: string;
+  moreInformation: string;
   next: string;
   noRows: string;
   pagination: string;
@@ -75,6 +77,7 @@ export interface AgridLocaleText {
   unpinRow: string;
   previous: string;
   resizeColumn: string;
+  expand: string;
   rows: (count: number) => string;
   quickFilterPlaceholder: string;
   searchValuesPlaceholder: string;
@@ -110,6 +113,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     close: 'Close',
     columnMenu: 'Column menu',
     columns: 'Columns',
+    collapse: 'Collapse',
     detail: 'Detail',
     toggleDetail: 'Toggle detail panel',
     hiddenColumn: '(hidden)',
@@ -149,6 +153,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     lastPage: 'Last page',
     loading: 'Loading...',
     markRow: 'Mark row for copying',
+    moreInformation: 'More information',
     next: 'Next',
     noRows: 'No rows to display',
     pagination: 'Pagination',
@@ -165,6 +170,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     unpinRow: 'Unpin row',
     previous: 'Previous',
     resizeColumn: 'Resize column',
+    expand: 'Expand',
     rows: count => `${count} ${count === 1 ? 'row' : 'rows'}`,
     quickFilterPlaceholder: 'Search all columns...',
     searchValuesPlaceholder: 'Search values...',
@@ -194,6 +200,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     close: 'Schließen',
     columnMenu: 'Spaltenmenü',
     columns: 'Spalten',
+    collapse: 'Einklappen',
     detail: 'Details',
     toggleDetail: 'Detailbereich umschalten',
     hiddenColumn: '(ausgeblendet)',
@@ -233,6 +240,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     lastPage: 'Letzte Seite',
     loading: 'Wird geladen...',
     markRow: 'Zeile zum Kopieren markieren',
+    moreInformation: 'Weitere Informationen',
     next: 'Weiter',
     noRows: 'Keine Zeilen vorhanden',
     pagination: 'Seitennavigation',
@@ -249,6 +257,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     unpinRow: 'Zeilenfixierung lösen',
     previous: 'Zurück',
     resizeColumn: 'Spaltenbreite ändern',
+    expand: 'Ausklappen',
     rows: count => `${count} ${count === 1 ? 'Zeile' : 'Zeilen'}`,
     quickFilterPlaceholder: 'Alle Spalten durchsuchen...',
     searchValuesPlaceholder: 'Werte suchen...',

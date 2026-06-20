@@ -84,7 +84,7 @@
             @for (bc of pinnedBodyColumns(); track bc.field) {
             @let col = bc.col;
             @let ci = bc.visibleColIndex;
-            <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
+            <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]" [localeText]="localeText()"
               [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
               [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
               [attr.aria-colindex]="bc.ariaColIndex"
@@ -228,7 +228,7 @@
               @for (bc of scrollableBodyColumns(); track bc.field) {
               @let col = bc.col;
               @let ci = bc.visibleColIndex;
-              <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
+              <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]" [localeText]="localeText()"
                 [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
                 [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
                 [attr.aria-colindex]="bc.ariaColIndex"
@@ -428,7 +428,7 @@
             @for (bc of rightBodyColumns(); track bc.field) {
             @let col = bc.col;
             @let ci = bc.visibleColIndex;
-            <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
+            <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]" [localeText]="localeText()"
               [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
               [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
               [attr.aria-colindex]="bc.ariaColIndex"

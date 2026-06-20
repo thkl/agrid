@@ -10,7 +10,9 @@
     "copy:local": "node scripts/copy-library-source.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "test:coverage": "ng test --no-watch --coverage",
+    "pretest": "pnpm test:localization",
+    "test:localization": "node scripts/check-localization.mjs",
+    "test:coverage": "pnpm test:localization && ng test --no-watch --coverage",
     "test:e2e": "playwright test",
     "test:performance": "playwright test --config=playwright.performance.config.ts"
   },

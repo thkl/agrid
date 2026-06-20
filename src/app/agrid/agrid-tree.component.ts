@@ -10,6 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { AgridDataSource } from './agrid-datasource';
+import { AgridLocaleText, AGRID_LOCALE_TEXT } from './agrid-localization';
 import { AgridTreeProvider } from './agrid-tree-provider';
 import { AgridTreeController } from './rows/agrid-tree.controller';
 import {
@@ -42,6 +43,7 @@ function isPathNode<T extends object>(item: StandaloneTreeItem<T>): item is Path
 })
 export class AgridTreeComponent<T extends object = any> {
   provider = input.required<AgridTreeProvider<T>>();
+  localeText = input<AgridLocaleText>(AGRID_LOCALE_TEXT.en);
 
   nodeClick = output<AgridTreeNodeEvent<T>>();
   nodeDoubleClicked = output<AgridTreeNodeEvent<T>>();
