@@ -793,3 +793,49 @@ export interface NewRecord<T extends object = any> {
   /** Exact data source containing the inserted row. */
   datasource: AgridDataSource<T>;
 }
+
+/**
+ * Precomputed per-column header state. @internal
+ *
+ * The header/filter rows would otherwise call a dozen helpers per column on every
+ * change-detection pass (e.g. `getSort`, `hasActiveFilter`, `isColDragging`). The header
+ * view-model computeds resolve all of that once per column — and only when an underlying
+ * signal changes — so the template reads plain fields instead.
+ */
+export interface AgridHeaderColumn {
+  col: ColDef;
+  field: string;
+  ariaColIndex: number;
+  sort: 'asc' | 'desc' | null;
+  sortPriority: number;
+  hasFilter: boolean;
+  dragging: boolean;
+  dropSide: 'before' | 'after' | null;
+  reorderOffset: number;
+  grouped: boolean;
+  lastPinned: boolean;
+  firstRightPinned: boolean;
+  columnWidth: number;
+  textFilter: string;
+  menuFilterType: 'text' | 'number' | 'date' | null;
+  hasCondition: boolean;
+  conditionLabel: string;
+}
+
+/**
+ * Precomputed per-column state for the data-row, footer, and ghost cell loops. @internal
+ *
+ * Deliberately leaner than {@link AgridHeaderColumn}: it omits sort/filter state so the body
+ * view-model only changes on column layout, drag, or pinning — sorting or filtering does not
+ * invalidate it (and therefore does not force every rendered cell to re-render).
+ */
+export interface AgridBodyColumn {
+  col: ColDef;
+  field: string;
+  visibleColIndex: number;
+  ariaColIndex: number;
+  dragging: boolean;
+  reorderOffset: number;
+  lastPinned: boolean;
+  firstRightPinned: boolean;
+}

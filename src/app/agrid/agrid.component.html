@@ -21,90 +21,30 @@
     <div class="ag-grid-split" [class.ag-has-right-pane]="hasRightPinnedPane()">
       @if (hasPinnedPane()) {
       <div class="ag-pinned-pane" [style.width.px]="pinnedPaneWidth()">
-        @if (hasHeaderGroups()) {
-        <div class="ag-header-groups ag-header-groups--pinned" role="row" aria-rowindex="1"
-          [style.grid-template-columns]="pinnedGridTemplateColumns()" [style.width.px]="pinnedPaneWidth()">
-          @if (showControlColumn()) {
-          <div class="ag-header-group-cell ag-header-group-cell--empty"></div>
-          }
-          @for (run of pinnedHeaderGroups(); track run.key) {
-          <div class="ag-header-group-cell" role="columnheader" [attr.data-header-group]="run.id"
-            [class.ag-header-group-cell--empty]="!run.id"
-            [class.ag-header-group-cell--locked]="run.locked"
-            [class.ag-header-group-cell--dragging]="run.dragging"
-            [style.grid-column]="'span ' + run.span"
-            (pointerdown)="run.id && onHeaderGroupPointerDown($event, run.fields, run.label)">
-            {{ run.label }}
-          </div>
-          }
-        </div>
-        }
-        <div class="ag-header ag-header--pinned" role="row" [attr.aria-rowindex]="headerRowCount()"
-          [class.ag-header--with-filters]="hasFilterableColumns()"
-          [style.grid-template-columns]="pinnedGridTemplateColumns()" [style.width.px]="pinnedPaneWidth()">
-          @if (showControlColumn()) {
-          <div class="ag-header-cell ag-control-header" role="columnheader" aria-colindex="1">
-            <div class="ag-header-cell-top"></div>
-            @if (hasFilterableColumns()) {
-            <div class="ag-header-cell-filter"></div>
-            }
-          </div>
-          }
-          @for (c of pinnedHeaderColumns(); track c.field) {
-          @let col = c.col;
-          <div class="ag-header-cell ag-header-cell--pinned" role="columnheader"
-            [attr.aria-colindex]="c.ariaColIndex"
-            [attr.aria-sort]="c.sort === 'asc' ? 'ascending' : c.sort === 'desc' ? 'descending' : 'none'"
-            [class.ag-header-cell--filtered]="c.hasFilter"
-            [class.ag-header-cell--dragging]="c.dragging"
-            [class.ag-header-cell--drop-before]="c.dropSide === 'before'"
-            [class.ag-header-cell--drop-after]="c.dropSide === 'after'"
-            [style.transform]="'translateX(' + c.reorderOffset + 'px)'"
-            [class.ag-header-cell--pinned-last]="c.lastPinned" [attr.data-col-field]="col.field"
-            (pointerdown)="onColHeaderPointerDown($event, col.field)">
-            <div class="ag-header-cell-top">
-              <span class="ag-header-cell-label">{{ col.header }}
-                @if (pivotHeaderLabel() && pivotRowColumnField()!==col.field) {
-                ({{pivotHeaderLabel()}})
-                }
-
-              </span>
-              @if (c.sort; as dir) {
-              <span class="ag-sort-badge">{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup
-                  class="ag-sort-priority">{{ c.sortPriority }}</sup>}</span>
-              }
-              <button class="ag-header-menu-btn" [class.ag-header-menu-btn--active]="c.hasFilter"
-                [title]="localeText().columnMenu" [attr.aria-label]="localeText().columnMenu + ': ' + col.header"
-                [attr.aria-expanded]="filterMenu()?.field === col.field" aria-haspopup="menu"
-                (click)="openFilterMenu($event, col.field)" (pointerdown)="$event.stopPropagation()">▾</button>
-            </div>
-            @if (hasFilterableColumns()) {
-            <div class="ag-header-cell-filter">
-              @if (col.filterable) {
-              <input class="ag-filter-input" [value]="c.textFilter"
-                (input)="onTextFilterChange($event, col.field)" (click)="$event.stopPropagation()"
-                [placeholder]="localeText().filterPlaceholder"
-                [attr.aria-label]="localeText().filterPlaceholder + ' ' + col.header" />
-              @if (c.menuFilterType) {
-              <button type="button" class="ag-filter-condition-btn"
-                [class.ag-filter-condition-btn--active]="c.hasCondition"
-                [title]="localeText().filterConditionMenu"
-                [attr.aria-label]="localeText().filterConditionMenu + ': ' + col.header"
-                [attr.aria-expanded]="filterMenu()?.field === col.field" (click)="openFilterMenu($event, col.field)"
-                (pointerdown)="$event.stopPropagation()">{{ c.conditionLabel }}</button>
-              }
-              }
-            </div>
-            }
-            <div class="ag-resize-handle" role="separator" [attr.tabindex]="col.locked ? -1 : 0"
-              aria-orientation="vertical" [attr.aria-disabled]="col.locked ? 'true' : null"
-              [attr.aria-label]="localeText().resizeColumn + ': ' + col.header"
-              [attr.aria-valuenow]="c.columnWidth" (keydown)="onResizeKeyDown($event, col)"
-              (mousedown)="onResizeStart($event, col)" (pointerdown)="$event.stopPropagation()"
-              (dblclick)="onAutosizeColumn($event, col)"></div>
-          </div>
-          }
-        </div>
+        <agrid-pane-header
+          variant="left"
+          [headerGroups]="pinnedHeaderGroups()"
+          [columns]="pinnedHeaderColumns()"
+          [gridTemplateColumns]="pinnedGridTemplateColumns()"
+          [paneWidth]="pinnedPaneWidth()"
+          [totalWidth]="pinnedPaneWidth()"
+          [hasHeaderGroups]="hasHeaderGroups()"
+          [hasFilterableColumns]="hasFilterableColumns()"
+          [headerRowCount]="headerRowCount()"
+          [showControlColumn]="showControlColumn()"
+          [localeText]="localeText()"
+          [pivotHeaderLabel]="pivotHeaderLabel()"
+          [pivotRowColumnField]="pivotRowColumnField()"
+          [hasMultiSort]="hasMultiSort()"
+          [filterMenuField]="filterMenu()?.field ?? null"
+          (headerGroupPointerDown)="onHeaderGroupPointerDown($event.event, $event.fields, $event.label)"
+          (colHeaderPointerDown)="onColHeaderPointerDown($event.event, $event.field)"
+          (filterMenuOpen)="openFilterMenu($event.event, $event.field)"
+          (textFilterChange)="onTextFilterChange($event.event, $event.field)"
+          (resizeKeyDown)="onResizeKeyDown($event.event, $event.col)"
+          (resizeStart)="onResizeStart($event.event, $event.col)"
+          (autosizeColumn)="onAutosizeColumn($event.event, $event.col)"
+        />
 
         <ng-template #leftRow let-item let-ariaIndex="ariaIndex">
           <div role="row" [attr.aria-rowindex]="ariaIndex" [attr.data-control]="true"
@@ -244,83 +184,30 @@
 
       <div class="ag-scroll-pane">
         <div #horizontalScroller class="ag-horizontal-scroll" (scroll)="onHorizontalScroll()">
-          @if (hasHeaderGroups()) {
-          <div class="ag-header-groups" role="row" aria-rowindex="1"
-            [style.grid-template-columns]="scrollableGridTemplateColumns()"
-            [style.min-width.px]="scrollableTotalWidth()">
-            @for (run of scrollableHeaderGroups(); track run.key) {
-            <div class="ag-header-group-cell" role="columnheader" [attr.data-header-group]="run.id"
-              [class.ag-header-group-cell--empty]="!run.id"
-              [class.ag-header-group-cell--locked]="run.locked"
-              [class.ag-header-group-cell--dragging]="run.dragging"
-              [style.grid-column]="'span ' + run.span"
-              (pointerdown)="run.id && onHeaderGroupPointerDown($event, run.fields, run.label)">
-              {{ run.label }}
-            </div>
-            }
-          </div>
-          }
-          <div class="ag-header" role="row" [attr.aria-rowindex]="headerRowCount()"
-            [class.ag-header--with-filters]="hasFilterableColumns()"
-            [style.grid-template-columns]="scrollableGridTemplateColumns()"
-            [style.min-width.px]="scrollableTotalWidth()">
-            @for (c of scrollableHeaderColumns(); track c.field) {
-            @let col = c.col;
-            <div class="ag-header-cell" role="columnheader"
-              [attr.aria-colindex]="c.ariaColIndex"
-              [attr.aria-sort]="c.sort === 'asc' ? 'ascending' : c.sort === 'desc' ? 'descending' : 'none'"
-              [class.ag-header-cell--filtered]="c.hasFilter"
-              [class.ag-header-cell--dragging]="c.dragging"
-              [class.ag-header-cell--drop-before]="c.dropSide === 'before'"
-              [class.ag-header-cell--drop-after]="c.dropSide === 'after'"
-              [style.transform]="'translateX(' + c.reorderOffset + 'px)'"
-              [attr.data-col-field]="col.field" (pointerdown)="onColHeaderPointerDown($event, col.field)">
-              <div class="ag-header-cell-top">
-                <span class="ag-header-cell-label">{{ col.header }}
-                  @if (pivotHeaderLabel() && pivotRowColumnField()!==col.field) {
-                  ({{pivotHeaderLabel()}})
-                  }
-
-                </span>
-                @if (c.sort; as dir) {
-                <span class="ag-sort-badge">{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup
-                    class="ag-sort-priority">{{ c.sortPriority }}</sup>}</span>
-                }
-                @if (c.grouped) {
-                <span class="ag-sort-badge">⊟</span>
-                }
-                <button class="ag-header-menu-btn" [class.ag-header-menu-btn--active]="c.hasFilter"
-                  [title]="localeText().columnMenu" [attr.aria-label]="localeText().columnMenu + ': ' + col.header"
-                  [attr.aria-expanded]="filterMenu()?.field === col.field" aria-haspopup="menu"
-                  (click)="openFilterMenu($event, col.field)" (pointerdown)="$event.stopPropagation()">▾</button>
-              </div>
-              @if (hasFilterableColumns()) {
-              <div class="ag-header-cell-filter">
-                @if (col.filterable) {
-                <input class="ag-filter-input" [value]="c.textFilter"
-                  (input)="onTextFilterChange($event, col.field)" (click)="$event.stopPropagation()"
-                  [placeholder]="localeText().filterPlaceholder"
-                  [attr.aria-label]="localeText().filterPlaceholder + ' ' + col.header" />
-                @if (c.menuFilterType) {
-                <button type="button" class="ag-filter-condition-btn"
-                  [class.ag-filter-condition-btn--active]="c.hasCondition"
-                  [title]="localeText().filterConditionMenu"
-                  [attr.aria-label]="localeText().filterConditionMenu + ': ' + col.header"
-                  [attr.aria-expanded]="filterMenu()?.field === col.field" (click)="openFilterMenu($event, col.field)"
-                  (pointerdown)="$event.stopPropagation()">{{ c.conditionLabel }}</button>
-                }
-                }
-              </div>
-              }
-              <div class="ag-resize-handle" role="separator" [attr.tabindex]="col.locked ? -1 : 0"
-                aria-orientation="vertical" [attr.aria-disabled]="col.locked ? 'true' : null"
-                [attr.aria-label]="localeText().resizeColumn + ': ' + col.header"
-                [attr.aria-valuenow]="c.columnWidth" (keydown)="onResizeKeyDown($event, col)"
-                (mousedown)="onResizeStart($event, col)" (pointerdown)="$event.stopPropagation()"
-                (dblclick)="onAutosizeColumn($event, col)"></div>
-            </div>
-            }
-          </div>
+          <agrid-pane-header
+            variant="center"
+            [headerGroups]="scrollableHeaderGroups()"
+            [columns]="scrollableHeaderColumns()"
+            [gridTemplateColumns]="scrollableGridTemplateColumns()"
+            [paneWidth]="scrollableTotalWidth()"
+            [totalWidth]="scrollableTotalWidth()"
+            [hasHeaderGroups]="hasHeaderGroups()"
+            [hasFilterableColumns]="hasFilterableColumns()"
+            [headerRowCount]="headerRowCount()"
+            [showControlColumn]="showControlColumn()"
+            [localeText]="localeText()"
+            [pivotHeaderLabel]="pivotHeaderLabel()"
+            [pivotRowColumnField]="pivotRowColumnField()"
+            [hasMultiSort]="hasMultiSort()"
+            [filterMenuField]="filterMenu()?.field ?? null"
+            (headerGroupPointerDown)="onHeaderGroupPointerDown($event.event, $event.fields, $event.label)"
+            (colHeaderPointerDown)="onColHeaderPointerDown($event.event, $event.field)"
+            (filterMenuOpen)="openFilterMenu($event.event, $event.field)"
+            (textFilterChange)="onTextFilterChange($event.event, $event.field)"
+            (resizeKeyDown)="onResizeKeyDown($event.event, $event.col)"
+            (resizeStart)="onResizeStart($event.event, $event.col)"
+            (autosizeColumn)="onAutosizeColumn($event.event, $event.col)"
+          />
 
           <ng-template #bodyRow let-item let-ariaIndex="ariaIndex">
             <div role="row" [attr.aria-rowindex]="ariaIndex"
@@ -499,81 +386,30 @@
 
       @if (hasRightPinnedPane()) {
       <div class="ag-pinned-pane ag-pinned-pane--right" [style.width.px]="rightPinnedPaneWidth()">
-        @if (hasHeaderGroups()) {
-        <div class="ag-header-groups" role="row" aria-rowindex="1"
-          [style.grid-template-columns]="rightGridTemplateColumns()" [style.width.px]="rightPinnedPaneWidth()">
-          @for (run of rightHeaderGroups(); track run.key) {
-          <div class="ag-header-group-cell" role="columnheader" [attr.data-header-group]="run.id"
-            [class.ag-header-group-cell--empty]="!run.id"
-            [class.ag-header-group-cell--locked]="run.locked"
-            [class.ag-header-group-cell--dragging]="run.dragging"
-            [style.grid-column]="'span ' + run.span"
-            (pointerdown)="run.id && onHeaderGroupPointerDown($event, run.fields, run.label)">
-            {{ run.label }}
-          </div>
-          }
-        </div>
-        }
-        <div class="ag-header" role="row" [attr.aria-rowindex]="headerRowCount()"
-          [class.ag-header--with-filters]="hasFilterableColumns()"
-          [style.grid-template-columns]="rightGridTemplateColumns()" [style.width.px]="rightPinnedPaneWidth()">
-          @for (c of rightHeaderColumns(); track c.field) {
-          @let col = c.col;
-          <div class="ag-header-cell ag-header-cell--pinned" role="columnheader"
-            [attr.aria-colindex]="c.ariaColIndex"
-            [attr.aria-sort]="c.sort === 'asc' ? 'ascending' : c.sort === 'desc' ? 'descending' : 'none'"
-            [class.ag-header-cell--filtered]="c.hasFilter"
-            [class.ag-header-cell--dragging]="c.dragging"
-            [class.ag-header-cell--drop-before]="c.dropSide === 'before'"
-            [class.ag-header-cell--drop-after]="c.dropSide === 'after'"
-            [style.transform]="'translateX(' + c.reorderOffset + 'px)'"
-            [class.ag-header-cell--pinned-first]="c.firstRightPinned" [attr.data-col-field]="col.field"
-            (pointerdown)="onColHeaderPointerDown($event, col.field)">
-            <div class="ag-header-cell-top">
-              <span class="ag-header-cell-label">{{ col.header }}
-                @if (pivotHeaderLabel() && pivotRowColumnField()!==col.field) {
-                ({{pivotHeaderLabel()}})
-                }
-              </span>
-              @if (c.sort; as dir) {
-              <span class="ag-sort-badge">{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup
-                  class="ag-sort-priority">{{ c.sortPriority }}</sup>}</span>
-              }
-              @if (c.grouped) {
-              <span class="ag-sort-badge">'⊟ '</span>
-              }
-              <button class="ag-header-menu-btn" [class.ag-header-menu-btn--active]="c.hasFilter"
-                [title]="localeText().columnMenu" [attr.aria-label]="localeText().columnMenu + ': ' + col.header"
-                [attr.aria-expanded]="filterMenu()?.field === col.field" aria-haspopup="menu"
-                (click)="openFilterMenu($event, col.field)" (pointerdown)="$event.stopPropagation()">▾</button>
-            </div>
-            @if (hasFilterableColumns()) {
-            <div class="ag-header-cell-filter">
-              @if (col.filterable) {
-              <input class="ag-filter-input" [value]="c.textFilter"
-                (input)="onTextFilterChange($event, col.field)" (click)="$event.stopPropagation()"
-                [placeholder]="localeText().filterPlaceholder"
-                [attr.aria-label]="localeText().filterPlaceholder + ' ' + col.header" />
-              @if (c.menuFilterType) {
-              <button type="button" class="ag-filter-condition-btn"
-                [class.ag-filter-condition-btn--active]="c.hasCondition"
-                [title]="localeText().filterConditionMenu"
-                [attr.aria-label]="localeText().filterConditionMenu + ': ' + col.header"
-                [attr.aria-expanded]="filterMenu()?.field === col.field" (click)="openFilterMenu($event, col.field)"
-                (pointerdown)="$event.stopPropagation()">{{ c.conditionLabel }}</button>
-              }
-              }
-            </div>
-            }
-            <div class="ag-resize-handle" role="separator" [attr.tabindex]="col.locked ? -1 : 0"
-              aria-orientation="vertical" [attr.aria-disabled]="col.locked ? 'true' : null"
-              [attr.aria-label]="localeText().resizeColumn + ': ' + col.header"
-              [attr.aria-valuenow]="c.columnWidth" (keydown)="onResizeKeyDown($event, col)"
-              (mousedown)="onResizeStart($event, col)" (pointerdown)="$event.stopPropagation()"
-              (dblclick)="onAutosizeColumn($event, col)"></div>
-          </div>
-          }
-        </div>
+        <agrid-pane-header
+          variant="right"
+          [headerGroups]="rightHeaderGroups()"
+          [columns]="rightHeaderColumns()"
+          [gridTemplateColumns]="rightGridTemplateColumns()"
+          [paneWidth]="rightPinnedPaneWidth()"
+          [totalWidth]="rightPinnedPaneWidth()"
+          [hasHeaderGroups]="hasHeaderGroups()"
+          [hasFilterableColumns]="hasFilterableColumns()"
+          [headerRowCount]="headerRowCount()"
+          [showControlColumn]="showControlColumn()"
+          [localeText]="localeText()"
+          [pivotHeaderLabel]="pivotHeaderLabel()"
+          [pivotRowColumnField]="pivotRowColumnField()"
+          [hasMultiSort]="hasMultiSort()"
+          [filterMenuField]="filterMenu()?.field ?? null"
+          (headerGroupPointerDown)="onHeaderGroupPointerDown($event.event, $event.fields, $event.label)"
+          (colHeaderPointerDown)="onColHeaderPointerDown($event.event, $event.field)"
+          (filterMenuOpen)="openFilterMenu($event.event, $event.field)"
+          (textFilterChange)="onTextFilterChange($event.event, $event.field)"
+          (resizeKeyDown)="onResizeKeyDown($event.event, $event.col)"
+          (resizeStart)="onResizeStart($event.event, $event.col)"
+          (autosizeColumn)="onAutosizeColumn($event.event, $event.col)"
+        />
 
         <ng-template #rightRow let-item let-ariaIndex="ariaIndex">
           <div role="row" [attr.aria-rowindex]="ariaIndex"

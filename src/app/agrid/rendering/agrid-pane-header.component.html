@@ -1,0 +1,140 @@
+@if (hasHeaderGroups()) {
+<div
+  class="ag-header-groups"
+  role="row"
+  aria-rowindex="1"
+  [class.ag-header-groups--pinned]="variant() === 'left'"
+  [style.grid-template-columns]="gridTemplateColumns()"
+  [style.width.px]="variant() === 'center' ? null : paneWidth()"
+  [style.min-width.px]="variant() === 'center' ? totalWidth() : null"
+>
+  @if (variant() === 'left' && showControlColumn()) {
+  <div class="ag-header-group-cell ag-header-group-cell--empty"></div>
+  }
+  @for (run of headerGroups(); track run.key) {
+  <div
+    class="ag-header-group-cell"
+    role="columnheader"
+    [attr.data-header-group]="run.id"
+    [class.ag-header-group-cell--empty]="!run.id"
+    [class.ag-header-group-cell--locked]="run.locked"
+    [class.ag-header-group-cell--dragging]="run.dragging"
+    [style.grid-column]="'span ' + run.span"
+    (pointerdown)="run.id && headerGroupPointerDown.emit({ event: $event, fields: run.fields, label: run.label })"
+  >
+    {{ run.label }}
+  </div>
+  }
+</div>
+}
+
+<div
+  class="ag-header"
+  role="row"
+  [attr.aria-rowindex]="headerRowCount()"
+  [class.ag-header--pinned]="variant() === 'left'"
+  [class.ag-header--with-filters]="hasFilterableColumns()"
+  [style.grid-template-columns]="gridTemplateColumns()"
+  [style.width.px]="variant() === 'center' ? null : paneWidth()"
+  [style.min-width.px]="variant() === 'center' ? totalWidth() : null"
+>
+  @if (variant() === 'left' && showControlColumn()) {
+  <div class="ag-header-cell ag-control-header" role="columnheader" aria-colindex="1">
+    <div class="ag-header-cell-top"></div>
+    @if (hasFilterableColumns()) {
+    <div class="ag-header-cell-filter"></div>
+    }
+  </div>
+  }
+  @for (c of columns(); track c.field) {
+  @let col = c.col;
+  <div
+    class="ag-header-cell"
+    role="columnheader"
+    [class.ag-header-cell--pinned]="variant() !== 'center'"
+    [attr.aria-colindex]="c.ariaColIndex"
+    [attr.aria-sort]="c.sort === 'asc' ? 'ascending' : c.sort === 'desc' ? 'descending' : 'none'"
+    [class.ag-header-cell--filtered]="c.hasFilter"
+    [class.ag-header-cell--dragging]="c.dragging"
+    [class.ag-header-cell--drop-before]="c.dropSide === 'before'"
+    [class.ag-header-cell--drop-after]="c.dropSide === 'after'"
+    [style.transform]="'translateX(' + c.reorderOffset + 'px)'"
+    [class.ag-header-cell--pinned-last]="variant() === 'left' && c.lastPinned"
+    [class.ag-header-cell--pinned-first]="variant() === 'right' && c.firstRightPinned"
+    [attr.data-col-field]="col.field"
+    (pointerdown)="colHeaderPointerDown.emit({ event: $event, field: col.field })"
+  >
+    <div class="ag-header-cell-top">
+      <span class="ag-header-cell-label"
+        >{{ col.header }}
+        @if (pivotHeaderLabel() && pivotRowColumnField() !== col.field) {
+        ({{ pivotHeaderLabel() }})
+        }
+      </span>
+      @if (c.sort; as dir) {
+      <span class="ag-sort-badge"
+        >{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup class="ag-sort-priority">{{
+          c.sortPriority
+        }}</sup>}</span
+      >
+      }
+      @if (c.grouped && variant() !== 'left') {
+      <span class="ag-sort-badge">{{ variant() === 'right' ? "'⊟ '" : '⊟' }}</span>
+      }
+      <button
+        class="ag-header-menu-btn"
+        [class.ag-header-menu-btn--active]="c.hasFilter"
+        [title]="localeText().columnMenu"
+        [attr.aria-label]="localeText().columnMenu + ': ' + col.header"
+        [attr.aria-expanded]="filterMenuField() === col.field"
+        aria-haspopup="menu"
+        (click)="filterMenuOpen.emit({ event: $event, field: col.field })"
+        (pointerdown)="$event.stopPropagation()"
+      >
+        ▾
+      </button>
+    </div>
+    @if (hasFilterableColumns()) {
+    <div class="ag-header-cell-filter">
+      @if (col.filterable) {
+      <input
+        class="ag-filter-input"
+        [value]="c.textFilter"
+        (input)="textFilterChange.emit({ event: $event, field: col.field })"
+        (click)="$event.stopPropagation()"
+        [placeholder]="localeText().filterPlaceholder"
+        [attr.aria-label]="localeText().filterPlaceholder + ' ' + col.header"
+      />
+      @if (c.menuFilterType) {
+      <button
+        type="button"
+        class="ag-filter-condition-btn"
+        [class.ag-filter-condition-btn--active]="c.hasCondition"
+        [title]="localeText().filterConditionMenu"
+        [attr.aria-label]="localeText().filterConditionMenu + ': ' + col.header"
+        [attr.aria-expanded]="filterMenuField() === col.field"
+        (click)="filterMenuOpen.emit({ event: $event, field: col.field })"
+        (pointerdown)="$event.stopPropagation()"
+      >
+        {{ c.conditionLabel }}
+      </button>
+      }
+      }
+    </div>
+    }
+    <div
+      class="ag-resize-handle"
+      role="separator"
+      [attr.tabindex]="col.locked ? -1 : 0"
+      aria-orientation="vertical"
+      [attr.aria-disabled]="col.locked ? 'true' : null"
+      [attr.aria-label]="localeText().resizeColumn + ': ' + col.header"
+      [attr.aria-valuenow]="c.columnWidth"
+      (keydown)="resizeKeyDown.emit({ event: $event, col })"
+      (mousedown)="resizeStart.emit({ event: $event, col })"
+      (pointerdown)="$event.stopPropagation()"
+      (dblclick)="autosizeColumn.emit({ event: $event, col })"
+    ></div>
+  </div>
+  }
+</div>
