@@ -7,9 +7,9 @@
   @if (visibleMenuBarItems().length > 0 || enableQuickFilter()) {
   <div class="ag-toolbar">
     @if (visibleMenuBarItems().length > 0) {
-    <agrid-menu-bar [items]="visibleMenuBarItems()" [context]="menuBarContext()"
-      [label]="localeText().actions" [openItemId]="openMenuBarItemId()"
-      (openItemIdChange)="onMenuBarOpenItemChange($event)" (action)="menuBarAction.emit($event)" />
+    <agrid-menu-bar [items]="visibleMenuBarItems()" [context]="menuBarContext()" [label]="localeText().actions"
+      [openItemId]="openMenuBarItemId()" (openItemIdChange)="onMenuBarOpenItemChange($event)"
+      (action)="menuBarAction.emit($event)" />
     }
     @if (enableQuickFilter()) {
     <input class="ag-quick-filter" type="search" [value]="quickFilterValue()" (input)="onQuickFilterInput($event)"
@@ -62,7 +62,12 @@
             [class.ag-header-cell--pinned-last]="isLastPinnedColumn(col.field)" [attr.data-col-field]="col.field"
             (pointerdown)="onColHeaderPointerDown($event, col.field)">
             <div class="ag-header-cell-top">
-              <span class="ag-header-cell-label">{{ col.header }}</span>
+              <span class="ag-header-cell-label">{{ col.header }}
+                @if (pivotHeaderLabel() && pivotRowColumnField()!==col.field) {
+                ({{pivotHeaderLabel()}})
+                }
+
+              </span>
               @if (getSort(col.field); as dir) {
               <span class="ag-sort-badge">{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup
                   class="ag-sort-priority">{{ getSortPriority(col.field) }}</sup>}</span>
@@ -84,8 +89,7 @@
                 [class.ag-filter-condition-btn--active]="!!getMenuOperator(col.field)"
                 [title]="localeText().filterConditionMenu"
                 [attr.aria-label]="localeText().filterConditionMenu + ': ' + col.header"
-                [attr.aria-expanded]="filterMenu()?.field === col.field"
-                (click)="openFilterMenu($event, col.field)"
+                [attr.aria-expanded]="filterMenu()?.field === col.field" (click)="openFilterMenu($event, col.field)"
                 (pointerdown)="$event.stopPropagation()">{{ getConditionButtonLabel(col.field) }}</button>
               }
               }
@@ -102,8 +106,7 @@
         </div>
 
         <ng-template #leftRow let-item let-ariaIndex="ariaIndex">
-          <div role="row" [attr.aria-rowindex]="ariaIndex"
-            [attr.data-control]="true"
+          <div role="row" [attr.aria-rowindex]="ariaIndex" [attr.data-control]="true"
             [attr.aria-selected]="isDataRowItem(item) && isRowSelected(item.originalIndex) ? 'true' : null"
             [class.ag-row]="!isGroupHeaderItem(item) && !isDetailRowItem(item)" [class.ag-add-row]="item === null"
             [class.ag-add-row--selected]="item === null && isAddRowSelected()" [class.ag-ghost-row]="item === 'ghost'"
@@ -140,16 +143,15 @@
             @for (col of pinnedColDefs(); track col.field) {
             @let ci = getVisibleColIndex(col.field);
             <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
-              [displayValueOverride]="treeCellDisplayOverride(item, col)"
-              [row]="item.row" [locale]="locale()" [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
-              [attr.data-col-field]="col.field" [attr.aria-colindex]="getAriaColIndex(ci)"
+              [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
+              [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
+              [attr.aria-colindex]="getAriaColIndex(ci)"
               [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
               [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
-              [editable]="isColEditable(col, item.originalIndex) && !isTreeAggregateCell(item, col)" [error]="cellValidationError(item.originalIndex, ci)"
-              [showInfoIcon]="showCellInfoIcon(col, item.row)"
+              [editable]="isColEditable(col, item.originalIndex) && !isTreeAggregateCell(item, col)"
+              [error]="cellValidationError(item.originalIndex, ci)" [showInfoIcon]="showCellInfoIcon(col, item.row)"
               [seedChar]="getSeedChar(item.originalIndex, ci)" [selectTextOnEdit]="selectTextOnEdit()"
-              [treeCell]="isTreeCell(col)"
-              [treeLevel]="treeRowLevel(item)" [treeExpandable]="treeRowExpandable(item)"
+              [treeCell]="isTreeCell(col)" [treeLevel]="treeRowLevel(item)" [treeExpandable]="treeRowExpandable(item)"
               [treeExpanded]="treeRowExpanded(item)"
               [class.ag-cell--range-selected]="isRangeSelected(item.originalIndex, ci)"
               [class.ag-cell--fill-preview]="isFillPreviewCell(item.originalIndex, ci)"
@@ -164,8 +166,7 @@
               (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
               (activate)="onActivate(item.originalIndex, ci, $event)" (startEdit)="onStartEdit(item.originalIndex, ci)"
               (draftChange)="onDraftChange($event)" (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)"
-              (infoClick)="onCellInfo(item.originalIndex, col, item.row)"
-              (treeToggle)="onTreeToggle(item)"
+              (infoClick)="onCellInfo(item.originalIndex, col, item.row)" (treeToggle)="onTreeToggle(item)"
               (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
             }
             } @else if (isLoadingRow(item)) {
@@ -271,7 +272,12 @@
               [style.transform]="'translateX(' + getColReorderOffset(col.field) + 'px)'"
               [attr.data-col-field]="col.field" (pointerdown)="onColHeaderPointerDown($event, col.field)">
               <div class="ag-header-cell-top">
-                <span class="ag-header-cell-label">{{ col.header }}</span>
+                <span class="ag-header-cell-label">{{ col.header }}
+                  @if (pivotHeaderLabel() && pivotRowColumnField()!==col.field) {
+                  ({{pivotHeaderLabel()}})
+                  }
+
+                </span>
                 @if (getSort(col.field); as dir) {
                 <span class="ag-sort-badge">{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup
                     class="ag-sort-priority">{{ getSortPriority(col.field) }}</sup>}</span>
@@ -296,8 +302,7 @@
                   [class.ag-filter-condition-btn--active]="!!getMenuOperator(col.field)"
                   [title]="localeText().filterConditionMenu"
                   [attr.aria-label]="localeText().filterConditionMenu + ': ' + col.header"
-                  [attr.aria-expanded]="filterMenu()?.field === col.field"
-                  (click)="openFilterMenu($event, col.field)"
+                  [attr.aria-expanded]="filterMenu()?.field === col.field" (click)="openFilterMenu($event, col.field)"
                   (pointerdown)="$event.stopPropagation()">{{ getConditionButtonLabel(col.field) }}</button>
                 }
                 }
@@ -332,16 +337,15 @@
               @for (col of scrollableColDefs(); track col.field) {
               @let ci = getVisibleColIndex(col.field);
               <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
-                [displayValueOverride]="treeCellDisplayOverride(item, col)"
-                [row]="item.row" [locale]="locale()" [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
-                [attr.data-col-field]="col.field" [attr.aria-colindex]="getAriaColIndex(ci)"
+                [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
+                [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
+                [attr.aria-colindex]="getAriaColIndex(ci)"
                 [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
                 [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
-                [editable]="isColEditable(col, item.originalIndex) && !isTreeAggregateCell(item, col)" [error]="cellValidationError(item.originalIndex, ci)"
-                [showInfoIcon]="showCellInfoIcon(col, item.row)"
+                [editable]="isColEditable(col, item.originalIndex) && !isTreeAggregateCell(item, col)"
+                [error]="cellValidationError(item.originalIndex, ci)" [showInfoIcon]="showCellInfoIcon(col, item.row)"
                 [seedChar]="getSeedChar(item.originalIndex, ci)" [selectTextOnEdit]="selectTextOnEdit()"
-                [treeCell]="isTreeCell(col)"
-                [treeLevel]="treeRowLevel(item)" [treeExpandable]="treeRowExpandable(item)"
+                [treeCell]="isTreeCell(col)" [treeLevel]="treeRowLevel(item)" [treeExpandable]="treeRowExpandable(item)"
                 [treeExpanded]="treeRowExpanded(item)"
                 [class.ag-cell--range-selected]="isRangeSelected(item.originalIndex, ci)"
                 [class.ag-cell--fill-preview]="isFillPreviewCell(item.originalIndex, ci)"
@@ -379,8 +383,7 @@
                 [style.padding-left.px]="treeRowLevel(item) * 16 + 8"
                 (click)="onTreeNodeClick(item); $event.stopPropagation()"
                 (dblclick)="onTreeNodeDoubleClick(item); $event.stopPropagation()">
-                <button type="button" class="ag-tree-twisty"
-                  [class.ag-tree-twisty--expanded]="treeRowExpanded(item)"
+                <button type="button" class="ag-tree-twisty" [class.ag-tree-twisty--expanded]="treeRowExpanded(item)"
                   [attr.aria-expanded]="treeRowExpanded(item)"
                   (click)="onTreeToggle(item); $event.stopPropagation()">▶</button>
                 <span>{{ pathTreeLabel(item) }}</span>
@@ -520,7 +523,11 @@
             [class.ag-header-cell--pinned-first]="isFirstRightPinnedColumn(col.field)" [attr.data-col-field]="col.field"
             (pointerdown)="onColHeaderPointerDown($event, col.field)">
             <div class="ag-header-cell-top">
-              <span class="ag-header-cell-label">{{ col.header }}</span>
+              <span class="ag-header-cell-label">{{ col.header }}
+                @if (pivotHeaderLabel() && pivotRowColumnField()!==col.field) {
+                ({{pivotHeaderLabel()}})
+                }
+              </span>
               @if (getSort(col.field); as dir) {
               <span class="ag-sort-badge">{{ dir === 'asc' ? '↑' : '↓' }}@if (hasMultiSort()) {<sup
                   class="ag-sort-priority">{{ getSortPriority(col.field) }}</sup>}</span>
@@ -545,8 +552,7 @@
                 [class.ag-filter-condition-btn--active]="!!getMenuOperator(col.field)"
                 [title]="localeText().filterConditionMenu"
                 [attr.aria-label]="localeText().filterConditionMenu + ': ' + col.header"
-                [attr.aria-expanded]="filterMenu()?.field === col.field"
-                (click)="openFilterMenu($event, col.field)"
+                [attr.aria-expanded]="filterMenu()?.field === col.field" (click)="openFilterMenu($event, col.field)"
                 (pointerdown)="$event.stopPropagation()">{{ getConditionButtonLabel(col.field) }}</button>
               }
               }
@@ -579,16 +585,15 @@
             @for (col of rightPinnedColDefs(); track col.field) {
             @let ci = getVisibleColIndex(col.field);
             <agrid-cell [col]="col" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
-              [displayValueOverride]="treeCellDisplayOverride(item, col)"
-              [row]="item.row" [locale]="locale()" [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
-              [attr.data-col-field]="col.field" [attr.aria-colindex]="getAriaColIndex(ci)"
+              [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
+              [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
+              [attr.aria-colindex]="getAriaColIndex(ci)"
               [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
               [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
-              [editable]="isColEditable(col, item.originalIndex) && !isTreeAggregateCell(item, col)" [error]="cellValidationError(item.originalIndex, ci)"
-              [showInfoIcon]="showCellInfoIcon(col, item.row)"
+              [editable]="isColEditable(col, item.originalIndex) && !isTreeAggregateCell(item, col)"
+              [error]="cellValidationError(item.originalIndex, ci)" [showInfoIcon]="showCellInfoIcon(col, item.row)"
               [seedChar]="getSeedChar(item.originalIndex, ci)" [selectTextOnEdit]="selectTextOnEdit()"
-              [treeCell]="isTreeCell(col)"
-              [treeLevel]="treeRowLevel(item)" [treeExpandable]="treeRowExpandable(item)"
+              [treeCell]="isTreeCell(col)" [treeLevel]="treeRowLevel(item)" [treeExpandable]="treeRowExpandable(item)"
               [treeExpanded]="treeRowExpanded(item)" [class]="getCellClass(col, item.row[col.field], item.row)"
               [class.ag-cell--range-selected]="isRangeSelected(item.originalIndex, ci)"
               [class.ag-cell--fill-preview]="isFillPreviewCell(item.originalIndex, ci)"
@@ -602,8 +607,7 @@
               (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
               (activate)="onActivate(item.originalIndex, ci, $event)" (startEdit)="onStartEdit(item.originalIndex, ci)"
               (draftChange)="onDraftChange($event)" (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)"
-              (infoClick)="onCellInfo(item.originalIndex, col, item.row)"
-              (treeToggle)="onTreeToggle(item)"
+              (infoClick)="onCellInfo(item.originalIndex, col, item.row)" (treeToggle)="onTreeToggle(item)"
               (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
             }
             } @else if (isLoadingRow(item)) {
@@ -681,16 +685,14 @@
 
     @if (showSidebar()) {
     <agrid-sidebar [open]="sidebarOpen()" [activeTab]="sidebarTab()" [columns]="colDefs()"
-      [pivotColumns]="sidebarPivotColumns()" [pivotConfig]="provider().pivotConfig"
-      [headerGroups]="headerGroups()" [row]="sidebarRow()" [rowIndex]="selectedRowIndex()"
-      [hiddenColumns]="sidebarHiddenColumns()" [locale]="locale()"
+      [pivotColumns]="sidebarPivotColumns()" [pivotConfig]="provider().pivotConfig" [headerGroups]="headerGroups()"
+      [row]="sidebarRow()" [rowIndex]="selectedRowIndex()" [hiddenColumns]="sidebarHiddenColumns()" [locale]="locale()"
       [localeText]="localeText()" [readonlyGrid]="readonlyGrid()" [useSidebarEditor]="useSidebarEditor()"
-      [isCellEditable]="isCellEditableForRow"
-      [errors]="sidebarValidationErrors()" (close)="toggleSidebar()" (tabChange)="onSidebarStripClick($event)"
-      (toggleColumn)="onSidebarToggleColumn($event)"
+      [isCellEditable]="isCellEditableForRow" [errors]="sidebarValidationErrors()" (close)="toggleSidebar()"
+      (tabChange)="onSidebarStripClick($event)" (toggleColumn)="onSidebarToggleColumn($event)"
       (toggleColumnGroup)="onSidebarToggleColumnGroup($event.fields, $event.visible)"
-      (pivotChange)="onSidebarPivotChange($event)"
-      (detailEdit)="onSidebarDetailEdit($event)" (save)="onSidebarDetailSave($event)" />
+      (pivotChange)="onSidebarPivotChange($event)" (detailEdit)="onSidebarDetailEdit($event)"
+      (save)="onSidebarDetailSave($event)" />
     }
   </div><!-- /.ag-main-area -->
 
@@ -809,20 +811,19 @@
     [pinned]="getColumnPinState(menu.field)" [groupable]="!!getColDef(menu.field)?.groupable"
     [grouped]="isGroupedByField(menu.field)" [filterable]="!!getColDef(menu.field)?.filterable"
     [showValueFilter]="!serverSideFiltering() || !!getColDef(menu.field)?.values?.length"
-    [filterType]="getMenuFilterType(menu.field)"
-    [operator]="getMenuOperator(menu.field)" [operand]="getMenuOperand(menu.field)"
-    [operand2]="getMenuOperand2(menu.field)" (operatorChange)="onMenuOperatorChange(menu.field, $event)"
+    [filterType]="getMenuFilterType(menu.field)" [operator]="getMenuOperator(menu.field)"
+    [operand]="getMenuOperand(menu.field)" [operand2]="getMenuOperand2(menu.field)"
+    (operatorChange)="onMenuOperatorChange(menu.field, $event)"
     (operandChange)="onMenuOperandChange(menu.field, $event)"
     (operand2Change)="onMenuOperand2Change(menu.field, $event)" [search]="filterMenuSearch()"
-    [allSelected]="isMenuAllSelected(menu.field)"
-    [valueItems]="(serverSideFiltering() && !getColDef(menu.field)?.values?.length)
-      || !getColDef(menu.field)?.filterable ? [] : columnMenuValueItems()"
-    [localeText]="localeText()" [sortPriority]="getSortPriority(menu.field)" [hasMultiSort]="hasMultiSort()"
-    (sort)="onMenuSort(menu.field, $event)" (resetSort)="onMenuResetSort(menu.field, $event)"
-    (autosize)="onMenuAutosizeColumn(menu.field)" (togglePin)="onMenuTogglePin(menu.field)"
-    (togglePinRight)="onMenuTogglePinRight(menu.field)" (hide)="onMenuHideColumn(menu.field)"
-    (toggleGroup)="onMenuToggleGroupBy(menu.field)" (clearFilter)="onMenuClearFilter(menu.field)"
-    (clearAll)="onMenuClearAll()" (searchChange)="onFilterMenuSearch($event)" (toggleAll)="onMenuToggleAll(menu.field)"
+    [allSelected]="isMenuAllSelected(menu.field)" [valueItems]="(serverSideFiltering() && !getColDef(menu.field)?.values?.length)
+      || !getColDef(menu.field)?.filterable ? [] : columnMenuValueItems()" [localeText]="localeText()"
+    [sortPriority]="getSortPriority(menu.field)" [hasMultiSort]="hasMultiSort()" (sort)="onMenuSort(menu.field, $event)"
+    (resetSort)="onMenuResetSort(menu.field, $event)" (autosize)="onMenuAutosizeColumn(menu.field)"
+    (togglePin)="onMenuTogglePin(menu.field)" (togglePinRight)="onMenuTogglePinRight(menu.field)"
+    (hide)="onMenuHideColumn(menu.field)" (toggleGroup)="onMenuToggleGroupBy(menu.field)"
+    (clearFilter)="onMenuClearFilter(menu.field)" (clearAll)="onMenuClearAll()"
+    (searchChange)="onFilterMenuSearch($event)" (toggleAll)="onMenuToggleAll(menu.field)"
     (toggleValue)="onMenuToggleValue(menu.field, $event)" [aggregate]="getEffectiveAggregate(getColDef(menu.field)!)"
     (setAggregate)="onMenuSetAggregate(menu.field, $event)" />
   }

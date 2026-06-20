@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import {
   AgridComponent,
+  AgridControl,
   AgridDataSource,
+  AgridPivotConfig,
   AgridProvider,
   ColDef,
 } from '../agrid';
@@ -57,6 +59,13 @@ const COLUMNS: ColDef<PivotSale>[] = [
   },
 ];
 
+const PIVOTCONFIG : AgridPivotConfig<PivotSale>=  {
+      rowField: 'region',
+      columnField: 'quarter',
+      valueField: 'revenue',
+      aggregate: 'sum',
+    };
+
 @Component({
   selector: 'demo-pivot',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -76,7 +85,7 @@ const COLUMNS: ColDef<PivotSale>[] = [
         </div>
       </header>
 
-      <agrid class="demo-grid" [provider]="provider" />
+      <agrid class="demo-grid" [provider]="provider" (menuBarAction)="onMenuBarAction($event)"/>
     </div>
   `,
   styles: [`
@@ -128,13 +137,42 @@ export class PivotDemoComponent {
   readonly provider = new AgridProvider<PivotSale>({
     columns: COLUMNS,
     datasource: new AgridDataSource(SALES),
-    pivotConfig: {
-      rowField: 'region',
-      columnField: 'quarter',
-      valueField: 'revenue',
-      aggregate: 'sum',
-    },
+    pivotConfig: PIVOTCONFIG,
     zebraStripes: true,
     showSidebar: true,
+    menuBarItems: [
+      { id: 'saveControl', label: 'Save Table config'},
+      {
+        id: 'pivot', label: "Pivot", icon:'\u2632', items: [
+          { id: 'addPivot', label: 'Add Pivot', disabled: (context => context.provider.pivotConfig !== null) },
+          { id: 'removePivot', label: 'Remove Pivot', disabled: (context => context.provider.pivotConfig === null) }
+        ]
+      }
+    ]
   });
+
+  constructor() {
+    const saved = localStorage.getItem('agrid-state-demo-pivot');
+    if (saved) {
+      this.provider.loadSettings(JSON.parse(saved));
+    }
+  }
+
+  saveConfig() {
+    const pivotSettings = this.provider.saveSettings();
+    localStorage.setItem('agrid-state-demo-pivot', JSON.stringify(pivotSettings));
+  }
+
+  onMenuBarAction(id: string): void {
+    if (id === 'saveControl') {
+      this.saveConfig();
+      return;
+    }
+    if (id === 'addPivot') {
+      this.provider.pivotConfig = PIVOTCONFIG;
+    }
+    if (id === 'removePivot') {
+      this.provider.pivotConfig = null
+    }
+  }
 }

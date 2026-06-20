@@ -59,6 +59,7 @@ import {
 } from './agrid.utils';
 import { AgridVariableRowSizeDirective } from './infrastructure/agrid-variable-row-size.strategy';
 import {
+  AgridAggregate,
   AgridField, AgridMenuBarContext, AgridMenuBarItem, AgridMenuBarMenuItem, AgridMenuBarState, AgridPivotConfig,
   CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, DetailRowItem, FilterChangeEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, PathTreeNodeItem, RecordEditEvent, RowClickEvent,
@@ -167,6 +168,29 @@ export class AgridComponent<T extends object = any> {
     | ((row: Record<string, unknown>, index: number) => 'top' | 'bottom' | undefined)
     | undefined);
 
+  readonly pivotRowColumnField = computed(()=>{
+    return this.provider().pivotConfig?.rowField;
+  })
+
+  readonly pivotHeaderLabel = computed (()=> {
+    const aggr : AgridAggregate | undefined = this.provider().pivotConfig?.aggregate;
+    const vcfield = this.provider().pivotConfig?.valueField;
+    const valueColumn = this.provider().columns().find(c=>c.field === vcfield);
+    switch (aggr) {
+         case "sum":
+         return `${this.localeText().aggregateSum} ${valueColumn?.header ?? ''}`;
+         case "avg":
+         return `${this.localeText().aggregateAvg} ${valueColumn?.header ?? ''}`;
+         case "count":
+         return `${this.localeText().aggregateCount} ${valueColumn?.header ?? ''}`;
+         case "max":
+         return `${this.localeText().aggregateMax} ${valueColumn?.header ?? ''}`;
+         case "min":
+         return `${this.localeText().aggregateMin} ${valueColumn?.header ?? ''}`;
+         default: 
+          return undefined;
+    }
+  });
   /**
    * Effective pin resolver fed to the projection: a runtime UI override wins (including an explicit
    * `null` unpin), otherwise the provider `pinRow` predicate decides. Returns `undefined` when
@@ -542,6 +566,7 @@ export class AgridComponent<T extends object = any> {
   readonly pinnedHeaderGroupRuns = this.columnLayout.pinnedHeaderGroupRuns;
   readonly scrollableHeaderGroupRuns = this.columnLayout.scrollableHeaderGroupRuns;
   readonly rightHeaderGroupRuns = this.columnLayout.rightHeaderGroupRuns;
+
 
   private readonly columnState = new AgridColumnStateService({
     control: this.control,

@@ -107,7 +107,7 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
                 <span class="dot dot-red"></span>
                 <span class="dot dot-yellow"></span>
                 <span class="dot dot-green"></span>
-                <div class="browser-url"><span class="url-lock">◆</span> agrid.dev/playground</div>
+                <div class="browser-url"><span class="url-lock">◆</span>thkl.github.io/agrid</div>
               </div>
               <div class="browser-content">
                 <agrid class="preview-grid" [provider]="previewProvider" />

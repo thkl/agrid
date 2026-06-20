@@ -187,7 +187,7 @@ export class AgridDemoComponent {
         id: 'export',
         label: 'Export',
         items: [
-          { id: 'export-csv', label: 'All rows' },
+          { id: 'export-csv', label: 'All rows'  },
           {
             id: 'export-selected',
             label: 'Selected rows',
