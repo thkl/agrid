@@ -16,9 +16,14 @@ import {
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { NgTemplateOutlet } from '@angular/common';
 import { AgridCellComponent } from './rendering/agrid-cell.component';
+import { AgridPaneHeaderComponent } from './rendering/agrid-pane-header.component';
 import { AgridBrowserAdapter } from './infrastructure/agrid-browser.adapter';
 import { AgridClipboardHandler, CellRange } from './selection/agrid-clipboard.handler';
-import { AgridColumnLayoutModel, AgridHeaderGroupRun } from './columns/agrid-column-layout.model';
+import {
+  AgridColumnLayoutModel,
+  AgridHeaderGroup,
+  AgridHeaderGroupRun,
+} from './columns/agrid-column-layout.model';
 import { AgridColumnMenuComponent } from './columns/agrid-column-menu.component';
 import { AgridColumnMenuController } from './columns/agrid-column-menu.controller';
 import { AgridColumnReorderController } from './columns/agrid-column-reorder.controller';
@@ -60,7 +65,8 @@ import {
 import { AgridVariableRowSizeDirective } from './infrastructure/agrid-variable-row-size.strategy';
 import {
   AgridAggregate,
-  AgridField, AgridMenuBarContext, AgridMenuBarItem, AgridMenuBarMenuItem, AgridMenuBarState, AgridPivotConfig,
+  AgridBodyColumn, AgridField, AgridHeaderColumn, AgridMenuBarContext, AgridMenuBarItem, AgridMenuBarMenuItem,
+  AgridMenuBarState, AgridPivotConfig,
   CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, DetailRowItem, FilterChangeEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, PathTreeNodeItem, RecordEditEvent, RowClickEvent,
   RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent,
@@ -68,58 +74,6 @@ import {
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
 export type { GridItem };
-
-/**
- * Precomputed per-column header state. @internal
- *
- * The header/filter rows previously called a dozen helpers per column on every
- * change-detection pass (e.g. `getSort`, `hasActiveFilter`, `isColDragging`).
- * The header view-model computeds resolve all of that once per column — and only
- * when an underlying signal changes — so the template reads plain fields instead.
- */
-export interface AgridHeaderColumn {
-  col: ColDef;
-  field: string;
-  ariaColIndex: number;
-  sort: 'asc' | 'desc' | null;
-  sortPriority: number;
-  hasFilter: boolean;
-  dragging: boolean;
-  dropSide: 'before' | 'after' | null;
-  reorderOffset: number;
-  grouped: boolean;
-  lastPinned: boolean;
-  firstRightPinned: boolean;
-  columnWidth: number;
-  textFilter: string;
-  menuFilterType: 'text' | 'number' | 'date' | null;
-  hasCondition: boolean;
-  conditionLabel: string;
-}
-
-/** A grouped-header run enriched with reactive lock/drag state. @internal */
-export interface AgridHeaderGroup extends AgridHeaderGroupRun {
-  locked: boolean;
-  dragging: boolean;
-}
-
-/**
- * Precomputed per-column state for the data-row, footer, and ghost cell loops. @internal
- *
- * Deliberately leaner than {@link AgridHeaderColumn}: it omits sort/filter state so the body
- * view-model only changes on column layout, drag, or pinning — sorting or filtering does not
- * invalidate it (and therefore does not force every rendered cell to re-render).
- */
-export interface AgridBodyColumn {
-  col: ColDef;
-  field: string;
-  visibleColIndex: number;
-  ariaColIndex: number;
-  dragging: boolean;
-  reorderOffset: number;
-  lastPinned: boolean;
-  firstRightPinned: boolean;
-}
 
 /**
  * Excel-like data grid for Angular 21.
@@ -152,6 +106,7 @@ export interface AgridBodyColumn {
     NgTemplateOutlet,
     AgridVariableRowSizeDirective,
     AgridCellComponent,
+    AgridPaneHeaderComponent,
     AgridMenuBarComponent,
     AgridColumnMenuComponent,
     AgridFindPanelComponent,

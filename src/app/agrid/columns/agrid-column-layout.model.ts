@@ -11,6 +11,12 @@ export interface AgridHeaderGroupRun {
   span: number;
 }
 
+/** A grouped-header run enriched with reactive lock/drag state. @internal */
+export interface AgridHeaderGroup extends AgridHeaderGroupRun {
+  locked: boolean;
+  dragging: boolean;
+}
+
 /** Reactive inputs required by {@link AgridColumnLayoutModel}. @internal */
 export interface AgridColumnLayoutOptions {
   control: Signal<AgridControl | null>;

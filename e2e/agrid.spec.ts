@@ -212,8 +212,8 @@ test.describe('agrid browser interactions', () => {
 
   test('reorders unlocked columns by dragging their headers', async ({ page }) => {
     await page.goto('/#/pinning');
-    const nameHeader = page.locator('.ag-horizontal-scroll > .ag-header [data-col-field="name"]');
-    const emailHeader = page.locator('.ag-horizontal-scroll > .ag-header [data-col-field="email"]');
+    const nameHeader = page.locator('.ag-horizontal-scroll .ag-header [data-col-field="name"]');
+    const emailHeader = page.locator('.ag-horizontal-scroll .ag-header [data-col-field="email"]');
     const nameCell = page.locator('.ag-horizontal-scroll agrid-cell[data-col-field="name"]').first();
     const emailCell = page.locator('.ag-horizontal-scroll agrid-cell[data-col-field="email"]').first();
 
@@ -249,7 +249,7 @@ test.describe('agrid browser interactions', () => {
     await expect(preview).toHaveCount(0);
 
     const headers = page.locator(
-      '.ag-horizontal-scroll > .ag-header > .ag-header-cell[data-col-field]',
+      '.ag-horizontal-scroll .ag-header > .ag-header-cell[data-col-field]',
     );
     await expect.poll(async () => {
       const fields = await headers.evaluateAll(elements =>
@@ -265,7 +265,7 @@ test.describe('agrid browser interactions', () => {
       '.ag-scroll-pane .ag-header-group-cell[data-header-group="employee"]',
     );
     const emailHeader = page.locator(
-      '.ag-horizontal-scroll > .ag-header [data-col-field="email"]',
+      '.ag-horizontal-scroll .ag-header [data-col-field="email"]',
     );
     const firstNameCell = page.locator(
       '.ag-horizontal-scroll agrid-cell[data-col-field="firstName"]',
@@ -289,7 +289,7 @@ test.describe('agrid browser interactions', () => {
     await page.mouse.up();
 
     const headers = page.locator(
-      '.ag-horizontal-scroll > .ag-header > .ag-header-cell[data-col-field]',
+      '.ag-horizontal-scroll .ag-header > .ag-header-cell[data-col-field]',
     );
     await expect.poll(async () => headers.evaluateAll(elements =>
       elements.map(element => (element as HTMLElement).dataset['colField']),
