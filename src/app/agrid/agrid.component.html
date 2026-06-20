@@ -808,6 +808,7 @@
   @if (filterMenu(); as menu) {
   <agrid-column-menu [x]="menu.x" [y]="menu.y" [header]="getColDef(menu.field)?.header ?? menu.field"
     [sortDir]="getSort(menu.field)" [sortable]="sortOption() !== 'none'" [showColumnActions]="!!control()"
+    [showAggregationActions]="pivotRowColumnField()===null"
     [pinned]="getColumnPinState(menu.field)" [groupable]="!!getColDef(menu.field)?.groupable"
     [grouped]="isGroupedByField(menu.field)" [filterable]="!!getColDef(menu.field)?.filterable"
     [showValueFilter]="!serverSideFiltering() || !!getColDef(menu.field)?.values?.length"

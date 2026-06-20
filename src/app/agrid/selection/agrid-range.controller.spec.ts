@@ -27,6 +27,16 @@ describe('AgridRangeController', () => {
       focus: CellPosition;
     } | null>(null);
     const edits: GridEditEvent[] = [];
+    const verticalViewport = document.createElement('div');
+    const horizontalViewport = document.createElement('div');
+    Object.defineProperty(verticalViewport, 'scrollTop', { value: 0, writable: true });
+    Object.defineProperty(horizontalViewport, 'scrollLeft', { value: 0, writable: true });
+    const viewportRect = {
+      x: 0, y: 0, top: 0, left: 0, right: 300, bottom: 120,
+      width: 300, height: 120, toJSON: () => ({}),
+    };
+    vi.spyOn(verticalViewport, 'getBoundingClientRect').mockReturnValue(viewportRect);
+    vi.spyOn(horizontalViewport, 'getBoundingClientRect').mockReturnValue(viewportRect);
     let destroyCallback: () => void = () => undefined;
     const destroyRef = {
       onDestroy(callback: () => void) {
@@ -58,6 +68,8 @@ describe('AgridRangeController', () => {
           && 'originalIndex' in item && item.originalIndex === originalIndex
         ),
       scrollToCell: vi.fn(),
+      verticalViewportElement: () => verticalViewport,
+      horizontalViewportElement: () => horizontalViewport,
       onCellEdit: event => edits.push(event),
     }, destroyRef);
     return {
@@ -68,6 +80,8 @@ describe('AgridRangeController', () => {
       edits,
       selectedCell,
       selectedRange,
+      verticalViewport,
+      horizontalViewport,
     };
   }
 
@@ -88,6 +102,54 @@ describe('AgridRangeController', () => {
       colEnd: 1,
     });
     expect(controller.isRangeSelected(1, 1)).toBe(true);
+  });
+
+  it('selects a rectangular range by dragging between cells', () => {
+    const { controller, selectedCell, selectedRange } = createController();
+    const target = document.createElement('agrid-cell');
+    target.dataset['cellRow'] = '2';
+    target.dataset['cellCol'] = '1';
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn().mockReturnValue([target]),
+    });
+
+    controller.startSelection(new PointerEvent('pointerdown', {
+      button: 0, clientX: 10, clientY: 10,
+    }), 0, 0);
+    document.dispatchEvent(new PointerEvent('pointermove', { clientX: 150, clientY: 80 }));
+    document.dispatchEvent(new PointerEvent('pointerup'));
+
+    expect(selectedCell()).toEqual({ rowIndex: 2, colIndex: 1 });
+    expect(selectedRange()).toEqual({
+      anchor: { rowIndex: 0, colIndex: 0 },
+      focus: { rowIndex: 2, colIndex: 1 },
+    });
+    expect(controller.consumeSuppressedActivation()).toBe(true);
+    expect(controller.consumeSuppressedActivation()).toBe(false);
+  });
+
+  it('keeps scrolling while a selection drag remains outside the viewport', () => {
+    vi.useFakeTimers();
+    const { controller, verticalViewport, horizontalViewport } = createController();
+    const target = document.createElement('agrid-cell');
+    target.dataset['cellRow'] = '2';
+    target.dataset['cellCol'] = '1';
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn().mockReturnValue([target]),
+    });
+
+    controller.startSelection(new PointerEvent('pointerdown', {
+      button: 0, clientX: 10, clientY: 10,
+    }), 0, 0);
+    document.dispatchEvent(new PointerEvent('pointermove', { clientX: 340, clientY: 160 }));
+    vi.advanceTimersByTime(48);
+
+    expect(verticalViewport.scrollTop).toBeGreaterThan(0);
+    expect(horizontalViewport.scrollLeft).toBeGreaterThan(0);
+    document.dispatchEvent(new PointerEvent('pointerup'));
+    vi.useRealTimers();
   });
 
   it('fills a source block across target rows as one undo step', () => {

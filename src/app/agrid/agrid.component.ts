@@ -751,6 +751,8 @@ export class AgridComponent<T extends object = any> {
     cancelEdit: () => this.cancelCurrent(),
     findDisplayIndex: originalIndex => this.findDisplayIndex(originalIndex),
     scrollToCell: (displayIndex, colIndex) => this.scrollToKeepVisible(displayIndex, colIndex),
+    verticalViewportElement: () => this.viewport().elementRef.nativeElement,
+    horizontalViewportElement: () => this.horizontalScrollerEl().nativeElement,
     onCellEdit: event => this.emitEditEvents(event),
   }, this.destroyRef);
 
@@ -1694,6 +1696,7 @@ export class AgridComponent<T extends object = any> {
 
   /** @internal */
   onActivate(originalIndex: number, ci: number, event?: MouseEvent): void {
+    if (this.rangeController.consumeSuppressedActivation()) return;
     this.navigationController.activateCell(originalIndex, ci, event);
   }
 
@@ -1753,7 +1756,8 @@ export class AgridComponent<T extends object = any> {
 
   /** @internal Starts a fill-handle drag from the bottom-right corner of the selection. */
   onCellPointerDown(event: PointerEvent, originalIndex: number, colIndex: number): void {
-    this.rangeController.startFill(event, originalIndex, colIndex);
+    if (this.rangeController.startFill(event, originalIndex, colIndex)) return;
+    this.rangeController.startSelection(event, originalIndex, colIndex);
   }
 
   /** @internal Main keyboard handler delegated from the wrapper div. */

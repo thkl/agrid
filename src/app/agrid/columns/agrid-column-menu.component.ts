@@ -80,6 +80,9 @@ export class AgridColumnMenuComponent {
   /** Whether stateful column actions should be shown. */
   showColumnActions = input<boolean>(false);
 
+  /** Whether the aggregation actions should be shown. */
+  showAggregationActions = input<boolean>(true); 
+
   /** Current pin state of the active column. */
   pinned = input<'left' | 'right' | false>(false);
 

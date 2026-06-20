@@ -72,7 +72,7 @@ export class PageComponent {
 - Keyboard navigation with auto-scroll to the active cell.
 - Type-to-edit, Enter/F2 edit, Tab/Enter commit, Escape cancel.
 - Undo/redo for edits, paste, and fill operations.
-- Cell range selection with Shift+arrow and Shift+click.
+- Cell range selection with Shift+arrow, Shift+click, or left-button drag with edge auto-scroll.
 - Clipboard copy/paste using TSV/CSV-like plain text.
 - Fill handle for repeating selected cell/range values down or right.
 - Find panel with Ctrl/Cmd+F, full filtered-dataset matching, and next/previous navigation.
@@ -1200,6 +1200,7 @@ Opening find clears the active cell so typing remains in the find input. Tree se
 collapsed descendants; navigating to one expands its ancestor path before scrolling to the match.
 | Click cell | Select cell. |
 | Shift+click cell | Extend range selection. |
+| Drag across cells | Select a rectangular range; dragging beyond the viewport auto-scrolls. |
 | Double-click cell | Start editing. |
 | Drag fill handle | Fill selected value/range down or right. |
 | Double-click resize handle | Autosize column. |

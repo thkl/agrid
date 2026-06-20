@@ -54,7 +54,7 @@
     </div>
   }
 
-  @if (showColumnActions()) {
+  @if (showColumnActions() && showAggregationActions()) {
     <div class="ag-filter-menu-section ag-filter-menu-section--border">
       <span class="ag-filter-menu-aggregate-label">{{ localeText().aggregate }}</span>
       <div class="ag-filter-menu-aggregate-btns">
