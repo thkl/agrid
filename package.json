@@ -10,6 +10,7 @@
     "copy:local": "node scripts/copy-library-source.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "test:coverage": "ng test --no-watch --coverage",
     "test:e2e": "playwright test",
     "test:performance": "playwright test --config=playwright.performance.config.ts"
   },
@@ -51,6 +52,7 @@
     "@angular/cli": "21.2.16",
     "@angular/compiler-cli": "21.2.17",
     "@playwright/test": "^1.60.0",
+    "@vitest/coverage-v8": "^4.1.9",
     "jsdom": "^27.1.0",
     "ng-packagr": "^21.0.0",
     "typescript": "~5.9.2",
