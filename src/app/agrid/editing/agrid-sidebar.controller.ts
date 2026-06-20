@@ -1,7 +1,7 @@
 import { Signal, computed, signal } from '@angular/core';
 import { AgridControl } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
-import { AgridSidebarEdit } from './agrid-sidebar.component';
+import { AgridSidebarEdit, AgridSidebarTab } from './agrid-sidebar.component';
 import { ColDef, GridEditEvent, ValueOption } from '../agrid.types';
 import { coerceDateInputValue, coerceNumberInputValue } from '../agrid.utils';
 
@@ -24,7 +24,7 @@ export interface AgridSidebarControllerOptions {
 /** Owns sidebar visibility, selected-row projection, and detail-panel edits. @internal */
 export class AgridSidebarController {
   readonly open = signal(false);
-  readonly tab = signal<'columns' | 'detail'>('columns');
+  readonly tab = signal<AgridSidebarTab>('columns');
   readonly row = computed<Record<string, unknown> | null>(() => {
     const index = this.opts.selectedRowIndex();
     return index === null ? null : this.opts.dataSource().rows()[index] ?? null;
@@ -71,7 +71,7 @@ export class AgridSidebarController {
   }
 
   /** Selects a tab, or closes the sidebar when selecting its active tab. */
-  selectTab(tab: 'columns' | 'detail'): void {
+  selectTab(tab: AgridSidebarTab): void {
     if (this.open() && this.tab() === tab) {
       this.open.set(false);
     } else {

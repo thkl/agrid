@@ -188,6 +188,11 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
               <div class="demo-card-desc">Sum, average, and count footers per column.</div>
               <span class="demo-card-link">Open →</span>
             </a>
+            <a class="demo-card" routerLink="/pivot">
+              <div class="demo-card-title">Pivot table</div>
+              <div class="demo-card-desc">Cross-tabulate flat records by row, column, value, and aggregate.</div>
+              <span class="demo-card-link">Open →</span>
+            </a>
             <a class="demo-card" routerLink="/pinning">
               <div class="demo-card-title">Column pinning</div>
               <div class="demo-card-desc">Freeze columns to the left or right edge while scrolling.</div>

@@ -34,6 +34,8 @@ export interface AgridProjectionOptions {
   expandedGroups: Signal<AgridGroupExpansionState>;
   /** Tree configuration, or `null` when the grid is not in tree mode. */
   treeConfig: Signal<AgridTreeConfig | null>;
+  /** Whether rows/columns are already reduced into a derived pivot table. */
+  pivotMode?: Signal<boolean>;
   /** Expanded node ids when tree mode is active. */
   expandedTreeIds: Signal<Set<string | number>>;
   /** Host callback designating rows pinned to the top/bottom, or `undefined` when not pinning. */
@@ -72,7 +74,7 @@ export class AgridProjectionModel {
     if (quick) {
       indices = applyQuickFilter(rows, indices, quick, this.opts.visibleColDefs(), this.opts.locale());
     }
-    if (control.groupByField()) return indices;
+    if (control.groupByField() && !this.opts.pivotMode?.()) return indices;
 
     const sortEntries = this.sortEntries(filters);
     return sortEntries.length
@@ -150,12 +152,15 @@ export class AgridProjectionModel {
     if (this.opts.dataSource() instanceof AgridServerSideRowModel) return false;
     const control = this.opts.control();
     if (this.opts.treeConfig()) return false;
-    return (control?.pageSize() ?? 0) > 0 && !control?.groupByField();
+    return (control?.pageSize() ?? 0) > 0
+      && (!control?.groupByField() || !!this.opts.pivotMode?.());
   });
 
   /** Whether at least one visible column has an aggregate footer. */
   readonly showFooter = computed(() => {
     if (this.opts.dataSource() instanceof AgridServerSideRowModel) return false;
+    // Aggregating already-aggregated pivot cells is not generally valid (for example avg of avg).
+    if (this.opts.pivotMode?.()) return false;
     const aggregates = this.opts.control()?.aggregates() ?? {};
     return this.opts.visibleColDefs().some(col => col.aggregate || aggregates[col.field]);
   });
@@ -192,6 +197,14 @@ export class AgridProjectionModel {
     const treeConfig = this.opts.treeConfig();
     if (treeConfig) {
       const expandedIds = this.opts.expandedTreeIds();
+      // Passing no columns keeps the tree builders allocation-free when rollups are disabled.
+      // Runtime control aggregates override static ColDef.aggregate values inside the builders.
+      const treeAggregateCols = treeConfig.aggregateTreeNodes
+        ? this.opts.visibleColDefs()
+        : [];
+      const treeControlAggregates = treeConfig.aggregateTreeNodes
+        ? control?.aggregates() ?? {}
+        : {};
 
       // When a text/value filter is active, keep the ancestors of every match visible (and
       // force their path open) so deep matches don't vanish under filtered-out parents.
@@ -207,6 +220,8 @@ export class AgridProjectionModel {
             treeConfig,
             expandedIds,
             filterActive && treeConfig.keepAncestorsOnFilter !== false,
+            treeAggregateCols,
+            treeControlAggregates,
           ),
           rows,
           treeConfig,
@@ -235,7 +250,15 @@ export class AgridProjectionModel {
 
         const ordered = this.allSortedIndices().filter(index => visible.has(index));
         const items = this.appendTreeDetailItems(
-          buildTreeItems(rows, ordered, treeConfig, expandedIds, forced),
+          buildTreeItems(
+            rows,
+            ordered,
+            treeConfig,
+            expandedIds,
+            forced,
+            treeAggregateCols,
+            treeControlAggregates,
+          ),
           rows,
           treeConfig,
         );
@@ -244,7 +267,15 @@ export class AgridProjectionModel {
       }
 
       const items = this.appendTreeDetailItems(
-        buildTreeItems(rows, indices, treeConfig, expandedIds),
+        buildTreeItems(
+          rows,
+          indices,
+          treeConfig,
+          expandedIds,
+          undefined,
+          treeAggregateCols,
+          treeControlAggregates,
+        ),
         rows,
         treeConfig,
       );
@@ -267,7 +298,7 @@ export class AgridProjectionModel {
         indices = indices.slice((page - 1) * pageSize, page * pageSize);
       }
 
-      if (groupField) {
+      if (groupField && !this.opts.pivotMode?.()) {
         const expansion = this.opts.expandedGroups();
         const expandedLabels = expansion.field === groupField
           ? expansion.labels

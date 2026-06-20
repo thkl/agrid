@@ -145,7 +145,7 @@
               [attr.data-col-field]="col.field" [attr.aria-colindex]="getAriaColIndex(ci)"
               [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
               [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
-              [editable]="isColEditable(col, item.originalIndex)" [error]="cellValidationError(item.originalIndex, ci)"
+              [editable]="isColEditable(col, item.originalIndex) && !isTreeAggregateCell(item, col)" [error]="cellValidationError(item.originalIndex, ci)"
               [showInfoIcon]="showCellInfoIcon(col, item.row)"
               [seedChar]="getSeedChar(item.originalIndex, ci)" [selectTextOnEdit]="selectTextOnEdit()"
               [treeCell]="isTreeCell(col)"
@@ -337,7 +337,7 @@
                 [attr.data-col-field]="col.field" [attr.aria-colindex]="getAriaColIndex(ci)"
                 [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
                 [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
-                [editable]="isColEditable(col, item.originalIndex)" [error]="cellValidationError(item.originalIndex, ci)"
+                [editable]="isColEditable(col, item.originalIndex) && !isTreeAggregateCell(item, col)" [error]="cellValidationError(item.originalIndex, ci)"
                 [showInfoIcon]="showCellInfoIcon(col, item.row)"
                 [seedChar]="getSeedChar(item.originalIndex, ci)" [selectTextOnEdit]="selectTextOnEdit()"
                 [treeCell]="isTreeCell(col)"
@@ -384,6 +384,19 @@
                   [attr.aria-expanded]="treeRowExpanded(item)"
                   (click)="onTreeToggle(item); $event.stopPropagation()">▶</button>
                 <span>{{ pathTreeLabel(item) }}</span>
+                @if (item.aggregates; as aggregates) {
+                <span class="ag-group-aggregates">
+                  @for (col of visibleColDefs(); track col.field) {
+                  @if (col.field !== treeConfig()!.treeField && aggregates[col.field] !== undefined) {
+                  <span class="ag-group-aggregate">
+                    <span class="ag-group-aggregate-col">{{ col.header }}</span>
+                    <span class="ag-group-aggregate-op">{{ getAggregateLabel(col) }}</span>
+                    {{ getFooterDisplay(col, aggregates[col.field]) }}
+                  </span>
+                  }
+                  }
+                </span>
+                }
               </div>
               } @else {
               <div class="ag-group-header-content" [style.min-width.px]="scrollableTotalWidth()">
@@ -571,7 +584,7 @@
               [attr.data-col-field]="col.field" [attr.aria-colindex]="getAriaColIndex(ci)"
               [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
               [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
-              [editable]="isColEditable(col, item.originalIndex)" [error]="cellValidationError(item.originalIndex, ci)"
+              [editable]="isColEditable(col, item.originalIndex) && !isTreeAggregateCell(item, col)" [error]="cellValidationError(item.originalIndex, ci)"
               [showInfoIcon]="showCellInfoIcon(col, item.row)"
               [seedChar]="getSeedChar(item.originalIndex, ci)" [selectTextOnEdit]="selectTextOnEdit()"
               [treeCell]="isTreeCell(col)"
@@ -668,6 +681,7 @@
 
     @if (showSidebar()) {
     <agrid-sidebar [open]="sidebarOpen()" [activeTab]="sidebarTab()" [columns]="colDefs()"
+      [pivotColumns]="sidebarPivotColumns()" [pivotConfig]="provider().pivotConfig"
       [headerGroups]="headerGroups()" [row]="sidebarRow()" [rowIndex]="selectedRowIndex()"
       [hiddenColumns]="sidebarHiddenColumns()" [locale]="locale()"
       [localeText]="localeText()" [readonlyGrid]="readonlyGrid()" [useSidebarEditor]="useSidebarEditor()"
@@ -675,6 +689,7 @@
       [errors]="sidebarValidationErrors()" (close)="toggleSidebar()" (tabChange)="onSidebarStripClick($event)"
       (toggleColumn)="onSidebarToggleColumn($event)"
       (toggleColumnGroup)="onSidebarToggleColumnGroup($event.fields, $event.visible)"
+      (pivotChange)="onSidebarPivotChange($event)"
       (detailEdit)="onSidebarDetailEdit($event)" (save)="onSidebarDetailSave($event)" />
     }
   </div><!-- /.ag-main-area -->

@@ -148,20 +148,7 @@ export class AgridControl {
       readonly: this._readonly,
       autoAddRows: this._autoAddRows,
     });
-    if (state?.columnWidths) this._columnWidths.set({ ...state.columnWidths });
-    if (state?.filters) this._filters.set({ ...state.filters });
-    if (state?.quickFilter) this._quickFilter.set(state.quickFilter);
-    if (state?.allowRowReorder) this._allowRowReorder.set(state.allowRowReorder);
-    if (state?.groupByField !== undefined) this._groupByField.set(state.groupByField ?? null);
-    if (state?.hiddenColumns?.length) this._hiddenColumns.set(new Set(state.hiddenColumns));
-    if (state?.columnOrder?.length)   this._columnOrder.set([...state.columnOrder]);
-    if (state?.pinnedColumns?.length)      this._pinnedColumns.set(new Set(state.pinnedColumns));
-    if (state?.pinnedRightColumns?.length) this._pinnedRightColumns.set(new Set(state.pinnedRightColumns));
-    if (state?.pageSize) this._pageSize.set(state.pageSize);
-    if (state?.currentPage) this._currentPage.set(state.currentPage);
-    if (state?.totalRows) this._totalRows.set(state.totalRows);
-    if (state?.aggregates) this._aggregates.set({ ...state.aggregates });
-    if (state?.sortOrder?.length) this._sortOrder.set([...state.sortOrder]);
+    if (state) this.loadState(state);
   }
 
   // ── Runtime grid state ────────────────────────────────────────────────────
@@ -632,6 +619,28 @@ export class AgridControl {
   }
 
   // ── Serialization ──────────────────────────────────────────────────────────
+
+  /**
+   * Replace the live serializable state from a plain object.
+   * Missing properties reset to their defaults, making a loaded snapshot deterministic.
+   * Transient loading, readonly, auto-add, selection, and edit-history state are preserved.
+   */
+  loadState(state: Partial<AgridControlState>): void {
+    this._columnWidths.set({ ...(state.columnWidths ?? {}) });
+    this._filters.set({ ...(state.filters ?? {}) });
+    this._quickFilter.set(state.quickFilter ?? '');
+    this._allowRowReorder.set(state.allowRowReorder ?? false);
+    this._groupByField.set(state.groupByField ?? null);
+    this._hiddenColumns.set(new Set(state.hiddenColumns ?? []));
+    this._columnOrder.set([...(state.columnOrder ?? [])]);
+    this._pinnedColumns.set(new Set(state.pinnedColumns ?? []));
+    this._pinnedRightColumns.set(new Set(state.pinnedRightColumns ?? []));
+    this._pageSize.set(state.pageSize ?? 0);
+    this._currentPage.set(state.currentPage ?? 1);
+    this._totalRows.set(state.totalRows ?? 0);
+    this._aggregates.set({ ...(state.aggregates ?? {}) });
+    this._sortOrder.set([...(state.sortOrder ?? [])]);
+  }
 
   /** Serialize current state to a plain object suitable for JSON storage. */
   toJSON(): AgridControlState {

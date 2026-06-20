@@ -322,13 +322,23 @@ export function applySortToIndices(
  * optionally sort within groups by a secondary sort, and interleave group-header items.
  * Does NOT append the add-row null sentinel — the caller does that.
  */
-/** Built-in aggregate function names supported by the footer and group subtotals. */
+/** Built-in aggregate function names shared by footers, groups, and tree-node rollups. */
 type BuiltinAggregate = 'sum' | 'avg' | 'min' | 'max' | 'count';
 
 /**
  * Compute aggregate values for the given rows across every column that has a static
  * (`ColDef.aggregate`) or control-configured aggregate. Returns a `field → value` map containing
- * only aggregated columns. Shared by the grid footer and per-group subtotals.
+ * only aggregated columns. Shared by the grid footer, per-group subtotals, and tree-node rollups.
+ *
+ * Numeric aggregates coerce values through `Number`; nonnumeric values are skipped. `count`
+ * counts non-null/non-empty values, while custom functions receive all raw values in index order.
+ * A control aggregate takes precedence over the static column definition.
+ *
+ * @param rows Complete datasource rows addressed by `indices`.
+ * @param indices Source indices included in this aggregate, in projection order.
+ * @param cols Columns inspected for static or runtime aggregate configuration.
+ * @param controlAggregates Runtime aggregate overrides keyed by field.
+ * @returns A field-to-result map containing only configured aggregate columns.
  */
 export function computeAggregates(
   rows: Record<string, unknown>[],
@@ -455,6 +465,11 @@ export interface TreeAccessors<T extends object> {
  * @param expandedIds     Ids whose children should be rendered.
  * @param forceExpandedIds Ids forced open regardless of `expandedIds` — used to reveal the
  *   ancestor path of filter matches. Optional.
+ * @param aggregateCols Columns whose configured aggregate should be attached to expandable nodes.
+ *   Pass an empty array to disable tree rollups.
+ * @param controlAggregates Runtime aggregate overrides. These take precedence over each column's
+ *   static aggregate function.
+ * @returns Visible tree rows. Expandable rows include `aggregates` when aggregation is enabled.
  */
 export function buildTreeItems<T extends object>(
   rows: T[],
@@ -462,6 +477,8 @@ export function buildTreeItems<T extends object>(
   accessors: TreeAccessors<T>,
   expandedIds: Set<string | number>,
   forceExpandedIds?: Set<string | number>,
+  aggregateCols: ColDef[] = [],
+  controlAggregates: Record<string, BuiltinAggregate> = {},
 ): GridItem<T>[] {
   const { getId, getParentId } = accessors;
 
@@ -484,6 +501,30 @@ export function buildTreeItems<T extends object>(
 
   const items: GridItem<T>[] = [];
   const visited = new Set<string | number>();
+  const hasAggregates = aggregateCols.some(
+    col => controlAggregates[col.field] ?? col.aggregate,
+  );
+
+  // Cache each subtree's leaf indices. Besides preventing repeated traversal for nested visible
+  // parents, leaf-only aggregation avoids double-counting parent rows that store their own subtotal.
+  // This walk uses the complete filtered hierarchy and is intentionally independent of expansion.
+  const leafMemo = new Map<string | number, number[]>();
+  const collectLeaves = (index: number, visiting = new Set<string | number>()): number[] => {
+    const id = getId(rows[index]);
+    const cached = leafMemo.get(id);
+    if (cached) return cached;
+    // A cyclic edge cannot produce a valid leaf. Excluding that edge keeps aggregation finite and
+    // matches the renderer's existing policy of omitting duplicate/cyclic visits.
+    if (visiting.has(id)) return [];
+    visiting.add(id);
+    const children = childrenByParent.get(id);
+    const leaves = children?.length
+      ? children.flatMap(childIndex => collectLeaves(childIndex, visiting))
+      : [index];
+    visiting.delete(id);
+    leafMemo.set(id, leaves);
+    return leaves;
+  };
 
   const visit = (index: number, level: number): void => {
     const row = rows[index];
@@ -494,7 +535,15 @@ export function buildTreeItems<T extends object>(
     const children = childrenByParent.get(id);
     const expandable = !!children?.length;
     const expanded = expandable && (expandedIds.has(id) || !!forceExpandedIds?.has(id));
-    items.push({ row, originalIndex: index, level, expandable, expanded });
+    const aggregates = expandable && hasAggregates
+      ? computeAggregates(
+        rows as unknown as Record<string, unknown>[],
+        collectLeaves(index),
+        aggregateCols,
+        controlAggregates,
+      )
+      : undefined;
+    items.push({ row, originalIndex: index, level, expandable, expanded, aggregates });
 
     if (expanded && children) {
       for (const childIndex of children) visit(childIndex, level + 1);
@@ -505,11 +554,21 @@ export function buildTreeItems<T extends object>(
   return items;
 }
 
-/** Stable expansion id for a generated path prefix. */
+/**
+ * Return the stable expansion key for a generated path prefix.
+ * String normalization makes numeric and string path segments share the same branch identity.
+ */
 export function pathTreeNodeId(path: readonly (string | number)[]): string {
   return `__agrid_path__${JSON.stringify(path.map(String))}`;
 }
 
+/**
+ * Derive a deterministic UUID-shaped identifier for a generated path branch.
+ *
+ * This is an identity helper, not a cryptographic hash. Four independently mixed 32-bit lanes
+ * provide stable output, after which the version and variant nibbles are normalized to a
+ * v5-shaped UUID layout. It does not implement RFC 4122 namespace/SHA-1 UUID generation.
+ */
 export function pathTreeNodeUuid(path: readonly (string | number)[]): string {
   const source = JSON.stringify(path.map(String));
   let a = 0x9e3779b9;
@@ -534,21 +593,48 @@ export function pathTreeNodeUuid(path: readonly (string | number)[]): string {
   return `${hex.slice(0, 8).join('')}-${hex.slice(8, 12).join('')}-${hex.slice(12, 16).join('')}-${hex.slice(16, 20).join('')}-${hex.slice(20, 32).join('')}`;
 }
 
-/** Builds display-only branch nodes and datasource-backed leaves from path segments. */
+/**
+ * Build a depth-first projection from datasource paths.
+ *
+ * Every non-final path segment becomes a display-only {@link PathTreeNodeItem}; the final segment
+ * remains a datasource-backed {@link TreeRowItem}. Shared prefixes are coalesced by their stable
+ * path id. When aggregate columns are supplied, each generated branch receives values computed
+ * over every datasource row sharing that prefix, regardless of expansion state.
+ *
+ * @param rows Complete datasource rows.
+ * @param indices Filtered and sorted datasource indices included in the tree.
+ * @param config Path extraction, labeling, and identity configuration.
+ * @param expandedIds Generated branch ids whose children should be emitted.
+ * @param forceExpanded Whether filtering should reveal every generated branch in the projection.
+ * @param aggregateCols Columns whose configured aggregates should be attached to branch nodes.
+ * @param controlAggregates Runtime aggregate overrides keyed by field.
+ * @returns Visible generated branches and datasource leaves in depth-first order.
+ */
 export function buildPathTreeItems<T extends object>(
   rows: T[],
   indices: number[],
   config: AgridPathTreeConfig<T>,
   expandedIds: Set<string | number>,
   forceExpanded = false,
+  aggregateCols: ColDef[] = [],
+  controlAggregates: Record<string, BuiltinAggregate> = {},
 ): GridItem<T>[] {
+  /** Mutable construction node used before branches are flattened into immutable grid items. */
   type Branch = {
+    /** Stable expansion identity derived from the complete path prefix. */
     id: string;
+    /** Consumer-facing UUID, either host supplied or deterministically generated. */
     uuid: string;
+    /** Formatted segment displayed for this prefix. */
     label: string;
+    /** Zero-based tree depth; `-1` denotes the hidden root for one-segment paths. */
     level: number;
+    /** Nested branch prefixes, preserving first-seen datasource order. */
     children: Map<string, Branch>;
+    /** Datasource-backed final path segments directly below this branch. */
     leaves: { originalIndex: number; label: string }[];
+    /** All datasource indices sharing this prefix, including leaves in nested branches. */
+    descendantIndices: number[];
   };
 
   const roots = new Map<string, Branch>();
@@ -583,9 +669,11 @@ export function buildPathTreeItems<T extends object>(
           level,
           children: new Map(),
           leaves: [],
+          descendantIndices: [],
         };
         branches.set(id, branch);
       }
+      branch.descendantIndices.push(originalIndex);
       if (level === path.length - 2) {
         branch.leaves.push({
           originalIndex,
@@ -605,14 +693,19 @@ export function buildPathTreeItems<T extends object>(
           level: -1,
           children: new Map(),
           leaves: [],
+          descendantIndices: [],
         };
         roots.set(id, branch);
       }
       branch.leaves.push({ originalIndex, label: formatSegment(0, true) });
+      branch.descendantIndices.push(originalIndex);
     }
   }
 
   const items: GridItem<T>[] = [];
+  const hasAggregates = aggregateCols.some(
+    col => controlAggregates[col.field] ?? col.aggregate,
+  );
   const visit = (branch: Branch): void => {
     const isHiddenRoot = branch.level < 0;
     const expanded = forceExpanded || expandedIds.has(branch.id);
@@ -624,6 +717,14 @@ export function buildPathTreeItems<T extends object>(
         level: branch.level,
         expandable: true,
         expanded,
+        aggregates: hasAggregates
+          ? computeAggregates(
+            rows as unknown as Record<string, unknown>[],
+            branch.descendantIndices,
+            aggregateCols,
+            controlAggregates,
+          )
+          : undefined,
       });
     }
     if (!isHiddenRoot && !expanded) return;

@@ -36,7 +36,8 @@ import { AgridLocaleText, resolveAgridLocaleText, resolveLocale } from './agrid-
 import { AgridNavigationController } from './selection/agrid-navigation.controller';
 import { AgridPresentationService } from './rendering/agrid-presentation.service';
 import { AgridMenuBarComponent } from './rendering/agrid-menu-bar.component';
-import { AgridProvider } from './agrid-provider';
+import { AgridProvider, AgridSettings } from './agrid-provider';
+import { buildPivotResult } from './agrid-pivot';
 import { AgridProjectionModel } from './rows/agrid-projection.model';
 import { AgridRangeController } from './selection/agrid-range.controller';
 import { AgridCellContextMenu, AgridRowController } from './rows/agrid-row.controller';
@@ -45,6 +46,7 @@ import {
   AgridSidebarComponent,
   AgridSidebarDetailField,
   AgridSidebarEdit,
+  AgridSidebarTab,
 } from './editing/agrid-sidebar.component';
 import {
   isDataRowItem as isDataRowItemFn,
@@ -57,7 +59,7 @@ import {
 } from './agrid.utils';
 import { AgridVariableRowSizeDirective } from './infrastructure/agrid-variable-row-size.strategy';
 import {
-  AgridField, AgridMenuBarContext, AgridMenuBarItem, AgridMenuBarMenuItem, AgridMenuBarState,
+  AgridField, AgridMenuBarContext, AgridMenuBarItem, AgridMenuBarMenuItem, AgridMenuBarState, AgridPivotConfig,
   CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, DetailRowItem, FilterChangeEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, PathTreeNodeItem, RecordEditEvent, RowClickEvent,
   RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent,
@@ -118,8 +120,10 @@ export class AgridComponent<T extends object = any> {
   readonly rowHeight = computed(() => this.provider().rowHeight);
   readonly minHeight = computed(() => this.provider().minHeight);
   readonly maxHeight = computed(() => this.provider().maxHeight);
-  readonly allowAddRows = computed(() => this.provider().allowAddRows);
-  readonly autoAddRows = computed(() => this.control()?.autoAddRows() ?? false);
+  readonly allowAddRows = computed(() => this.provider().allowAddRows && !this.provider().pivotConfig);
+  readonly autoAddRows = computed(() =>
+    !this.provider().pivotConfig && (this.control()?.autoAddRows() ?? false)
+  );
   readonly enableRowMarking = computed(() => this.provider().enableRowMarking);
   readonly showControlColumn = computed(() =>
     this.provider().showControlColumn || this.enableRowMarking() || this.masterDetail()
@@ -140,12 +144,16 @@ export class AgridComponent<T extends object = any> {
   readonly cellMenuItems = computed(() => this.provider().cellMenuItems);
   readonly headerGroups = computed(() => this.provider().headerGroups);
   readonly treeConfig = computed(() => this.provider().treeConfig);
+  /** Whether the provider is rendering a derived client-side pivot table. */
+  readonly pivotMode = computed(() => !!this.provider().pivotConfig);
   readonly zebraStripes = computed(() => this.provider().zebraStripes);
   readonly showChangedCellIndicator = computed(
     () => this.provider().showChangedCellIndicator,
   );
   readonly confirmRowDelete = computed(() => this.provider().confirmRowDelete);
-  readonly readonlyGrid = computed(() => this.control()?.readonly() ?? false);
+  readonly readonlyGrid = computed(() =>
+    !!this.provider().pivotConfig || (this.control()?.readonly() ?? false)
+  );
   readonly loading = computed(() => this.control()?.loading() ?? false);
   readonly emptyText = computed(() => this.provider().emptyText);
   readonly useSidebarEditor = computed(() => this.provider().useSidebarEditor);
@@ -177,18 +185,36 @@ export class AgridComponent<T extends object = any> {
   /** Whether master/detail is enabled and applicable (flat rows or tree leaves; not grouped). */
   readonly masterDetail = computed(
     () => this.provider().masterDetail && !!this.provider().detailRenderer
-      && !this.control()?.groupByField(),
+      && !this.control()?.groupByField() && !this.provider().pivotConfig,
   );
   /** Fixed detail-panel height in pixels. */
   readonly detailRowHeight = computed(() => this.provider().detailRowHeight);
 
-  /** Column definitions from the active provider. */
+  /** Read-only pivot rows and generated columns, or `null` in the normal datasource view. */
+  private readonly pivotResult = computed(() => {
+    const provider = this.provider();
+    if (!provider.pivotConfig) return null;
+    return buildPivotResult(
+      provider.datasource.rows(),
+      provider.columns(),
+      provider.pivotConfig,
+      resolveLocale(provider.options.locale),
+    );
+  });
+  /** Reactive row projection linked into a stable datasource instance for pivot mode. */
+  private readonly pivotRows = computed(() => this.pivotResult()?.rows ?? []);
+  private readonly pivotDataSource = new AgridDataSource<Record<string, unknown>>();
+
+  /** Column definitions from the active provider or generated by the active pivot. */
   readonly colDefs = computed<ColDef[]>(
-    () => this.provider().columns() as unknown as ColDef[],
+    () => this.pivotResult()?.columns
+      ?? this.provider().columns() as unknown as ColDef[],
   );
 
-  /** Signal-based data container from the active provider. */
-  readonly dataSource = computed<AgridDataSource>(() => this.provider().datasource);
+  /** Signal-based source rows or a derived, read-only pivot datasource. */
+  readonly dataSource = computed<AgridDataSource>(() => {
+    return this.pivotResult() ? this.pivotDataSource : this.provider().datasource;
+  });
 
   /** Active lazy server-side row model, when configured on the provider. */
   readonly serverSideRowModel = computed(() => this.provider().serverSideRowModel);
@@ -248,6 +274,9 @@ export class AgridComponent<T extends object = any> {
 
   /** Emitted when the user single-clicks a generated path-tree branch node. */
   treeNodeClick = output<TreeNodeClickEvent>();
+
+  /** Emitted after sidebar changes produce a new persistable grid settings snapshot. */
+  settingsChange = output<AgridSettings>();
 
   /** Emitted when the user double-clicks a generated path-tree branch node. */
   treeNodeDoubleClicked = output<TreeNodeClickEvent>();
@@ -342,8 +371,33 @@ export class AgridComponent<T extends object = any> {
   toggleSidebar(): void { this.sidebarController.toggle(); }
 
   /** @internal */
-  onSidebarStripClick(tab: 'columns' | 'detail'): void {
+  onSidebarStripClick(tab: AgridSidebarTab): void {
     this.sidebarController.selectTab(tab);
+  }
+
+  /** @internal Replace the active pivot configuration from the sidebar controls. */
+  onSidebarPivotChange(config: AgridPivotConfig): void {
+    this.provider().pivotConfig = config;
+    this.emitSettingsChange();
+  }
+
+  /** Return a detached, JSON-safe snapshot suitable for persistence by the host application. */
+  saveSettings(): AgridSettings {
+    return this.provider().saveSettings();
+  }
+
+  /** Apply a saved settings snapshot to this live grid. */
+  loadSettings(settings: AgridSettings): void {
+    this.provider().loadSettings(settings);
+  }
+
+  /** Emit when the active state is JSON-safe; custom function aggregates remain host-owned. */
+  private emitSettingsChange(): void {
+    try {
+      this.settingsChange.emit(this.saveSettings());
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('cannot be saved')) throw error;
+    }
   }
 
   /** @internal */
@@ -450,7 +504,9 @@ export class AgridComponent<T extends object = any> {
   // ── Derived state ─────────────────────────────────────────────────────────────
 
   readonly allowRowReorder = computed(() =>
-    (this.control()?.allowRowReorder() ?? false) && !this.control()?.groupByField()
+    (this.control()?.allowRowReorder() ?? false)
+      && !this.control()?.groupByField()
+      && !this.provider().pivotConfig
   );
 
   /** `true` when there is a committed edit that can be undone (Ctrl+Z). */
@@ -508,6 +564,7 @@ export class AgridComponent<T extends object = any> {
     autoAddRows: this.autoAddRows,
     expandedGroups: this.groupController.expandedGroups,
     treeConfig: this.treeConfig,
+    pivotMode: this.pivotMode,
     expandedTreeIds: this.treeController.expandedIds,
     pinRow: this.effectivePinRow,
     masterDetail: this.masterDetail,
@@ -838,6 +895,10 @@ export class AgridComponent<T extends object = any> {
   readonly sidebarTab = this.sidebarController.tab;
   readonly sidebarRow = this.sidebarController.row;
   readonly sidebarHiddenColumns = this.sidebarController.hiddenColumns;
+  /** Original provider columns used as pivot field choices. */
+  readonly sidebarPivotColumns = computed<ColDef[]>(
+    () => this.provider().columns() as unknown as ColDef[],
+  );
 
   private readonly clipboardHandler = new AgridClipboardHandler({
     control: this.control,
@@ -1027,6 +1088,9 @@ export class AgridComponent<T extends object = any> {
   }
 
   constructor() {
+    // Keep one datasource identity so selection/controllers are not reset whenever source data
+    // causes the computed pivot rows to be regenerated.
+    this.pivotDataSource.linkSignal(this.pivotRows);
     effect(() => this.sidebarController.syncAutoOpen());
 
     effect(() => {
@@ -1284,9 +1348,29 @@ export class AgridComponent<T extends object = any> {
     return (isTreeRowItemFn(item) || isPathTreeNodeItemFn(item)) && item.expanded;
   }
 
-  /** @internal Display-only final path segment for a datasource-backed path-tree leaf. */
+  /**
+   * @internal Resolve the non-persistent value shown by a tree cell.
+   *
+   * A formatted path-leaf label wins in the tree column. In every other aggregate column, an
+   * expandable parent shows its descendant rollup instead of its stored value. Returning `null`
+   * delegates to the normal cell formatter. The source row is never mutated.
+   */
   treeCellDisplayOverride(item: GridItem, col: ColDef): string | null {
-    return isTreeRowItemFn(item) && this.isTreeCell(col) ? item.treeLabel ?? null : null;
+    if (!isTreeRowItemFn(item)) return null;
+    if (this.isTreeCell(col) && item.treeLabel != null) return item.treeLabel;
+    if (item.aggregates && col.field in item.aggregates) {
+      return this.getFooterDisplay(col, item.aggregates[col.field]);
+    }
+    return null;
+  }
+
+  /**
+   * @internal True when a datasource-backed tree parent cell displays a computed rollup.
+   * The template uses this to prevent editing a display-only value into the source parent row.
+   * Generated path branches are not cell components and render their aggregates separately.
+   */
+  isTreeAggregateCell(item: GridItem, col: ColDef): boolean {
+    return isTreeRowItemFn(item) && !!item.aggregates && col.field in item.aggregates;
   }
 
   /** @internal Whether the configured info action is visible for this cell. */
@@ -2109,11 +2193,13 @@ export class AgridComponent<T extends object = any> {
   /** @internal */
   onSidebarToggleColumn(field: string): void {
     this.columnMenuController.toggleColumnVisibility(field);
+    this.emitSettingsChange();
   }
 
   /** @internal Sets every column in a sidebar header group to the requested visibility. */
   onSidebarToggleColumnGroup(fields: string[], visible: boolean): void {
     this.columnMenuController.setColumnsVisibility(fields, visible);
+    this.emitSettingsChange();
   }
 
   /** @internal Mirrors vertical scrolling from the main viewport into both pinned panes. */

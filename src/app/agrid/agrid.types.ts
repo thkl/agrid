@@ -5,6 +5,32 @@ import type { FilterOperator } from './agrid-control';
 /** String-valued property names available on a row type. */
 export type AgridField<T extends object> = Extract<keyof T, string>;
 
+/** Aggregate functions shared by footers, groups, tree rollups, and pivot values. */
+export type AgridAggregate =
+  | 'sum'
+  | 'avg'
+  | 'min'
+  | 'max'
+  | 'count'
+  | ((values: unknown[]) => unknown);
+
+/**
+ * Client-side pivot-table configuration.
+ *
+ * The initial pivot implementation supports one row dimension, one column dimension, and one
+ * value field. The resulting table is derived from the datasource and is always read-only.
+ */
+export interface AgridPivotConfig<T extends object = any> {
+  /** Source field whose distinct values become pivot rows. */
+  rowField: AgridField<T>;
+  /** Source field whose distinct values become generated pivot columns. */
+  columnField: AgridField<T>;
+  /** Source field aggregated at each row/column intersection. */
+  valueField: AgridField<T>;
+  /** Aggregate applied to each intersection. Defaults to `'sum'`. */
+  aggregate?: AgridAggregate;
+}
+
 /** Behavior after pressing Enter while an inline cell editor is active. */
 export type AgridEnterEditAction = 'nothing' | 'nextColumn' | 'nextRow';
 
@@ -278,7 +304,7 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
    * { field: 'score',  aggregate: values => values.filter(v => Number(v) > 90).length }
    * ```
    */
-  aggregate?: 'sum' | 'avg' | 'min' | 'max' | 'count' | ((values: unknown[]) => unknown);
+  aggregate?: AgridAggregate;
   /**
    * Return one or more CSS class names to apply to every cell in this column based on the
    * cell's value and row data. Useful for conditional highlighting without a custom renderer.
@@ -386,6 +412,13 @@ export interface PathTreeNodeItem {
   expandable: true;
   /** Whether the branch's descendants are currently visible. */
   expanded: boolean;
+  /**
+   * Field-to-value rollups computed from all datasource leaves below this generated branch.
+   * Present only when the grid enables {@link AgridTreeConfig.aggregateTreeNodes}; standalone
+   * trees do not compute column aggregates.
+   * @internal
+   */
+  aggregates?: Record<string, unknown>;
 }
 
 /**
@@ -422,6 +455,12 @@ export interface TreeRowItem<T extends object = Record<string, unknown>> {
   expanded: boolean;
   /** Optional display-only label for the tree cell, used by path-based trees. */
   treeLabel?: string;
+  /**
+   * Field-to-value rollups computed from this node's descendant leaves. Parent rows are excluded
+   * so a stored subtotal is not counted again. Present only for expandable rows when enabled.
+   * @internal
+   */
+  aggregates?: Record<string, unknown>;
 }
 
 /**
@@ -456,6 +495,35 @@ interface AgridTreeConfigBase<T extends object> {
    * Defaults to `true`. (Applied by the projection layer, not by {@link GridItem} flattening.)
    */
   keepAncestorsOnFilter?: boolean;
+  /**
+   * Display aggregate-column rollups on expandable nodes in `AgridComponent` tree mode.
+   *
+   * Parent/id trees aggregate descendant leaves and deliberately exclude intermediate parent
+   * values to avoid counting stored subtotals twice. Generated path branches aggregate every
+   * datasource leaf below that branch. Expansion does not affect the result, while active filters
+   * limit the contributing leaves. Aggregate cells on datasource-backed parents are display-only.
+   *
+   * The function comes from {@link ColDef.aggregate} or a runtime
+   * `AgridControl.setAggregate()` override. The standalone `AgridTreeComponent` has no columns and
+   * therefore ignores this option.
+   *
+   * @default false
+   * @example
+   * ```ts
+   * const columns = [
+   *   { field: 'name', header: 'Name' },
+   *   { field: 'amount', header: 'Amount', aggregate: 'sum' },
+   * ];
+   *
+   * const treeConfig = {
+   *   getId: row => row.id,
+   *   getParentId: row => row.parentId,
+   *   treeField: 'name',
+   *   aggregateTreeNodes: true,
+   * };
+   * ```
+   */
+  aggregateTreeNodes?: boolean;
 }
 
 /** Tree configuration for rows that already expose stable id and parent-id values. */

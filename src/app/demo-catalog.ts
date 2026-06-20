@@ -311,6 +311,41 @@ constructor() {
 }`,
   },
   {
+    path: '/pivot',
+    label: 'Pivot table',
+    title: 'Client-side pivot table',
+    summary:
+      'Turn flat sales records into a reactive region-by-quarter matrix using the same aggregate functions as the rest of the grid.',
+    points: [
+      'Choose one row field, one column field, and one value field.',
+      'Aggregate each intersection with sum, average, minimum, maximum, count, or a custom function.',
+      'Enable the sidebar so users can reconfigure the pivot without touching source records.',
+    ],
+    code: `const columns: ColDef<Sale>[] = [
+  { field: 'region', header: 'Region' },
+  { field: 'quarter', header: 'Quarter' },
+  {
+    field: 'revenue',
+    header: 'Revenue',
+    type: 'number',
+    formatter: value => \`$\${Number(value).toLocaleString()}\`,
+  },
+];
+
+readonly provider = new AgridProvider<Sale>({
+  columns,
+  datasource: new AgridDataSource(sales),
+  pivotConfig: {
+    rowField: 'region',
+    columnField: 'quarter',
+    valueField: 'revenue',
+    aggregate: 'sum',
+  },
+  zebraStripes: true,
+  showSidebar: true,
+});`,
+  },
+  {
     path: '/pinning',
     label: 'Column pinning',
     title: 'Pinned and locked columns',

@@ -1,8 +1,8 @@
 @if (open()) {
   <div class="ag-sidebar" role="region"
-    [attr.aria-label]="activeTab() === 'columns' ? localeText().columns : localeText().detail">
+    [attr.aria-label]="activeTabLabel()">
     <div class="ag-sidebar-header">
-      <span>{{ activeTab() === 'columns' ? localeText().columns : localeText().detail }}</span>
+      <span>{{ activeTabLabel() }}</span>
       <button class="ag-sidebar-close" (click)="close.emit()" [title]="localeText().close"
         [attr.aria-label]="localeText().close">✕</button>
     </div>
@@ -44,6 +44,88 @@
           </label>
         }
       }
+    } @else if (activeTab() === 'pivot' && pivotConfig(); as pivot) {
+      <div class="ag-pivot-config">
+        <p class="ag-pivot-description">{{ localeText().pivotDescription }}</p>
+
+        <label class="ag-pivot-field">
+          <span>{{ localeText().pivotRows }}</span>
+          <select [value]="pivot.rowField"
+            (change)="onPivotFieldChange('rowField', $event)">
+            @for (col of pivotColumns(); track col.field) {
+              <option [value]="col.field" [selected]="col.field === pivot.rowField">{{ col.header }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="ag-pivot-field">
+          <span>{{ localeText().pivotColumns }}</span>
+          <select [value]="pivot.columnField"
+            (change)="onPivotFieldChange('columnField', $event)">
+            @for (col of pivotColumns(); track col.field) {
+              <option [value]="col.field" [selected]="col.field === pivot.columnField">{{ col.header }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="ag-pivot-field">
+          <span>{{ localeText().pivotValues }}</span>
+          <select [value]="pivot.valueField"
+            (change)="onPivotFieldChange('valueField', $event)">
+            @for (col of pivotColumns(); track col.field) {
+              <option [value]="col.field" [selected]="col.field === pivot.valueField">{{ col.header }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="ag-pivot-field">
+          <span>{{ localeText().aggregate }}</span>
+          <select [value]="pivotAggregate()" (change)="onPivotAggregateChange($event)">
+            <option value="sum" [selected]="pivotAggregate() === 'sum'">{{ localeText().aggregateSum }}</option>
+            <option value="avg" [selected]="pivotAggregate() === 'avg'">{{ localeText().aggregateAvg }}</option>
+            <option value="min" [selected]="pivotAggregate() === 'min'">{{ localeText().aggregateMin }}</option>
+            <option value="max" [selected]="pivotAggregate() === 'max'">{{ localeText().aggregateMax }}</option>
+            <option value="count" [selected]="pivotAggregate() === 'count'">{{ localeText().aggregateCount }}</option>
+            @if (pivotAggregate() === 'custom') {
+              <option value="custom" disabled selected>{{ localeText().aggregateCustom }}</option>
+            }
+          </select>
+        </label>
+
+        <div class="ag-pivot-columns-heading">{{ localeText().columns }}</div>
+        <div class="ag-pivot-column-list">
+          @for (entry of columnEntries(); track entry.kind === 'group' ? 'pivot-group-' + entry.id : 'pivot-column-' + entry.col.field) {
+            @if (entry.kind === 'group') {
+              <div class="ag-sidebar-group">
+                <label class="ag-sidebar-item ag-sidebar-group-label" (click)="$event.stopPropagation()">
+                  <input type="checkbox"
+                    [checked]="isGroupVisible(entry.columns)"
+                    [indeterminate]="isGroupPartiallyVisible(entry.columns)"
+                    (change)="onGroupToggle(entry.columns, $event)" />
+                  {{ entry.label }}
+                </label>
+                <div class="ag-sidebar-group-children">
+                  @for (col of entry.columns; track col.field) {
+                    <label class="ag-sidebar-item ag-sidebar-group-child" (click)="$event.stopPropagation()">
+                      <input type="checkbox"
+                        [checked]="!hiddenColumns().has(col.field)"
+                        (change)="toggleColumn.emit(col.field)" />
+                      {{ col.header }}
+                    </label>
+                  }
+                </div>
+              </div>
+            } @else {
+              <label class="ag-sidebar-item" (click)="$event.stopPropagation()">
+                <input type="checkbox"
+                  [checked]="!hiddenColumns().has(entry.col.field)"
+                  (change)="toggleColumn.emit(entry.col.field)" />
+                {{ entry.col.header }}
+              </label>
+            }
+          }
+        </div>
+      </div>
     } @else {
       @if (detailFields(); as fields) {
         @for (field of fields; track field.col.field) {
@@ -117,4 +199,12 @@
     [attr.aria-pressed]="open() && activeTab() === 'detail'"
     (click)="tabChange.emit('detail')"
   >{{ localeText().detail }}</button>
+  @if (pivotConfig()) {
+    <button
+      class="ag-sidebar-strip-btn"
+      [class.active]="open() && activeTab() === 'pivot'"
+      [attr.aria-pressed]="open() && activeTab() === 'pivot'"
+      (click)="tabChange.emit('pivot')"
+    >{{ localeText().pivot }}</button>
+  }
 </div>

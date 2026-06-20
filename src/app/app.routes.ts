@@ -38,6 +38,10 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/aggregates.component').then(m => m.AggregatesDemoComponent),
   },
   {
+    path: 'pivot',
+    loadComponent: () => import('./demos/pivot.component').then(m => m.PivotDemoComponent),
+  },
+  {
     path: 'readonly',
     loadComponent: () => import('./demos/readonly.component').then(m => m.ReadonlyDemoComponent),
   },

@@ -8,6 +8,7 @@ export interface AgridLocaleText {
   aggregate: string;
   aggregateAvg: string;
   aggregateCount: string;
+  aggregateCustom: string;
   aggregateMax: string;
   aggregateMin: string;
   aggregateSum: string;
@@ -61,6 +62,11 @@ export interface AgridLocaleText {
   next: string;
   noRows: string;
   pagination: string;
+  pivot: string;
+  pivotDescription: string;
+  pivotRows: string;
+  pivotColumns: string;
+  pivotValues: string;
   pinColumn: string;
   pinColumnRight: string;
   unpinColumnRight: string;
@@ -92,6 +98,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     aggregate: 'Aggregate',
     aggregateAvg: 'Average',
     aggregateCount: 'Count',
+    aggregateCustom: 'Custom function',
     aggregateMax: 'Maximum',
     aggregateMin: 'Minimum',
     aggregateSum: 'Sum',
@@ -145,6 +152,11 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     next: 'Next',
     noRows: 'No rows to display',
     pagination: 'Pagination',
+    pivot: 'Pivot',
+    pivotDescription: 'Configure the fields used to build the pivot result.',
+    pivotRows: 'Rows',
+    pivotColumns: 'Columns',
+    pivotValues: 'Values',
     pinColumn: 'Pin left',
     pinColumnRight: 'Pin right',
     unpinColumnRight: 'Unpin right',
@@ -170,6 +182,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     aggregate: 'Aggregat',
     aggregateAvg: 'Durchschnitt',
     aggregateCount: 'Anzahl',
+    aggregateCustom: 'Benutzerdefinierte Funktion',
     aggregateMax: 'Maximum',
     aggregateMin: 'Minimum',
     aggregateSum: 'Summe',
@@ -223,6 +236,11 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     next: 'Weiter',
     noRows: 'Keine Zeilen vorhanden',
     pagination: 'Seitennavigation',
+    pivot: 'Pivot',
+    pivotDescription: 'Felder für das Pivot-Ergebnis konfigurieren.',
+    pivotRows: 'Zeilen',
+    pivotColumns: 'Spalten',
+    pivotValues: 'Werte',
     pinColumn: 'Links fixieren',
     pinColumnRight: 'Rechts fixieren',
     unpinColumnRight: 'Rechts lösen',

@@ -233,3 +233,62 @@
   line-height: 1.4;
   color: var(--agrid-color-danger);
 }
+
+.ag-pivot-config {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.ag-pivot-description {
+  margin: 0 0 2px;
+  color: var(--agrid-color-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ag-pivot-field {
+  display: grid;
+  gap: 5px;
+}
+
+.ag-pivot-field > span {
+  color: var(--agrid-color-text-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.ag-pivot-field select {
+  width: 100%;
+  height: 30px;
+  box-sizing: border-box;
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 4px;
+  background: var(--agrid-color-bg);
+  color: var(--agrid-color-text);
+  padding: 0 7px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.ag-pivot-field select:focus-visible {
+  outline: 2px solid var(--agrid-color-accent);
+  outline-offset: 2px;
+}
+
+.ag-pivot-columns-heading {
+  margin: 2px -12px 0;
+  padding: 10px 12px 6px;
+  border-top: 1px solid var(--agrid-color-border);
+  color: var(--agrid-color-text-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.ag-pivot-column-list {
+  margin: -6px -12px -12px;
+}

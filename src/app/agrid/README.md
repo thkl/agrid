@@ -271,6 +271,7 @@ const treeConfig: AgridTreeConfig<OrgRow> = {
   getId: row => row.id,
   getParentId: row => row.parentId, // null / unknown id ⇒ root row
   treeField: 'name',                // column that shows the twisty
+  aggregateTreeNodes: true,         // parent cells roll up descendant leaves
 };
 
 readonly provider = new AgridProvider<OrgRow>({
@@ -279,6 +280,11 @@ readonly provider = new AgridProvider<OrgRow>({
   treeConfig,
 });
 ```
+
+With `aggregateTreeNodes: true`, every expandable row displays descendant-leaf rollups in columns
+that define `aggregate` (or have one set through `AgridControl`). For example,
+`{ field: 'amount', aggregate: 'sum' }` shows the sum of a node's leaves in that node's amount cell.
+Collapsed leaves still contribute. Filtering recalculates the rollups over the matching tree.
 
 For path-like values such as `01.01.0001`, return the ordered segments:
 
@@ -313,7 +319,8 @@ shown only for leaf rows; parent rows retain their tree expand/collapse control.
 ## Standalone tree control
 
 Use `<agrid-tree>` for the same parent-ID or path hierarchy without grid columns. It adds tree
-keyboard navigation and optional single or multi-selection.
+keyboard navigation and optional single or multi-selection. Since this component has no columns,
+it ignores `aggregateTreeNodes`; descendant rollups apply only to tree mode in `<agrid>`.
 
 ```ts
 readonly treeProvider = new AgridTreeProvider<OrgRow>({
@@ -342,6 +349,77 @@ configured or generated `uuid`. `expandAllNodes()` and `collapseAllNodes()` are 
 The tree uses the shared `--agrid-color-text`, `--agrid-color-text-muted`,
 `--agrid-color-accent`, `--agrid-color-accent-subtle`, `--agrid-color-accent-fg`,
 `--agrid-color-border`, `--agrid-color-bg`, and `--agrid-color-bg-muted` CSS variables.
+
+## Pivot tables
+
+Use `pivotConfig` to derive a read-only client-side cross-tabulation from a flat datasource. The
+first pivot release supports one row dimension, one column dimension, and one value field.
+
+```ts
+const provider = new AgridProvider<Sale>({
+  columns: [
+    { field: 'region', header: 'Region' },
+    { field: 'quarter', header: 'Quarter' },
+    { field: 'revenue', header: 'Revenue', type: 'number', formatter: currency },
+  ],
+  datasource: new AgridDataSource(sales),
+  pivotConfig: {
+    rowField: 'region',
+    columnField: 'quarter',
+    valueField: 'revenue',
+    aggregate: 'sum',
+  },
+});
+```
+
+Each distinct `rowField` value becomes one row and each distinct `columnField` value becomes a
+generated column. Intersections use `sum` by default and also support `avg`, `min`, `max`, `count`,
+or a custom `(values) => result` function. Dimension labels and pivot values reuse source column
+formatters. Missing intersections render empty.
+
+Pivot rows react to datasource replacement and updates. They are derived values, so editing,
+adding, reordering, master/detail, tree mode, server-side row models, and aggregate footers are
+disabled or rejected in pivot mode. Client-side filtering, sorting, selection, and pagination
+continue through the normal grid pipeline. Multi-level dimensions and totals are intentionally
+outside this first slice.
+
+When `showSidebar` is enabled, pivot grids add a **Pivot** sidebar tab. It updates `rowField`,
+`columnField`, `valueField`, and built-in aggregate functions immediately without replacing the
+provider. Assigning `provider.pivotConfig` programmatically uses the same reactive path.
+
+### Saving and restoring settings
+
+`saveSettings()` returns a detached, versioned object containing the pivot configuration and the
+existing control state (column visibility, width, order, pinning, filters, sorts, pagination, and
+aggregates). It is safe to JSON-encode and send to a backend. `loadSettings()` applies it to an
+already-rendered grid immediately.
+
+```ts
+const settings = provider.saveSettings();
+await api.saveGridSettings(settings);
+
+const restored = await api.loadGridSettings();
+provider.loadSettings(restored);
+```
+
+The component exposes the same methods through `viewChild(AgridComponent)`. Sidebar pivot and
+column-visibility changes emit the complete snapshot through `(settingsChange)`:
+
+```html
+<agrid #grid [provider]="provider" (settingsChange)="saveSettings($event)" />
+```
+
+```ts
+saveSettings(settings: AgridSettings): void {
+  void api.saveGridSettings(settings);
+}
+
+// Loading after the grid exists:
+grid().loadSettings(savedSettings);
+```
+
+Custom aggregate functions are executable code and cannot be represented in JSON; attempting to
+save one throws an explicit error. Register custom functions in application code instead.
 
 ## Page selector
 

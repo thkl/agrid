@@ -253,16 +253,45 @@ readonly gridProvider = new AgridProvider({
 | `loading` | `boolean` | `false` | Initial value for `control.loading`. Shows a loading overlay over the grid body. |
 | `getRowClass` | `(p: { row; index }) => string` | `undefined` | Returns CSS class names applied to a whole data row. Complements `ColDef.cellClass`. |
 | `pinRow` | `(row, index) => 'top' \| 'bottom' \| undefined` | `undefined` | Pins matching rows to the top/bottom of the body (see [Master/Detail and Pinned Rows](#masterdetail-and-pinned-rows)). |
-| `treeConfig` | `AgridTreeConfig<T> \| null` | `null` | Builds a tree from id/parent-id accessors or `getPath` segments. Path labels and branch UUIDs can be customized with `formatPathSegment` and `nodeUuid`. |
+| `treeConfig` | `AgridTreeConfig<T> \| null` | `null` | Builds a tree from id/parent-id accessors or `getPath` segments. Supports descendant rollups through `aggregateTreeNodes`. Path labels and branch UUIDs can be customized with `formatPathSegment` and `nodeUuid`. |
+| `pivotConfig` | `AgridPivotConfig<T> \| null` | `null` | Derives a read-only client-side pivot from one row field, one column field, and one aggregated value field. |
 | `masterDetail` | `boolean` | `false` | Enables expandable detail panels. In tree mode, only leaf rows can expand details. Not available while grouped. |
 | `detailRenderer` | `(p: { row }) => string` | `undefined` | Returns sanitized HTML for an expanded detail panel. |
 | `detailRowHeight` | `number` | `200` | Fixed height in pixels of an expanded detail panel. |
+
+### Tree grids and descendant rollups
+
+Set `aggregateTreeNodes` to display aggregate-column values on every expandable tree node. The
+grid uses each column's existing `aggregate` function, so footer and tree aggregation share the
+same sum/average/minimum/maximum/count or custom-function configuration.
+
+```ts
+const columns: ColDef<OrgRow>[] = [
+  { field: 'name', header: 'Name' },
+  { field: 'amount', header: 'Amount', type: 'number', aggregate: 'sum' },
+];
+
+const treeConfig: AgridTreeConfig<OrgRow> = {
+  getId: row => row.id,
+  getParentId: row => row.parentId,
+  treeField: 'name',
+  aggregateTreeNodes: true,
+};
+```
+
+Rollups use descendant leaves, not intermediate parent values, which avoids double-counting stored
+subtotals in multi-level trees. Collapsed descendants continue to contribute. Active filters
+recalculate rollups over the filtered tree, including ancestors retained by
+`keepAncestorsOnFilter`. Parent aggregate cells are display-only and do not overwrite source data.
+Generated `getPath` branches use all datasource leaves beneath the branch and show their rollups
+inline.
 
 ### Standalone tree
 
 `AgridTreeComponent` and `AgridTreeProvider` provide the same hierarchy without grid columns.
 The control accepts `AgridTreeConfig<T>`, supports keyboard navigation and selection, and emits
-normalized row/path-branch events.
+normalized row/path-branch events. Because the standalone tree has no columns, it ignores
+`aggregateTreeNodes`.
 
 ```ts
 readonly treeProvider = new AgridTreeProvider<Node>({
@@ -280,6 +309,49 @@ readonly treeProvider = new AgridTreeProvider<Node>({
 ```html
 <agrid-tree [provider]="treeProvider" (nodeClick)="openNode($event)" />
 ```
+
+### Client-side pivot
+
+The first pivot slice creates a read-only table from one row dimension, one column dimension, and
+one value field:
+
+```ts
+readonly provider = new AgridProvider<Sale>({
+  columns: [
+    { field: 'region', header: 'Region' },
+    { field: 'quarter', header: 'Quarter' },
+    { field: 'revenue', header: 'Revenue', type: 'number' },
+  ],
+  datasource: new AgridDataSource(sales),
+  pivotConfig: {
+    rowField: 'region',
+    columnField: 'quarter',
+    valueField: 'revenue',
+    aggregate: 'sum',
+  },
+});
+```
+
+Supported aggregates are `sum` (default), `avg`, `min`, `max`, `count`, and custom functions.
+Source updates regenerate the pivot. Filtering, sorting, selection, and pagination remain
+available; editing, row mutation, tree mode, server-side row models, and aggregate footers do not.
+Set `showSidebar: true` to expose a Pivot tab that changes dimensions, values, and built-in
+aggregates directly from the table. The tab also repeats the generated-column visibility selector
+so pivot configuration and display choices can be managed in one place.
+
+Persist the complete JSON-safe state with the provider or component API:
+
+```ts
+const settings = provider.saveSettings(); // AgridSettings
+await backend.save(settings);
+
+provider.loadSettings(await backend.load());
+```
+
+The snapshot includes `pivotConfig` plus `AgridControlState` (visibility, widths, order, pinning,
+filters, sorting, pagination, and aggregates). Sidebar pivot and visibility changes also emit the
+full object through `(settingsChange)`. Custom aggregate functions are intentionally rejected
+because functions cannot be serialized safely.
 
 ### Page selector
 

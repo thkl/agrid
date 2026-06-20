@@ -131,4 +131,43 @@ describe('AgridSidebarComponent', () => {
     input.dispatchEvent(new Event('change'));
     expect(emitted).toEqual([{ field: 'code', col: column, value: '987-65432' }]);
   });
+
+  it('renders pivot controls and emits complete replacement configurations', () => {
+    fixture.componentRef.setInput('activeTab', 'pivot');
+    fixture.componentRef.setInput('pivotColumns', [
+      { field: 'region', header: 'Region' },
+      { field: 'quarter', header: 'Quarter' },
+      { field: 'revenue', header: 'Revenue', type: 'number' },
+    ]);
+    fixture.componentRef.setInput('pivotConfig', {
+      rowField: 'region',
+      columnField: 'quarter',
+      valueField: 'revenue',
+      aggregate: 'sum',
+    });
+    fixture.componentRef.setInput('columns', [
+      { field: 'region', header: 'Region' },
+      { field: '__agrid_pivot_0', header: 'Q1' },
+      { field: '__agrid_pivot_1', header: 'Q2' },
+    ]);
+    const emitted: object[] = [];
+    component.pivotChange.subscribe(config => emitted.push(config));
+    fixture.detectChanges();
+
+    const selects = fixture.nativeElement.querySelectorAll('.ag-pivot-field select');
+    expect(Array.from(selects, (select: HTMLSelectElement) => select.value))
+      .toEqual(['region', 'quarter', 'revenue', 'sum']);
+    expect(fixture.nativeElement.querySelectorAll('.ag-pivot-column-list .ag-sidebar-item'))
+      .toHaveLength(3);
+
+    selects[0].value = 'quarter';
+    selects[0].dispatchEvent(new Event('change'));
+    selects[3].value = 'avg';
+    selects[3].dispatchEvent(new Event('change'));
+
+    expect(emitted).toEqual([
+      { rowField: 'quarter', columnField: 'quarter', valueField: 'revenue', aggregate: 'sum' },
+      { rowField: 'region', columnField: 'quarter', valueField: 'revenue', aggregate: 'avg' },
+    ]);
+  });
 });

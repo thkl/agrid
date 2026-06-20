@@ -22,7 +22,11 @@ export type {
   AgridLocaleText,
   AgridLocaleTextOverrides,
 } from './agrid-localization';
-export type { AgridProviderConfig } from './agrid-provider';
+export type {
+  AgridPivotSettings,
+  AgridProviderConfig,
+  AgridSettings,
+} from './agrid-provider';
 export type {
   AgridServerSideDatasource,
   AgridServerSideRequest,
@@ -38,6 +42,8 @@ export type {
   AgridMenuBarItem,
   AgridMenuBarMenuItem,
   AgridMenuBarState,
+  AgridPivotConfig,
+  AgridAggregate,
   AgridParentTreeConfig,
   AgridPathSegmentParams,
   AgridPathTreeConfig,

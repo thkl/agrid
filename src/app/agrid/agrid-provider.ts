@@ -1,5 +1,5 @@
 import { signal, WritableSignal } from '@angular/core';
-import { AgridControl, ɵgetAgridControlRuntimeState } from './agrid-control';
+import { AgridControl, AgridControlState, ɵgetAgridControlRuntimeState } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridServerSideRowModel } from './agrid-server-side-row-model';
 import { AgridLocaleTextOverrides } from './agrid-localization';
@@ -7,12 +7,31 @@ import {
   AGridOptions,
   AgridEnterEditAction,
   AgridMenuBarItem,
+  AgridPivotConfig,
   AgridTreeConfig,
   CellContextMenuItem,
   ColDef,
   GroupAction,
   HeaderGroup,
 } from './agrid.types';
+
+/** JSON-safe pivot subset used by persisted grid settings. */
+export interface AgridPivotSettings {
+  rowField: string;
+  columnField: string;
+  valueField: string;
+  aggregate: 'sum' | 'avg' | 'min' | 'max' | 'count';
+}
+
+/**
+ * Versioned, JSON-safe snapshot that can be stored in local storage or a backend.
+ * Functions, datasource rows, selection, loading state, and edit history are intentionally absent.
+ */
+export interface AgridSettings {
+  version: 1;
+  control: AgridControlState;
+  pivotConfig: AgridPivotSettings | null;
+}
 
 /** Configuration used to create an {@link AgridProvider}. */
 export interface AgridProviderConfig<T extends object = any> extends Partial<AGridOptions> {
@@ -27,12 +46,21 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   control?: AgridControl;
   /** Initial column definitions in display order. */
   columns?: ColDef<T>[];
+  /**
+   * Derive a read-only client-side pivot table from the datasource.
+   * The first release supports one row field, one column field, and one value field.
+   * Enable `showSidebar` to let users change this configuration from the grid's Pivot tab.
+   */
+  pivotConfig?: AgridPivotConfig<T>;
   /** Labels used by columns with a matching `group` identifier. */
   headerGroups?: HeaderGroup[];
   /**
    * Render rows as a hierarchical tree. When set, rows are nested by the configured
    * parent/child accessors and an expand/collapse twisty is shown on `treeField`.
-   * Mutually exclusive with grouping and pagination.
+   *
+   * Set `aggregateTreeNodes` in this configuration to display each aggregate column's
+   * descendant-leaf rollup on expandable nodes. Tree mode is mutually exclusive with grouping
+   * and pagination.
    */
   treeConfig?: AgridTreeConfig<T>;
   /** Row height in pixels. Must be fixed for CDK virtual scroll. @default 32 */
@@ -178,6 +206,17 @@ export class AgridProvider<T extends object = any> {
   control: AgridControl;
   /** Reactive column definitions in display order. */
   readonly columns: WritableSignal<ColDef<T>[]>;
+  private readonly _pivotConfig = signal<AgridPivotConfig<T> | null>(null);
+  /**
+   * Client-side pivot configuration, or `null` for the normal row view.
+   * Assigning a new configuration reactively rebuilds the derived pivot rows and columns.
+   */
+  get pivotConfig(): AgridPivotConfig<T> | null {
+    return this._pivotConfig();
+  }
+  set pivotConfig(config: AgridPivotConfig<T> | null) {
+    this._pivotConfig.set(config);
+  }
   /** Header-group labels referenced by column definitions. */
   headerGroups: HeaderGroup[];
   /** Tree configuration, or `null` when the grid is not in tree mode. */
@@ -272,8 +311,11 @@ export class AgridProvider<T extends object = any> {
 
   /** Creates a provider from the supplied data, state, columns, and display options. */
   constructor(config: AgridProviderConfig<T> = {}) {
-    if (config.serverSideRowModel && config.treeConfig) {
-      throw new Error('AgridServerSideRowModel does not support treeConfig in the initial flat row model.');
+    if (config.serverSideRowModel && (config.treeConfig || config.pivotConfig)) {
+      throw new Error('AgridServerSideRowModel does not support treeConfig or pivotConfig.');
+    }
+    if (config.treeConfig && config.pivotConfig) {
+      throw new Error('treeConfig and pivotConfig are mutually exclusive.');
     }
     this.options      = { locale: config.locale ?? 'auto' };
     this.serverSideRowModel = config.serverSideRowModel ?? null;
@@ -281,6 +323,7 @@ export class AgridProvider<T extends object = any> {
     this.control      = config.control ?? new AgridControl({ allowRowReorder: true });
     const runtimeState = ɵgetAgridControlRuntimeState(this.control);
     this.columns      = signal(config.columns ?? []);
+    this.pivotConfig  = config.pivotConfig ?? null;
     this.headerGroups = config.headerGroups ?? [];
     this.treeConfig   = config.treeConfig ?? null;
 
@@ -323,5 +366,53 @@ export class AgridProvider<T extends object = any> {
   /** Returns the current reactive row array. */
   getGridData(): T[] {
     return this.datasource.rows();
+  }
+
+  /**
+   * Return a detached, JSON-safe snapshot of persistent grid and pivot settings.
+   * Custom pivot aggregate functions cannot be serialized and produce an explicit error.
+   */
+  saveSettings(): AgridSettings {
+    const pivot = this.pivotConfig;
+    const aggregate = pivot?.aggregate;
+    if (typeof aggregate === 'function') {
+      throw new Error('Custom pivot aggregate functions cannot be saved as JSON settings.');
+    }
+    return {
+      version: 1,
+      control: this.control.toJSON(),
+      pivotConfig: pivot
+        ? {
+          rowField: pivot.rowField,
+          columnField: pivot.columnField,
+          valueField: pivot.valueField,
+          aggregate: aggregate ?? 'sum',
+        }
+        : null,
+    };
+  }
+
+  /**
+   * Apply a previously saved snapshot to this live provider.
+   * Existing component instances update immediately because both control and pivot state are
+   * signal-backed. Unknown versions and pivot fields fail early with actionable errors.
+   */
+  loadSettings(settings: AgridSettings): void {
+    if (settings.version !== 1) {
+      throw new Error(`Unsupported aGrid settings version: ${settings.version}`);
+    }
+    if (settings.pivotConfig) {
+      const fields = new Set<string>(this.columns().map(column => column.field as string));
+      const pivotFields = [
+        settings.pivotConfig.rowField,
+        settings.pivotConfig.columnField,
+        settings.pivotConfig.valueField,
+      ];
+      if (pivotFields.some(field => !fields.has(field))) {
+        throw new Error('Saved pivot settings reference a column that is not configured.');
+      }
+    }
+    this.control.loadState(settings.control);
+    this.pivotConfig = settings.pivotConfig as AgridPivotConfig<T> | null;
   }
 }

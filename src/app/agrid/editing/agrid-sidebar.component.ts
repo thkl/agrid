@@ -1,7 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from '../agrid-localization';
 import { getDateInputValue, getDisplayForField, looksLikeDate, matchesInputMask } from '../agrid.utils';
-import { ColDef, HeaderGroup } from '../agrid.types';
+import { AgridPivotConfig, ColDef, HeaderGroup } from '../agrid.types';
+
+/** Tabs available from the grid's vertical sidebar strip. @internal */
+export type AgridSidebarTab = 'columns' | 'detail' | 'pivot';
 
 /** Field edit emitted by the sidebar detail form. @internal */
 export interface AgridSidebarEdit {
@@ -53,8 +56,12 @@ export type AgridSidebarColumnEntry =
 })
 export class AgridSidebarComponent {
   open = input<boolean>(false);
-  activeTab = input<'columns' | 'detail'>('columns');
+  activeTab = input<AgridSidebarTab>('columns');
   columns = input<ColDef[]>([]);
+  /** Original datasource columns available as pivot dimensions and values. */
+  pivotColumns = input<ColDef[]>([]);
+  /** Active pivot configuration; `null` hides the pivot tab. */
+  pivotConfig = input<AgridPivotConfig | null>(null);
   headerGroups = input<HeaderGroup[]>([]);
   row = input<Record<string, unknown> | null>(null);
   rowIndex = input<number | null>(null);
@@ -70,11 +77,51 @@ export class AgridSidebarComponent {
   errors = input<Record<string, string>>({});
 
   close = output<void>();
-  tabChange = output<'columns' | 'detail'>();
+  tabChange = output<AgridSidebarTab>();
   toggleColumn = output<string>();
   toggleColumnGroup = output<AgridSidebarGroupToggle>();
   detailEdit = output<AgridSidebarEdit>();
   save = output<AgridSidebarDetailField[]>();
+  /** Emits a complete replacement configuration after one pivot control changes. */
+  pivotChange = output<AgridPivotConfig>();
+
+  /** Built-in aggregate selected by the sidebar, or `custom` for host functions. */
+  readonly pivotAggregate = computed(() => {
+    const aggregate = this.pivotConfig()?.aggregate ?? 'sum';
+    return typeof aggregate === 'function' ? 'custom' : aggregate;
+  });
+
+  /** Localized title for the currently active sidebar tab. */
+  activeTabLabel(): string {
+    const locale = this.localeText();
+    if (this.activeTab() === 'pivot') return locale.pivot;
+    return this.activeTab() === 'columns' ? locale.columns : locale.detail;
+  }
+
+  /** Replace one pivot dimension/value field while preserving the other settings. */
+  onPivotFieldChange(
+    field: 'rowField' | 'columnField' | 'valueField',
+    event: Event,
+  ): void {
+    const config = this.pivotConfig();
+    if (!config) return;
+    this.pivotChange.emit({
+      ...config,
+      [field]: (event.target as HTMLSelectElement).value,
+    });
+  }
+
+  /** Replace the pivot aggregate with one of the serializable built-in functions. */
+  onPivotAggregateChange(event: Event): void {
+    const config = this.pivotConfig();
+    if (!config) return;
+    const aggregate = (event.target as HTMLSelectElement).value;
+    if (aggregate === 'custom') return;
+    this.pivotChange.emit({
+      ...config,
+      aggregate: aggregate as 'sum' | 'avg' | 'min' | 'max' | 'count',
+    });
+  }
 
   readonly columnEntries = computed<AgridSidebarColumnEntry[]>(() => {
     const groupLabels = new Map(this.headerGroups().map(group => [group.id, group.label]));

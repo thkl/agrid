@@ -185,6 +185,28 @@ describe('AgridProjectionModel', () => {
       expect(tree.find(i => (i.row as any).id === 4)!.level).toBe(2);
     });
 
+    it('aggregates descendant leaves into expandable tree nodes when enabled', () => {
+      const { model } = createModel({
+        sourceRows: treeRows,
+        treeConfig: { ...treeConfig, aggregateTreeNodes: true },
+        expandedTreeIds: [1, 2],
+      });
+
+      const tree = model.filteredItems().filter(isTreeRowItem);
+      expect(tree.find(i => (i.row as any).id === 1)!.aggregates).toEqual({ amount: 16 });
+      expect(tree.find(i => (i.row as any).id === 2)!.aggregates).toEqual({ amount: 9 });
+      expect(tree.find(i => (i.row as any).id === 3)!.aggregates).toBeUndefined();
+    });
+
+    it('does not aggregate tree nodes unless explicitly enabled', () => {
+      const { model } = createModel({
+        sourceRows: treeRows,
+        treeConfig,
+      });
+
+      expect(model.filteredItems().filter(isTreeRowItem)[0].aggregates).toBeUndefined();
+    });
+
     it('orders siblings by the active sort', () => {
       const control = new AgridControl();
       control.addSort('amount', 'desc');
@@ -212,6 +234,20 @@ describe('AgridProjectionModel', () => {
 
       expect(model.filteredItems().filter(isTreeRowItem).map(i => (i.row as any).name))
         .toEqual(['Root', 'Child A', 'Grandchild']);
+    });
+
+    it('recomputes tree aggregates over filtered descendant leaves', () => {
+      const control = new AgridControl();
+      control.setTextFilter('name', 'Grandchild');
+      const { model } = createModel({
+        control,
+        sourceRows: treeRows,
+        treeConfig: { ...treeConfig, aggregateTreeNodes: true },
+      });
+
+      const tree = model.filteredItems().filter(isTreeRowItem);
+      expect(tree.find(i => (i.row as any).id === 1)!.aggregates).toEqual({ amount: 9 });
+      expect(tree.find(i => (i.row as any).id === 2)!.aggregates).toEqual({ amount: 9 });
     });
 
     it('surfaces a match as a root when keepAncestorsOnFilter is disabled', () => {
@@ -281,6 +317,28 @@ describe('AgridProjectionModel', () => {
         .toEqual(['01', '01', '02']);
       expect(items.filter(isTreeRowItem).map(item => [item.originalIndex, item.treeLabel]))
         .toEqual([[0, '0001'], [1, '0002']]);
+    });
+
+    it('aggregates path-tree branches from all descendant rows', () => {
+      const sourceRows = [
+        { oz: '01.01.0001', department: 'X', amount: 1 },
+        { oz: '01.01.0002', department: 'X', amount: 2 },
+        { oz: '01.02.0001', department: 'X', amount: 3 },
+      ];
+      const { model } = createModel({
+        sourceRows,
+        treeConfig: {
+          getPath: row => String((row as any).oz).split('.'),
+          treeField: 'name',
+          aggregateTreeNodes: true,
+        },
+        expandedTreeIds: ['__agrid_path__["01"]'],
+      });
+
+      const branches = model.filteredItems().filter(isPathTreeNodeItem);
+      expect(branches.find(item => item.level === 0)!.aggregates).toEqual({ amount: 6 });
+      expect(branches.find(item => item.pathLabel === '01' && item.level === 1)!.aggregates)
+        .toEqual({ amount: 3 });
     });
   });
 
