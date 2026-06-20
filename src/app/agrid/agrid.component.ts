@@ -18,7 +18,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { AgridCellComponent } from './rendering/agrid-cell.component';
 import { AgridBrowserAdapter } from './infrastructure/agrid-browser.adapter';
 import { AgridClipboardHandler, CellRange } from './selection/agrid-clipboard.handler';
-import { AgridColumnLayoutModel } from './columns/agrid-column-layout.model';
+import { AgridColumnLayoutModel, AgridHeaderGroupRun } from './columns/agrid-column-layout.model';
 import { AgridColumnMenuComponent } from './columns/agrid-column-menu.component';
 import { AgridColumnMenuController } from './columns/agrid-column-menu.controller';
 import { AgridColumnReorderController } from './columns/agrid-column-reorder.controller';
@@ -68,6 +68,58 @@ import {
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
 export type { GridItem };
+
+/**
+ * Precomputed per-column header state. @internal
+ *
+ * The header/filter rows previously called a dozen helpers per column on every
+ * change-detection pass (e.g. `getSort`, `hasActiveFilter`, `isColDragging`).
+ * The header view-model computeds resolve all of that once per column — and only
+ * when an underlying signal changes — so the template reads plain fields instead.
+ */
+export interface AgridHeaderColumn {
+  col: ColDef;
+  field: string;
+  ariaColIndex: number;
+  sort: 'asc' | 'desc' | null;
+  sortPriority: number;
+  hasFilter: boolean;
+  dragging: boolean;
+  dropSide: 'before' | 'after' | null;
+  reorderOffset: number;
+  grouped: boolean;
+  lastPinned: boolean;
+  firstRightPinned: boolean;
+  columnWidth: number;
+  textFilter: string;
+  menuFilterType: 'text' | 'number' | 'date' | null;
+  hasCondition: boolean;
+  conditionLabel: string;
+}
+
+/** A grouped-header run enriched with reactive lock/drag state. @internal */
+export interface AgridHeaderGroup extends AgridHeaderGroupRun {
+  locked: boolean;
+  dragging: boolean;
+}
+
+/**
+ * Precomputed per-column state for the data-row, footer, and ghost cell loops. @internal
+ *
+ * Deliberately leaner than {@link AgridHeaderColumn}: it omits sort/filter state so the body
+ * view-model only changes on column layout, drag, or pinning — sorting or filtering does not
+ * invalidate it (and therefore does not force every rendered cell to re-render).
+ */
+export interface AgridBodyColumn {
+  col: ColDef;
+  field: string;
+  visibleColIndex: number;
+  ariaColIndex: number;
+  dragging: boolean;
+  reorderOffset: number;
+  lastPinned: boolean;
+  firstRightPinned: boolean;
+}
 
 /**
  * Excel-like data grid for Angular 21.
@@ -569,6 +621,83 @@ export class AgridComponent<T extends object = any> {
   readonly pinnedHeaderGroupRuns = this.columnLayout.pinnedHeaderGroupRuns;
   readonly scrollableHeaderGroupRuns = this.columnLayout.scrollableHeaderGroupRuns;
   readonly rightHeaderGroupRuns = this.columnLayout.rightHeaderGroupRuns;
+
+  /** @internal Header view-model for the left-pinned, scrollable, and right-pinned panes. */
+  readonly pinnedHeaderColumns = computed(() => this.buildHeaderColumns(this.pinnedColDefs()));
+  readonly scrollableHeaderColumns = computed(() => this.buildHeaderColumns(this.scrollableColDefs()));
+  readonly rightHeaderColumns = computed(() => this.buildHeaderColumns(this.rightPinnedColDefs()));
+
+  /** @internal Grouped-header view-model per pane (run + reactive lock/drag state). */
+  readonly pinnedHeaderGroups = computed(() => this.buildHeaderGroups(this.pinnedHeaderGroupRuns()));
+  readonly scrollableHeaderGroups = computed(() =>
+    this.buildHeaderGroups(this.scrollableHeaderGroupRuns())
+  );
+  readonly rightHeaderGroups = computed(() => this.buildHeaderGroups(this.rightHeaderGroupRuns()));
+
+  /**
+   * Resolves every per-column header/filter binding into a flat view-model. Called from the
+   * pane header computeds; reads the same signal-backed helpers the template used directly, so
+   * the result is memoized and recomputed only when sort/filter/drag/sizing state changes.
+   */
+  private buildHeaderColumns(cols: ColDef[]): AgridHeaderColumn[] {
+    return cols.map(col => {
+      const field = col.field;
+      return {
+        col,
+        field,
+        ariaColIndex: this.getAriaColIndex(this.getVisibleColIndex(field)),
+        sort: this.getSort(field),
+        sortPriority: this.getSortPriority(field),
+        hasFilter: this.hasActiveFilter(field),
+        dragging: this.isColDragging(field),
+        dropSide: this.getColDropSide(field),
+        reorderOffset: this.getColReorderOffset(field),
+        grouped: this.isGroupedByField(field),
+        lastPinned: this.isLastPinnedColumn(field),
+        firstRightPinned: this.isFirstRightPinnedColumn(field),
+        columnWidth: this.getColumnWidth(col),
+        textFilter: this.getTextFilter(field),
+        menuFilterType: this.getMenuFilterType(field),
+        hasCondition: this.getMenuOperator(field) !== null,
+        conditionLabel: this.getConditionButtonLabel(field),
+      };
+    });
+  }
+
+  private buildHeaderGroups(runs: AgridHeaderGroupRun[]): AgridHeaderGroup[] {
+    return runs.map(run => ({
+      ...run,
+      locked: this.isHeaderGroupLocked(run.fields),
+      dragging: this.isHeaderGroupDragging(run.fields),
+    }));
+  }
+
+  /** @internal Body view-model for the left-pinned, scrollable, and right-pinned panes. */
+  readonly pinnedBodyColumns = computed(() => this.buildBodyColumns(this.pinnedColDefs()));
+  readonly scrollableBodyColumns = computed(() => this.buildBodyColumns(this.scrollableColDefs()));
+  readonly rightBodyColumns = computed(() => this.buildBodyColumns(this.rightPinnedColDefs()));
+
+  /**
+   * Resolves the per-column bindings shared by every data, footer, and ghost cell. Reads only
+   * layout/drag/pinning signals, so the result is reused across all rows and recomputes only
+   * when columns move, resize, drag, or change pinning.
+   */
+  private buildBodyColumns(cols: ColDef[]): AgridBodyColumn[] {
+    return cols.map(col => {
+      const field = col.field;
+      const visibleColIndex = this.getVisibleColIndex(field);
+      return {
+        col,
+        field,
+        visibleColIndex,
+        ariaColIndex: this.getAriaColIndex(visibleColIndex),
+        dragging: this.isColDragging(field),
+        reorderOffset: this.getColReorderOffset(field),
+        lastPinned: this.isLastPinnedColumn(field),
+        firstRightPinned: this.isFirstRightPinnedColumn(field),
+      };
+    });
+  }
 
 
   private readonly columnState = new AgridColumnStateService({
