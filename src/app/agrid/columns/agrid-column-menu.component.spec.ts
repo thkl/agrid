@@ -68,4 +68,23 @@ describe('AgridColumnMenuComponent', () => {
       (fixture.nativeElement.querySelector('.ag-filter-menu-operand') as HTMLInputElement).type,
     ).toBe('text');
   });
+
+  it('renders custom commands and emits enabled command keys', () => {
+    fixture.componentRef.setInput('customItems', [
+      { key: 'archive', label: 'Archive', icon: '⌂' },
+      { key: 'locked', label: 'Locked', disabled: true },
+    ]);
+    const actions: string[] = [];
+    fixture.componentInstance.customAction.subscribe(key => actions.push(key));
+    fixture.detectChanges();
+
+    const archive = fixture.nativeElement.querySelector('[data-command-key="archive"]') as HTMLButtonElement;
+    const locked = fixture.nativeElement.querySelector('[data-command-key="locked"]') as HTMLButtonElement;
+    archive.click();
+    locked.click();
+
+    expect(archive.textContent).toContain('Archive');
+    expect(locked.disabled).toBe(true);
+    expect(actions).toEqual(['archive']);
+  });
 });

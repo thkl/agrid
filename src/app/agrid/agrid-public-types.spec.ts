@@ -9,10 +9,13 @@ import { AgridTreeProvider } from './agrid-tree-provider';
 import {
   CellInfoEvent,
   ColDef,
+  ColumnHeaderActionEvent,
+  ColumnMarkEvent,
   GridEditEvent,
   NewRecord,
   RecordEditEvent,
   RowClickEvent,
+  RowMarkEvent,
   RowReorderEvent,
   RowSelectEvent,
   RowUpdateEvent,
@@ -31,6 +34,9 @@ interface PersonRow {
       [provider]="provider"
       (recordEdit)="onRecordEdit($event)"
       (rowChanged)="onRowChanged($event)"
+      (rowMark)="onRowMark($event)"
+      (columnMark)="onColumnMark($event)"
+      (columnHeaderAction)="onColumnHeaderAction($event)"
       (cellInfo)="onCellInfo($event)"
       (menuBarAction)="onMenuBarAction($event)"
     />
@@ -73,6 +79,23 @@ class TypedGridHost {
     expectTypeOf(event.row).toEqualTypeOf<PersonRow>();
   }
 
+  onRowMark(event: RowMarkEvent<PersonRow>): void {
+    expectTypeOf(event.row).toEqualTypeOf<PersonRow>();
+    expectTypeOf(event.originalIndex).toEqualTypeOf<number>();
+    expectTypeOf(event.marked).toEqualTypeOf<boolean>();
+  }
+
+  onColumnMark(event: ColumnMarkEvent<PersonRow>): void {
+    expectTypeOf(event.column).toEqualTypeOf<ColDef<PersonRow>>();
+    expectTypeOf(event.field).toEqualTypeOf<'id' | 'name' | 'active'>();
+    expectTypeOf(event.marked).toEqualTypeOf<boolean>();
+  }
+
+  onColumnHeaderAction(event: ColumnHeaderActionEvent<PersonRow>): void {
+    expectTypeOf(event.column).toEqualTypeOf<ColDef<PersonRow>>();
+    expectTypeOf(event.key).toEqualTypeOf<string>();
+  }
+
   onCellInfo(event: CellInfoEvent<PersonRow>): void {
     expectTypeOf(event.row).toEqualTypeOf<PersonRow>();
     expectTypeOf(event.field).toEqualTypeOf<'id' | 'name' | 'active'>();
@@ -97,6 +120,8 @@ describe('typed public contracts', () => {
       {
         field: 'id',
         header: 'ID',
+        textAlign: 'right',
+        headerMenuItems: [{ key: 'archive', label: 'Archive', icon: '⌂' }],
         formatter: value => value.toFixed(0),
         cellFormat: ({ value, row, column, originalIndex }) => {
           expectTypeOf(value).toEqualTypeOf<number>();
@@ -104,6 +129,13 @@ describe('typed public contracts', () => {
           expectTypeOf(column.field).toEqualTypeOf<'id'>();
           expectTypeOf(originalIndex).toEqualTypeOf<number>();
           return value === row.id ? { fontWeight: 600, textAlign: 'right' } : undefined;
+        },
+        colSpan: ({ value, row, column, originalIndex }) => {
+          expectTypeOf(value).toEqualTypeOf<number>();
+          expectTypeOf(row).toEqualTypeOf<PersonRow>();
+          expectTypeOf(column.field).toEqualTypeOf<'id'>();
+          expectTypeOf(originalIndex).toEqualTypeOf<number>();
+          return row.active ? 2 : 1;
         },
       },
       {

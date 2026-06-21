@@ -6,6 +6,21 @@ import { AgridDataSource } from '../agrid-datasource';
 import { ColDef, FilterChangeEvent, SortChangeEvent } from '../agrid.types';
 
 describe('AgridColumnMenuController', () => {
+  it('toggles the active column menu and switches directly to another column', () => {
+    const { controller } = setup();
+    const event = new MouseEvent('click', { clientX: 100, clientY: 80 });
+
+    controller.open(event, 'name');
+    expect(controller.menu()?.field).toBe('name');
+
+    controller.open(event, 'name');
+    expect(controller.menu()).toBeNull();
+
+    controller.open(event, 'name');
+    controller.open(event, 'department');
+    expect(controller.menu()?.field).toBe('department');
+  });
+
   it('builds sorted value items from column values and tracks selected state', () => {
     const { controller, control } = setup({
       columns: [

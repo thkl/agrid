@@ -9,6 +9,7 @@ export { AgridServerSideRowModel } from './agrid-server-side-row-model';
 export { AGRID_LOCALE_TEXT } from './agrid-localization';
 export { AgridProvider } from './agrid-provider';
 export { ColDefAutoSize } from './agrid.types';
+export { AgridBrowserAdapter } from './infrastructure/agrid-browser.adapter'
 
 export type {
   AgridControlState,
@@ -47,6 +48,7 @@ export type {
   AgridParentTreeConfig,
   AgridPathSegmentParams,
   AgridPathTreeConfig,
+  AgridColumnHeaderMenuItem,
   AgridTreeConfig,
   AgridTreeNodeEvent,
   AgridTreeSelectionEvent,
@@ -57,6 +59,9 @@ export type {
   CellInfoEvent,
   CellPosition,
   CellReadonlyParams,
+  CellSpanParams,
+  ColumnHeaderActionEvent,
+  ColumnMarkEvent,
   ColDef,
   DetailRowItem,
   FilterChangeEvent,
@@ -69,6 +74,7 @@ export type {
   PageChangeEvent,
   RecordEditEvent,
   RowClickEvent,
+  RowMarkEvent,
   RowRemovedEvent,
   RowReorderEvent,
   RowSelectEvent,

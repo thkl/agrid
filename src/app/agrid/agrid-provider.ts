@@ -77,6 +77,8 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   showControlColumn?: boolean;
   /** Show row-marking checkboxes in a 48 px control column for clipboard inclusion. @default false */
   enableRowMarking?: boolean;
+  /** Allow clicking column headers to mark complete columns. @default false */
+  enableColumnMarking?: boolean;
   /** Show the sidebar panel. */
   showSidebar?: boolean;
   /** Automatically open the detail panel when a row is selected. */
@@ -256,6 +258,8 @@ export class AgridProvider<T extends object = any> {
   showControlColumn: boolean;
   /** Whether rows can be marked for inclusion in clipboard copies. */
   enableRowMarking: boolean;
+  /** Whether complete columns can be marked from their headers. */
+  enableColumnMarking: boolean;
   /** Whether the sidebar is available. */
   showSidebar: boolean;
   /** Whether selecting a row automatically opens its detail panel. */
@@ -335,6 +339,7 @@ export class AgridProvider<T extends object = any> {
     this.autoAddRows      = runtimeState.autoAddRows;
     this.showControlColumn = config.showControlColumn ?? false;
     this.enableRowMarking = config.enableRowMarking ?? false;
+    this.enableColumnMarking = config.enableColumnMarking ?? false;
     this.showSidebar      = config.showSidebar ?? false;
     this.autoOpenDetail   = config.autoOpenDetail ?? false;
     this.serverSideFiltering = this.serverSideRowModel ? true : config.serverSideFiltering ?? false;

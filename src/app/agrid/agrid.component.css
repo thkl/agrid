@@ -16,6 +16,7 @@
     --agrid-color-bg-stripe:      #f0f2f5;
     --agrid-color-cell-changed:   #f59e0b;
     --agrid-color-row-marked:     #fff8c5;
+    --agrid-color-column-marked:  #e8f0fe;
   }
 }
 
@@ -314,6 +315,11 @@
   box-shadow: inset 3px 0 0 #bf8700;
 }
 
+.ag-row agrid-cell.ag-column--marked:not(.editing),
+.ag-footer-cell.ag-column--marked {
+  background: var(--agrid-color-column-marked);
+}
+
 .ag-row--selected.ag-row--marked {
   box-shadow: inset 3px 0 0 var(--agrid-color-accent);
 }
@@ -394,6 +400,10 @@
 
 .ag-control-cell--reorder {
   cursor: grab;
+}
+
+.ag-control-cell--marking:not(.ag-control-cell--reorder) {
+  cursor: pointer;
 }
 
 .ag-control-cell--reorder::after {

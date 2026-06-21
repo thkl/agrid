@@ -72,13 +72,53 @@ be dragged.
 `confirmRowDelete` protects grid delete actions with a localized in-row Yes/No confirmation.
 Direct calls to `AgridDataSource.removeRow()` remain immediate.
 
-`enableRowMarking` adds a checkbox to each control cell. Marked rows are included in keyboard,
-cell-context, and row-context copy operations. Read `grid.markedRowIndices()` or call
+`enableRowMarking` makes each control-cell row header clickable and adds a checkbox. Clicking the
+header outside its nested controls toggles the same mark state and emits `(rowMark)` with the row,
+its original datasource index, and the resulting `marked` state. Marked rows are included in
+keyboard, cell-context, and row-context copy operations. Read `grid.markedRowIndices()` or call
 `grid.clearMarkedRows()` when the host needs to inspect or reset the copy basket.
 
 Marking is independent from row selection. Cell and range copy use the same copied columns for
 every marked row, while Copy row uses every visible column. Duplicate rows are omitted, and marked
 rows remain included when filters hide them.
+
+Set `enableColumnMarking: true` to toggle complete-column highlighting by clicking a header outside
+its menu and resize controls. The grid exposes `markedColumnFields()` and emits `(columnMark)`.
+
+Append custom commands to one column's menu and handle them through one typed output:
+
+```ts
+{ field: 'status', header: 'Status', headerMenuItems: [
+  { key: 'archive', label: 'Archive', icon: '⌂' },
+] }
+```
+
+```html
+<agrid [provider]="provider" (columnHeaderAction)="onColumnHeaderAction($event)" />
+```
+
+The event contains `{ column, key }`.
+
+For commands that change `textAlign` at runtime, keep the writable signal in the host instead of
+mutating `event.column`:
+
+```ts
+readonly salaryAlignment = signal<'left' | 'center' | 'right'>('right');
+
+// Column definition
+{ field: 'salary', header: 'Salary', textAlign: this.salaryAlignment }
+
+onColumnHeaderAction(event: ColumnHeaderActionEvent<Employee>): void {
+  if (event.column.field !== 'salary') return;
+  if (event.key === 'align-left') this.salaryAlignment.set('left');
+  if (event.key === 'align-center') this.salaryAlignment.set('center');
+  if (event.key === 'align-right') this.salaryAlignment.set('right');
+}
+```
+
+Assigning `event.column.textAlign = 'center'` mutates plain configuration and does not trigger an
+Angular update. Calling `.set()` on `event.column.textAlign` is also not type-safe because the
+property may contain a static string or a read-only signal.
 
 ## Menu bar
 

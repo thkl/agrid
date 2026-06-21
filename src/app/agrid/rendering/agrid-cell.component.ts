@@ -17,6 +17,7 @@ import {
   getDateInputValue,
   matchesInputMask,
 } from '../agrid.utils';
+import { resolveCellSpanLayout } from './agrid-cell-span';
 
 /**
  * Individual cell component used inside `AgridComponent`.
@@ -36,6 +37,9 @@ import {
     '[class.ag-cell--tree]': 'treeCell()',
     '[class.ag-cell--with-info]': 'showInfoIcon() && !editing()',
     '[attr.aria-readonly]': '!editable() ? "true" : null',
+    '[attr.aria-colspan]': 'cellSpanLayout().span > 1 ? cellSpanLayout().span : null',
+    '[style.display]': 'cellSpanLayout().covered ? "none" : null',
+    '[style.grid-column]': 'cellSpanLayout().span > 1 ? "span " + cellSpanLayout().span : null',
     '[attr.title]': 'displayValue()',
     '[style.background-color]': 'resolvedCellFormat().backgroundColor ?? null',
     '[style.border-color]': 'resolvedCellFormat().borderColor ?? null',
@@ -46,7 +50,7 @@ import {
     '[style.font-style]': 'resolvedCellFormat().fontStyle ?? null',
     '[style.font-weight]': 'resolvedCellFormat().fontWeight ?? null',
     '[style.text-decoration]': 'resolvedCellFormat().textDecoration ?? null',
-    '[style.text-align]': 'resolvedCellFormat().textAlign ?? null',
+    '[style.text-align]': 'resolvedTextAlign()',
     '(click)': 'activate.emit($event)',
     '(dblclick)': 'startEdit.emit()',
     tabindex: '-1',
@@ -128,6 +132,9 @@ export class AgridCellComponent {
   /** Column definition for this cell. */
   col = input.required<ColDef>();
 
+  /** Visible columns in this cell's pane, used to clamp spans at pane boundaries. */
+  paneColumns = input<readonly ColDef[]>([]);
+
   /** Absolute row index within the data source. */
   rowIndex = input.required<number>();
 
@@ -143,6 +150,14 @@ export class AgridCellComponent {
   /** Full row data — passed to `cellRenderer` when set. */
   row = input<Record<string, unknown>>({});
 
+  /** Horizontal span and coverage state for this row. */
+  readonly cellSpanLayout = computed(() => resolveCellSpanLayout(
+    this.paneColumns(),
+    this.paneColumns().indexOf(this.col()),
+    this.row(),
+    this.rowIndex(),
+  ));
+
   /** Runtime formatting resolved from the column definition and current cell context. */
   readonly resolvedCellFormat = computed((): CellFormat => {
     const col = this.col();
@@ -152,6 +167,13 @@ export class AgridCellComponent {
       column: col,
       originalIndex: this.rowIndex(),
     }) ?? {};
+  });
+
+  /** Per-cell formatting wins over the column's default text alignment. */
+  readonly resolvedTextAlign = computed(() => {
+    const configured = this.col().textAlign;
+    const columnDefault = typeof configured === 'function' ? configured() : configured;
+    return this.resolvedCellFormat().textAlign ?? columnDefault ?? null;
   });
 
   /** Locale used for built-in date formatting. */

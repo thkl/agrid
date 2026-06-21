@@ -56,6 +56,7 @@
     [attr.aria-sort]="c.sort === 'asc' ? 'ascending' : c.sort === 'desc' ? 'descending' : 'none'"
     [class.ag-header-cell--filtered]="c.hasFilter"
     [class.ag-header-cell--dragging]="c.dragging"
+    [class.ag-header-cell--marked]="markedColumnFields().has(col.field)"
     [class.ag-header-cell--drop-before]="c.dropSide === 'before'"
     [class.ag-header-cell--drop-after]="c.dropSide === 'after'"
     [style.transform]="'translateX(' + c.reorderOffset + 'px)'"
@@ -63,6 +64,7 @@
     [class.ag-header-cell--pinned-first]="variant() === 'right' && c.firstRightPinned"
     [attr.data-col-field]="col.field"
     (pointerdown)="colHeaderPointerDown.emit({ event: $event, field: col.field })"
+    (click)="colHeaderClick.emit({ event: $event, field: col.field })"
   >
     <div class="ag-header-cell-top">
       <span class="ag-header-cell-label"
@@ -88,7 +90,7 @@
         [attr.aria-label]="localeText().columnMenu + ': ' + col.header"
         [attr.aria-expanded]="filterMenuField() === col.field"
         aria-haspopup="menu"
-        (click)="filterMenuOpen.emit({ event: $event, field: col.field })"
+        (click)="$event.stopPropagation(); filterMenuOpen.emit({ event: $event, field: col.field })"
         (pointerdown)="$event.stopPropagation()"
       >
         ▾
@@ -113,7 +115,7 @@
         [title]="localeText().filterConditionMenu"
         [attr.aria-label]="localeText().filterConditionMenu + ': ' + col.header"
         [attr.aria-expanded]="filterMenuField() === col.field"
-        (click)="filterMenuOpen.emit({ event: $event, field: col.field })"
+        (click)="$event.stopPropagation(); filterMenuOpen.emit({ event: $event, field: col.field })"
         (pointerdown)="$event.stopPropagation()"
       >
         {{ c.conditionLabel }}

@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { AgridCellComponent } from './agrid-cell.component';
 
 describe('AgridCellComponent custom renderer', () => {
@@ -118,6 +119,7 @@ describe('AgridCellComponent custom renderer', () => {
     const column = {
       field: 'status',
       header: 'Status',
+      textAlign: 'center' as const,
       cellFormat: (params: unknown) => {
         received = params;
         return {
@@ -150,6 +152,34 @@ describe('AgridCellComponent custom renderer', () => {
     expect(cell.style.fontWeight).toBe('700');
     expect(cell.style.textDecoration).toBe('underline');
     expect(cell.style.textAlign).toBe('right');
+  });
+
+  it('uses the column text alignment when cell formatting does not override it', () => {
+    fixture.componentRef.setInput('col', {
+      field: 'status',
+      header: 'Status',
+      textAlign: 'center',
+      cellFormat: () => ({ fontWeight: 600 }),
+    });
+
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).style.textAlign).toBe('center');
+  });
+
+  it('updates text alignment when the column uses a signal', () => {
+    const textAlign = signal<'left' | 'center' | 'right'>('left');
+    fixture.componentRef.setInput('col', {
+      field: 'status',
+      header: 'Status',
+      textAlign,
+    });
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).style.textAlign).toBe('left');
+
+    textAlign.set('right');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).style.textAlign).toBe('right');
   });
 
   it('uses a native date input and preserves an ISO time suffix', async () => {

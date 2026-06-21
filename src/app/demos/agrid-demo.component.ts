@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, signal, viewChild } from '@angular/core';
 import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef, GridEditEvent, GroupAction, NewRecord, RowReorderEvent, RowSelectEvent } from '../agrid';
-import { ColDefAutoSize } from '../agrid/agrid.types';
+import { ColDefAutoSize, ColumnHeaderActionEvent } from '../agrid/agrid.types';
+
+const alignmentSalary = signal<'left' | 'center' | 'right'>('right');
 
 const COLUMNS: ColDef[] = [
   { field: 'id', header: 'ID', width: ColDefAutoSize, editable: false},
@@ -20,7 +22,12 @@ const COLUMNS: ColDef[] = [
     ]
   },
   { field: 'salary', header: 'Salary', width: ColDefAutoSize, type: 'number', filterable: true, aggregate: 'sum',
-    validate: v => Number(v) >= 0 ? null : 'Salary must be ≥ 0' },
+    validate: v => Number(v) >= 0 ? null : 'Salary must be ≥ 0' , textAlign: alignmentSalary,   headerMenuItems: [
+      { key: 'align-left', label: '', icon: 'format_align_left' , itemClasses:["demo_header_menu_item"], iconClasses:["material-symbols-outlined menu","demo_small_icon"] },
+      { key: 'align-center', label: '', icon: 'format_align_center' ,itemClasses:["demo_header_menu_item"], iconClasses:["material-symbols-outlined menu","demo_small_icon"] },
+      { key: 'align-right', label: '', icon: 'format_align_right' ,itemClasses:["demo_header_menu_item"],  iconClasses:["material-symbols-outlined menu","demo_small_icon"] }
+    ]
+  },
   { field: 'hiredAt', header: 'Hire Date', width: ColDefAutoSize, type: 'date', filterable: true },
   { field: 'active', header: 'Active', width: ColDefAutoSize, type: 'boolean' },
 ];
@@ -79,6 +86,7 @@ function generateRows(count: number): Record<string, unknown>[] {
         (rowSelect)="onRowSelect($event)"
         (rowDoubleClicked)="onRowClick($event)"
         (menuBarAction)="onMenuBarAction($event)"
+        (columnHeaderAction)="onColumHeaderAction($event)"
       />
       <div class="demo-footer">
         @if (lastEdit()) {
@@ -254,6 +262,20 @@ export class AgridDemoComponent {
     }
     if (id === 'export' || id === 'export-csv') this._grid()?.exportCsv();
     this.lastEdit.set(`Menu action: ${id}`);
+  }
+
+  onColumHeaderAction(event:ColumnHeaderActionEvent) {
+    switch (event.key) {
+      case "align-left":
+        alignmentSalary.set('left');
+        break;
+      case "align-center":
+        alignmentSalary.set('center');
+        break;
+      case "align-right":
+        alignmentSalary.set('right')
+        break;
+    }
   }
 
   onPrepareAdd(event: NewRecord): void {

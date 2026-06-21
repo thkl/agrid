@@ -80,6 +80,7 @@ export class PageComponent {
 - Column menu with sort, clear sort, autosize, pin/unpin, hide, group, and clear filter actions.
 - Column resizing by drag and autosize by double-click.
 - Column reordering by header drag.
+- Row-aware horizontal cell spanning, clamped within each pinned or scrollable pane.
 - Split-pane pinned columns on the left.
 - Optional control column for row context actions and row reordering.
 - Row selection: none, single, or multi.
@@ -158,6 +159,9 @@ The `AgridLocaleTextOverrides` type covers all overridable labels.
 | `prepareAddRecord` | `NewRecord` | Emitted after the grid inserts a blank row. Patch `event.datasource` to target the correct grid when multiple providers are rendered. |
 | `rowReorder` | `RowReorderEvent` | Emitted after the user drops a reordered row. The host must call `dataSource.moveRow()`. |
 | `rowSelect` | `RowSelectEvent \| null` | Emitted when row selection changes. `null` means selection was cleared. |
+| `rowMark` | `RowMarkEvent<T>` | Emitted after the row-header surface or marker checkbox marks or unmarks a row. |
+| `columnMark` | `ColumnMarkEvent<T>` | Emitted after a header marks or unmarks a complete column. |
+| `columnHeaderAction` | `ColumnHeaderActionEvent<T>` | Emitted for a custom column-menu command with `{ column, key }`. |
 | `menuBarAction` | `string` | Emitted for every enabled menu-bar button or dropdown item with its configured `id`. |
 | `treeNodeClick` | `TreeNodeClickEvent` | Emitted when a generated path-tree branch node is clicked. |
 | `treeNodeDoubleClicked` | `TreeNodeClickEvent` | Emitted when a generated path-tree branch node is double-clicked. |
@@ -233,7 +237,8 @@ readonly gridProvider = new AgridProvider({
 | `allowAddRows` | `boolean` | `false` | Shows a `+ Add row` placeholder at the bottom when `autoAddRows` is `false`. |
 | `autoAddRows` | `boolean` | `false` | Automatically inserts a blank row when navigation moves past the last real row. |
 | `showControlColumn` | `boolean` | `false` | Shows a 24 px control column for row context actions and drag handles. |
-| `enableRowMarking` | `boolean` | `false` | Shows checkboxes in a 48 px control column and includes marked rows in every copy operation. |
+| `enableRowMarking` | `boolean` | `false` | Makes row headers clickable, shows checkboxes in a 48 px control column, and includes marked rows in every copy operation. |
+| `enableColumnMarking` | `boolean` | `false` | Makes column-header surfaces clickable and exposes marked fields through `markedColumnFields`. |
 | `showSidebar` | `boolean` | `false` | Shows a collapsible column visibility sidebar. Requires `control`. |
 | `autoOpenDetail` | `boolean` | `false` | Opens the detail row automatically when a row is selected. |
 | `serverSideFiltering` | `boolean` | `false` | Emits filter/sort events instead of applying them locally and hides the value checklist. |
@@ -462,6 +467,11 @@ Call these through `viewChild(AgridComponent)`.
 | `deleteRow(originalIndex)` | Removes a row and emits `rowRemoved`, after confirmation when `confirmRowDelete` is enabled. |
 | `clearChangedCells(originalIndex?, fields?)` | Clears every changed-cell marker, one row, or selected fields in one row. |
 | `clearMarkedRows()` | Clears all rows marked for clipboard inclusion. |
+| `setRowMarked(index, marked)` | Sets one row's mark state and emits `rowMark` when it changes. |
+| `toggleRowMarked(index)` | Toggles one row's mark state and emits `rowMark`. |
+| `setColumnMarked(field, marked)` | Sets one complete column's mark state and emits `columnMark` when it changes. |
+| `toggleColumnMarked(field)` | Toggles one complete column's mark state. |
+| `clearMarkedColumns()` | Clears all marked columns. |
 
 ### Public Component State
 
@@ -472,6 +482,7 @@ Call these through `viewChild(AgridComponent)`.
 | `selectedRowIndices` | `Signal<ReadonlySet<number>>` | Selected original row indices. |
 | `selectedRowIndex` | `Signal<number \| null>` | First selected row index, useful for single selection. |
 | `markedRowIndices` | `Signal<ReadonlySet<number>>` | Original datasource indices included in copy operations. |
+| `markedColumnFields` | `Signal<ReadonlySet<string>>` | Fields currently marked as complete columns. |
 | `sidebarOpen` | `Signal<boolean>` | Current sidebar visibility. |
 | `canUndo` | `Signal<boolean>` | Whether Ctrl/Cmd+Z can undo an edit. Requires `provider.control`. |
 | `canRedo` | `Signal<boolean>` | Whether redo is available. Requires `provider.control`. |
@@ -543,10 +554,14 @@ interface ColDef {
   field: string;
   header: string;
   group?: string;          // references AgridProvider.headerGroups
+  headerMenuItems?: AgridColumnHeaderMenuItem[];
   width: number;           // use ColDefAutoSize (-1) to autosize on first render
   type?: 'text' | 'number' | 'date' | 'boolean';
   editable?: boolean;
   cellReadonly?: (params: { value: unknown; row: Record<string, unknown>; column: ColDef; originalIndex: number }) => boolean;
+  textAlign?: 'left' | 'center' | 'right' | Signal<'left' | 'center' | 'right'>;
+  cellFormat?: (params: { value: unknown; row: Record<string, unknown>; column: ColDef; originalIndex: number }) => CellFormat | null | undefined;
+  colSpan?: number | ((params: { value: unknown; row: Record<string, unknown>; column: ColDef; originalIndex: number }) => number);
   locked?: boolean;
   values?: string[] | ValueOption[];
   formatter?: (value: unknown) => string;
@@ -567,10 +582,14 @@ interface ColDef {
 | `field` | Yes | Key in each row object. |
 | `header` | Yes | Header label shown in the grid. |
 | `group` | No | Header-group ID. Adjacent columns with the same ID share a grouped header. |
+| `headerMenuItems` | No | Custom `{ key, label, icon?, disabled?, itemClasses?, iconClasses? }` commands appended to this column's header menu. |
 | `width` | Yes | Default width in pixels. Set to `ColDefAutoSize` (`-1`) to fit the column to its content on first render. |
 | `type` | No | Semantic type. `number` initializes blank rows with `0`. `date` treats the ISO date prefix as a calendar date, with localized display formatting and a native inline editor. |
 | `editable` | No | Set to `false` for a read-only column. Defaults to editable. |
 | `cellReadonly` | No | Return `true` to make one cell read-only from its current row, value, column, and original row index. Applies to inline edit, boolean toggles, paste, fill, and sidebar edits. |
+| `textAlign` | No | Static value or Angular `Signal` containing `'left'`, `'center'`, or `'right'`. A `textAlign` returned by `cellFormat` overrides it for that cell. |
+| `cellFormat` | No | Returns per-cell visual overrides from the current row context. Its `textAlign` takes precedence over the column-level `textAlign`. |
+| `colSpan` | No | Number of adjacent visible columns occupied by a cell, or a row-aware callback returning that number. Spans stop at pinned-pane boundaries. |
 | `locked` | No | Prevents the column from being hidden, reordered, or unpinned through the column menu. |
 | `values` | No | Fixed editor/filter values. Use `string[]` or `{ value, label }[]`. |
 | `formatter` | No | Custom display formatter. Takes precedence over date auto-formatting. |
@@ -583,6 +602,70 @@ interface ColDef {
 | `cellRenderer` | No | Custom HTML renderer. Return an HTML string; Angular sanitizes it automatically. See [Custom Cell Renderers](#custom-cell-renderers). |
 | `cellClass` | No | Returns a CSS class name for each cell. Applied alongside built-in state classes. |
 | `infoIcon` | No | Shows a right-aligned `?` action. Set it to `true` or return a boolean per cell. Clicking it emits `cellInfo` with the row, field, value, original index, and column definition. |
+
+### Runtime text alignment
+
+Use a host-owned writable signal when alignment must change at runtime. Pass that signal into the
+column definition and update the original signal from `columnHeaderAction`:
+
+```ts
+import { signal } from '@angular/core';
+import { ColDef, ColumnHeaderActionEvent } from '@thkl/agrid';
+
+type TextAlign = 'left' | 'center' | 'right';
+
+readonly salaryAlignment = signal<TextAlign>('right');
+
+readonly columns: ColDef<Employee>[] = [
+  {
+    field: 'salary',
+    header: 'Salary',
+    textAlign: this.salaryAlignment,
+    headerMenuItems: [
+      { key: 'align-left', label: 'Align left' },
+      { key: 'align-center', label: 'Align center' },
+      { key: 'align-right', label: 'Align right' },
+    ],
+  },
+];
+
+onColumnHeaderAction(event: ColumnHeaderActionEvent<Employee>): void {
+  if (event.column.field !== 'salary') return;
+
+  const alignment = event.key.replace('align-', '') as TextAlign;
+  this.salaryAlignment.set(alignment);
+}
+```
+
+```html
+<agrid [provider]="provider" (columnHeaderAction)="onColumnHeaderAction($event)" />
+```
+
+Do not assign a new string to `event.column.textAlign` for runtime changes. A column definition is
+configuration rather than reactive state, so mutating the object does not notify rendered cells.
+Also, `event.column.textAlign` is typed as a static value or a read-only `Signal`; retain the
+original writable signal when calling `.set()`.
+
+### Cell spanning
+
+Use `colSpan` to merge adjacent cells horizontally for selected rows:
+
+```ts
+const columns: ColDef<OrderRow>[] = [
+  {
+    field: 'label',
+    header: 'Label',
+    textAlign: 'center',
+    colSpan: ({ row }) => row.kind === 'summary' ? 3 : 1,
+  },
+  { field: 'quantity', header: 'Quantity' },
+  { field: 'total', header: 'Total' },
+];
+```
+
+The callback receives the typed row, value, column, and original datasource index. Values are
+rounded down and clamped to the columns remaining in the current pane. A span cannot cross from a
+left-pinned pane into the scrollable pane or from the scrollable pane into a right-pinned pane.
 
 ```html
 <agrid [provider]="provider" (cellInfo)="showCellInfo($event)" />
@@ -1221,7 +1304,8 @@ collapsed descendants; navigating to one expands its ancestor path before scroll
 ## Clipboard, Range Selection, And Fill
 
 - Copy exports the active cell or selected rectangular range as TSV.
-- With `enableRowMarking`, checked rows are appended to every copy using the copied columns.
+- With `enableRowMarking`, clicking a row header outside its nested controls or using its checkbox toggles the mark and emits `rowMark`.
+- Marked rows are appended to every copy using the copied columns.
 - Copying without an active cell copies all visible columns from the marked rows.
 - Context-menu `Copy cell` and `Copy row` also include marked rows without duplicates.
 - Row marking is independent from row selection.
@@ -1355,6 +1439,7 @@ Override these on the `agrid` host element to theme the grid.
 | `--agrid-color-bg-stripe` | `#f0f2f5` | Zebra stripe background (even rows). |
 | `--agrid-color-cell-changed` | `#f59e0b` | Corner marker for changed cells. |
 | `--agrid-color-row-marked` | `#fff8c5` | Background for rows marked for clipboard inclusion. |
+| `--agrid-color-column-marked` | `#e8f0fe` | Background for marked columns. |
 
 ## Development
 

@@ -1,6 +1,7 @@
 import type { AgridDataSource } from './agrid-datasource';
 import type { AgridProvider } from './agrid-provider';
 import type { FilterOperator } from './agrid-control';
+import type { Signal } from '@angular/core';
 
 /** String-valued property names available on a row type. */
 export type AgridField<T extends object> = Extract<keyof T, string>;
@@ -51,6 +52,12 @@ export interface CellReadonlyParams<
 
 /** Parameters passed to a row-aware cell formatting resolver. */
 export type CellFormatParams<
+  T extends object = any,
+  K extends AgridField<T> = AgridField<T>,
+> = CellReadonlyParams<T, K>;
+
+/** Parameters passed to a row-aware horizontal cell-span resolver. */
+export type CellSpanParams<
   T extends object = any,
   K extends AgridField<T> = AgridField<T>,
 > = CellReadonlyParams<T, K>;
@@ -182,6 +189,22 @@ export interface HeaderGroup {
   label: string;
 }
 
+/** Custom command appended to a column's header menu. */
+export interface AgridColumnHeaderMenuItem {
+  /** Stable key emitted through `(columnHeaderAction)`. */
+  key: string;
+  /** Visible command label. */
+  label: string;
+  /** Optional compact icon or glyph shown before the label. */
+  icon?: string;
+  /** Disable the command without hiding it. */
+  disabled?: boolean;
+  /** Class a optional classes for the icon */
+  iconClasses?: string[];
+  /** Classes to apply on the complete button */
+  itemClasses?: string[];
+}
+
 /** Defines the behavior shared by every typed column. */
 export interface ColDefBase<T extends object, K extends AgridField<T>> {
   /** Data field name — must match a key in the row object. */
@@ -190,6 +213,8 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
   header: string;
   /** Optional header-group identifier configured through `AgridProvider.headerGroups`. */
   group?: string;
+  /** Custom commands appended to this column's header menu. */
+  headerMenuItems?: AgridColumnHeaderMenuItem[];
   /**
    * Default column width in pixels. Can be overridden at runtime via {@link AgridControl}.
    * Use `-1` (or omit) to make the column auto-scale and fill available space (`1fr`).
@@ -236,6 +261,24 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
    * ```
    */
   cellFormat?: (params: CellFormatParams<T, K>) => CellFormat | null | undefined;
+  /**
+   * Default horizontal alignment for every cell in this column.
+   * A `textAlign` returned by {@link cellFormat} overrides this value for that cell.
+   */
+  textAlign?: 'left' | 'center' | 'right' | Signal<'left' | 'center' | 'right'>;
+  /**
+   * Number of adjacent visible columns occupied by this cell.
+   *
+   * Spans are clamped to the current left-pinned, scrollable, or right-pinned pane and never
+   * cross a pane boundary. Covered cells remain part of the data model but are not rendered.
+   * Return `1` (the default) to render a normal cell.
+   *
+   * @example
+   * ```ts
+   * { field: 'name', colSpan: ({ row }) => row.isSummary ? 3 : 1 }
+   * ```
+   */
+  colSpan?: number | ((params: CellSpanParams<T, K>) => number);
   /**
    * Fixed list of allowed values shown in a `<select>` dropdown when editing.
    *
@@ -682,6 +725,29 @@ export type RowRemovedEvent<T extends object = any> = RecordEditEvent<T>;
 export interface RowSelectEvent<T extends object = any> {
   /** Selected rows and their original data-source indices. */
   rows: { row: T; originalIndex: number }[];
+}
+
+/** Emitted when a row is marked or unmarked through the row header or marker checkbox. */
+export interface RowMarkEvent<T extends object = any> {
+  /** Row whose mark state changed. */
+  row: T;
+  /** Zero-based index of the row in the data source. */
+  originalIndex: number;
+  /** Current mark state after the interaction. */
+  marked: boolean;
+}
+
+/** Emitted when a column is marked or unmarked from its header. */
+export interface ColumnMarkEvent<T extends object = any> {
+  column: ColDef<T>;
+  field: AgridField<T>;
+  marked: boolean;
+}
+
+/** Emitted when a custom column-header menu command is selected. */
+export interface ColumnHeaderActionEvent<T extends object = any> {
+  column: ColDef<T>;
+  key: string;
 }
 
 /** Emitted when the user clicks a data row. */

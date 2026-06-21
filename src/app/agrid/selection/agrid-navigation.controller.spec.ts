@@ -27,6 +27,84 @@ describe('AgridNavigationController', () => {
     expect(focusGrid).toHaveBeenCalled();
   });
 
+  it('moves down across an expanded detail panel', () => {
+    const { controller, selectedCell } = setup({
+      filteredItems: [
+        dataItem(0),
+        { detailFor: 0, row: { name: 'Row 0', amount: 0, hidden: 'x' } },
+        dataItem(1),
+      ],
+    });
+    selectedCell.set({ rowIndex: 0, colIndex: 0 });
+
+    controller.handleKeyDown(keyboardEvent('ArrowDown'));
+
+    expect(selectedCell()).toEqual({ rowIndex: 1, colIndex: 0 });
+  });
+
+  it('wraps Tab from the last column across an expanded detail panel', () => {
+    const { controller, selectedCell } = setup({
+      filteredItems: [
+        dataItem(0),
+        { detailFor: 0, row: { name: 'Row 0', amount: 0, hidden: 'x' } },
+        dataItem(1),
+      ],
+    });
+    selectedCell.set({ rowIndex: 0, colIndex: 1 });
+
+    controller.handleKeyDown(keyboardEvent('Tab'));
+
+    expect(selectedCell()).toEqual({ rowIndex: 1, colIndex: 0 });
+  });
+
+  it('moves up and Shift+Tab backward across an expanded detail panel', () => {
+    const items: GridItem[] = [
+      dataItem(0),
+      { detailFor: 0, row: { name: 'Row 0', amount: 0, hidden: 'x' } },
+      dataItem(1),
+    ];
+    const { controller, selectedCell } = setup({ filteredItems: items });
+    selectedCell.set({ rowIndex: 1, colIndex: 0 });
+
+    controller.handleKeyDown(keyboardEvent('ArrowUp'));
+    expect(selectedCell()).toEqual({ rowIndex: 0, colIndex: 0 });
+
+    selectedCell.set({ rowIndex: 1, colIndex: 0 });
+    controller.handleKeyDown(keyboardEvent('Tab', { shiftKey: true }));
+    expect(selectedCell()).toEqual({ rowIndex: 0, colIndex: 1 });
+  });
+
+  it('uses the span resolver to skip covered cells horizontally', () => {
+    const { controller, selectedCell } = setup({
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'amount', header: 'Amount' },
+        { field: 'hidden', header: 'Third' },
+      ],
+      resolveCellColumn: (_row, col, direction) => col === 1
+        ? direction > 0 ? 2 : 0
+        : col,
+    });
+    selectedCell.set({ rowIndex: 0, colIndex: 0 });
+
+    controller.handleKeyDown(keyboardEvent('ArrowRight'));
+    expect(selectedCell()).toEqual({ rowIndex: 0, colIndex: 2 });
+
+    controller.handleKeyDown(keyboardEvent('ArrowLeft'));
+    expect(selectedCell()).toEqual({ rowIndex: 0, colIndex: 0 });
+  });
+
+  it('uses the span resolver to land on an anchor vertically', () => {
+    const { controller, selectedCell } = setup({
+      resolveCellColumn: (row, col, direction) => row === 0 && col === 1 && direction === 0 ? 0 : col,
+    });
+    selectedCell.set({ rowIndex: 1, colIndex: 1 });
+
+    controller.handleKeyDown(keyboardEvent('ArrowUp'));
+
+    expect(selectedCell()).toEqual({ rowIndex: 0, colIndex: 0 });
+  });
+
   it('extends the current range with Shift+arrow', () => {
     const { controller, selectedCell, extendRangeTo } = setup();
     selectedCell.set({ rowIndex: 0, colIndex: 0 });
@@ -255,6 +333,7 @@ function setup(overrides: {
   toggleTreeCell?: Mock<(originalIndex: number, colIndex: number) => boolean>;
   enterEditAction?: 'nothing' | 'nextColumn' | 'nextRow';
   columns?: ColDef[];
+  resolveCellColumn?: AgridNavigationControllerOptions['resolveCellColumn'];
 } = {}) {
   const columns: ColDef[] = overrides.columns ?? [
     { field: 'name', header: 'Name' },
@@ -320,6 +399,7 @@ function setup(overrides: {
     focusGrid,
     viewport: () => viewport,
     scrollColumnToKeepVisible: scrollColumn,
+    resolveCellColumn: overrides.resolveCellColumn,
     onPrepareAddRecord: event => {
       prepared.push(event);
       filteredItems.set([

@@ -43,6 +43,8 @@ export interface AgridNavigationControllerOptions {
   focusGrid: () => void;
   viewport: () => AgridVerticalViewport;
   scrollColumnToKeepVisible: (colIndex: number) => void;
+  /** Maps a logical destination to its rendered span anchor or next visible cell. */
+  resolveCellColumn?: (originalIndex: number, colIndex: number, direction: -1 | 0 | 1) => number;
   onPrepareAddRecord: (event: Pick<NewRecord, 'index' | 'data'>) => void;
 }
 
@@ -55,6 +57,7 @@ export class AgridNavigationController {
 
   /** Activates a cell, optionally extending the current range selection. */
   activateCell(originalIndex: number, colIndex: number, event?: MouseEvent): void {
+    colIndex = this.opts.resolveCellColumn?.(originalIndex, colIndex, 0) ?? colIndex;
     if (this.opts.isEditing(originalIndex, colIndex)) return;
     this.opts.cancelEdit();
     if (event?.shiftKey && this.opts.selectedCell()) {
@@ -344,9 +347,16 @@ export class AgridNavigationController {
       }
     }
 
-    const skipDir = dRow < 0 ? -1 : 1;
+    const skipDir = dRow < 0 || (dRow === 0 && dCol < 0) ? -1 : 1;
     let skipDi = newDi;
-    while (skipDi >= 0 && skipDi < items.length && isGroupHeaderItem(items[skipDi])) skipDi += skipDir;
+    while (
+      skipDi >= 0
+      && skipDi < items.length
+      && items[skipDi] !== null
+      && !isDataRowItem(items[skipDi])
+    ) {
+      skipDi += skipDir;
+    }
     if (skipDi >= 0 && skipDi < items.length) newDi = skipDi;
 
     if (this.opts.autoAddRows() && newDi >= items.length) {
@@ -363,7 +373,26 @@ export class AgridNavigationController {
 
     newDi = Math.max(0, Math.min(items.length - 1, newDi));
     newCi = Math.max(0, Math.min(cols - 1, newCi));
-    const newItem = items[newDi];
+    let newItem = items[newDi];
+    if (isDataRowItem(newItem)) {
+      newCi = this.opts.resolveCellColumn?.(
+        newItem.originalIndex,
+        newCi,
+        dCol === 0 ? 0 : dCol > 0 ? 1 : -1,
+      ) ?? newCi;
+      if (newCi >= cols && newDi < items.length - 1) {
+        newDi++;
+        newCi = 0;
+        while (newDi < items.length - 1 && !isDataRowItem(items[newDi])) newDi++;
+        newItem = items[newDi];
+      } else if (newCi < 0 && newDi > 0) {
+        newDi--;
+        newCi = cols - 1;
+        while (newDi > 0 && !isDataRowItem(items[newDi])) newDi--;
+        newItem = items[newDi];
+      }
+      newCi = Math.max(0, Math.min(cols - 1, newCi));
+    }
     if (newItem === null) {
       this.opts.selectedRange.set(null);
       this.opts.selectedCell.set({ rowIndex: this.opts.dataSource().length, colIndex: 0 });
@@ -448,6 +477,7 @@ export class AgridNavigationController {
     colIndex: number,
     extendRange: boolean,
   ): void {
+    colIndex = this.opts.resolveCellColumn?.(originalIndex, colIndex, 0) ?? colIndex;
     if (extendRange && this.opts.selectedCell()) {
       this.opts.extendRangeTo(originalIndex, colIndex);
     } else {

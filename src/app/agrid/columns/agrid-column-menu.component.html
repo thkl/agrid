@@ -70,6 +70,18 @@
     </div>
   }
 
+  @if (customItems().length > 0) {
+    <div class="ag-filter-menu-section ag-filter-menu-section--border ag-filter-menu-custom">
+      @for (item of customItems(); track item.key) {
+        <button type="button"  [class]="[... item.itemClasses??[], ...['ag-filter-menu-item'] ].join(' ')" [disabled]="item.disabled"
+          [attr.data-command-key]="item.key" (click)="customAction.emit(item.key)">
+          @if (item.icon) { <span [class]="[...item.iconClasses??[] , ... ['ag-filter-menu-item-icon']].join(' ')" >{{ item.icon }}</span> }
+          {{ item.label }}
+        </button>
+      }
+    </div>
+  }
+
   @if (groupable()) {
     <div class="ag-filter-menu-section ag-filter-menu-section--border">
       <button

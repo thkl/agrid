@@ -775,9 +775,12 @@ describe('AgridComponent Tab navigation', () => {
     await new Promise(resolve => setTimeout(resolve));
     markingFixture.detectChanges();
     const markingComponent = markingFixture.componentInstance;
+    const markEvents: unknown[] = [];
+    markingComponent.rowMark.subscribe(event => markEvents.push(event));
     const marker = markingFixture.nativeElement.querySelector(
       '.ag-row-marker',
     ) as HTMLInputElement;
+    const rowHeader = marker.closest('.ag-control-cell') as HTMLElement;
 
     expect(markingComponent.showControlColumn()).toBe(true);
     expect(marker).not.toBeNull();
@@ -785,10 +788,25 @@ describe('AgridComponent Tab navigation', () => {
     markingFixture.detectChanges();
 
     expect([...markingComponent.markedRowIndices()]).toEqual([0]);
+    expect(markEvents).toEqual([{
+      row: { name: 'Alice', department: 'Engineering' },
+      originalIndex: 0,
+      marked: true,
+    }]);
     expect(markingFixture.nativeElement.querySelector(
       '.ag-scroll-pane [data-original-index="0"]',
     )?.classList.contains('ag-row--marked')).toBe(true);
 
+    rowHeader.click();
+    markingFixture.detectChanges();
+    expect(markingComponent.markedRowIndices().size).toBe(0);
+    expect(markEvents.at(-1)).toEqual({
+      row: { name: 'Alice', department: 'Engineering' },
+      originalIndex: 0,
+      marked: false,
+    });
+
+    markingComponent.toggleRowMarked(0);
     markingComponent.clearMarkedRows();
     expect(markingComponent.markedRowIndices().size).toBe(0);
     markingFixture.destroy();
@@ -803,6 +821,37 @@ describe('AgridComponent Tab navigation', () => {
 
     component.deleteRow(0);
     expect([...component.markedRowIndices()]).toEqual([0]);
+  });
+
+  it('marks a complete column from its header and emits its typed state', () => {
+    provider.enableColumnMarking = true;
+    const events: unknown[] = [];
+    component.columnMark.subscribe(event => events.push(event));
+
+    component.onColHeaderClick(new MouseEvent('click'), 'name');
+    fixture.detectChanges();
+
+    expect([...component.markedColumnFields()]).toEqual(['name']);
+    expect(events).toEqual([{
+      column: provider.columns()[0],
+      field: 'name',
+      marked: true,
+    }]);
+
+    component.setColumnMarked('name', false);
+    expect(component.markedColumnFields().size).toBe(0);
+    expect((events.at(-1) as { marked: boolean }).marked).toBe(false);
+  });
+
+  it('emits custom column-header actions and closes the menu', () => {
+    const actions: unknown[] = [];
+    component.columnHeaderAction.subscribe(event => actions.push(event));
+    component.filterMenu.set({ field: 'name', x: 10, y: 10 });
+
+    component.onColumnHeaderAction('name', 'archive');
+
+    expect(actions).toEqual([{ column: provider.columns()[0], key: 'archive' }]);
+    expect(component.filterMenu()).toBeNull();
   });
 
   it('renders one grouped header over contiguous columns and updates ARIA rows', async () => {
@@ -1444,4 +1493,61 @@ describe('AgridComponent pinned rows and master/detail', () => {
     expect(component.getRowClass({ kind: 'summary' }, 2)).toBe('is-summary');
     expect(component.getRowClass({ kind: 'data' }, 0)).toBe('');
   });
+});
+
+describe('AgridComponent horizontal cell spanning', () => {
+  let fixture: ComponentFixture<AgridComponent>;
+
+  beforeAll(() => {
+    HTMLElement.prototype.scrollTo = () => undefined;
+  });
+
+  beforeEach(async () => {
+    const provider = new AgridProvider({
+      columns: [
+        {
+          field: 'label',
+          header: 'Label',
+          textAlign: 'center',
+          colSpan: ({ row }) => row['summary'] ? 2 : 1,
+          cellFormat: ({ row }) => row['summary'] ? { textAlign: 'right' } : undefined,
+        },
+        { field: 'quantity', header: 'Quantity' },
+        { field: 'total', header: 'Total' },
+      ],
+      datasource: new AgridDataSource([
+        { label: 'Summary', quantity: 2, total: 40, summary: true },
+        { label: 'Normal', quantity: 1, total: 20, summary: false },
+      ]),
+      control: new AgridControl({ allowRowReorder: false }),
+      pinRow: () => 'top',
+    });
+
+    await TestBed.configureTestingModule({ imports: [AgridComponent] }).compileComponents();
+    fixture = TestBed.createComponent(AgridComponent);
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+  });
+
+  afterEach(() => fixture.destroy());
+
+  it('renders the anchor across columns and hides only the covered row cell', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const summaryCells = Array.from(
+      host.querySelectorAll<HTMLElement>('[data-cell-row="0"]'),
+    );
+    const normalCells = Array.from(
+      host.querySelectorAll<HTMLElement>('[data-cell-row="1"]'),
+    );
+
+    expect(summaryCells).toHaveLength(3);
+    expect(summaryCells[0].style.gridColumn).toBe('span 2');
+    expect(summaryCells[0].getAttribute('aria-colspan')).toBe('2');
+    expect(summaryCells[0].style.textAlign).toBe('right');
+    expect(summaryCells[1].style.display).toBe('none');
+    expect(summaryCells[2].style.display).toBe('');
+    expect(normalCells.every(cell => cell.style.display === '')).toBe(true);
+    expect(normalCells[0].style.textAlign).toBe('center');
+  });
+
 });

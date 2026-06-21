@@ -73,9 +73,12 @@ export class AgridPaneHeaderComponent {
   readonly hasMultiSort = input.required<boolean>();
   /** Field of the column whose filter menu is currently open, for `aria-expanded`. */
   readonly filterMenuField = input<string | null>(null);
+  /** Fields currently marked as complete columns. */
+  readonly markedColumnFields = input<ReadonlySet<string>>(new Set());
 
   readonly headerGroupPointerDown = output<AgridPaneHeaderGroupEvent>();
   readonly colHeaderPointerDown = output<AgridPaneHeaderColumnEvent<PointerEvent>>();
+  readonly colHeaderClick = output<AgridPaneHeaderColumnEvent<MouseEvent>>();
   readonly filterMenuOpen = output<AgridPaneHeaderColumnEvent<MouseEvent>>();
   readonly textFilterChange = output<AgridPaneHeaderColumnEvent>();
   readonly resizeKeyDown = output<AgridPaneHeaderResizeEvent<KeyboardEvent>>();

@@ -40,6 +40,7 @@ import { AgridTreeController } from './rows/agrid-tree.controller';
 import { AgridLocaleText, resolveAgridLocaleText, resolveLocale } from './agrid-localization';
 import { AgridNavigationController } from './selection/agrid-navigation.controller';
 import { AgridPresentationService } from './rendering/agrid-presentation.service';
+import { resolveCellSpanAnchor } from './rendering/agrid-cell-span';
 import { AgridMenuBarComponent } from './rendering/agrid-menu-bar.component';
 import { AgridProvider, AgridSettings } from './agrid-provider';
 import { buildPivotResult } from './agrid-pivot';
@@ -67,9 +68,9 @@ import {
   AgridAggregate,
   AgridBodyColumn, AgridField, AgridHeaderColumn, AgridMenuBarContext, AgridMenuBarItem, AgridMenuBarMenuItem,
   AgridMenuBarState, AgridPivotConfig,
-  CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, DetailRowItem, FilterChangeEvent, GridEditEvent,
+  CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, ColumnHeaderActionEvent, ColumnMarkEvent, DetailRowItem, FilterChangeEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, PathTreeNodeItem, RecordEditEvent, RowClickEvent,
-  RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent,
+  RowMarkEvent, RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent,
 } from './agrid.types';
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
@@ -136,6 +137,7 @@ export class AgridComponent<T extends object = any> {
     !this.provider().pivotConfig && (this.control()?.autoAddRows() ?? false)
   );
   readonly enableRowMarking = computed(() => this.provider().enableRowMarking);
+  readonly enableColumnMarking = computed(() => this.provider().enableColumnMarking);
   readonly showControlColumn = computed(() =>
     this.provider().showControlColumn || this.enableRowMarking() || this.masterDetail()
   );
@@ -301,6 +303,15 @@ export class AgridComponent<T extends object = any> {
   /** Emitted when the row selection changes. `null` = selection cleared. */
   rowSelect = output<RowSelectEvent<T> | null>();
 
+  /** Emitted when a row is marked or unmarked from its row header. */
+  rowMark = output<RowMarkEvent<T>>();
+
+  /** Emitted when a complete column is marked or unmarked from its header. */
+  columnMark = output<ColumnMarkEvent<T>>();
+
+  /** Emitted when a custom column-header menu command is selected. */
+  columnHeaderAction = output<ColumnHeaderActionEvent<T>>();
+
   rowDoubleClicked = output<RowClickEvent<T>>();
 
   /** Emitted when the user single-clicks a data row. */
@@ -368,10 +379,14 @@ export class AgridComponent<T extends object = any> {
   private readonly _pinnedRows = signal<Map<number, 'top' | 'bottom' | null>>(new Map());
 
   private readonly markedIndices = signal<Set<number>>(new Set());
+  private readonly markedFields = signal<Set<string>>(new Set());
 
   /** Original datasource indices marked for inclusion in copy operations. */
   readonly markedRowIndices: Signal<ReadonlySet<number>> =
     this.markedIndices.asReadonly() as Signal<ReadonlySet<number>>;
+  /** Fields currently marked as complete columns. */
+  readonly markedColumnFields: Signal<ReadonlySet<string>> =
+    this.markedFields.asReadonly() as Signal<ReadonlySet<string>>;
 
   /** Horizontal position of the delete prompt inside the scrollable row. */
   readonly deleteConfirmationLeft = signal(0);
@@ -926,12 +941,34 @@ export class AgridComponent<T extends object = any> {
     viewport: () => this.viewport(),
     scrollColumnToKeepVisible: colIndex =>
       this.columnSizing.scrollColumnToKeepVisible(colIndex),
+    resolveCellColumn: (originalIndex, colIndex, direction) =>
+      this.resolveSpannedColumn(originalIndex, colIndex, direction),
     onPrepareAddRecord: event => this.prepareAddRecord.emit({
       ...event,
       provider: this.provider(),
       datasource: this.dataSource(),
     }),
   });
+
+  /** Maps logical covered columns to a rendered span anchor (or past it when moving right). */
+  private resolveSpannedColumn(originalIndex: number, colIndex: number, direction: -1 | 0 | 1): number {
+    const row = this.dataSource().getRow(originalIndex);
+    const visible = this.visibleColDefs();
+    const col = visible[colIndex];
+    if (!row || !col) return colIndex;
+
+    const panes = [this.pinnedColDefs(), this.scrollableColDefs(), this.rightPinnedColDefs()];
+    const pane = panes.find(columns => columns.includes(col));
+    if (!pane) return colIndex;
+    const paneIndex = pane.indexOf(col);
+    const anchor = resolveCellSpanAnchor(pane, paneIndex, row, originalIndex);
+    if (anchor.anchorIndex === paneIndex) return colIndex;
+
+    const targetPaneIndex = direction > 0 ? anchor.anchorIndex + anchor.span : anchor.anchorIndex;
+    const target = pane[targetPaneIndex];
+    if (target) return visible.indexOf(target);
+    return direction > 0 ? colIndex + 1 : visible.indexOf(pane[anchor.anchorIndex]);
+  }
 
   private readonly rowController = new AgridRowController({
     dataSource: this.dataSource,
@@ -1051,6 +1088,13 @@ export class AgridComponent<T extends object = any> {
   /** @internal Start a column header drag. */
   onColHeaderPointerDown(event: PointerEvent, field: string): void {
     this.columnReorder.start(event, field);
+  }
+
+  /** @internal Toggles a complete column when its non-interactive header surface is clicked. */
+  onColHeaderClick(event: MouseEvent, field: string): void {
+    const target = event.target as Element | null;
+    if (!this.enableColumnMarking() || target?.closest('button, input, .ag-resize-handle')) return;
+    this.toggleColumnMarked(field);
   }
 
   /** @internal Start dragging all columns in one contiguous grouped-header segment. */
@@ -1959,14 +2003,28 @@ export class AgridComponent<T extends object = any> {
     this.rowController.selectFromPointer(event, originalIndex, false);
   }
 
-  /** @internal Toggle whether a row is included in subsequent copy operations. */
+  /** @internal Marks a row when its control-column header surface is clicked. */
+  onControlCellClick(event: MouseEvent, originalIndex: number): void {
+    event.stopPropagation();
+    if (this.enableRowMarking()) this.toggleRowMarked(originalIndex);
+  }
+
+  /** Toggle whether a row is included in subsequent copy operations and emit its new state. */
   toggleRowMarked(originalIndex: number): void {
+    this.setRowMarked(originalIndex, !this.markedIndices().has(originalIndex));
+  }
+
+  /** Set one row's mark state and emit `rowMark` when that state changes. */
+  setRowMarked(originalIndex: number, marked: boolean): void {
+    const row = this.dataSource().getRow(originalIndex) as T | undefined;
+    if (!row || this.markedIndices().has(originalIndex) === marked) return;
     this.markedIndices.update(indices => {
       const next = new Set(indices);
-      if (next.has(originalIndex)) next.delete(originalIndex);
-      else next.add(originalIndex);
+      if (marked) next.add(originalIndex);
+      else next.delete(originalIndex);
       return next;
     });
+    this.rowMark.emit({ row, originalIndex, marked });
   }
 
   /** @internal Returns whether a row is marked for copying. */
@@ -1977,6 +2035,37 @@ export class AgridComponent<T extends object = any> {
   /** Clear every row marked for clipboard inclusion. */
   clearMarkedRows(): void {
     this.markedIndices.set(new Set());
+  }
+
+  /** Set one complete column's mark state and emit `columnMark` when it changes. */
+  setColumnMarked(field: string, marked: boolean): void {
+    const column = this.getColDef(field) as ColDef<T> | undefined;
+    if (!column || this.markedFields().has(field) === marked) return;
+    this.markedFields.update(fields => {
+      const next = new Set(fields);
+      if (marked) next.add(field);
+      else next.delete(field);
+      return next;
+    });
+    this.columnMark.emit({ column, field: column.field, marked });
+  }
+
+  /** Toggle one complete column's mark state. */
+  toggleColumnMarked(field: string): void {
+    this.setColumnMarked(field, !this.markedFields().has(field));
+  }
+
+  /** Clear all marked columns. */
+  clearMarkedColumns(): void {
+    this.markedFields.set(new Set());
+  }
+
+  /** @internal Emits a custom header command for its typed column and closes the menu. */
+  onColumnHeaderAction(field: string, key: string): void {
+    const column = this.getColDef(field) as ColDef<T> | undefined;
+    if (!column) return;
+    this.columnHeaderAction.emit({ column, key });
+    this.columnMenuController.close();
   }
 
   /** @internal Copy the active range or cell as TSV. */

@@ -74,6 +74,11 @@
   border-right: none;
 }
 
+.ag-header-cell--marked {
+  background: var(--agrid-color-column-marked);
+  box-shadow: inset 0 -3px 0 var(--agrid-color-accent);
+}
+
 .ag-header-cell-top {
   display: flex;
   align-items: center;

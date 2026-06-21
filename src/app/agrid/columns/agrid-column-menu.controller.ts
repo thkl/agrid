@@ -266,9 +266,13 @@ export class AgridColumnMenuController {
     }, delay));
   }
 
-  /** Opens the column menu at a viewport position. */
+  /** Opens the requested column menu, or closes it when that column is already open. */
   open(event: MouseEvent, field: string): void {
     event.stopPropagation();
+    if (this.menu()?.field === field) {
+      this.close();
+      return;
+    }
     this.search.set('');
     this.menu.set({
       field,

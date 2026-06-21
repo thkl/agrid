@@ -187,6 +187,20 @@ describe('AgridPaneHeaderComponent', () => {
     expect(payload?.field).toBe('email');
   });
 
+  it('marks configured headers and emits clicks from the header surface', () => {
+    setup('center', [headerColumn({ field: 'email' })]);
+    fixture.componentRef.setInput('markedColumnFields', new Set(['email']));
+    fixture.detectChanges();
+    let payload: AgridPaneHeaderColumnEvent<MouseEvent> | undefined;
+    fixture.componentInstance.colHeaderClick.subscribe(event => (payload = event));
+
+    const header = el.querySelector('.ag-header-cell') as HTMLElement;
+    header.click();
+
+    expect(header.classList.contains('ag-header-cell--marked')).toBe(true);
+    expect(payload?.field).toBe('email');
+  });
+
   it('emits filterMenuOpen when the column menu button is clicked', () => {
     setup('center', [headerColumn({ field: 'email' })]);
     let payload: AgridPaneHeaderColumnEvent<MouseEvent> | undefined;

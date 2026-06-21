@@ -99,3 +99,16 @@ body {
   color: #dce8df !important;
   background: #1c3023 !important;
 }
+
+.demo_small_icon {
+    font-size: 14px;
+}
+
+.demo_header_menu_item {
+    max-width: 20px;
+}
+
+.ag-filter-menu-custom {
+  display: flex;
+  flex-direction: row;
+}

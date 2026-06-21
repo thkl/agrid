@@ -14,6 +14,7 @@ import {
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from '../agrid-localization';
 import { FilterOperator } from '../agrid-control';
 import { AgridBrowserAdapter } from '../infrastructure/agrid-browser.adapter';
+import { AgridColumnHeaderMenuItem } from '../agrid.types';
 
 /** Clamp a floating menu so it remains inside the browser viewport. @internal */
 export function fitColumnMenuToViewport(
@@ -82,6 +83,12 @@ export class AgridColumnMenuComponent {
 
   /** Whether the aggregation actions should be shown. */
   showAggregationActions = input<boolean>(true); 
+
+  /** Custom commands appended for the active column. */
+  customItems = input<readonly AgridColumnHeaderMenuItem[]>([]);
+
+  /** Emits the key of a selected custom command. */
+  customAction = output<string>();
 
   /** Current pin state of the active column. */
   pinned = input<'left' | 'right' | false>(false);
