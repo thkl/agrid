@@ -195,6 +195,7 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   /** this is the id of the grid its stored in the provider the grid will read it as signal */
   gridId?:string;
 
+  /** Hides the grids status bar if set to true. @default false */
   hideGridStatusBar?:boolean;
 }
 
