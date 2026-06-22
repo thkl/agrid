@@ -9,7 +9,7 @@
     @if (visibleMenuBarItems().length > 0) {
     <agrid-menu-bar [items]="visibleMenuBarItems()" [context]="menuBarContext()" [label]="localeText().actions"
       [openItemId]="openMenuBarItemId()" (openItemIdChange)="onMenuBarOpenItemChange($event)"
-      (action)="menuBarAction.emit($event)" />
+      (action)="onMenuBarAction($event)" />
     }
     @if (enableQuickFilter()) {
     <input class="ag-quick-filter" type="search" [value]="quickFilterValue()" (input)="onQuickFilterInput($event)"
@@ -42,6 +42,7 @@
           (colHeaderPointerDown)="onColHeaderPointerDown($event.event, $event.field)"
           (colHeaderClick)="onColHeaderClick($event.event, $event.field)"
           (filterMenuOpen)="openFilterMenu($event.event, $event.field)"
+          (filterConditionMenuOpen)="openFilterMenu($event.event, $event.field, 'condition')"
           (textFilterChange)="onTextFilterChange($event.event, $event.field)"
           (resizeKeyDown)="onResizeKeyDown($event.event, $event.col)"
           (resizeStart)="onResizeStart($event.event, $event.col)"
@@ -211,6 +212,7 @@
             (colHeaderPointerDown)="onColHeaderPointerDown($event.event, $event.field)"
             (colHeaderClick)="onColHeaderClick($event.event, $event.field)"
             (filterMenuOpen)="openFilterMenu($event.event, $event.field)"
+            (filterConditionMenuOpen)="openFilterMenu($event.event, $event.field, 'condition')"
             (textFilterChange)="onTextFilterChange($event.event, $event.field)"
             (resizeKeyDown)="onResizeKeyDown($event.event, $event.col)"
             (resizeStart)="onResizeStart($event.event, $event.col)"
@@ -417,6 +419,7 @@
           (colHeaderPointerDown)="onColHeaderPointerDown($event.event, $event.field)"
           (colHeaderClick)="onColHeaderClick($event.event, $event.field)"
           (filterMenuOpen)="openFilterMenu($event.event, $event.field)"
+          (filterConditionMenuOpen)="openFilterMenu($event.event, $event.field, 'condition')"
           (textFilterChange)="onTextFilterChange($event.event, $event.field)"
           (resizeKeyDown)="onResizeKeyDown($event.event, $event.col)"
           (resizeStart)="onResizeStart($event.event, $event.col)"
@@ -666,11 +669,13 @@
   <!-- Filter dropdown -->
   @if (filterMenu(); as menu) {
   <agrid-column-menu [x]="menu.x" [y]="menu.y" [header]="getColDef(menu.field)?.header ?? menu.field"
-    [sortDir]="getSort(menu.field)" [sortable]="sortOption() !== 'none'" [showColumnActions]="!!control()"
-    [showAggregationActions]="pivotRowColumnField()===null"
-    [pinned]="getColumnPinState(menu.field)" [groupable]="!!getColDef(menu.field)?.groupable"
+    [sortDir]="getSort(menu.field)" [sortable]="menu.mode === 'column' && sortOption() !== 'none'"
+    [showColumnActions]="menu.mode === 'column' && !!control()"
+    [showAggregationActions]="menu.mode === 'column' && pivotRowColumnField()===null"
+    [pinned]="getColumnPinState(menu.field)" [groupable]="menu.mode === 'column' && !!getColDef(menu.field)?.groupable"
     [grouped]="isGroupedByField(menu.field)" [filterable]="!!getColDef(menu.field)?.filterable"
-    [showValueFilter]="!serverSideFiltering() || !!getColDef(menu.field)?.values?.length"
+    [showFilterActions]="menu.mode === 'column'"
+    [showValueFilter]="menu.mode === 'column' && (!serverSideFiltering() || !!getColDef(menu.field)?.values?.length)"
     [filterType]="getMenuFilterType(menu.field)" [operator]="getMenuOperator(menu.field)"
     [operand]="getMenuOperand(menu.field)" [operand2]="getMenuOperand2(menu.field)"
     (operatorChange)="onMenuOperatorChange(menu.field, $event)"
@@ -685,7 +690,7 @@
     (clearFilter)="onMenuClearFilter(menu.field)" (clearAll)="onMenuClearAll()"
     (searchChange)="onFilterMenuSearch($event)" (toggleAll)="onMenuToggleAll(menu.field)"
     (toggleValue)="onMenuToggleValue(menu.field, $event)" [aggregate]="getEffectiveAggregate(getColDef(menu.field)!)"
-    [customItems]="getColDef(menu.field)?.headerMenuItems ?? []"
+    [customItems]="menu.mode === 'column' ? getColDef(menu.field)?.headerMenuItems ?? [] : []"
     (customAction)="onColumnHeaderAction(menu.field, $event)"
     (setAggregate)="onMenuSetAggregate(menu.field, $event)" />
   }

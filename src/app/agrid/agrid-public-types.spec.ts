@@ -12,6 +12,7 @@ import {
   ColumnHeaderActionEvent,
   ColumnMarkEvent,
   GridEditEvent,
+  FirstDataRenderedEvent,
   NewRecord,
   RecordEditEvent,
   RowClickEvent,
@@ -37,6 +38,7 @@ interface PersonRow {
       (rowMark)="onRowMark($event)"
       (columnMark)="onColumnMark($event)"
       (columnHeaderAction)="onColumnHeaderAction($event)"
+      (firstDataRendered)="onFirstDataRendered($event)"
       (cellInfo)="onCellInfo($event)"
       (menuBarAction)="onMenuBarAction($event)"
     />
@@ -94,6 +96,13 @@ class TypedGridHost {
   onColumnHeaderAction(event: ColumnHeaderActionEvent<PersonRow>): void {
     expectTypeOf(event.column).toEqualTypeOf<ColDef<PersonRow>>();
     expectTypeOf(event.key).toEqualTypeOf<string>();
+  }
+
+  onFirstDataRendered(event: FirstDataRenderedEvent<PersonRow>): void {
+    expectTypeOf(event.rows).toEqualTypeOf<readonly PersonRow[]>();
+    expectTypeOf(event.rowCount).toEqualTypeOf<number>();
+    expectTypeOf(event.provider).toEqualTypeOf<AgridProvider<PersonRow>>();
+    expectTypeOf(event.datasource).toEqualTypeOf<AgridDataSource<PersonRow>>();
   }
 
   onCellInfo(event: CellInfoEvent<PersonRow>): void {

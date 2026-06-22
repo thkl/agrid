@@ -93,6 +93,7 @@
   }
 
   @if (filterable()) {
+    @if (showFilterActions()) {
     <div class="ag-filter-menu-section ag-filter-menu-section--border">
       <button class="ag-filter-menu-item ag-filter-menu-item--muted" (click)="clearFilter.emit()">
         ✕ {{ localeText().clearFilter }}
@@ -101,6 +102,7 @@
         ✕ {{ localeText().clearAllFilters }}
       </button>
     </div>
+    }
 
     @if (filterType()) {
       <div class="ag-filter-menu-section ag-filter-menu-section--border ag-filter-menu-condition">

@@ -115,7 +115,7 @@
         [title]="localeText().filterConditionMenu"
         [attr.aria-label]="localeText().filterConditionMenu + ': ' + col.header"
         [attr.aria-expanded]="filterMenuField() === col.field"
-        (click)="$event.stopPropagation(); filterMenuOpen.emit({ event: $event, field: col.field })"
+        (click)="$event.stopPropagation(); filterConditionMenuOpen.emit({ event: $event, field: col.field })"
         (pointerdown)="$event.stopPropagation()"
       >
         {{ c.conditionLabel }}

@@ -191,6 +191,10 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   detailRenderer?: (params: { row: T }) => string;
   /** Fixed height in pixels of an expanded detail panel row. @default 200 */
   detailRowHeight?: number;
+
+  /** this is the id of the grid its stored in the provider the grid will read it as signal */
+  gridid?:string;
+
 }
 
 /**
@@ -308,6 +312,9 @@ export class AgridProvider<T extends object = any> {
   /** Fixed height in pixels of an expanded detail panel row. */
   detailRowHeight: number;
 
+  /** its used to save the config  */
+  gridid?:string;
+
   /** @deprecated Use `control.loading` and `control.setLoading()` instead. */
   readonly loading: WritableSignal<boolean>;
   /** @deprecated Use `control.readonly` and `control.setReadonly()` instead. */
@@ -366,6 +373,7 @@ export class AgridProvider<T extends object = any> {
     this.masterDetail     = config.masterDetail ?? false;
     this.detailRenderer   = config.detailRenderer;
     this.detailRowHeight  = config.detailRowHeight ?? 200;
+    this.gridid = config.gridid;
   }
 
   /** Returns the current reactive row array. */

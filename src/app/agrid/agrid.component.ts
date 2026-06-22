@@ -3,8 +3,10 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  OnChanges,
   Signal,
   afterNextRender,
+  afterRenderEffect,
   computed,
   effect,
   inject,
@@ -68,7 +70,7 @@ import {
   AgridAggregate,
   AgridBodyColumn, AgridField, AgridHeaderColumn, AgridMenuBarContext, AgridMenuBarItem, AgridMenuBarMenuItem,
   AgridMenuBarState, AgridPivotConfig,
-  CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, ColumnHeaderActionEvent, ColumnMarkEvent, DetailRowItem, FilterChangeEvent, GridEditEvent,
+  CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, ColumnHeaderActionEvent, ColumnMarkEvent, DetailRowItem, FilterChangeEvent, FirstDataRenderedEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, PathTreeNodeItem, RecordEditEvent, RowClickEvent,
   RowMarkEvent, RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent,
 } from './agrid.types';
@@ -121,12 +123,13 @@ export type { GridItem };
     '[style.max-height]': 'maxHeight()',
   },
 })
-export class AgridComponent<T extends object = any> {
+export class AgridComponent<T extends object = any> implements OnChanges {
 
   // ── Inputs ───────────────────────────────────────────────────────────────────
 
   /** Grid provider containing columns, data source, control, and options. */
   provider = input<AgridProvider<T>>(new AgridProvider<T>());
+  private restoredProvider?: AgridProvider<T>;
 
   // All display / behaviour options are read from the provider.
   readonly rowHeight = computed(() => this.provider().rowHeight);
@@ -280,6 +283,8 @@ export class AgridComponent<T extends object = any> {
   /** Effective empty-state label. */
   readonly emptyTextLabel = computed<string>(() => this.emptyText() ?? this.localeText().noRows);
 
+  readonly gridId = computed<string|undefined>(()=>this.provider().gridid)
+
   // ── Outputs ──────────────────────────────────────────────────────────────────
 
   /** Emitted after the user commits a cell edit. */
@@ -311,6 +316,9 @@ export class AgridComponent<T extends object = any> {
 
   /** Emitted when a custom column-header menu command is selected. */
   columnHeaderAction = output<ColumnHeaderActionEvent<T>>();
+
+  /** Emitted once after the first non-empty datasource render has completed. */
+  firstDataRendered = output<FirstDataRenderedEvent<T>>();
 
   rowDoubleClicked = output<RowClickEvent<T>>();
 
@@ -380,6 +388,7 @@ export class AgridComponent<T extends object = any> {
 
   private readonly markedIndices = signal<Set<number>>(new Set());
   private readonly markedFields = signal<Set<string>>(new Set());
+  private firstDataRenderedEmitted = false;
 
   /** Original datasource indices marked for inclusion in copy operations. */
   readonly markedRowIndices: Signal<ReadonlySet<number>> =
@@ -449,6 +458,30 @@ export class AgridComponent<T extends object = any> {
     }
   }
 
+
+  ngOnChanges(): void {
+      const provider = this.provider();
+
+      if (
+        provider === this.restoredProvider ||
+        !provider.gridid
+      ) {
+        return;
+      }
+
+      this.restoredProvider = provider;
+      const key = `agrid_settings_${provider.gridid}`;
+      const saved = localStorage.getItem(key);
+
+      if (!saved) return;
+
+      try {
+        provider.loadSettings(JSON.parse(saved));
+      } catch {
+        localStorage.removeItem(key);
+      }
+    }
+
   /** @internal */
   onSidebarDetailEdit(event: AgridSidebarEdit): void {
     this.sidebarController.edit(event);
@@ -488,6 +521,21 @@ export class AgridComponent<T extends object = any> {
     this.columnSizing.autosizeAllColumns();
   }
 
+  /** return yes if we have saved config so a autosize from the client can be surpressed */
+  hasSavedSizeConfig(): boolean {
+    const provider = this.provider();
+    const key = `agrid_settings_${provider.gridid}`;
+    const saved = localStorage.getItem(key);
+    try {
+      if (saved !== null) {
+        const config = JSON.parse(saved);
+        return config && config.control && config.control.columnWidths;
+      }
+       return false;
+    } catch (error) {
+      return false;
+    }
+  }
   /**
    * Clears changed-cell markers after persistence succeeds.
    * Omit `originalIndex` to clear every marker; omit `fields` to clear the whole row.
@@ -1022,9 +1070,10 @@ export class AgridComponent<T extends object = any> {
   });
 
   /** Menu-bar buttons currently allowed by their visibility resolvers. */
-  readonly visibleMenuBarItems = computed(() =>
-    this.menuBarItems().filter(item => this.isMenuBarItemVisible(item)),
-  );
+  readonly visibleMenuBarItems = computed(() => {
+    const usersEntries = this.menuBarItems().filter(item => this.isMenuBarItemVisible(item));
+    return [... this.gridId() ? [{ id: '_internal_save_config', label: this.localeText().saveConfig, icon: '↓' }] : [],...usersEntries];
+  });
 
   private readonly sidebarController = new AgridSidebarController({
     control: this.control,
@@ -1250,6 +1299,27 @@ export class AgridComponent<T extends object = any> {
     // causes the computed pivot rows to be regenerated.
     this.pivotDataSource.linkSignal(this.pivotRows);
     effect(() => this.sidebarController.syncAutoOpen());
+
+    afterRenderEffect(() => {
+      if (this.firstDataRenderedEmitted) return;
+      const datasource = this.dataSource();
+      const rows = datasource.rows() as T[];
+      const hasRenderedData = [
+        ...this.pinnedTopItems(),
+        ...this.displayItems(),
+        ...this.pinnedBottomItems(),
+      ].some(isDataRowItemFn);
+      if (rows.length === 0 || !hasRenderedData) return;
+
+      this.firstDataRenderedEmitted = true;
+      const event: FirstDataRenderedEvent<T> = {
+        rows,
+        rowCount: rows.length,
+        provider: this.provider(),
+        datasource,
+      };
+      queueMicrotask(() => this.firstDataRendered.emit(event));
+    });
 
     effect(() => {
       const datasource = this.dataSource();
@@ -2243,6 +2313,16 @@ export class AgridComponent<T extends object = any> {
     this.openMenuBarItemId.set(id);
   }
 
+  /** @internal Check if the user has pressed the save config button otherwise emit the action */
+  onMenuBarAction(event:string) {
+    if (event === '_internal_save_config' && this.gridId()) {
+      const gridConfig = this.provider().saveSettings();
+      localStorage.setItem(`agrid_settings_${this.gridId()}`, JSON.stringify(gridConfig));
+    } else {
+      this.menuBarAction.emit(event)
+    }
+  }
+
   /** @internal Runs a typed provider context-menu action against erased controller state. */
   runCellMenuItem(item: CellContextMenuItem<T>, menu: AgridCellContextMenu): void {
     item.action({
@@ -2359,8 +2439,8 @@ export class AgridComponent<T extends object = any> {
   }
 
   /** @internal */
-  openFilterMenu(event: MouseEvent, field: string): void {
-    this.columnMenuController.open(event, field);
+  openFilterMenu(event: MouseEvent, field: string, mode: 'column' | 'condition' = 'column'): void {
+    this.columnMenuController.open(event, field, mode);
   }
 
   /** @internal */

@@ -65,6 +65,7 @@ export type {
   ColDef,
   DetailRowItem,
   FilterChangeEvent,
+  FirstDataRenderedEvent,
   GridEditEvent,
   GroupAction,
   HeaderGroup,

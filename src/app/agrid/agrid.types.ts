@@ -750,6 +750,18 @@ export interface ColumnHeaderActionEvent<T extends object = any> {
   key: string;
 }
 
+/** Emitted once after the grid first renders with rows from its active datasource. */
+export interface FirstDataRenderedEvent<T extends object = any> {
+  /** Rows present in the datasource for the first non-empty render. */
+  rows: readonly T[];
+  /** Number of rows present for that render. */
+  rowCount: number;
+  /** Provider attached to the rendered grid. */
+  provider: AgridProvider<T>;
+  /** Active datasource that supplied the rows. */
+  datasource: AgridDataSource<T>;
+}
+
 /** Emitted when the user clicks a data row. */
 export interface RowClickEvent<T extends object = any> {
   /** Snapshot of the clicked row. */

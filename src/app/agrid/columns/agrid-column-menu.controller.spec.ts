@@ -12,6 +12,7 @@ describe('AgridColumnMenuController', () => {
 
     controller.open(event, 'name');
     expect(controller.menu()?.field).toBe('name');
+    expect(controller.menu()?.mode).toBe('column');
 
     controller.open(event, 'name');
     expect(controller.menu()).toBeNull();
@@ -19,6 +20,11 @@ describe('AgridColumnMenuController', () => {
     controller.open(event, 'name');
     controller.open(event, 'department');
     expect(controller.menu()?.field).toBe('department');
+
+    controller.open(event, 'department', 'condition');
+    expect(controller.menu()).toMatchObject({ field: 'department', mode: 'condition' });
+    controller.open(event, 'department', 'condition');
+    expect(controller.menu()).toBeNull();
   });
 
   it('builds sorted value items from column values and tracks selected state', () => {
@@ -35,7 +41,7 @@ describe('AgridColumnMenuController', () => {
         },
       ],
     });
-    controller.menu.set({ field: 'status', x: 0, y: 0 });
+    controller.menu.set({ field: 'status', mode: 'column', x: 0, y: 0 });
     control.setSelectedValues('status', ['done']);
 
     expect(controller.valueItems()).toEqual([
@@ -52,7 +58,7 @@ describe('AgridColumnMenuController', () => {
       ],
     });
 
-    controller.menu.set({ field: 'status', x: 0, y: 0 });
+    controller.menu.set({ field: 'status', mode: 'column', x: 0, y: 0 });
 
     expect(controller.valueItems()).toEqual([]);
     expect(formatter).not.toHaveBeenCalled();
@@ -67,7 +73,7 @@ describe('AgridColumnMenuController', () => {
         values: ['backlog', 'done', 'pending'],
       }],
     });
-    controller.menu.set({ field: 'status', x: 0, y: 0 });
+    controller.menu.set({ field: 'status', mode: 'column', x: 0, y: 0 });
 
     expect(controller.valueItems().find(item => item.rawStr === 'pending')?.active).toBe(true);
   });
@@ -104,7 +110,7 @@ describe('AgridColumnMenuController', () => {
 
   it('toggles distinct value selections and collapses back to all selected', () => {
     const { controller, control } = setup();
-    controller.menu.set({ field: 'department', x: 0, y: 0 });
+    controller.menu.set({ field: 'department', mode: 'column', x: 0, y: 0 });
 
     controller.toggleValue('department', 'Sales');
     expect(control.getFilter('department').selectedValues).toEqual(['Engineering']);

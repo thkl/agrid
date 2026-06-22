@@ -210,6 +210,20 @@ describe('AgridPaneHeaderComponent', () => {
     expect(payload?.field).toBe('email');
   });
 
+  it('emits filterConditionMenuOpen from the filter condition button', () => {
+    setup(
+      'center',
+      [headerColumn({ col: { field: 'name', header: 'Name', filterable: true }, menuFilterType: 'text' })],
+      { hasFilterableColumns: true },
+    );
+    let payload: AgridPaneHeaderColumnEvent<MouseEvent> | undefined;
+    fixture.componentInstance.filterConditionMenuOpen.subscribe(event => (payload = event));
+
+    (el.querySelector('.ag-filter-condition-btn') as HTMLButtonElement).click();
+
+    expect(payload?.field).toBe('name');
+  });
+
   it('emits textFilterChange when typing in the filter input', () => {
     setup(
       'center',

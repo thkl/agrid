@@ -9,6 +9,7 @@ import { passesConditionFilter } from '../agrid.utils';
 /** Position and target field of the open column menu. @internal */
 export type AgridColumnMenuState = {
   field: string;
+  mode: 'column' | 'condition';
   x: number;
   y: number;
 };
@@ -267,15 +268,16 @@ export class AgridColumnMenuController {
   }
 
   /** Opens the requested column menu, or closes it when that column is already open. */
-  open(event: MouseEvent, field: string): void {
+  open(event: MouseEvent, field: string, mode: 'column' | 'condition' = 'column'): void {
     event.stopPropagation();
-    if (this.menu()?.field === field) {
+    if (this.menu()?.field === field && this.menu()?.mode === mode) {
       this.close();
       return;
     }
     this.search.set('');
     this.menu.set({
       field,
+      mode,
       x: Math.min(event.clientX, this.browser.viewportWidth() - 220),
       y: event.clientY,
     });

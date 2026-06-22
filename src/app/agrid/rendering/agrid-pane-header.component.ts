@@ -80,6 +80,7 @@ export class AgridPaneHeaderComponent {
   readonly colHeaderPointerDown = output<AgridPaneHeaderColumnEvent<PointerEvent>>();
   readonly colHeaderClick = output<AgridPaneHeaderColumnEvent<MouseEvent>>();
   readonly filterMenuOpen = output<AgridPaneHeaderColumnEvent<MouseEvent>>();
+  readonly filterConditionMenuOpen = output<AgridPaneHeaderColumnEvent<MouseEvent>>();
   readonly textFilterChange = output<AgridPaneHeaderColumnEvent>();
   readonly resizeKeyDown = output<AgridPaneHeaderResizeEvent<KeyboardEvent>>();
   readonly resizeStart = output<AgridPaneHeaderResizeEvent<MouseEvent>>();

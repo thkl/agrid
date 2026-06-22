@@ -87,4 +87,16 @@ describe('AgridColumnMenuComponent', () => {
     expect(locked.disabled).toBe(true);
     expect(actions).toEqual(['archive']);
   });
+
+  it('can render condition controls without the general filter actions or value picker', () => {
+    fixture.componentRef.setInput('showFilterActions', false);
+    fixture.componentRef.setInput('showValueFilter', false);
+    fixture.componentRef.setInput('sortable', false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.ag-filter-menu-condition')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.ag-filter-menu-search')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.ag-filter-menu-values')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.ag-filter-menu-item')).toBeNull();
+  });
 });

@@ -162,6 +162,7 @@ The `AgridLocaleTextOverrides` type covers all overridable labels.
 | `rowMark` | `RowMarkEvent<T>` | Emitted after the row-header surface or marker checkbox marks or unmarks a row. |
 | `columnMark` | `ColumnMarkEvent<T>` | Emitted after a header marks or unmarks a complete column. |
 | `columnHeaderAction` | `ColumnHeaderActionEvent<T>` | Emitted for a custom column-menu command with `{ column, key }`. |
+| `firstDataRendered` | `FirstDataRenderedEvent<T>` | Emitted once after the first completed render containing datasource rows. |
 | `menuBarAction` | `string` | Emitted for every enabled menu-bar button or dropdown item with its configured `id`. |
 | `treeNodeClick` | `TreeNodeClickEvent` | Emitted when a generated path-tree branch node is clicked. |
 | `treeNodeDoubleClicked` | `TreeNodeClickEvent` | Emitted when a generated path-tree branch node is double-clicked. |
@@ -1058,6 +1059,9 @@ interface AgridControlState {
 
 ### Column Filters
 
+The header arrow opens the complete column menu. The condition button beside an inline filter opens
+only condition operators and operands. Each trigger toggles its own menu mode.
+
 ```ts
 interface ColumnFilter {
   text: string;
@@ -1125,6 +1129,25 @@ interface ColumnFilter {
 | `AgridControl.fromJSON(state)` | Restores control state. |
 
 ## Events And Types
+
+### FirstDataRenderedEvent
+
+`firstDataRendered` fires once per grid component, after the first completed render that contains
+real datasource rows. If the datasource starts empty, the event waits until rows are supplied.
+Server-side loading placeholders do not trigger it.
+
+```html
+<agrid [provider]="provider" (firstDataRendered)="onGridReady($event)" />
+```
+
+```ts
+interface FirstDataRenderedEvent<T> {
+  rows: readonly T[];
+  rowCount: number;
+  provider: AgridProvider<T>;
+  datasource: AgridDataSource<T>;
+}
+```
 
 ### GridEditEvent
 

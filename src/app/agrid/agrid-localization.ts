@@ -88,6 +88,7 @@ export interface AgridLocaleText {
   ungroup: string;
   unpinColumn: string;
   save: string;
+  saveConfig:string;
 }
 
 /** Partial locale text supplied to {@link AgridProvider.addLocalization}. */
@@ -181,6 +182,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     ungroup: 'Ungroup',
     unpinColumn: 'Unpin column',
     save: 'Save',
+    saveConfig:'Save Config',
   },
   de: {
     actions: 'Aktionen',
@@ -268,6 +270,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     ungroup: 'Gruppierung aufheben',
     unpinColumn: 'Fixierung lösen',
     save: 'Speichern',
+    saveConfig: 'Konfig.speichern'
   },
 };
 

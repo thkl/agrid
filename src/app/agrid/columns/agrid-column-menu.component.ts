@@ -102,6 +102,9 @@ export class AgridColumnMenuComponent {
   /** Whether the active column supports value-filter controls. */
   filterable = input<boolean>(false);
 
+  /** Whether clear-filter commands are shown above the condition controls. */
+  showFilterActions = input<boolean>(true);
+
   /** Whether to show the Excel-style distinct-value picker. */
   showValueFilter = input<boolean>(true);
 

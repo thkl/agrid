@@ -99,6 +99,17 @@ Append custom commands to one column's menu and handle them through one typed ou
 
 The event contains `{ column, key }`.
 
+Use `(firstDataRendered)` when host logic must wait until the grid has completed its first render
+containing datasource rows:
+
+```html
+<agrid [provider]="provider" (firstDataRendered)="onGridReady($event)" />
+```
+
+The event fires once per grid component. An initially empty datasource delays it until rows arrive.
+Server-side loading placeholders do not count as rendered data. The payload contains `rows`,
+`rowCount`, `provider`, and `datasource`.
+
 For commands that change `textAlign` at runtime, keep the writable signal in the host instead of
 mutating `event.column`:
 
@@ -210,6 +221,10 @@ the value picker. Text columns offer equals, not equal, like, starts with, ends 
 does not include. Numbers offer `=`, `≠`, `>`, `≥`, `<`, `≤`, and `between`; dates offer on /
 before / after / between. Conditions combine with the header text filter, value picker, and other
 columns using AND semantics, and are included in `AgridControl.toJSON()` state.
+
+The header arrow opens the complete column menu. The condition button beside the inline filter
+opens only the condition operator and operand controls; sorting, layout, grouping, custom commands,
+clear-all actions, and distinct-value selection remain in the complete menu.
 
 ```ts
 const columns: ColDef<Order>[] = [

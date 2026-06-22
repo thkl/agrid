@@ -189,6 +189,7 @@ export class AgridDemoComponent {
     enableRowMarking: true,
     confirmRowDelete:true,
     enableQuickFilter: true,
+    gridid:'demo_grid',
     menuBarItems: [
       { id: 'refresh', label: 'Refresh', icon: '\u21bb' },
       {
@@ -213,7 +214,11 @@ export class AgridDemoComponent {
     this.gridProvider.groupDescription = this.groupDescriptionFn;
     this.gridProvider.groupActions = this.groupActionsList;
     effect(() => this.gridProvider.control.setAutoAddRows(this.autoAdd()));
-    afterNextRender(() => this._grid()?.autosizeAllColumns());
+    afterNextRender(() => {
+      if (!this._grid()?.hasSavedSizeConfig()) {
+        this._grid()?.autosizeAllColumns()
+      }
+    });
   }
 
   readonly groupDescriptionFn = (label: string): string => {

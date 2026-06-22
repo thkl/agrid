@@ -47,6 +47,7 @@ Thumbs.db
 docs/
 graphify-out/
 .codex
+.claude
 AGENTS.md
 .pnpm-store/
 .npmrc

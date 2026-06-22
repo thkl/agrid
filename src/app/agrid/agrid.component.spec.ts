@@ -589,7 +589,7 @@ describe('AgridComponent Tab navigation', () => {
       row: { name: 'Alice', department: 'Engineering' },
     });
     component.groupActionsMenu.set({ x: 5, y: 6, label: 'Engineering' });
-    component.filterMenu.set({ field: 'name', x: 7, y: 8 });
+    component.filterMenu.set({ field: 'name', mode: 'column', x: 7, y: 8 });
     component.openMenuBarItemId.set('actions');
     const event = new KeyboardEvent('keydown', {
       key: 'Escape',
@@ -607,7 +607,7 @@ describe('AgridComponent Tab navigation', () => {
   });
 
   it('closes an open header menu from the document-level Escape hotkey', () => {
-    component.filterMenu.set({ field: 'name', x: 7, y: 8 });
+    component.filterMenu.set({ field: 'name', mode: 'column', x: 7, y: 8 });
     const event = new KeyboardEvent('keydown', {
       key: 'Escape',
       bubbles: true,
@@ -632,7 +632,7 @@ describe('AgridComponent Tab navigation', () => {
       row: { name: 'Alice', department: 'Engineering' },
     });
     component.groupActionsMenu.set({ x: 5, y: 6, label: 'Engineering' });
-    component.filterMenu.set({ field: 'name', x: 7, y: 8 });
+    component.filterMenu.set({ field: 'name', mode: 'column', x: 7, y: 8 });
     component.openMenuBarItemId.set('actions');
     const outside = document.createElement('button');
     document.body.appendChild(outside);
@@ -846,7 +846,7 @@ describe('AgridComponent Tab navigation', () => {
   it('emits custom column-header actions and closes the menu', () => {
     const actions: unknown[] = [];
     component.columnHeaderAction.subscribe(event => actions.push(event));
-    component.filterMenu.set({ field: 'name', x: 10, y: 10 });
+    component.filterMenu.set({ field: 'name', mode: 'column', x: 10, y: 10 });
 
     component.onColumnHeaderAction('name', 'archive');
 
@@ -952,11 +952,11 @@ describe('AgridComponent server-side filtering', () => {
     const emitted: unknown[] = [];
     component.sortChange.subscribe(event => emitted.push(event));
 
-    component.filterMenu.set({ field: 'name', x: 0, y: 0 });
+    component.filterMenu.set({ field: 'name', mode: 'column', x: 0, y: 0 });
     component.onMenuSort('name', 'asc');
     expect(component.filterMenu()).toBeNull();
 
-    component.filterMenu.set({ field: 'name', x: 0, y: 0 });
+    component.filterMenu.set({ field: 'name', mode: 'column', x: 0, y: 0 });
     component.onMenuSort('name', 'asc');
 
     expect(emitted).toEqual([
@@ -994,7 +994,7 @@ describe('AgridComponent server-side filtering', () => {
       sortOption: 'none',
     });
     fixture.componentRef.setInput('provider', provider);
-    component.filterMenu.set({ field: 'name', x: 0, y: 0 });
+    component.filterMenu.set({ field: 'name', mode: 'column', x: 0, y: 0 });
     fixture.detectChanges();
 
     const menuText = fixture.nativeElement.querySelector('.ag-filter-menu')?.textContent ?? '';
@@ -1006,7 +1006,7 @@ describe('AgridComponent server-side filtering', () => {
   });
 
   it('hides the Excel-style value picker', () => {
-    component.filterMenu.set({ field: 'name', x: 0, y: 0 });
+    component.filterMenu.set({ field: 'name', mode: 'column', x: 0, y: 0 });
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.ag-filter-menu-values')).toBeNull();
@@ -1550,4 +1550,43 @@ describe('AgridComponent horizontal cell spanning', () => {
     expect(normalCells[0].style.textAlign).toBe('center');
   });
 
+});
+
+describe('AgridComponent first data render lifecycle', () => {
+  beforeAll(() => {
+    HTMLElement.prototype.scrollTo = () => undefined;
+  });
+
+  it('waits for non-empty datasource data and emits only after its first render', async () => {
+    const datasource = new AgridDataSource<{ name: string }>([]);
+    const provider = new AgridProvider({
+      columns: [{ field: 'name', header: 'Name' }],
+      datasource,
+    });
+    await TestBed.configureTestingModule({ imports: [AgridComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(AgridComponent<{ name: string }>);
+    fixture.componentRef.setInput('provider', provider);
+    const events: unknown[] = [];
+    fixture.componentInstance.firstDataRendered.subscribe(event => events.push(event));
+
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(events).toEqual([]);
+
+    datasource.setData([{ name: 'Alice' }, { name: 'Bob' }]);
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(events).toEqual([{
+      rows: datasource.rows(),
+      rowCount: 2,
+      provider,
+      datasource,
+    }]);
+
+    datasource.setData([{ name: 'Carol' }]);
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(events).toHaveLength(1);
+    fixture.destroy();
+  });
 });
