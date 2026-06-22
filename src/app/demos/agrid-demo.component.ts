@@ -189,7 +189,7 @@ export class AgridDemoComponent {
     enableRowMarking: true,
     confirmRowDelete:true,
     enableQuickFilter: true,
-    gridid:'demo_grid',
+    gridId:'demo_grid',
     menuBarItems: [
       { id: 'refresh', label: 'Refresh', icon: '\u21bb' },
       {

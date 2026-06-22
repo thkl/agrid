@@ -193,7 +193,7 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   detailRowHeight?: number;
 
   /** this is the id of the grid its stored in the provider the grid will read it as signal */
-  gridid?:string;
+  gridId?:string;
 
 }
 
@@ -313,7 +313,7 @@ export class AgridProvider<T extends object = any> {
   detailRowHeight: number;
 
   /** its used to save the config  */
-  gridid?:string;
+  gridId?:string;
 
   /** @deprecated Use `control.loading` and `control.setLoading()` instead. */
   readonly loading: WritableSignal<boolean>;
@@ -373,7 +373,7 @@ export class AgridProvider<T extends object = any> {
     this.masterDetail     = config.masterDetail ?? false;
     this.detailRenderer   = config.detailRenderer;
     this.detailRowHeight  = config.detailRowHeight ?? 200;
-    this.gridid = config.gridid;
+    this.gridId = config.gridId;
   }
 
   /** Returns the current reactive row array. */

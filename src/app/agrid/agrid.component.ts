@@ -283,7 +283,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** Effective empty-state label. */
   readonly emptyTextLabel = computed<string>(() => this.emptyText() ?? this.localeText().noRows);
 
-  readonly gridId = computed<string|undefined>(()=>this.provider().gridid)
+  readonly gridId = computed<string|undefined>(()=>this.provider().gridId)
 
   // ── Outputs ──────────────────────────────────────────────────────────────────
 
@@ -464,13 +464,13 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
       if (
         provider === this.restoredProvider ||
-        !provider.gridid
+        !provider.gridId
       ) {
         return;
       }
 
       this.restoredProvider = provider;
-      const key = `agrid_settings_${provider.gridid}`;
+      const key = `agrid_settings_${provider.gridId}`;
       const saved = localStorage.getItem(key);
 
       if (!saved) return;
@@ -524,7 +524,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** return yes if we have saved config so a autosize from the client can be surpressed */
   hasSavedSizeConfig(): boolean {
     const provider = this.provider();
-    const key = `agrid_settings_${provider.gridid}`;
+    const key = `agrid_settings_${provider.gridId}`;
     const saved = localStorage.getItem(key);
     try {
       if (saved !== null) {
