@@ -558,6 +558,16 @@
     }
   </div><!-- /.ag-main-area -->
 
+  @if (!hideGridStatusBar() && selectionSummaryDisplay(); as summary) {
+  <div class="ag-status-bar" role="status" aria-live="polite">
+    <span><strong>{{ localeText().aggregateCount }}:</strong> {{ summary.count }}</span>
+    <span><strong>{{ localeText().aggregateSum }}:</strong> {{ summary.sum }}</span>
+    <span><strong>{{ localeText().aggregateAvg }}:</strong> {{ summary.average }}</span>
+    <span><strong>{{ localeText().aggregateMin }}:</strong> {{ summary.min }}</span>
+    <span><strong>{{ localeText().aggregateMax }}:</strong> {{ summary.max }}</span>
+  </div>
+  }
+
   @if (showPagination()) {
   <nav class="ag-pagination" [attr.aria-label]="localeText().pagination">
     <button class="ag-page-btn" [attr.aria-label]="localeText().firstPage" [disabled]="control()!.currentPage() <= 1"

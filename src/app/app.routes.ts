@@ -22,6 +22,10 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/conditional-formatting.component').then(m => m.ConditionalFormattingDemoComponent),
   },
   {
+    path: 'selection-summary',
+    loadComponent: () => import('./demos/selection-summary.component').then(m => m.SelectionSummaryDemoComponent),
+  },
+  {
     path: 'pagination',
     loadComponent: () => import('./demos/pagination.component').then(m => m.PaginationDemoComponent),
   },

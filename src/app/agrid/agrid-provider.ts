@@ -195,6 +195,7 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   /** this is the id of the grid its stored in the provider the grid will read it as signal */
   gridId?:string;
 
+  hideGridStatusBar?:boolean;
 }
 
 /**
@@ -315,6 +316,9 @@ export class AgridProvider<T extends object = any> {
   /** its used to save the config  */
   gridId?:string;
 
+  /** Hides the summary status bar */
+  hideGridStatusBar?:boolean;
+
   /** @deprecated Use `control.loading` and `control.setLoading()` instead. */
   readonly loading: WritableSignal<boolean>;
   /** @deprecated Use `control.readonly` and `control.setReadonly()` instead. */
@@ -374,6 +378,7 @@ export class AgridProvider<T extends object = any> {
     this.detailRenderer   = config.detailRenderer;
     this.detailRowHeight  = config.detailRowHeight ?? 200;
     this.gridId = config.gridId;
+    this.hideGridStatusBar = config.hideGridStatusBar;
   }
 
   /** Returns the current reactive row array. */

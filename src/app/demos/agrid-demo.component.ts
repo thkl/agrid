@@ -205,6 +205,7 @@ export class AgridDemoComponent {
         ],
       },
     ],
+    hideGridStatusBar:true
   });
   readonly lastEdit = signal('');
   readonly autoAdd = signal(false);

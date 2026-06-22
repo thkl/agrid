@@ -48,6 +48,7 @@ export type {
   AgridParentTreeConfig,
   AgridPathSegmentParams,
   AgridPathTreeConfig,
+  AgridSelectionSummary,
   AgridColumnHeaderMenuItem,
   AgridTreeConfig,
   AgridTreeNodeEvent,

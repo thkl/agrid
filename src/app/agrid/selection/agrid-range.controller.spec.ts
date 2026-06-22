@@ -129,6 +129,23 @@ describe('AgridRangeController', () => {
     expect(controller.consumeSuppressedActivation()).toBe(false);
   });
 
+  it('extends the existing anchor on Shift+pointerdown without replacing it', () => {
+    const { controller, selectedCell, selectedRange } = createController();
+    selectedCell.set({ rowIndex: 0, colIndex: 0 });
+
+    controller.startSelection(new PointerEvent('pointerdown', {
+      button: 0,
+      shiftKey: true,
+    }), 2, 1);
+
+    expect(selectedCell()).toEqual({ rowIndex: 2, colIndex: 1 });
+    expect(selectedRange()).toEqual({
+      anchor: { rowIndex: 0, colIndex: 0 },
+      focus: { rowIndex: 2, colIndex: 1 },
+    });
+    expect(controller.consumeSuppressedActivation()).toBe(true);
+  });
+
   it('keeps scrolling while a selection drag remains outside the viewport', () => {
     vi.useFakeTimers();
     const { controller, verticalViewport, horizontalViewport } = createController();

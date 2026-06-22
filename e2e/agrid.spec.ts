@@ -171,6 +171,18 @@ test.describe('agrid browser interactions', () => {
     await expect(status).toHaveCSS('color', 'rgb(153, 27, 27)');
   });
 
+  test('shows live statistics for a selected numeric range', async ({ page }) => {
+    await page.goto('/#/selection-summary');
+    await page.locator(cell(0, 1)).first().click();
+    await page.locator(cell(2, 4)).first().click({ modifiers: ['Shift'] });
+
+    const status = page.locator('.ag-status-bar');
+    await expect(status).toBeVisible();
+    await expect(status).toContainText('Count: 12');
+    await expect(status).toContainText('Sum:');
+    await expect(page.getByLabel('Selection summary signal')).toContainText('12 numeric cells');
+  });
+
   test('navigates client-side pages with labelled controls', async ({ page }) => {
     await page.goto('/#/pagination');
     const pageInfo = page.locator('.ag-page-info');

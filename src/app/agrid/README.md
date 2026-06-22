@@ -82,6 +82,10 @@ Marking is independent from row selection. Cell and range copy use the same copi
 every marked row, while Copy row uses every visible column. Duplicate rows are omitted, and marked
 rows remain included when filters hide them.
 
+Selecting numeric cells displays a live status bar with count, sum, average, minimum, and maximum.
+Read the same values from `grid.selectionSummary()`. The signal is `null` when the active selection
+contains no finite numeric values.
+
 Set `enableColumnMarking: true` to toggle complete-column highlighting by clicking a header outside
 its menu and resize controls. The grid exposes `markedColumnFields()` and emits `(columnMark)`.
 

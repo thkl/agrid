@@ -54,6 +54,11 @@ export class AgridRangeController {
   startSelection(event: PointerEvent, rowIndex: number, colIndex: number): void {
     if (event.button !== 0 || this.selectionDragAnchor) return;
     this.opts.cancelEdit();
+    if (event.shiftKey && this.opts.selectedCell()) {
+      this.extendTo(rowIndex, colIndex);
+      this.suppressActivation = true;
+      return;
+    }
     const anchor = { rowIndex, colIndex };
     this.selectionDragAnchor = anchor;
     this.selectionDragMoved = false;

@@ -74,6 +74,7 @@ export class PageComponent {
 - Undo/redo for edits, paste, and fill operations.
 - Cell range selection with Shift+arrow, Shift+click, or left-button drag with edge auto-scroll.
 - Clipboard copy/paste using TSV/CSV-like plain text.
+- Live selection status bar with count, sum, average, minimum, and maximum.
 - Fill handle for repeating selected cell/range values down or right.
 - Find panel with Ctrl/Cmd+F, full filtered-dataset matching, and next/previous navigation.
 - Text filters, string/number/date condition filters, value filters, and single-column sorting.
@@ -484,6 +485,7 @@ Call these through `viewChild(AgridComponent)`.
 | `selectedRowIndex` | `Signal<number \| null>` | First selected row index, useful for single selection. |
 | `markedRowIndices` | `Signal<ReadonlySet<number>>` | Original datasource indices included in copy operations. |
 | `markedColumnFields` | `Signal<ReadonlySet<string>>` | Fields currently marked as complete columns. |
+| `selectionSummary` | `Signal<AgridSelectionSummary \| null>` | Live numeric statistics for the active cell or range. `null` when no numeric values are selected. |
 | `sidebarOpen` | `Signal<boolean>` | Current sidebar visibility. |
 | `canUndo` | `Signal<boolean>` | Whether Ctrl/Cmd+Z can undo an edit. Requires `provider.control`. |
 | `canRedo` | `Signal<boolean>` | Whether redo is available. Requires `provider.control`. |
@@ -1331,6 +1333,26 @@ collapsed descendants; navigating to one expands its ancestor path before scroll
 - Marked rows are appended to every copy using the copied columns.
 - Copying without an active cell copies all visible columns from the marked rows.
 - Context-menu `Copy cell` and `Copy row` also include marked rows without duplicates.
+
+### Selection status bar
+
+Selecting a numeric cell or rectangular range shows a status bar beneath the grid body with Count,
+Sum, Average, Minimum, and Maximum. It updates immediately when the range, projected rows, columns,
+or datasource values change and hides when the selection contains no numeric values.
+
+Actual finite numbers are included in every column. Numeric strings are included only when their
+column declares `type: 'number'`, preventing IDs and numeric-looking text from being aggregated by
+accident. Group headers, detail panels, loading rows, blanks, `NaN`, and infinite values are skipped.
+
+The raw values are also available programmatically:
+
+```ts
+const summary = grid.selectionSummary();
+// { count, sum, average, min, max } | null
+```
+
+The dedicated `/selection-summary` demo shows Shift+click and drag selection across comparable
+regional revenue columns and mirrors the raw signal above the grid.
 - Row marking is independent from row selection.
 - Marked rows remain part of copy output when filters hide them.
 - Paste accepts TSV or CSV-like plain text and writes from the active cell.

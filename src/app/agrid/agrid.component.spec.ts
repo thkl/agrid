@@ -1590,3 +1590,50 @@ describe('AgridComponent first data render lifecycle', () => {
     fixture.destroy();
   });
 });
+
+describe('AgridComponent selection status bar', () => {
+  it('updates numeric statistics when the selected range data changes', async () => {
+    const datasource = new AgridDataSource([
+      { name: 'A', amount: 10, score: 2 },
+      { name: 'B', amount: 20, score: 4 },
+    ]);
+    const provider = new AgridProvider({
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'amount', header: 'Amount', type: 'number' },
+        { field: 'score', header: 'Score', type: 'number' },
+      ],
+      datasource,
+    });
+    await TestBed.configureTestingModule({ imports: [AgridComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(AgridComponent);
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.selectedCell.set({ rowIndex: 1, colIndex: 2 });
+    component.selectedRange.set({
+      anchor: { rowIndex: 0, colIndex: 1 },
+      focus: { rowIndex: 1, colIndex: 2 },
+    });
+    fixture.detectChanges();
+
+    expect(component.selectionSummary()).toEqual({
+      count: 4, sum: 36, average: 9, min: 2, max: 20,
+    });
+    expect((fixture.nativeElement as HTMLElement).querySelector('.ag-status-bar')?.textContent)
+      .toContain('Sum: 36');
+
+    datasource.patchRow(0, { amount: 30 });
+    fixture.detectChanges();
+    expect(component.selectionSummary()).toEqual({
+      count: 4, sum: 56, average: 14, min: 2, max: 30,
+    });
+
+    component.selectedRange.set(null);
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    fixture.detectChanges();
+    expect(component.selectionSummary()).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.ag-status-bar')).toBeNull();
+    fixture.destroy();
+  });
+});

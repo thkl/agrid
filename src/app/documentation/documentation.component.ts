@@ -350,7 +350,11 @@ readonly provider = new AgridProvider<Person>({
 // Marked rows are appended to clipboard operations.
 const selectedRows = [...(grid()?.selectedRowIndices() ?? [])]
   .map(index => datasource.getRow(index));
-grid()?.clearMarkedRows();`;
+grid()?.clearMarkedRows();
+
+// Live spreadsheet statistics for the active numeric range:
+const summary = grid()?.selectionSummary();
+// { count, sum, average, min, max } | null`;
 
   readonly groupingGuideCode = `const columns: ColDef<Sale>[] = [
   { field: 'region', header: 'Region', groupable: true },

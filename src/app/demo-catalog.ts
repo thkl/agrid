@@ -137,6 +137,43 @@ readonly provider = new AgridProvider({
 });`,
   },
   {
+    path: '/selection-summary',
+    label: 'Selection summary',
+    title: 'Live statistics for selected cells',
+    summary:
+      'Select numeric cells to display count, sum, average, minimum, and maximum in a responsive status bar.',
+    points: [
+      'Click, Shift+click, use Shift+arrow, or drag to create a rectangular cell range.',
+      'Only finite numeric values contribute to the live statistics.',
+      'Read the same values programmatically from selectionSummary().',
+    ],
+    code: `interface RevenueRow {
+  month: string;
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
+const columns: ColDef<RevenueRow>[] = [
+  { field: 'month', header: 'Month', editable: false },
+  { field: 'north', header: 'North', type: 'number' },
+  { field: 'south', header: 'South', type: 'number' },
+  { field: 'east', header: 'East', type: 'number' },
+  { field: 'west', header: 'West', type: 'number' },
+];
+
+readonly grid = viewChild(AgridComponent<RevenueRow>);
+readonly summary = computed(() => this.grid()?.selectionSummary() ?? null);
+readonly provider = new AgridProvider({
+  columns,
+  datasource: new AgridDataSource(rows),
+});
+
+// The status bar appears automatically for numeric selections.
+// summary() returns { count, sum, average, min, max } or null.`,
+  },
+  {
     path: '/pagination',
     label: 'Pagination',
     title: 'Client-side pagination',

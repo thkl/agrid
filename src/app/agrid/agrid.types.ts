@@ -762,6 +762,15 @@ export interface FirstDataRenderedEvent<T extends object = any> {
   datasource: AgridDataSource<T>;
 }
 
+/** Live numeric statistics for the active cell or range selection. */
+export interface AgridSelectionSummary {
+  count: number;
+  sum: number;
+  average: number;
+  min: number;
+  max: number;
+}
+
 /** Emitted when the user clicks a data row. */
 export interface RowClickEvent<T extends object = any> {
   /** Snapshot of the clicked row. */

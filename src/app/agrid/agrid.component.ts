@@ -37,6 +37,7 @@ import { AgridDragHandler } from './rows/agrid-drag.handler';
 import { AgridEditController } from './editing/agrid-edit.controller';
 import { AgridFindController } from './selection/agrid-find.controller';
 import { AgridFindPanelComponent } from './selection/agrid-find-panel.component';
+import { computeSelectionSummary } from './selection/agrid-selection-summary';
 import { AgridGroupController } from './rows/agrid-group.controller';
 import { AgridTreeController } from './rows/agrid-tree.controller';
 import { AgridLocaleText, resolveAgridLocaleText, resolveLocale } from './agrid-localization';
@@ -67,7 +68,7 @@ import {
 } from './agrid.utils';
 import { AgridVariableRowSizeDirective } from './infrastructure/agrid-variable-row-size.strategy';
 import {
-  AgridAggregate,
+  AgridAggregate, AgridSelectionSummary,
   AgridBodyColumn, AgridField, AgridHeaderColumn, AgridMenuBarContext, AgridMenuBarItem, AgridMenuBarMenuItem,
   AgridMenuBarState, AgridPivotConfig,
   CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, ColumnHeaderActionEvent, ColumnMarkEvent, DetailRowItem, FilterChangeEvent, FirstDataRenderedEvent, GridEditEvent,
@@ -173,6 +174,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly loading = computed(() => this.control()?.loading() ?? false);
   readonly emptyText = computed(() => this.provider().emptyText);
   readonly useSidebarEditor = computed(() => this.provider().useSidebarEditor);
+  readonly hideGridStatusBar = computed(() => this.provider().hideGridStatusBar);
 
   /** Host callback for per-row CSS classes, or `undefined`. */
   readonly rowClassFn = computed(() => this.provider().getRowClass as
@@ -183,27 +185,27 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     | ((row: Record<string, unknown>, index: number) => 'top' | 'bottom' | undefined)
     | undefined);
 
-  readonly pivotRowColumnField = computed(()=>{
+  readonly pivotRowColumnField = computed(() => {
     return this.provider().pivotConfig?.rowField;
   })
 
-  readonly pivotHeaderLabel = computed (()=> {
-    const aggr : AgridAggregate | undefined = this.provider().pivotConfig?.aggregate;
+  readonly pivotHeaderLabel = computed(() => {
+    const aggr: AgridAggregate | undefined = this.provider().pivotConfig?.aggregate;
     const vcfield = this.provider().pivotConfig?.valueField;
-    const valueColumn = this.provider().columns().find(c=>c.field === vcfield);
+    const valueColumn = this.provider().columns().find(c => c.field === vcfield);
     switch (aggr) {
-         case "sum":
-         return `${this.localeText().aggregateSum} ${valueColumn?.header ?? ''}`;
-         case "avg":
-         return `${this.localeText().aggregateAvg} ${valueColumn?.header ?? ''}`;
-         case "count":
-         return `${this.localeText().aggregateCount} ${valueColumn?.header ?? ''}`;
-         case "max":
-         return `${this.localeText().aggregateMax} ${valueColumn?.header ?? ''}`;
-         case "min":
-         return `${this.localeText().aggregateMin} ${valueColumn?.header ?? ''}`;
-         default: 
-          return undefined;
+      case "sum":
+        return `${this.localeText().aggregateSum} ${valueColumn?.header ?? ''}`;
+      case "avg":
+        return `${this.localeText().aggregateAvg} ${valueColumn?.header ?? ''}`;
+      case "count":
+        return `${this.localeText().aggregateCount} ${valueColumn?.header ?? ''}`;
+      case "max":
+        return `${this.localeText().aggregateMax} ${valueColumn?.header ?? ''}`;
+      case "min":
+        return `${this.localeText().aggregateMin} ${valueColumn?.header ?? ''}`;
+      default:
+        return undefined;
     }
   });
   /**
@@ -283,7 +285,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** Effective empty-state label. */
   readonly emptyTextLabel = computed<string>(() => this.emptyText() ?? this.localeText().noRows);
 
-  readonly gridId = computed<string|undefined>(()=>this.provider().gridId)
+  readonly gridId = computed<string | undefined>(() => this.provider().gridId)
 
   // ── Outputs ──────────────────────────────────────────────────────────────────
 
@@ -460,27 +462,27 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
 
   ngOnChanges(): void {
-      const provider = this.provider();
+    const provider = this.provider();
 
-      if (
-        provider === this.restoredProvider ||
-        !provider.gridId
-      ) {
-        return;
-      }
-
-      this.restoredProvider = provider;
-      const key = `agrid_settings_${provider.gridId}`;
-      const saved = localStorage.getItem(key);
-
-      if (!saved) return;
-
-      try {
-        provider.loadSettings(JSON.parse(saved));
-      } catch {
-        localStorage.removeItem(key);
-      }
+    if (
+      provider === this.restoredProvider ||
+      !provider.gridId
+    ) {
+      return;
     }
+
+    this.restoredProvider = provider;
+    const key = `agrid_settings_${provider.gridId}`;
+    const saved = localStorage.getItem(key);
+
+    if (!saved) return;
+
+    try {
+      provider.loadSettings(JSON.parse(saved));
+    } catch {
+      localStorage.removeItem(key);
+    }
+  }
 
   /** @internal */
   onSidebarDetailEdit(event: AgridSidebarEdit): void {
@@ -531,7 +533,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
         const config = JSON.parse(saved);
         return config && config.control && config.control.columnWidths;
       }
-       return false;
+      return false;
     } catch (error) {
       return false;
     }
@@ -602,8 +604,8 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   readonly allowRowReorder = computed(() =>
     (this.control()?.allowRowReorder() ?? false)
-      && !this.control()?.groupByField()
-      && !this.provider().pivotConfig
+    && !this.control()?.groupByField()
+    && !this.provider().pivotConfig
   );
 
   /** `true` when there is a committed edit that can be undone (Ctrl+Z). */
@@ -903,6 +905,32 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     onCellEdit: event => this.emitEditEvents(event),
   }, this.destroyRef);
 
+  /** Live numeric statistics for the active cell or rectangular range. */
+  readonly selectionSummary = computed<AgridSelectionSummary | null>(() =>
+    computeSelectionSummary(
+      this.filteredItems(),
+      this.visibleColDefs(),
+      this.rangeController.getActiveSelectionBounds(),
+    )
+  );
+
+  /** Locale-formatted status-bar values derived from {@link selectionSummary}. */
+  readonly selectionSummaryDisplay = computed(() => {
+    const summary = this.selectionSummary();
+    if (!summary) return null;
+    const locale = this.locale();
+    const format = (value: number): string => value.toLocaleString(locale, {
+      maximumFractionDigits: 2,
+    });
+    return {
+      count: summary.count.toLocaleString(locale),
+      sum: format(summary.sum),
+      average: format(summary.average),
+      min: format(summary.min),
+      max: format(summary.max),
+    };
+  });
+
   private readonly columnSizing = new AgridColumnSizingController({
     control: this.control,
     filteredItems: this.filteredItems,
@@ -1072,7 +1100,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** Menu-bar buttons currently allowed by their visibility resolvers. */
   readonly visibleMenuBarItems = computed(() => {
     const usersEntries = this.menuBarItems().filter(item => this.isMenuBarItemVisible(item));
-    return [... this.gridId() ? [{ id: '_internal_save_config', label: this.localeText().saveConfig, icon: '↓' }] : [],...usersEntries];
+    return [... this.gridId() ? [{ id: '_internal_save_config', label: this.localeText().saveConfig, icon: '↓' }] : [], ...usersEntries];
   });
 
   private readonly sidebarController = new AgridSidebarController({
@@ -2314,7 +2342,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   }
 
   /** @internal Check if the user has pressed the save config button otherwise emit the action */
-  onMenuBarAction(event:string) {
+  onMenuBarAction(event: string) {
     if (event === '_internal_save_config' && this.gridId()) {
       const gridConfig = this.provider().saveSettings();
       localStorage.setItem(`agrid_settings_${this.gridId()}`, JSON.stringify(gridConfig));

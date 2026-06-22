@@ -149,7 +149,12 @@
         <li>Ctrl/Cmd+C and Ctrl/Cmd+V use tab-separated clipboard text.</li>
         <li>The fill handle repeats a value or pattern down or right.</li>
         <li>Row marking creates a persistent copy basket independent from selection.</li>
+        <li>Numeric selections display Count, Sum, Average, Minimum, and Maximum in the status bar.</li>
       </ul>
+      <p>
+        The same live values are available from <code>grid.selectionSummary()</code>. The signal is
+        <code>null</code> when no finite numeric cells are selected.
+      </p>
     </section>
 
     <section id="guide-grouping" class="guide-chapter">
@@ -255,6 +260,7 @@
         <span>Pagination</span>
         <span>Pinned columns</span>
         <span>Range selection</span>
+        <span>Selection status bar</span>
         <span>Copy, paste, and fill</span>
         <span>Custom cell renderers</span>
         <span>CSV export</span>
@@ -355,6 +361,9 @@
             <tr><td><code>readonly</code></td><td><code>false</code></td><td>Disables all cell editing.</td></tr>
             <tr><td><code>loading</code></td><td><code>false</code></td><td>Shows the loading overlay.</td></tr>
             <tr><td><code>gridId</code></td><td><code>Empty</code></td><td>A id string for the grid. If the grid has an id, there will be an menu button to save the column/filter/pivot config for this grid to the browsers localstorage. If the grid is able to load this config on init, it will be automatically restored.</td></tr>
+            <tr><td><code>hideGridStatusBar</code></td><td><code>false</code></td><td>This will hide the grids status bar if set to true.</td></tr>
+
+            
           </tbody>
         </table>
       </div>
