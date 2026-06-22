@@ -44,6 +44,7 @@ const COLUMNS: ColDef<OrderRow>[] = [
   { field: 'status', header: 'Status', width: 120,
     values: ['paid', 'pending', 'refunded'],
     cellClass: ({ value }) => (value === 'refunded' ? 'cell-refunded' : '') },
+  { field: 'notes', header: 'Notes', width: 220 },
 ];
 
 @Component({
@@ -55,7 +56,7 @@ const COLUMNS: ColDef<OrderRow>[] = [
       <div class="demo-header">
         <h2>Master / Detail &amp; Pinned Rows</h2>
         <span class="demo-meta">
-          Click the ▶ chevron to expand a row's detail panel · the TOTAL row is pinned to the bottom ·
+          Expand a row, then click its Notes field to edit multiline text · the TOTAL row is pinned to the bottom ·
           right-click any row to pin/unpin it · pending orders are tinted via getRowClass
         </span>
       </div>
@@ -88,14 +89,14 @@ export class MasterDetailDemoComponent {
       row.isSummary ? 'row-summary' : row.status === 'pending' ? 'row-pending' : '',
     pinRow: (row: OrderRow) => (row.isSummary ? 'bottom' : undefined),
     masterDetail: true,
-    detailRowHeight: 150,
+    detailRowHeight: 220,
+    detailColumnField: 'notes',
     detailRenderer: ({ row }: { row: OrderRow }) => `
       <div class="od-detail">
         <div><strong>Customer:</strong> ${row.customer}</div>
         <div><strong>Region:</strong> ${row.region}</div>
         <div><strong>Total:</strong> $${Number(row.total).toLocaleString()}</div>
         <div><strong>Status:</strong> ${row.status}</div>
-        <div><strong>Notes:</strong> ${row.notes}</div>
       </div>`,
   });
 }

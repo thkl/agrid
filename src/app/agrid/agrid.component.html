@@ -280,7 +280,29 @@
               }
               } @else if (isDetailRowItem(item)) {
               <div class="ag-detail-panel" [style.height.px]="detailRowHeight()"
-                [style.min-width.px]="scrollableTotalWidth()" [innerHTML]="detailHtml(item)"></div>
+                [style.min-width.px]="scrollableTotalWidth()">
+                <div [innerHTML]="detailHtml(item)"></div>
+                @if (detailColumn(); as detailCol) {
+                <div class="ag-detail-column-field">
+                  <span class="ag-detail-column-label">{{ detailCol.header }}</span>
+                  @if (detailEditingRow() === item.detailFor) {
+                  <textarea class="ag-detail-column-textarea" [attr.data-detail-row]="item.detailFor"
+                    [class.ag-detail-column-textarea--invalid]="!!detailValidationError()"
+                    [value]="detailDraft()" (input)="onDetailDraftInput($event)"
+                    (keydown)="onDetailEditorKeydown(item, $event)"
+                    (blur)="commitDetailFieldEdit(item)"></textarea>
+                  @if (detailValidationError(); as message) {
+                  <span class="ag-detail-column-error" role="alert">{{ message }}</span>
+                  }
+                  } @else {
+                  <div class="ag-detail-column-value" [class.ag-detail-column-value--editable]="isDetailFieldEditable(item)"
+                    [attr.tabindex]="isDetailFieldEditable(item) ? 0 : null"
+                    (click)="startDetailFieldEdit(item, $event)"
+                    (keydown.enter)="startDetailFieldEdit(item, $event)">{{ detailFieldDisplay(item) }}</div>
+                  }
+                </div>
+                }
+              </div>
               } @else if (isPathTreeNodeItem(item)) {
               <div class="ag-path-tree-content" [style.min-width.px]="scrollableTotalWidth()"
                 [style.padding-left.px]="treeRowLevel(item) * 16 + 8"

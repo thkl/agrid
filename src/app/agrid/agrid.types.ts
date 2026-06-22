@@ -662,7 +662,7 @@ export interface ValidationFailedEvent<T extends object = any> {
   /** Message returned by the `validate` hook. */
   message: string;
   /** Which editing surface produced the rejected edit. */
-  source: 'inline' | 'sidebar';
+  source: 'inline' | 'sidebar' | 'detail';
 }
 
 /** Emitted by `(cellEdit)` after the user commits a cell change. */

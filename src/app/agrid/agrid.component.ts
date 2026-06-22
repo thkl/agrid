@@ -59,6 +59,9 @@ import {
 } from './editing/agrid-sidebar.component';
 import {
   isDataRowItem as isDataRowItemFn,
+  coerceDateInputValue,
+  coerceNumberInputValue,
+  getDisplayForField,
   isDetailRowItem as isDetailRowItemFn,
   isGroupHeaderItem as isGroupHeaderItemFn,
   isPathTreeNodeItem as isPathTreeNodeItemFn,
@@ -73,7 +76,7 @@ import {
   AgridMenuBarState, AgridPivotConfig,
   CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, ColumnHeaderActionEvent, ColumnMarkEvent, DetailRowItem, FilterChangeEvent, FirstDataRenderedEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, PathTreeNodeItem, RecordEditEvent, RowClickEvent,
-  RowMarkEvent, RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent,
+  RowMarkEvent, RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent, ValueOption,
 } from './agrid.types';
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
@@ -230,6 +233,15 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   );
   /** Fixed detail-panel height in pixels. */
   readonly detailRowHeight = computed(() => this.provider().detailRowHeight);
+  /** Column configured as the expanded panel's multiline detail field. */
+  readonly detailColumn = computed<ColDef | null>(() => {
+    const field = this.provider().detailColumnField;
+    return field ? this.colDefs().find(col => col.field === field) ?? null : null;
+  });
+  /** Datasource row currently editing its expanded detail field. */
+  readonly detailEditingRow = signal<number | null>(null);
+  readonly detailDraft = signal('');
+  readonly detailValidationError = signal<string | null>(null);
 
   /** Read-only pivot rows and generated columns, or `null` in the normal datasource view. */
   private readonly pivotResult = computed(() => {
@@ -1519,6 +1531,111 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     const html = this.provider().detailRenderer?.({ row: item.row as T }) ?? '';
     this.detailHtmlCache.set(item, html);
     return html;
+  }
+
+  /** @internal Formatted value shown while a configured detail field is not being edited. */
+  detailFieldDisplay(item: DetailRowItem): string {
+    const col = this.detailColumn();
+    return col ? getDisplayForField(col, item.row[col.field], this.locale()) : '';
+  }
+
+  /** @internal Whether the configured detail field can be edited for this row. */
+  isDetailFieldEditable(item: DetailRowItem): boolean {
+    const col = this.detailColumn();
+    return !!col && this.isCellEditable(col, item.detailFor);
+  }
+
+  /** @internal Enter multiline editing for one expanded detail row. */
+  startDetailFieldEdit(item: DetailRowItem, event?: Event): void {
+    const col = this.detailColumn();
+    if (!col || !this.isCellEditable(col, item.detailFor)) return;
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.detailEditingRow.set(item.detailFor);
+    this.detailDraft.set(String(item.row[col.field] ?? ''));
+    this.detailValidationError.set(null);
+    this.browser.schedule(() => {
+      (this._hostEl.nativeElement as HTMLElement)
+        .querySelector<HTMLTextAreaElement>(`textarea[data-detail-row="${item.detailFor}"]`)
+        ?.focus();
+    });
+  }
+
+  /** @internal Keep the multiline draft synchronized with textarea input. */
+  onDetailDraftInput(event: Event): void {
+    this.detailDraft.set((event.target as HTMLTextAreaElement).value);
+  }
+
+  /** @internal Commit on blur or Ctrl/Cmd+Enter, and cancel on Escape. */
+  onDetailEditorKeydown(item: DetailRowItem, event: KeyboardEvent): void {
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.cancelDetailFieldEdit();
+    } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      this.commitDetailFieldEdit(item);
+    }
+  }
+
+  /** @internal Commit a multiline detail edit through normal grid edit semantics. */
+  commitDetailFieldEdit(item: DetailRowItem): void {
+    if (this.detailEditingRow() !== item.detailFor) return;
+    const col = this.detailColumn();
+    if (!col || !this.isCellEditable(col, item.detailFor)) {
+      this.cancelDetailFieldEdit();
+      return;
+    }
+    const row = this.dataSource().getRow(item.detailFor);
+    const oldValue = row[col.field];
+    let newValue: unknown = this.detailDraft();
+    if (col.type === 'number') {
+      newValue = coerceNumberInputValue(newValue);
+    } else if (col.type === 'date') {
+      newValue = coerceDateInputValue(String(newValue), oldValue);
+    } else if (col.values?.length) {
+      const option = col.values.find(value =>
+        typeof value === 'string'
+          ? value === newValue
+          : String((value as ValueOption).value) === newValue,
+      );
+      if (option !== undefined) {
+        newValue = typeof option === 'string' ? option : (option as ValueOption).value;
+      }
+    }
+    if (oldValue !== newValue) {
+      const message = col.validate?.(newValue as never, row as never) ?? null;
+      if (message) {
+        this.detailValidationError.set(message);
+        this.validationFailed.emit({
+          rowIndex: item.detailFor,
+          field: col.field,
+          value: newValue,
+          message,
+          source: 'detail',
+        });
+        return;
+      }
+      this.dataSource().patchRow(item.detailFor, { [col.field]: newValue });
+      this.control()?.pushEdit({ rowIndex: item.detailFor, field: col.field, oldValue, newValue });
+      this.emitEditEvents({
+        position: {
+          rowIndex: item.detailFor,
+          colIndex: this.visibleColDefs().findIndex(column => column.field === col.field),
+        },
+        field: col.field,
+        oldValue,
+        newValue,
+      });
+    }
+    this.cancelDetailFieldEdit();
+  }
+
+  /** @internal Discard the active multiline detail draft. */
+  cancelDetailFieldEdit(): void {
+    this.detailEditingRow.set(null);
+    this.detailDraft.set('');
+    this.detailValidationError.set(null);
   }
 
   /** @internal Resolved per-row CSS classes from the host `getRowClass` callback. */

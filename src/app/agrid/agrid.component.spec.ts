@@ -4,6 +4,7 @@ import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridProvider } from './agrid-provider';
 import {
+  GridEditEvent,
   GridItem,
   NewRecord,
   RecordEditEvent,
@@ -1452,6 +1453,7 @@ describe('AgridComponent pinned rows and master/detail', () => {
       pinRow: row => (row['kind'] === 'summary' ? 'bottom' : undefined),
       masterDetail: true,
       detailRenderer: ({ row }) => `<b>${row['name']}</b>`,
+      detailColumnField: 'kind',
     });
 
     await TestBed.configureTestingModule({ imports: [AgridComponent] }).compileComponents();
@@ -1487,6 +1489,37 @@ describe('AgridComponent pinned rows and master/detail', () => {
     expect(component.detailHtml({ detailFor: 0, row: { name: 'Row 0' } })).toContain('Row 0');
     // the detail item contributes a taller entry to the virtual-scroll size array
     expect(component.itemSizes().some(h => h === component.detailRowHeight())).toBe(true);
+  });
+
+  it('edits the configured detail column as multiline text', () => {
+    const edits: GridEditEvent[] = [];
+    component.cellEdit.subscribe(event => edits.push(event));
+    component.toggleDetail(0);
+    fixture.detectChanges();
+
+    const value = fixture.nativeElement.querySelector('.ag-detail-column-value') as HTMLElement;
+    expect(value.textContent?.trim()).toBe('data');
+    value.click();
+    fixture.detectChanges();
+
+    const textarea = fixture.nativeElement.querySelector(
+      '.ag-detail-column-textarea',
+    ) as HTMLTextAreaElement;
+    expect(textarea.value).toBe('data');
+    textarea.value = 'first line\nsecond line';
+    textarea.dispatchEvent(new Event('input'));
+    textarea.dispatchEvent(new FocusEvent('blur'));
+    fixture.detectChanges();
+
+    expect(component.provider().datasource.getRow(0)['kind']).toBe('first line\nsecond line');
+    expect(component.provider().datasource.getRow(1)['kind']).toBe('data');
+    expect(edits.at(-1)).toMatchObject({
+      position: { rowIndex: 0, colIndex: 1 },
+      field: 'kind',
+      oldValue: 'data',
+      newValue: 'first line\nsecond line',
+    });
+    expect(component.provider().control.canUndo()).toBe(true);
   });
 
   it('resolves whole-row CSS classes from getRowClass', () => {

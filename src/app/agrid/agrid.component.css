@@ -925,6 +925,59 @@
   border-bottom: 1px solid var(--agrid-color-border);
 }
 
+.ag-detail-column-field {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.ag-detail-column-label {
+  color: var(--agrid-color-text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.ag-detail-column-value,
+.ag-detail-column-textarea {
+  min-height: 54px;
+  box-sizing: border-box;
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 3px;
+  padding: 7px 8px;
+  background: var(--agrid-color-bg);
+  color: var(--agrid-color-text);
+  font: inherit;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.ag-detail-column-value--editable {
+  cursor: text;
+}
+
+.ag-detail-column-value--editable:hover,
+.ag-detail-column-value--editable:focus,
+.ag-detail-column-textarea:focus {
+  border-color: var(--agrid-color-accent-border);
+  outline: none;
+}
+
+.ag-detail-column-textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.ag-detail-column-textarea--invalid {
+  border-color: var(--agrid-color-danger);
+}
+
+.ag-detail-column-error {
+  color: var(--agrid-color-danger);
+  font-size: 12px;
+}
+
 /* ── Pinned rows (top/bottom) ──────────────────────────────────── */
 .ag-pinned-rows {
   position: relative;

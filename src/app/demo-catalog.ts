@@ -454,6 +454,7 @@ readonly provider = new AgridProvider({
       'Master/detail inserts variable-height panels below data rows while pinRow keeps selected records fixed above or below the main body.',
     points: [
       'Enable masterDetail and provide a detail renderer.',
+      'Use detailColumnField for a multiline field editor in the panel.',
       'Set detailRowHeight for virtual scrolling.',
       'Return top or bottom from pinRow for persistent summary rows.',
     ],
@@ -463,6 +464,7 @@ readonly provider = new AgridProvider({
   control: new AgridControl(),
   masterDetail: true,
   detailRowHeight: 150,
+  detailColumnField: 'notes',
   pinRow: row => row.isSummary ? 'bottom' : undefined,
   getRowClass: ({ row }) =>
     row.isSummary ? 'row-summary' : '',

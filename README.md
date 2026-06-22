@@ -264,6 +264,7 @@ readonly gridProvider = new AgridProvider({
 | `pivotConfig` | `AgridPivotConfig<T> \| null` | `null` | Derives a read-only client-side pivot from one row field, one column field, and one aggregated value field. |
 | `masterDetail` | `boolean` | `false` | Enables expandable detail panels. In tree mode, only leaf rows can expand details. Not available while grouped. |
 | `detailRenderer` | `(p: { row }) => string` | `undefined` | Returns sanitized HTML for an expanded detail panel. |
+| `detailColumnField` | column field | `undefined` | Shows one linked column as a multiline editable field in the detail panel. |
 | `detailRowHeight` | `number` | `200` | Fixed height in pixels of an expanded detail panel. |
 
 ### Tree grids and descendant rollups
@@ -1375,9 +1376,15 @@ readonly provider = new AgridProvider<Order>({
   columns, datasource,
   masterDetail: true,
   detailRowHeight: 160, // fixed panel height in px (default 200)
+  detailColumnField: 'notes',
   detailRenderer: ({ row }) => `<div class="order-detail">${row.notes}</div>`,
 });
 ```
+
+`detailColumnField` is optional. When set, the panel shows that column's formatted value below the
+custom renderer. If the linked cell is editable, click or Enter opens a multiline textarea. Blur or
+Ctrl/Cmd+Enter commits through normal validation, undo history, `cellEdit`, and `recordEdit` flows;
+Escape cancels. `editable: false`, `cellReadonly`, and grid read-only mode are respected.
 
 Detail panels are sized by a built-in variable-height virtual-scroll strategy, so large lists stay
 performant whether or not panels are open. In tree mode, only leaf rows expose detail panels;

@@ -375,6 +375,11 @@ tree.
 Tree mode can be combined with `masterDetail: true` and a `detailRenderer`. Detail expanders are
 shown only for leaf rows; parent rows retain their tree expand/collapse control.
 
+Set `detailColumnField` to a column field when the panel should expose one larger multiline value.
+The formatted value is shown normally; click it or focus it and press Enter to open a textarea.
+Blur or Ctrl/Cmd+Enter commits, while Escape cancels. Editability, validation, history, and edit
+events follow the linked column's normal cell behavior.
+
 ## Standalone tree control
 
 Use `<agrid-tree>` for the same parent-ID or path hierarchy without grid columns. It adds tree
