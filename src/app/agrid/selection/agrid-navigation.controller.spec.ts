@@ -183,6 +183,31 @@ describe('AgridNavigationController', () => {
     expect(cancelEdit).toHaveBeenCalledOnce();
   });
 
+  it('commits an active edit before activating another cell', () => {
+    const editingCell = signal<CellPosition | null>({ rowIndex: 0, colIndex: 0 });
+    const { controller, selectedCell, commitEdit, cancelEdit, focusGrid } = setup({ editingCell });
+    selectedCell.set({ rowIndex: 0, colIndex: 0 });
+
+    controller.activateCell(1, 1);
+
+    expect(commitEdit).toHaveBeenCalledOnce();
+    expect(cancelEdit).not.toHaveBeenCalled();
+    expect(selectedCell()).toEqual({ rowIndex: 1, colIndex: 1 });
+    expect(focusGrid).toHaveBeenCalledOnce();
+  });
+
+  it('keeps selection on the active edit when activation commit fails', () => {
+    const editingCell = signal<CellPosition | null>({ rowIndex: 0, colIndex: 0 });
+    const { controller, selectedCell, commitEdit } = setup({ editingCell });
+    selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    commitEdit.mockReturnValue(false);
+
+    controller.activateCell(1, 1);
+
+    expect(commitEdit).toHaveBeenCalledOnce();
+    expect(selectedCell()).toEqual({ rowIndex: 0, colIndex: 0 });
+  });
+
   it('does not route filter input keys into cell editing', () => {
     const { controller, selectedCell, startEdit } = setup();
     selectedCell.set({ rowIndex: 0, colIndex: 0 });

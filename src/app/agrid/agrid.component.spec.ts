@@ -436,16 +436,7 @@ describe('AgridComponent Tab navigation', () => {
 
     valueComponent.onStartEdit(0, 1);
     valueComponent.onDraftChange('Done');
-    valueComponent.onCommitEdit();
-    await Promise.resolve();
-
-    expect(valueProvider.datasource.getRow(0)['status']).toBe('Done');
-    expect(emitted).toHaveLength(0);
-
-    valueComponent.onKeyDown(new KeyboardEvent('keydown', {
-      key: 'Tab',
-      cancelable: true,
-    }));
+    valueComponent.onActivate(1, 0);
     valueFixture.detectChanges();
     await Promise.resolve();
 

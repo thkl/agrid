@@ -231,7 +231,7 @@ describe('AgridCellComponent custom renderer', () => {
     expect(emitted).toEqual(['12,']);
   });
 
-  it('requests a commit after a values dropdown change', () => {
+  it('updates the draft after a values dropdown change', () => {
     fixture.componentRef.setInput('col', {
       field: 'status',
       header: 'Status',
@@ -241,9 +241,7 @@ describe('AgridCellComponent custom renderer', () => {
     fixture.componentRef.setInput('row', { status: 'Open' });
     fixture.componentRef.setInput('editing', true);
     const drafts: unknown[] = [];
-    let commits = 0;
     fixture.componentInstance.draftChange.subscribe(value => drafts.push(value));
-    fixture.componentInstance.commitEdit.subscribe(() => commits++);
     fixture.detectChanges();
 
     const select = fixture.nativeElement.querySelector('.ag-cell-select') as HTMLSelectElement;
@@ -251,7 +249,6 @@ describe('AgridCellComponent custom renderer', () => {
     select.dispatchEvent(new Event('change'));
 
     expect(drafts).toEqual(['Done']);
-    expect(commits).toBe(1);
   });
 
   it('resolves and applies an input mask for the current row and cell', async () => {

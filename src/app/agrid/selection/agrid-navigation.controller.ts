@@ -59,7 +59,7 @@ export class AgridNavigationController {
   activateCell(originalIndex: number, colIndex: number, event?: MouseEvent): void {
     colIndex = this.opts.resolveCellColumn?.(originalIndex, colIndex, 0) ?? colIndex;
     if (this.opts.isEditing(originalIndex, colIndex)) return;
-    this.opts.cancelEdit();
+    if (this.opts.editingCell() && !this.opts.commitEdit()) return;
     if (event?.shiftKey && this.opts.selectedCell()) {
       this.opts.extendRangeTo(originalIndex, colIndex);
       this.opts.focusGrid();
