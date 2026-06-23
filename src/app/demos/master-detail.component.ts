@@ -91,6 +91,11 @@ export class MasterDetailDemoComponent {
     masterDetail: true,
     detailRowHeight: 220,
     detailColumnField: 'notes',
+    detailActions: [
+      { label: 'Follow-up', text: '\nFollow-up required with customer.' },
+      { label: 'Region note', text: ({ row }) => `\nCoordinate with ${row.region} operations.` },
+      { label: 'Paid note', text: '\nPayment confirmed and archived.' },
+    ],
     detailRenderer: ({ row }: { row: OrderRow }) => `
       <div class="od-detail">
         <div><strong>Customer:</strong> ${row.customer}</div>

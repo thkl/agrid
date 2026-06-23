@@ -12,6 +12,7 @@ import {
   AgridTreeConfig,
   CellContextMenuItem,
   ColDef,
+  DetailAction,
   GroupAction,
   HeaderGroup,
 } from './agrid.types';
@@ -192,6 +193,8 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   detailRenderer?: (params: { row: T }) => string;
   /** Column displayed as a multiline editable field beneath the custom detail renderer. */
   detailColumnField?: AgridField<T>;
+  /** Optional text-template buttons shown above the editable master/detail textarea. */
+  detailActions?: DetailAction<T>[];
   /** Fixed height in pixels of an expanded detail panel row. @default 200 */
   detailRowHeight?: number;
 
@@ -316,6 +319,8 @@ export class AgridProvider<T extends object = any> {
   detailRenderer?: (params: { row: T }) => string;
   /** Column displayed as a multiline field inside expanded detail panels. */
   detailColumnField?: AgridField<T>;
+  /** Text-template buttons shown above the editable master/detail textarea. */
+  detailActions: DetailAction<T>[];
   /** Fixed height in pixels of an expanded detail panel row. */
   detailRowHeight: number;
 
@@ -383,6 +388,7 @@ export class AgridProvider<T extends object = any> {
     this.masterDetail     = config.masterDetail ?? false;
     this.detailRenderer   = config.detailRenderer;
     this.detailColumnField = config.detailColumnField;
+    this.detailActions    = config.detailActions ?? [];
     this.detailRowHeight  = config.detailRowHeight ?? 200;
     this.gridId = config.gridId;
     this.hideGridStatusBar = config.hideGridStatusBar;

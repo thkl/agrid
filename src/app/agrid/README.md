@@ -379,6 +379,9 @@ Set `detailColumnField` to a column field when the panel should expose one large
 The formatted value is shown normally; click it or focus it and press Enter to open a textarea.
 Blur or Ctrl/Cmd+Enter commits, while Escape cancels. Editability, validation, history, and edit
 events follow the linked column's normal cell behavior.
+Set `detailActions` to add text-template buttons above the textarea. Each action has a `label` and
+a `text` string or row-aware resolver; clicking inserts at the current selection, or appends if the
+button opens the textarea.
 
 ## Standalone tree control
 

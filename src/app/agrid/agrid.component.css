@@ -939,6 +939,30 @@
   text-transform: uppercase;
 }
 
+.ag-detail-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ag-detail-action-btn {
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 3px;
+  padding: 4px 8px;
+  background: var(--agrid-color-bg);
+  color: var(--agrid-color-text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.ag-detail-action-btn:hover,
+.ag-detail-action-btn:focus {
+  border-color: var(--agrid-color-accent-border);
+  outline: none;
+}
+
 .ag-detail-column-value,
 .ag-detail-column-textarea {
   min-height: 54px;

@@ -1459,6 +1459,10 @@ describe('AgridComponent pinned rows and master/detail', () => {
       masterDetail: true,
       detailRenderer: ({ row }) => `<b>${row['name']}</b>`,
       detailColumnField: 'kind',
+      detailActions: [
+        { label: 'Greeting', text: 'Hello ' },
+        { label: 'Row name', text: ({ row }) => String(row.name) },
+      ],
     });
 
     await TestBed.configureTestingModule({ imports: [AgridComponent] }).compileComponents();
@@ -1525,6 +1529,36 @@ describe('AgridComponent pinned rows and master/detail', () => {
       newValue: 'first line\nsecond line',
     });
     expect(component.provider().control.canUndo()).toBe(true);
+  });
+
+  it('inserts configured detail action text into the detail textarea', async () => {
+    component.toggleDetail(0);
+    fixture.detectChanges();
+
+    const buttons = fixture.nativeElement.querySelectorAll(
+      '.ag-detail-action-btn',
+    ) as NodeListOf<HTMLButtonElement>;
+    buttons[0].click();
+    fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    fixture.detectChanges();
+
+    let textarea = fixture.nativeElement.querySelector(
+      '.ag-detail-column-textarea',
+    ) as HTMLTextAreaElement;
+    expect(component.detailEditingRow()).toBe(0);
+    expect(textarea.value).toBe('dataHello ');
+    expect(document.activeElement).toBe(textarea);
+
+    textarea.setSelectionRange(4, textarea.value.length);
+    buttons[1].click();
+    fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    fixture.detectChanges();
+
+    textarea = fixture.nativeElement.querySelector('.ag-detail-column-textarea') as HTMLTextAreaElement;
+    expect(textarea.value).toBe('dataRow 0');
+    expect(textarea.selectionStart).toBe('dataRow 0'.length);
   });
 
   it('routes forward and backward keyboard movement through the detail textarea', () => {

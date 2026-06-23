@@ -265,6 +265,7 @@ readonly gridProvider = new AgridProvider({
 | `masterDetail` | `boolean` | `false` | Enables expandable detail panels. In tree mode, only leaf rows can expand details. Not available while grouped. |
 | `detailRenderer` | `(p: { row }) => string` | `undefined` | Returns sanitized HTML for an expanded detail panel. |
 | `detailColumnField` | column field | `undefined` | Shows one linked column as a multiline editable field in the detail panel. |
+| `detailActions` | `{ label; text }[]` | `[]` | Adds template buttons above the linked detail textarea. `text` may be a string or `(p: { row; rowIndex }) => string`. |
 | `detailRowHeight` | `number` | `200` | Fixed height in pixels of an expanded detail panel. |
 
 ### Tree grids and descendant rollups
@@ -1377,6 +1378,10 @@ readonly provider = new AgridProvider<Order>({
   masterDetail: true,
   detailRowHeight: 160, // fixed panel height in px (default 200)
   detailColumnField: 'notes',
+  detailActions: [
+    { label: 'Follow-up', text: '\nFollow-up required.' },
+    { label: 'Customer', text: ({ row }) => `\nCustomer: ${row.customer}` },
+  ],
   detailRenderer: ({ row }) => `<div class="order-detail">${row.notes}</div>`,
 });
 ```
@@ -1384,7 +1389,9 @@ readonly provider = new AgridProvider<Order>({
 `detailColumnField` is optional. When set, the panel shows that column's formatted value below the
 custom renderer. If the linked cell is editable, click or Enter opens a multiline textarea. Blur or
 Ctrl/Cmd+Enter commits through normal validation, undo history, `cellEdit`, and `recordEdit` flows;
-Escape cancels. `editable: false`, `cellReadonly`, and grid read-only mode are respected.
+Escape cancels. `detailActions` can add text-template buttons above the textarea; buttons insert at
+the current selection, or append when the editor is opened by the button. `editable: false`,
+`cellReadonly`, and grid read-only mode are respected.
 
 Detail panels are sized by a built-in variable-height virtual-scroll strategy, so large lists stay
 performant whether or not panels are open. In tree mode, only leaf rows expose detail panels;

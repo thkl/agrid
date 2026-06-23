@@ -424,6 +424,22 @@ export interface GroupAction {
   action: (groupLabel: string) => void;
 }
 
+/** Parameters passed to a master/detail text-template action. */
+export interface DetailActionParams<T extends object = any> {
+  /** Row shown by the expanded detail panel. */
+  row: T;
+  /** Original datasource index of the row. */
+  rowIndex: number;
+}
+
+/** Text-template button shown above the editable master/detail textarea. */
+export interface DetailAction<T extends object = any> {
+  /** Button text. */
+  label: string;
+  /** Text inserted into the detail textarea, or a row-aware resolver. */
+  text: string | ((params: DetailActionParams<T>) => string);
+}
+
 /**
  * Internal row item used in the virtual scroll list.
  * - `{ row, originalIndex }` — a real data row

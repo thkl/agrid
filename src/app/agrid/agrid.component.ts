@@ -74,7 +74,7 @@ import {
   AgridAggregate, AgridSelectionSummary,
   AgridBodyColumn, AgridField, AgridHeaderColumn, AgridMenuBarContext, AgridMenuBarItem, AgridMenuBarMenuItem,
   AgridMenuBarState, AgridPivotConfig,
-  CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, ColumnHeaderActionEvent, ColumnMarkEvent, DetailRowItem, FilterChangeEvent, FirstDataRenderedEvent, GridEditEvent,
+  CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, ColumnHeaderActionEvent, ColumnMarkEvent, DetailAction, DetailRowItem, FilterChangeEvent, FirstDataRenderedEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, PathTreeNodeItem, RecordEditEvent, RowClickEvent,
   RowMarkEvent, RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent, ValueOption,
 } from './agrid.types';
@@ -238,6 +238,8 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     const field = this.provider().detailColumnField;
     return field ? this.colDefs().find(col => col.field === field) ?? null : null;
   });
+  /** Text-template buttons configured for the expanded panel's multiline detail field. */
+  readonly detailActions = computed(() => this.provider().detailActions);
   /** Datasource row currently editing its expanded detail field. */
   readonly detailEditingRow = signal<number | null>(null);
   readonly detailDraft = signal('');
@@ -1584,6 +1586,35 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     (this._hostEl.nativeElement as HTMLElement)
       .querySelector<HTMLTextAreaElement>(`textarea[data-detail-row="${rowIndex}"]`)
       ?.focus();
+  }
+
+  /** @internal Insert a configured text template into the active detail textarea. */
+  applyDetailAction(item: DetailRowItem, action: DetailAction, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.isDetailFieldEditable(item)) return;
+    if (this.detailEditingRow() !== item.detailFor) {
+      this.startDetailFieldEdit(item, event);
+    }
+    const text = typeof action.text === 'function'
+      ? action.text({ row: item.row, rowIndex: item.detailFor })
+      : action.text;
+    const textarea = (this._hostEl.nativeElement as HTMLElement)
+      .querySelector<HTMLTextAreaElement>(`textarea[data-detail-row="${item.detailFor}"]`);
+    const current = this.detailDraft();
+    const start = textarea?.selectionStart ?? current.length;
+    const end = textarea?.selectionEnd ?? start;
+    const next = `${current.slice(0, start)}${text}${current.slice(end)}`;
+    this.detailDraft.set(next);
+    this.detailValidationError.set(null);
+    this.browser.schedule(() => {
+      const editor = (this._hostEl.nativeElement as HTMLElement)
+        .querySelector<HTMLTextAreaElement>(`textarea[data-detail-row="${item.detailFor}"]`);
+      if (!editor) return;
+      const caret = start + text.length;
+      editor.focus();
+      editor.setSelectionRange(caret, caret);
+    });
   }
 
   private detailKeyboardTarget(direction: 1 | -1): DetailRowItem | null {

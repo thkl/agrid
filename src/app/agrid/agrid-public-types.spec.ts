@@ -11,6 +11,7 @@ import {
   ColDef,
   ColumnHeaderActionEvent,
   ColumnMarkEvent,
+  DetailAction,
   GridEditEvent,
   FirstDataRenderedEvent,
   NewRecord,
@@ -171,12 +172,28 @@ describe('typed public contracts', () => {
     const datasource = new AgridDataSource<PersonRow>([
       { id: 1, name: 'Alice', active: true },
     ]);
-    const provider = new AgridProvider<PersonRow>({ columns, datasource });
+    const detailAction: DetailAction<PersonRow> = {
+      label: 'Name',
+      text: ({ row, rowIndex }) => {
+        expectTypeOf(row).toEqualTypeOf<PersonRow>();
+        expectTypeOf(rowIndex).toEqualTypeOf<number>();
+        return row.name;
+      },
+    };
+    const provider = new AgridProvider<PersonRow>({
+      columns,
+      datasource,
+      masterDetail: true,
+      detailRenderer: ({ row }) => row.name,
+      detailColumnField: 'name',
+      detailActions: [detailAction],
+    });
     const inferredProvider = new AgridProvider({ columns, datasource });
 
     expectTypeOf(provider.datasource.getRow(0)).toEqualTypeOf<PersonRow>();
     expectTypeOf(inferredProvider.datasource.getRow(0)).toEqualTypeOf<PersonRow>();
     expectTypeOf(provider.columns()).toEqualTypeOf<ColDef<PersonRow>[]>();
+    expectTypeOf(provider.detailActions).toEqualTypeOf<DetailAction<PersonRow>[]>();
     expectTypeOf<NewRecord<PersonRow>['data']>().toEqualTypeOf<PersonRow>();
     expectTypeOf<RecordEditEvent<PersonRow>['data']>().toEqualTypeOf<PersonRow>();
     expectTypeOf<RowClickEvent<PersonRow>['row']>().toEqualTypeOf<PersonRow>();

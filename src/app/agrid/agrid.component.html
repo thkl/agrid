@@ -285,6 +285,14 @@
                 @if (detailColumn(); as detailCol) {
                 <div class="ag-detail-column-field">
                   <span class="ag-detail-column-label">{{ detailCol.header }}</span>
+                  @if (detailActions().length && isDetailFieldEditable(item)) {
+                  <div class="ag-detail-action-bar" role="toolbar" [attr.aria-label]="detailCol.header + ' templates'">
+                    @for (action of detailActions(); track action.label) {
+                    <button type="button" class="ag-detail-action-btn"
+                      (click)="applyDetailAction(item, action, $event)">{{ action.label }}</button>
+                    }
+                  </div>
+                  }
                   @if (detailEditingRow() === item.detailFor) {
                   <textarea class="ag-detail-column-textarea" [attr.data-detail-row]="item.detailFor"
                     [class.ag-detail-column-textarea--invalid]="!!detailValidationError()"

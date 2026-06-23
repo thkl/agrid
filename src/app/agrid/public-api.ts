@@ -64,6 +64,8 @@ export type {
   ColumnHeaderActionEvent,
   ColumnMarkEvent,
   ColDef,
+  DetailAction,
+  DetailActionParams,
   DetailRowItem,
   FilterChangeEvent,
   FirstDataRenderedEvent,
