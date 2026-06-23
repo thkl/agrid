@@ -151,6 +151,7 @@ export class AgridControl {
   private readonly _readonly = signal(false);
   private readonly _autoAddRows = signal(false);
   private readonly _rowIndications = signal<ReadonlyMap<number, AgridRowIndication>>(new Map());
+  private readonly _changedCells = signal<ReadonlySet<string>>(new Set());
   private readonly rowIndicationTimers = new Map<number, ReturnType<typeof setTimeout>[]>();
 
   /** @param state Optional initial state, e.g. deserialized from storage. */
@@ -204,6 +205,68 @@ export class AgridControl {
   private clearRowIndicationTimers(rowIndex: number): void {
     for (const timer of this.rowIndicationTimers.get(rowIndex) ?? []) clearTimeout(timer);
     this.rowIndicationTimers.delete(rowIndex);
+  }
+
+  /** Changed-cell markers keyed by original datasource row index and field. */
+  readonly changedCells: Signal<ReadonlySet<string>> = this._changedCells.asReadonly();
+
+  /** Mark one cell as changed. Used by the grid when `showChangedCellIndicator` is enabled. */
+  markChangedCell(rowIndex: number, field: string): void {
+    this._changedCells.update(current => {
+      const next = new Set(current);
+      next.add(this.changedCellKey(rowIndex, field));
+      return next;
+    });
+  }
+
+  /**
+   * Clears changed-cell markers after persistence succeeds.
+   * Omit `rowIndex` to clear every marker; omit `fields` to clear the whole row.
+   */
+  clearChangedCells(rowIndex?: number, fields?: readonly string[]): void {
+    if (rowIndex === undefined) {
+      this._changedCells.set(new Set());
+      return;
+    }
+
+    const fieldSet = fields ? new Set(fields) : null;
+    this._changedCells.update(current => {
+      const next = new Set(current);
+      for (const key of current) {
+        const marker = this.parseChangedCellKey(key);
+        if (marker.rowIndex === rowIndex && (!fieldSet || fieldSet.has(marker.field))) {
+          next.delete(key);
+        }
+      }
+      return next;
+    });
+  }
+
+  /** Returns whether one cell is currently marked as changed. */
+  isCellChanged(rowIndex: number, field: string): boolean {
+    return this._changedCells().has(this.changedCellKey(rowIndex, field));
+  }
+
+  /** Reconciles changed-cell markers after a datasource row is removed. */
+  reconcileChangedCellsAfterRemoval(removedIndex: number): void {
+    const shifted = new Set<string>();
+    for (const key of this._changedCells()) {
+      const marker = this.parseChangedCellKey(key);
+      if (marker.rowIndex < removedIndex) shifted.add(key);
+      else if (marker.rowIndex > removedIndex) {
+        shifted.add(this.changedCellKey(marker.rowIndex - 1, marker.field));
+      }
+    }
+    this._changedCells.set(shifted);
+  }
+
+  private changedCellKey(rowIndex: number, field: string): string {
+    return JSON.stringify([rowIndex, field]);
+  }
+
+  private parseChangedCellKey(key: string): { rowIndex: number; field: string } {
+    const [rowIndex, field] = JSON.parse(key) as [number, string];
+    return { rowIndex, field };
   }
 
   /** Whether all grid editing and mutation UI is disabled. This transient state is not serialized. */

@@ -562,27 +562,12 @@ export class AgridComponent<T extends object = any> implements OnChanges {
    * Omit `originalIndex` to clear every marker; omit `fields` to clear the whole row.
    */
   clearChangedCells(originalIndex?: number, fields?: readonly string[]): void {
-    if (originalIndex === undefined) {
-      this.changedCells.set(new Set());
-      return;
-    }
-
-    const fieldSet = fields ? new Set(fields) : null;
-    this.changedCells.update(current => {
-      const next = new Set(current);
-      for (const key of current) {
-        const marker = this.parseChangedCellKey(key);
-        if (marker.rowIndex === originalIndex && (!fieldSet || fieldSet.has(marker.field))) {
-          next.delete(key);
-        }
-      }
-      return next;
-    });
+    this.control()?.clearChangedCells(originalIndex, fields);
   }
 
   /** @internal Whether a cell has an unsaved-change marker. */
   isCellChanged(originalIndex: number, field: string): boolean {
-    return this.changedCells().has(this.changedCellKey(originalIndex, field));
+    return this.control()?.isCellChanged(originalIndex, field) ?? false;
   }
 
   /** @internal Whether a row is currently in the colored phase of a control indication. */
@@ -1248,7 +1233,6 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   private readonly _seededControls = new WeakSet<AgridControl>();
   private readonly dirtyInlineRows = new Set<number>();
   private dirtyRowsDataSource: AgridDataSource | null = null;
-  private readonly changedCells = signal<ReadonlySet<string>>(new Set());
   private changedCellsDataSource: AgridDataSource | null = null;
 
   private emitEditEvents(event: GridEditEvent): void {
@@ -1282,23 +1266,10 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     if (!this.showChangedCellIndicator()) return;
     const datasource = this.dataSource();
     if (this.changedCellsDataSource !== datasource) {
-      this.changedCells.set(new Set());
+      this.control()?.clearChangedCells();
       this.changedCellsDataSource = datasource;
     }
-    this.changedCells.update(current => {
-      const next = new Set(current);
-      next.add(this.changedCellKey(event.position.rowIndex, event.field));
-      return next;
-    });
-  }
-
-  private changedCellKey(rowIndex: number, field: string): string {
-    return JSON.stringify([rowIndex, field]);
-  }
-
-  private parseChangedCellKey(key: string): { rowIndex: number; field: string } {
-    const [rowIndex, field] = JSON.parse(key) as [number, string];
-    return { rowIndex, field };
+    this.control()?.markChangedCell(event.position.rowIndex, event.field);
   }
 
   private flushDirtyInlineRows(activeRowIndex: number | null = null): void {
@@ -1324,19 +1295,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     }
     this.dirtyInlineRows.clear();
     for (const index of shifted) this.dirtyInlineRows.add(index);
-    this.reconcileChangedCellsAfterRemoval(removedIndex);
-  }
-
-  private reconcileChangedCellsAfterRemoval(removedIndex: number): void {
-    const shifted = new Set<string>();
-    for (const key of this.changedCells()) {
-      const marker = this.parseChangedCellKey(key);
-      if (marker.rowIndex < removedIndex) shifted.add(key);
-      else if (marker.rowIndex > removedIndex) {
-        shifted.add(this.changedCellKey(marker.rowIndex - 1, marker.field));
-      }
-    }
-    this.changedCells.set(shifted);
+    this.control()?.reconcileChangedCellsAfterRemoval(removedIndex);
   }
 
   private emitRowChanged(originalIndex: number): void {
@@ -1387,7 +1346,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       const datasource = this.dataSource();
       if (this.changedCellsDataSource === datasource) return;
       this.changedCellsDataSource = datasource;
-      this.changedCells.set(new Set());
+      this.control()?.clearChangedCells();
     });
 
     effect(() => {

@@ -521,7 +521,7 @@ Use `rowChanged` to send one request after the user edits one or more fields in 
 saveRow(event: RowUpdateEvent<Person>): void {
   this.http.patch(`/api/people/${event.row.id}`, event.row).subscribe(() => {
     this.provider.control.indicate(event.originalIndex, '#2da44e', 1000);
-    this.grid()?.clearChangedCells(event.originalIndex);
+    this.provider.control.clearChangedCells(event.originalIndex);
   });
 }
 ```

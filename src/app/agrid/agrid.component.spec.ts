@@ -325,12 +325,12 @@ describe('AgridComponent Tab navigation', () => {
     expect(component.isCellChanged(0, 'department')).toBe(true);
     expect(fixture.nativeElement.querySelectorAll('.ag-cell--changed')).toHaveLength(2);
 
-    component.clearChangedCells(0, ['name']);
+    provider.control.clearChangedCells(0, ['name']);
     fixture.detectChanges();
     expect(component.isCellChanged(0, 'name')).toBe(false);
     expect(component.isCellChanged(0, 'department')).toBe(true);
 
-    component.clearChangedCells(0);
+    provider.control.clearChangedCells(0);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('.ag-cell--changed')).toHaveLength(0);
 
@@ -341,7 +341,7 @@ describe('AgridComponent Tab navigation', () => {
       key: 'Tab',
       cancelable: true,
     }));
-    component.clearChangedCells();
+    provider.control.clearChangedCells();
     expect(component.isCellChanged(1, 'name')).toBe(false);
   });
 

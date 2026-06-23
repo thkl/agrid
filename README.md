@@ -182,7 +182,7 @@ user finishes editing it:
 saveRow(event: RowUpdateEvent<PersonRow>): void {
   this.http.patch(`/api/people/${event.row.id}`, event.row).subscribe(() => {
     this.provider.control.indicate(event.originalIndex, '#2da44e', 1000);
-    this.grid()?.clearChangedCells(event.originalIndex);
+    this.provider.control.clearChangedCells(event.originalIndex);
   });
 }
 ```
@@ -201,10 +201,10 @@ readonly provider = new AgridProvider<PersonRow>({
 });
 ```
 
-After a successful API request, call `clearChangedCells(index)` for the complete row,
-`clearChangedCells(index, ['name', 'email'])` for selected fields, or
-`clearChangedCells()` for every marker. Call `control.indicate(index, color, durationMs)` to flash
-a complete row for transient server-side feedback.
+After a successful API request, call `control.clearChangedCells(index)` for the complete row,
+`control.clearChangedCells(index, ['name', 'email'])` for selected fields, or
+`control.clearChangedCells()` for every marker. Call `control.indicate(index, color, durationMs)`
+to flash a complete row for transient server-side feedback.
 
 ## AgridProvider Configuration
 
@@ -434,6 +434,7 @@ Three options are `WritableSignal` properties on the provider instance — updat
 | `control.loading` | `Signal<boolean>` | Whether the loading overlay is visible. Change with `setLoading()`. |
 | `control.readonly` | `Signal<boolean>` | Whether readonly mode is active. Change with `setReadonly()`. |
 | `control.autoAddRows` | `Signal<boolean>` | Whether automatic row insertion is active. Change with `setAutoAddRows()`. |
+| `control.clearChangedCells(rowIndex?, fields?)` | method | Clears every changed-cell marker, one row, or selected fields in one row. |
 | `control.indicate(rowIndex, color, durationMs?)` | method | Flashes one original datasource row with a CSS color, then fades back over `durationMs` (default `1000`). |
 
 Example — toggle readonly in a host component:
@@ -472,7 +473,7 @@ Call these through `viewChild(AgridComponent)`.
 | `closeFind()` | Closes the find panel. |
 | `goToFindMatch(direction)` | Moves to the next (`1`) or previous (`-1`) find match. |
 | `deleteRow(originalIndex)` | Removes a row and emits `rowRemoved`, after confirmation when `confirmRowDelete` is enabled. |
-| `clearChangedCells(originalIndex?, fields?)` | Clears every changed-cell marker, one row, or selected fields in one row. |
+| `clearChangedCells(originalIndex?, fields?)` | Backwards-compatible delegate to `provider.control.clearChangedCells(...)`. |
 | `clearMarkedRows()` | Clears all rows marked for clipboard inclusion. |
 | `setRowMarked(index, marked)` | Sets one row's mark state and emits `rowMark` when it changes. |
 | `toggleRowMarked(index)` | Toggles one row's mark state and emits `rowMark`. |

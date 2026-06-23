@@ -68,6 +68,37 @@ describe('AgridControl', () => {
       vi.advanceTimersByTime(1);
       expect(ctrl.rowIndications().has(2)).toBe(false);
     });
+
+    it('tracks and clears changed-cell markers', () => {
+      const ctrl = new AgridControl();
+      ctrl.markChangedCell(1, 'name');
+      ctrl.markChangedCell(1, 'email');
+      ctrl.markChangedCell(2, 'name');
+
+      expect(ctrl.isCellChanged(1, 'name')).toBe(true);
+      ctrl.clearChangedCells(1, ['name']);
+      expect(ctrl.isCellChanged(1, 'name')).toBe(false);
+      expect(ctrl.isCellChanged(1, 'email')).toBe(true);
+
+      ctrl.clearChangedCells(1);
+      expect(ctrl.isCellChanged(1, 'email')).toBe(false);
+      expect(ctrl.isCellChanged(2, 'name')).toBe(true);
+
+      ctrl.clearChangedCells();
+      expect(ctrl.changedCells().size).toBe(0);
+    });
+
+    it('reconciles changed-cell markers after row removal', () => {
+      const ctrl = new AgridControl();
+      ctrl.markChangedCell(0, 'name');
+      ctrl.markChangedCell(2, 'email');
+
+      ctrl.reconcileChangedCellsAfterRemoval(1);
+
+      expect(ctrl.isCellChanged(0, 'name')).toBe(true);
+      expect(ctrl.isCellChanged(1, 'email')).toBe(true);
+      expect(ctrl.isCellChanged(2, 'email')).toBe(false);
+    });
   });
 
   // ── fromJSON / toJSON ────────────────────────────────────────────────────────
