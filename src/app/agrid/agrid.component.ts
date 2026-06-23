@@ -77,6 +77,7 @@ import {
   CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, ColumnHeaderActionEvent, ColumnMarkEvent, DetailAction, DetailRowItem, FilterChangeEvent, FirstDataRenderedEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, PathTreeNodeItem, RecordEditEvent, RowClickEvent,
   RowMarkEvent, RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent, ValueOption,
+  RowDetailActionEvent,
 } from './agrid.types';
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
@@ -383,6 +384,9 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** Emitted for every enabled menu-bar button or dropdown item, carrying its configured id. */
   menuBarAction = output<string>();
+
+  /** Emitted if there is a Detail pane Action without text property */
+  detailAction = output<RowDetailActionEvent<T>>();
 
   // ── Public state ─────────────────────────────────────────────────────────────
 
@@ -1592,6 +1596,10 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   applyDetailAction(item: DetailRowItem, action: DetailAction, event: Event): void {
     event.preventDefault();
     event.stopPropagation();
+    if (!action.text) {
+      this.detailAction.emit({id: action.id, row: item.row, originalIndex:item.detailFor} as RowDetailActionEvent<T>);
+      return;
+    }
     if (!this.isDetailFieldEditable(item)) return;
     if (this.detailEditingRow() !== item.detailFor) {
       this.startDetailFieldEdit(item, event);

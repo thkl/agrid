@@ -297,6 +297,7 @@
                   <textarea class="ag-detail-column-textarea" [attr.data-detail-row]="item.detailFor"
                     [class.ag-detail-column-textarea--invalid]="!!detailValidationError()"
                     [value]="detailDraft()" (input)="onDetailDraftInput($event)"
+                    (pointerdown)="$event.stopPropagation()"
                     (keydown)="onDetailEditorKeydown(item, $event)"
                     (blur)="commitDetailFieldEdit(item)"></textarea>
                   @if (detailValidationError(); as message) {

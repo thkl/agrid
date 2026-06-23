@@ -992,6 +992,9 @@
   width: 100%;
   height: 120px;
   resize: vertical;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 .ag-detail-column-textarea--invalid {

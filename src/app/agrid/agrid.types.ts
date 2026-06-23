@@ -434,10 +434,11 @@ export interface DetailActionParams<T extends object = any> {
 
 /** Text-template button shown above the editable master/detail textarea. */
 export interface DetailAction<T extends object = any> {
+  id: string;
   /** Button text. */
   label: string;
   /** Text inserted into the detail textarea, or a row-aware resolver. */
-  text: string | ((params: DetailActionParams<T>) => string);
+  text?: string | ((params: DetailActionParams<T>) => string);
 }
 
 /**
@@ -820,6 +821,16 @@ export interface RowUpdateEvent<T extends object = any> {
   /** Zero-based index of the updated row in the data source. */
   originalIndex: number;
 }
+
+export interface RowDetailActionEvent<T extends object = any> {
+  /** the id of the button */
+  id: string;
+  /** Updated row data. */
+  row: T;
+  /** Zero-based index of the updated row in the data source. */
+  originalIndex: number;
+}
+
 
 /**
  * Emitted by `(rowReorder)` when the user finishes dragging a row to a new position.

@@ -60,7 +60,7 @@ const COLUMNS: ColDef<OrderRow>[] = [
           right-click any row to pin/unpin it · pending orders are tinted via getRowClass
         </span>
       </div>
-      <agrid class="demo-grid" [provider]="provider" />
+      <agrid class="demo-grid" [provider]="provider" (detailAction)="detailAction($event)"/>
     </div>
   `,
   styles: [`
@@ -92,9 +92,9 @@ export class MasterDetailDemoComponent {
     detailRowHeight: 220,
     detailColumnField: 'notes',
     detailActions: [
-      { label: 'Follow-up', text: '\nFollow-up required with customer.' },
-      { label: 'Region note', text: ({ row }) => `\nCoordinate with ${row.region} operations.` },
-      { label: 'Paid note', text: '\nPayment confirmed and archived.' },
+      { id:"fup", label: 'Follow-up', text: '\nFollow-up required with customer.' },
+      { id:"rn", label: 'Region note', text: ({ row }) => `\nCoordinate with ${row.region} operations.` },
+      { id:"pna", label: 'Paid note' },
     ],
     detailRenderer: ({ row }: { row: OrderRow }) => `
       <div class="od-detail">
@@ -104,4 +104,8 @@ export class MasterDetailDemoComponent {
         <div><strong>Status:</strong> ${row.status}</div>
       </div>`,
   });
+
+  detailAction(event:any) {
+    console.log(event);
+  }
 }
