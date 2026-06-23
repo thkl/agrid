@@ -1559,9 +1559,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     this.detailDraft.set(String(item.row[col.field] ?? ''));
     this.detailValidationError.set(null);
     this.browser.schedule(() => {
-      (this._hostEl.nativeElement as HTMLElement)
-        .querySelector<HTMLTextAreaElement>(`textarea[data-detail-row="${item.detailFor}"]`)
-        ?.focus();
+      this.focusDetailTextarea(item.detailFor);
     });
   }
 
@@ -1580,6 +1578,12 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       event.preventDefault();
       this.commitDetailFieldEdit(item);
     }
+  }
+
+  private focusDetailTextarea(rowIndex: number): void {
+    (this._hostEl.nativeElement as HTMLElement)
+      .querySelector<HTMLTextAreaElement>(`textarea[data-detail-row="${rowIndex}"]`)
+      ?.focus();
   }
 
   private detailKeyboardTarget(direction: 1 | -1): DetailRowItem | null {
@@ -1655,6 +1659,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
           message,
           source: 'detail',
         });
+        this.browser.schedule(() => this.focusDetailTextarea(item.detailFor));
         return;
       }
       this.dataSource().patchRow(item.detailFor, { [col.field]: newValue });

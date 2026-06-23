@@ -1586,7 +1586,7 @@ describe('AgridComponent pinned rows and master/detail', () => {
     expect(component.selectedCell()).toBeNull();
   });
 
-  it('keeps invalid detail textarea edits active and does not let grid Tab navigation steal them', () => {
+  it('keeps invalid detail textarea edits active and does not let grid Tab navigation steal them', async () => {
     const failures: unknown[] = [];
     component.validationFailed.subscribe(event => failures.push(event));
     component.toggleDetail(0);
@@ -1603,11 +1603,19 @@ describe('AgridComponent pinned rows and master/detail', () => {
     textarea.dispatchEvent(new Event('input'));
     textarea.dispatchEvent(new FocusEvent('blur'));
     fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
 
     expect(component.detailEditingRow()).toBe(0);
     expect(component.detailValidationError()).toBe('Kind is invalid');
     expect(component.provider().datasource.getRow(0)['kind']).toBe('data');
     expect(failures).toHaveLength(1);
+    expect(document.activeElement).toBe(textarea);
+
+    textarea.value = 'corrected';
+    textarea.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(component.detailDraft()).toBe('corrected');
 
     component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
     textarea.dispatchEvent(new KeyboardEvent('keydown', {
@@ -1618,7 +1626,7 @@ describe('AgridComponent pinned rows and master/detail', () => {
     fixture.detectChanges();
 
     expect(component.detailEditingRow()).toBe(0);
-    expect(component.detailDraft()).toBe('invalid');
+    expect(component.detailDraft()).toBe('corrected');
     expect(component.selectedCell()).toEqual({ rowIndex: 0, colIndex: 0 });
   });
 
