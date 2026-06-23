@@ -46,6 +46,7 @@ import { AgridNavigationController } from './selection/agrid-navigation.controll
 import { AgridPresentationService } from './rendering/agrid-presentation.service';
 import { resolveCellSpanAnchor } from './rendering/agrid-cell-span';
 import { AgridMenuBarComponent } from './rendering/agrid-menu-bar.component';
+import { AgridMenuBarController } from './rendering/agrid-menu-bar.controller';
 import { AgridProvider, AgridSettings } from './agrid-provider';
 import { buildPivotResult } from './agrid-pivot';
 import { AgridProjectionModel } from './rows/agrid-projection.model';
@@ -70,8 +71,7 @@ import {
 import { AgridVariableRowSizeDirective } from './infrastructure/agrid-variable-row-size.strategy';
 import {
   AgridAggregate, AgridSelectionSummary,
-  AgridBodyColumn, AgridField, AgridHeaderColumn, AgridMenuBarContext, AgridMenuBarItem, AgridMenuBarMenuItem,
-  AgridMenuBarState, AgridPivotConfig,
+  AgridBodyColumn, AgridField, AgridHeaderColumn, AgridPivotConfig,
   CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, ColumnHeaderActionEvent, ColumnMarkEvent, DetailAction, DetailRowItem, FilterChangeEvent, FirstDataRenderedEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, PathTreeNodeItem, RecordEditEvent, RowClickEvent,
   RowMarkEvent, RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent, ValueOption,
@@ -388,9 +388,6 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** Currently focused cell, or `null`. */
   readonly selectedCell = signal<CellPosition | null>(null);
 
-  /** Original index of the row awaiting delete confirmation, or `null`. */
-  readonly pendingDeleteRow = signal<number | null>(null);
-
   /** Original indices of rows whose master/detail panel is currently expanded. */
   private readonly _expandedDetailIds = signal<Set<number>>(new Set());
 
@@ -411,12 +408,6 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** Fields currently marked as complete columns. */
   readonly markedColumnFields: Signal<ReadonlySet<string>> =
     this.markedFields.asReadonly() as Signal<ReadonlySet<string>>;
-
-  /** Horizontal position of the delete prompt inside the scrollable row. */
-  readonly deleteConfirmationLeft = signal(0);
-
-  /** Visible width available to the delete prompt. */
-  readonly deleteConfirmationWidth = signal(0);
 
   /** Rectangular cell range selected by Shift+arrow or Shift+click. */
   readonly selectedRange = signal<CellRange | null>(null);
@@ -1110,38 +1101,54 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     onEditRowRemoved: originalIndex => this.editController.onRowRemoved(originalIndex),
     closeFilterMenu: () => this.columnMenuController.close(),
     closeGroupActionsMenu: () => this.closeGroupActionsMenu(),
+    confirmRowDelete: this.confirmRowDelete,
+    focusDeleteConfirmButton: () => {
+      (this._hostEl.nativeElement as HTMLElement)
+        .querySelector<HTMLButtonElement>('[data-delete-confirm-no]')
+        ?.focus();
+    },
+    focusGrid: () => this.wrapperEl().nativeElement.focus(),
+    measureScroller: () => {
+      const scroller = this.horizontalScrollerEl().nativeElement;
+      return { left: scroller.scrollLeft, width: scroller.clientWidth };
+    },
   });
 
   readonly selectedRowIndices = this.rowController.selectedRowIndices;
   readonly selectedRowIndex = this.rowController.selectedRowIndex;
   readonly contextMenu = this.rowController.contextMenu;
   readonly cellContextMenuState = this.rowController.cellContextMenu;
+  readonly pendingDeleteRow = this.rowController.pendingDeleteRow;
+  readonly deleteConfirmationLeft = this.rowController.deleteConfirmationLeft;
+  readonly deleteConfirmationWidth = this.rowController.deleteConfirmationWidth;
+
+  private readonly menuBarController = new AgridMenuBarController<T>({
+    dataSource: this.dataSource,
+    provider: this.provider,
+    selectedRowIndices: this.selectedRowIndices,
+    selectedCell: this.selectedCell,
+    menuBarItems: this.menuBarItems,
+    gridId: this.gridId,
+    saveConfigLabel: computed(() => this.localeText().saveConfig),
+    emitAction: id => this.menuBarAction.emit(id),
+    closeOtherMenus: () => {
+      this.rowController.closeContextMenu();
+      this.rowController.closeCellContextMenu();
+      this.groupController.closeActionsMenu();
+      this.columnMenuController.close();
+    },
+    persistSettings: () => {
+      const gridConfig = this.provider().saveSettings();
+      localStorage.setItem(`agrid_settings_${this.gridId()}`, JSON.stringify(gridConfig));
+    },
+  });
 
   /** Id of the menu-bar button whose dropdown is open, or `null`. */
-  readonly openMenuBarItemId = signal<string | null>(null);
-
+  readonly openMenuBarItemId = this.menuBarController.openItemId;
   /** Runtime state passed to menu-bar visibility, active, and disabled resolvers. */
-  readonly menuBarContext = computed<AgridMenuBarContext<T>>(() => {
-    const datasource = this.dataSource();
-    const rows = datasource.rows() as T[];
-    const selectedRows = [...this.selectedRowIndices()]
-      .sort((a, b) => a - b)
-      .map(originalIndex => ({ row: rows[originalIndex], originalIndex }))
-      .filter((entry): entry is { row: T; originalIndex: number } => !!entry.row);
-    return {
-      rows,
-      selectedRows,
-      selectedCell: this.selectedCell(),
-      provider: this.provider(),
-      datasource,
-    };
-  });
-
+  readonly menuBarContext = this.menuBarController.context;
   /** Menu-bar buttons currently allowed by their visibility resolvers. */
-  readonly visibleMenuBarItems = computed(() => {
-    const usersEntries = this.menuBarItems().filter(item => this.isMenuBarItemVisible(item));
-    return [... this.gridId() ? [{ id: '_internal_save_config', label: this.localeText().saveConfig, icon: '↓' }] : [], ...usersEntries];
-  });
+  readonly visibleMenuBarItems = this.menuBarController.visibleItems;
 
   private readonly sidebarController = new AgridSidebarController({
     control: this.control,
@@ -2280,122 +2287,19 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     return true;
   }
 
-  /** @internal Resolves a menu-bar state callback against the current grid state. */
-  resolveMenuBarState(state: AgridMenuBarState<T> | undefined, fallback: boolean): boolean {
-    if (typeof state === 'function') return state(this.menuBarContext());
-    return state ?? fallback;
-  }
-
-  /** @internal Whether a menu-bar button or dropdown item should be rendered. */
-  isMenuBarItemVisible(item: AgridMenuBarMenuItem<T>): boolean {
-    return this.resolveMenuBarState(item.visible, true);
-  }
-
-  /** @internal Whether a menu-bar button or dropdown item is active. */
-  isMenuBarItemActive(item: AgridMenuBarMenuItem<T>): boolean {
-    return this.resolveMenuBarState(item.active, false);
-  }
-
-  /** @internal Whether a menu-bar button or dropdown item is disabled. */
-  isMenuBarItemDisabled(item: AgridMenuBarMenuItem<T>): boolean {
-    return this.resolveMenuBarState(item.disabled, false);
-  }
-
-  /** @internal Visible dropdown entries for a menu-bar button. */
-  visibleMenuBarChildren(item: AgridMenuBarItem<T>): AgridMenuBarMenuItem<T>[] {
-    return (item.items ?? []).filter(child => this.isMenuBarItemVisible(child));
-  }
-
-  /** @internal Emits one menu-bar action and closes its dropdown. */
-  runMenuBarAction(event: Event, item: AgridMenuBarMenuItem<T>): void {
-    event.stopPropagation();
-    if (!this.isMenuBarItemVisible(item) || this.isMenuBarItemDisabled(item)) return;
-    this.menuBarAction.emit(item.id);
-    this.closeMenuBarMenu();
-  }
-
-  /** @internal Opens or closes a split button's additional command menu. */
-  toggleMenuBarMenu(event: Event, item: AgridMenuBarItem<T>): void {
-    event.preventDefault();
-    event.stopPropagation();
-    if (this.visibleMenuBarChildren(item).length === 0) return;
-    this.rowController.closeContextMenu();
-    this.rowController.closeCellContextMenu();
-    this.groupController.closeActionsMenu();
-    this.columnMenuController.close();
-    this.openMenuBarItemId.update(id => id === item.id ? null : item.id);
-  }
-
-  /** @internal Opens a dropdown from the keyboard and focuses its first/last enabled item. */
-  onMenuBarTriggerKeydown(event: KeyboardEvent, item: AgridMenuBarItem<T>): void {
-    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (this.visibleMenuBarChildren(item).length === 0) return;
-    this.openMenuBarItemId.set(item.id);
-    const group = (event.currentTarget as HTMLElement).closest('.ag-menu-bar-group');
-    setTimeout(() => {
-      const enabled = group?.querySelectorAll<HTMLButtonElement>(
-        '.ag-menu-bar-dropdown [role="menuitem"]:not(:disabled)',
-      );
-      const target = event.key === 'ArrowUp' ? enabled?.[enabled.length - 1] : enabled?.[0];
-      target?.focus();
-    });
-  }
-
-  /** @internal Provides standard keyboard navigation within an open menu-bar dropdown. */
-  onMenuBarMenuKeydown(event: KeyboardEvent): void {
-    const menu = event.currentTarget as HTMLElement;
-    const items = Array.from(menu.querySelectorAll<HTMLButtonElement>(
-      '[role="menuitem"]:not(:disabled)',
-    ));
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      this.closeMenuBarMenu();
-      menu.closest('.ag-menu-bar-group')
-        ?.querySelector<HTMLButtonElement>('.ag-menu-bar-trigger')
-        ?.focus();
-      return;
-    }
-    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key) || items.length === 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const current = items.indexOf(event.target as HTMLButtonElement);
-    const next = event.key === 'Home'
-      ? 0
-      : event.key === 'End'
-        ? items.length - 1
-        : event.key === 'ArrowDown'
-          ? (current + 1 + items.length) % items.length
-          : (current - 1 + items.length) % items.length;
-    items[next].focus();
-  }
-
   /** @internal Closes the currently open menu-bar dropdown. */
   closeMenuBarMenu(): void {
-    this.openMenuBarItemId.set(null);
+    this.menuBarController.close();
   }
 
   /** @internal Synchronizes dropdown state and closes competing grid menus when one opens. */
   onMenuBarOpenItemChange(id: string | null): void {
-    if (id !== null) {
-      this.rowController.closeContextMenu();
-      this.rowController.closeCellContextMenu();
-      this.groupController.closeActionsMenu();
-      this.columnMenuController.close();
-    }
-    this.openMenuBarItemId.set(id);
+    this.menuBarController.onOpenItemChange(id);
   }
 
-  /** @internal Check if the user has pressed the save config button otherwise emit the action */
-  onMenuBarAction(event: string) {
-    if (event === '_internal_save_config' && this.gridId()) {
-      const gridConfig = this.provider().saveSettings();
-      localStorage.setItem(`agrid_settings_${this.gridId()}`, JSON.stringify(gridConfig));
-    } else {
-      this.menuBarAction.emit(event)
-    }
+  /** @internal Dispatches a menu-bar action (or persists config for the built-in save entry). */
+  onMenuBarAction(id: string): void {
+    this.menuBarController.runAction(id);
   }
 
   /** @internal Runs a typed provider context-menu action against erased controller state. */
@@ -2426,49 +2330,22 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** Start confirmation or immediately delete the row at `originalIndex`. */
   deleteRow(originalIndex: number): void {
-    if (this.confirmRowDelete()) {
-      this.updateDeleteConfirmationPosition();
-      this.pendingDeleteRow.set(originalIndex);
-      this.rowController.closeContextMenu();
-      this.rowController.closeCellContextMenu();
-      this.browser.schedule(() => {
-        (this._hostEl.nativeElement as HTMLElement)
-          .querySelector<HTMLButtonElement>('[data-delete-confirm-no]')
-          ?.focus();
-      });
-      return;
-    }
-    this.deleteRowImmediately(originalIndex);
+    this.rowController.requestDeleteRow(originalIndex);
   }
 
   /** @internal Returns whether this row is awaiting delete confirmation. */
   isRowPendingDelete(originalIndex: number): boolean {
-    return this.pendingDeleteRow() === originalIndex;
+    return this.rowController.isRowPendingDelete(originalIndex);
   }
 
   /** @internal Delete the row currently awaiting confirmation. */
   confirmPendingRowDelete(): void {
-    const originalIndex = this.pendingDeleteRow();
-    if (originalIndex === null) return;
-    this.pendingDeleteRow.set(null);
-    this.deleteRowImmediately(originalIndex);
+    this.rowController.confirmPendingRowDelete();
   }
 
   /** @internal Cancel the active row-delete confirmation. */
   cancelRowDelete(): void {
-    this.pendingDeleteRow.set(null);
-    this.wrapperEl().nativeElement.focus();
-  }
-
-  private deleteRowImmediately(originalIndex: number): void {
-    this.rowController.deleteRow(originalIndex);
-    this.rowController.closeCellContextMenu();
-  }
-
-  private updateDeleteConfirmationPosition(): void {
-    const scroller = this.horizontalScrollerEl().nativeElement;
-    this.deleteConfirmationLeft.set(scroller.scrollLeft);
-    this.deleteConfirmationWidth.set(scroller.clientWidth);
+    this.rowController.cancelRowDelete();
   }
 
   // ── Group expand / collapse ───────────────────────────────────────────────────
@@ -2592,7 +2469,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** @internal Keeps the row-delete prompt visible while columns scroll horizontally. */
   onHorizontalScroll(): void {
-    this.updateDeleteConfirmationPosition();
+    this.rowController.repositionDeleteConfirmation();
   }
 
   /** @internal */

@@ -41,6 +41,14 @@ export interface AgridRowControllerOptions {
   onEditRowRemoved: (originalIndex: number) => void;
   closeFilterMenu: () => void;
   closeGroupActionsMenu: () => void;
+  /** Whether row deletion requires an inline confirmation prompt. */
+  confirmRowDelete: Signal<boolean>;
+  /** Focuses the confirmation prompt's "No" button once it renders. */
+  focusDeleteConfirmButton: () => void;
+  /** Returns focus to the grid body (e.g. after cancelling a delete). */
+  focusGrid: () => void;
+  /** Current horizontal scroll offset and width used to position the prompt. */
+  measureScroller: () => { left: number; width: number };
 }
 
 /** Screen position and row targeted by the row context menu. @internal */
@@ -64,6 +72,12 @@ export type AgridCellContextMenu = {
 export class AgridRowController {
   readonly contextMenu = signal<AgridRowContextMenu | null>(null);
   readonly cellContextMenu = signal<AgridCellContextMenu | null>(null);
+  /** Original index of the row awaiting delete confirmation, or `null`. */
+  readonly pendingDeleteRow = signal<number | null>(null);
+  /** Left offset (px) of the inline delete-confirmation prompt. */
+  readonly deleteConfirmationLeft = signal(0);
+  /** Width (px) of the inline delete-confirmation prompt. */
+  readonly deleteConfirmationWidth = signal(0);
   readonly selectedIndices = signal<Set<number>>(new Set());
   readonly selectedRowIndices: Signal<ReadonlySet<number>> =
     this.selectedIndices.asReadonly() as Signal<ReadonlySet<number>>;
@@ -242,6 +256,50 @@ export class AgridRowController {
     }
     this.contextMenu.set(null);
     this.opts.onRowRemoved({ index: originalIndex, data: removedRow });
+  }
+
+  /** Starts confirmation or immediately deletes the row at `originalIndex`. */
+  requestDeleteRow(originalIndex: number): void {
+    if (this.opts.confirmRowDelete()) {
+      this.repositionDeleteConfirmation();
+      this.pendingDeleteRow.set(originalIndex);
+      this.closeContextMenu();
+      this.closeCellContextMenu();
+      this.browser.schedule(() => this.opts.focusDeleteConfirmButton());
+      return;
+    }
+    this.deleteRowImmediately(originalIndex);
+  }
+
+  /** Returns whether this row is awaiting delete confirmation. */
+  isRowPendingDelete(originalIndex: number): boolean {
+    return this.pendingDeleteRow() === originalIndex;
+  }
+
+  /** Deletes the row currently awaiting confirmation. */
+  confirmPendingRowDelete(): void {
+    const originalIndex = this.pendingDeleteRow();
+    if (originalIndex === null) return;
+    this.pendingDeleteRow.set(null);
+    this.deleteRowImmediately(originalIndex);
+  }
+
+  /** Cancels the active row-delete confirmation and restores grid focus. */
+  cancelRowDelete(): void {
+    this.pendingDeleteRow.set(null);
+    this.opts.focusGrid();
+  }
+
+  /** Recomputes the prompt's offset/width so it tracks horizontal scrolling. */
+  repositionDeleteConfirmation(): void {
+    const { left, width } = this.opts.measureScroller();
+    this.deleteConfirmationLeft.set(left);
+    this.deleteConfirmationWidth.set(width);
+  }
+
+  private deleteRowImmediately(originalIndex: number): void {
+    this.deleteRow(originalIndex);
+    this.closeCellContextMenu();
   }
 
   /** Emits the current selected rows, or `null` when selection is empty. */

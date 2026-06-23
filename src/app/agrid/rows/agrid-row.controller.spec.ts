@@ -57,6 +57,48 @@ describe('AgridRowController', () => {
     expect(removed).toEqual([{ index: 1, data: { name: 'Bob' } }]);
   });
 
+  it('deletes immediately through requestDeleteRow when confirmation is disabled', () => {
+    const { controller, dataSource, removed } = setup({ confirmRowDelete: false });
+
+    controller.requestDeleteRow(1);
+
+    expect(controller.pendingDeleteRow()).toBeNull();
+    expect(dataSource.rows()).toEqual([{ name: 'Alice' }, { name: 'Carol' }]);
+    expect(removed).toEqual([{ index: 1, data: { name: 'Bob' } }]);
+  });
+
+  it('defers deletion and positions the prompt when confirmation is enabled', () => {
+    vi.useFakeTimers();
+    const { controller, dataSource, focusDeleteConfirmButton } = setup({ confirmRowDelete: true });
+
+    controller.requestDeleteRow(1);
+    vi.runAllTimers();
+    vi.useRealTimers();
+
+    expect(controller.pendingDeleteRow()).toBe(1);
+    expect(controller.isRowPendingDelete(1)).toBe(true);
+    expect(controller.deleteConfirmationLeft()).toBe(12);
+    expect(controller.deleteConfirmationWidth()).toBe(340);
+    expect(focusDeleteConfirmButton).toHaveBeenCalled();
+    // Row is untouched until confirmed.
+    expect(dataSource.rows()).toHaveLength(3);
+
+    controller.confirmPendingRowDelete();
+    expect(controller.pendingDeleteRow()).toBeNull();
+    expect(dataSource.rows()).toEqual([{ name: 'Alice' }, { name: 'Carol' }]);
+  });
+
+  it('cancels a pending delete and restores grid focus', () => {
+    const { controller, dataSource, focusGrid } = setup({ confirmRowDelete: true });
+
+    controller.requestDeleteRow(1);
+    controller.cancelRowDelete();
+
+    expect(controller.pendingDeleteRow()).toBeNull();
+    expect(focusGrid).toHaveBeenCalled();
+    expect(dataSource.rows()).toHaveLength(3);
+  });
+
   it('includes marked rows when copying a cell or complete row', async () => {
     const { controller, writeText } = setup({ markedRowIndices: new Set([2]) });
 
@@ -74,6 +116,7 @@ function setup(overrides: {
   rowSelection?: 'none' | 'single' | 'multi';
   selectedCell?: ReturnType<typeof signal<CellPosition | null>>;
   markedRowIndices?: ReadonlySet<number>;
+  confirmRowDelete?: boolean;
 } = {}) {
   const dataSource = new AgridDataSource([
     { name: 'Alice' },
@@ -90,6 +133,8 @@ function setup(overrides: {
   );
   const cols: ColDef[] = [{ field: 'name', header: 'Name' }];
   const items: GridItem[] = dataSource.rows().map((row, originalIndex) => ({ row, originalIndex }));
+  const focusDeleteConfirmButton = vi.fn();
+  const focusGrid = vi.fn();
   const controller = new AgridRowController({
     dataSource: signal(dataSource),
     filteredItems: signal(items),
@@ -107,8 +152,21 @@ function setup(overrides: {
     onEditRowRemoved: editRemoved,
     closeFilterMenu: vi.fn(),
     closeGroupActionsMenu: vi.fn(),
+    confirmRowDelete: signal(overrides.confirmRowDelete ?? false),
+    focusDeleteConfirmButton,
+    focusGrid,
+    measureScroller: () => ({ left: 12, width: 340 }),
   }, browser);
-  return { controller, dataSource, selected, removed, editRemoved, writeText };
+  return {
+    controller,
+    dataSource,
+    selected,
+    removed,
+    editRemoved,
+    writeText,
+    focusDeleteConfirmButton,
+    focusGrid,
+  };
 }
 
 function primaryPointerEvent(overrides: Partial<PointerEvent> = {}): PointerEvent {
