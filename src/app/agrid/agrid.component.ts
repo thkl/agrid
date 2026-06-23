@@ -34,6 +34,7 @@ import { AgridColumnStateService } from './columns/agrid-column-state.service';
 import { AgridControl, FilterOperator } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridDragHandler } from './rows/agrid-drag.handler';
+import { AgridDetailController } from './editing/agrid-detail.controller';
 import { AgridEditController } from './editing/agrid-edit.controller';
 import { AgridFindController } from './selection/agrid-find.controller';
 import { AgridFindPanelComponent } from './selection/agrid-find-panel.component';
@@ -59,9 +60,6 @@ import {
 } from './editing/agrid-sidebar.component';
 import {
   isDataRowItem as isDataRowItemFn,
-  coerceDateInputValue,
-  coerceNumberInputValue,
-  getDisplayForField,
   isDetailRowItem as isDetailRowItemFn,
   isGroupHeaderItem as isGroupHeaderItemFn,
   isPathTreeNodeItem as isPathTreeNodeItemFn,
@@ -241,10 +239,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   });
   /** Text-template buttons configured for the expanded panel's multiline detail field. */
   readonly detailActions = computed(() => this.provider().detailActions);
-  /** Datasource row currently editing its expanded detail field. */
-  readonly detailEditingRow = signal<number | null>(null);
-  readonly detailDraft = signal('');
-  readonly detailValidationError = signal<string | null>(null);
+  // Detail-field editor state lives on `detailController`; re-exported below for the template.
 
   /** Read-only pivot rows and generated columns, or `null` in the normal datasource view. */
   private readonly pivotResult = computed(() => {
@@ -409,7 +404,6 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   private readonly markedIndices = signal<Set<number>>(new Set());
   private readonly markedFields = signal<Set<string>>(new Set());
   private firstDataRenderedEmitted = false;
-  private detailReturnCell: CellPosition | null = null;
 
   /** Original datasource indices marked for inclusion in copy operations. */
   readonly markedRowIndices: Signal<ReadonlySet<number>> =
@@ -1005,6 +999,33 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly findActiveIndex = this.findController.activeIndex;
   readonly findMatches = this.findController.matches;
 
+  private readonly detailController = new AgridDetailController<T>({
+    dataSource: this.dataSource,
+    control: this.control,
+    detailColumn: this.detailColumn,
+    locale: this.locale,
+    displayItems: this.displayItems,
+    visibleColDefs: this.visibleColDefs,
+    selectedCell: this.selectedCell,
+    selectedRange: this.selectedRange,
+    editingCell: this.editController.editingCell,
+    isCellEditable: (col, originalIndex) => this.isCellEditable(col, originalIndex),
+    renderDetailHtml: row => this.provider().detailRenderer?.({ row: row as T }) ?? '',
+    emitEditEvents: event => this.emitEditEvents(event),
+    emitValidationFailed: event => this.validationFailed.emit(event),
+    emitDetailAction: event => this.detailAction.emit(event),
+    schedule: fn => this.browser.schedule(fn),
+    queryTextarea: rowIndex =>
+      (this._hostEl.nativeElement as HTMLElement).querySelector<HTMLTextAreaElement>(
+        `textarea[data-detail-row="${rowIndex}"]`,
+      ),
+  });
+
+  /** @internal Detail-field editor state, re-exported for the template. */
+  readonly detailEditingRow = this.detailController.editingRow;
+  readonly detailDraft = this.detailController.draft;
+  readonly detailValidationError = this.detailController.validationError;
+
   private readonly navigationController = new AgridNavigationController({
     control: this.control,
     dataSource: this.dataSource,
@@ -1497,208 +1518,53 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     return isDetailRowItemFn(item) ? this.detailRowHeight() : this.rowHeight();
   }
 
-  /**
-   * Memoized detail-panel HTML keyed by the detail item. The projection recreates detail items
-   * only when their data changes, so the cache hits across change-detection passes and invalidates
-   * naturally when the row (and thus the item reference) changes — old items are GC'd via WeakMap.
-   */
-  private readonly detailHtmlCache = new WeakMap<object, string>();
-
   /** @internal Resolved HTML for an expanded detail panel (auto-sanitized by `[innerHTML]`). */
   detailHtml(item: GridItem): string {
-    if (!isDetailRowItemFn(item)) return '';
-    const cached = this.detailHtmlCache.get(item);
-    if (cached !== undefined) return cached;
-    const html = this.provider().detailRenderer?.({ row: item.row as T }) ?? '';
-    this.detailHtmlCache.set(item, html);
-    return html;
+    return this.detailController.detailHtml(item);
   }
 
   /** @internal Formatted value shown while a configured detail field is not being edited. */
   detailFieldDisplay(item: DetailRowItem): string {
-    const col = this.detailColumn();
-    return col ? getDisplayForField(col, item.row[col.field], this.locale()) : '';
+    return this.detailController.detailFieldDisplay(item);
   }
 
   /** @internal Whether the configured detail field can be edited for this row. */
   isDetailFieldEditable(item: DetailRowItem): boolean {
-    const col = this.detailColumn();
-    return !!col && this.isCellEditable(col, item.detailFor);
+    return this.detailController.isDetailFieldEditable(item);
   }
 
   /** @internal Enter multiline editing for one expanded detail row. */
   startDetailFieldEdit(item: DetailRowItem, event?: Event): void {
-    const col = this.detailColumn();
-    if (!col || !this.isCellEditable(col, item.detailFor)) return;
-    event?.preventDefault();
-    event?.stopPropagation();
-    this.detailReturnCell = event instanceof KeyboardEvent ? this.selectedCell() : null;
-    this.selectedCell.set(null);
-    this.selectedRange.set(null);
-    this.detailEditingRow.set(item.detailFor);
-    this.detailDraft.set(String(item.row[col.field] ?? ''));
-    this.detailValidationError.set(null);
-    this.browser.schedule(() => {
-      this.focusDetailTextarea(item.detailFor);
-    });
+    this.detailController.startDetailFieldEdit(item, event);
   }
 
   /** @internal Keep the multiline draft synchronized with textarea input. */
   onDetailDraftInput(event: Event): void {
-    this.detailDraft.set((event.target as HTMLTextAreaElement).value);
+    this.detailController.onDetailDraftInput(event);
   }
 
   /** @internal Commit on blur or Ctrl/Cmd+Enter, and cancel on Escape. */
   onDetailEditorKeydown(item: DetailRowItem, event: KeyboardEvent): void {
-    event.stopPropagation();
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      this.cancelDetailFieldEdit();
-    } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      this.commitDetailFieldEdit(item);
-    }
-  }
-
-  private focusDetailTextarea(rowIndex: number): void {
-    (this._hostEl.nativeElement as HTMLElement)
-      .querySelector<HTMLTextAreaElement>(`textarea[data-detail-row="${rowIndex}"]`)
-      ?.focus();
+    this.detailController.onDetailEditorKeydown(item, event);
   }
 
   /** @internal Insert a configured text template into the active detail textarea. */
   applyDetailAction(item: DetailRowItem, action: DetailAction, event: Event): void {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!action.text) {
-      this.detailAction.emit({id: action.id, row: item.row, originalIndex:item.detailFor} as RowDetailActionEvent<T>);
-      return;
-    }
-    if (!this.isDetailFieldEditable(item)) return;
-    if (this.detailEditingRow() !== item.detailFor) {
-      this.startDetailFieldEdit(item, event);
-    }
-    const text = typeof action.text === 'function'
-      ? action.text({ row: item.row, rowIndex: item.detailFor })
-      : action.text ?? '';
-    const textarea = (this._hostEl.nativeElement as HTMLElement)
-      .querySelector<HTMLTextAreaElement>(`textarea[data-detail-row="${item.detailFor}"]`);
-    const current = this.detailDraft();
-    const start = textarea?.selectionStart ?? current.length;
-    const end = textarea?.selectionEnd ?? start;
-    const next = `${current.slice(0, start)}${text}${current.slice(end)}`;
-    this.detailDraft.set(next);
-    this.detailValidationError.set(null);
-    this.browser.schedule(() => {
-      const editor = (this._hostEl.nativeElement as HTMLElement)
-        .querySelector<HTMLTextAreaElement>(`textarea[data-detail-row="${item.detailFor}"]`);
-      if (!editor) return;
-      const caret = start + text.length;
-      editor.focus();
-      editor.setSelectionRange(caret, caret);
-    });
-  }
-
-  private detailKeyboardTarget(direction: 1 | -1): DetailRowItem | null {
-    const sel = this.selectedCell();
-    if (!sel) return null;
-    const items = this.displayItems();
-    const selectedIndex = items.findIndex(item =>
-      isDataRowItemFn(item) && item.originalIndex === sel.rowIndex,
-    );
-    if (selectedIndex < 0) return null;
-    const candidate = items[selectedIndex + direction];
-    return isDetailRowItemFn(candidate) && this.isDetailFieldEditable(candidate)
-      ? candidate
-      : null;
+    this.detailController.applyDetailAction(item, action, event);
   }
 
   private focusDetailEditorFromKeyboard(event: KeyboardEvent): boolean {
-    if (this.editingCell() || this.detailEditingRow() !== null) return false;
-    if (event.ctrlKey || event.metaKey || event.altKey) return false;
-    const sel = this.selectedCell();
-    if (!sel) return false;
-    const direction = event.key === 'ArrowRight' || (event.key === 'Tab' && !event.shiftKey)
-      ? 1
-      : event.key === 'ArrowLeft' || (event.key === 'Tab' && event.shiftKey)
-        ? -1
-        : null;
-    if (direction === null) return false;
-    const lastColIndex = this.visibleColDefs().length - 1;
-    if ((direction === 1 && sel.colIndex < lastColIndex) || (direction === -1 && sel.colIndex > 0)) {
-      return false;
-    }
-    const target = this.detailKeyboardTarget(direction);
-    if (!target) return false;
-    event.preventDefault();
-    event.stopPropagation();
-    this.startDetailFieldEdit(target, event);
-    return true;
+    return this.detailController.focusDetailEditorFromKeyboard(event);
   }
 
   /** @internal Commit a multiline detail edit through normal grid edit semantics. */
   commitDetailFieldEdit(item: DetailRowItem): void {
-    if (this.detailEditingRow() !== item.detailFor) return;
-    const col = this.detailColumn();
-    if (!col || !this.isCellEditable(col, item.detailFor)) {
-      this.cancelDetailFieldEdit();
-      return;
-    }
-    const row = this.dataSource().getRow(item.detailFor);
-    const oldValue = row[col.field];
-    let newValue: unknown = this.detailDraft();
-    if (col.type === 'number') {
-      newValue = coerceNumberInputValue(newValue);
-    } else if (col.type === 'date') {
-      newValue = coerceDateInputValue(String(newValue), oldValue);
-    } else if (col.values?.length) {
-      const option = col.values.find(value =>
-        typeof value === 'string'
-          ? value === newValue
-          : String((value as ValueOption).value) === newValue,
-      );
-      if (option !== undefined) {
-        newValue = typeof option === 'string' ? option : (option as ValueOption).value;
-      }
-    }
-    if (oldValue !== newValue) {
-      const message = col.validate?.(newValue as never, row as never) ?? null;
-      if (message) {
-        this.detailValidationError.set(message);
-        this.validationFailed.emit({
-          rowIndex: item.detailFor,
-          field: col.field,
-          value: newValue,
-          message,
-          source: 'detail',
-        });
-        this.browser.schedule(() => this.focusDetailTextarea(item.detailFor));
-        return;
-      }
-      this.dataSource().patchRow(item.detailFor, { [col.field]: newValue });
-      this.control()?.pushEdit({ rowIndex: item.detailFor, field: col.field, oldValue, newValue });
-      this.emitEditEvents({
-        position: {
-          rowIndex: item.detailFor,
-          colIndex: this.visibleColDefs().findIndex(column => column.field === col.field),
-        },
-        field: col.field,
-        oldValue,
-        newValue,
-      });
-    }
-    this.cancelDetailFieldEdit();
+    this.detailController.commitDetailFieldEdit(item);
   }
 
   /** @internal Discard the active multiline detail draft. */
   cancelDetailFieldEdit(): void {
-    this.detailEditingRow.set(null);
-    this.detailDraft.set('');
-    this.detailValidationError.set(null);
-    if (this.detailReturnCell) {
-      this.selectedCell.set(this.detailReturnCell);
-      this.detailReturnCell = null;
-    }
+    this.detailController.cancelDetailFieldEdit();
   }
 
   /** @internal Resolved per-row CSS classes from the host `getRowClass` callback. */
