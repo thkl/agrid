@@ -1,5 +1,6 @@
 import { ColumnFilter } from './agrid-control';
 import {
+  AgridExportGroup,
   AgridPathTreeConfig,
   AgridTreeConfig,
   ColDef,
@@ -392,6 +393,44 @@ export function computeAggregates(
     }
   }
   return result;
+}
+
+/**
+ * Groups filtered/sorted source rows by `groupField`'s display value for export, in first-seen
+ * order, attaching each group's per-column subtotals. Unlike the on-screen projection, every group
+ * is fully expanded and no pagination is applied, so the result is the complete grouped dataset.
+ */
+export function buildExportGroups(
+  rows: Record<string, unknown>[],
+  indices: number[],
+  groupField: string,
+  groupCol: ColDef | undefined,
+  cols: ColDef[],
+  controlAggregates: Record<string, BuiltinAggregate>,
+  locale?: string,
+): AgridExportGroup[] {
+  const order: string[] = [];
+  const byLabel = new Map<string, number[]>();
+  for (const index of indices) {
+    const row = rows[index];
+    if (!row) continue;
+    const label = getDisplayForField(groupCol, row[groupField], locale);
+    let bucket = byLabel.get(label);
+    if (!bucket) {
+      bucket = [];
+      byLabel.set(label, bucket);
+      order.push(label);
+    }
+    bucket.push(index);
+  }
+  return order.map(label => {
+    const groupIndices = byLabel.get(label) as number[];
+    return {
+      label,
+      rows: groupIndices.map(index => rows[index]),
+      aggregates: computeAggregates(rows, groupIndices, cols, controlAggregates),
+    };
+  });
 }
 
 export function buildGroupedItems(

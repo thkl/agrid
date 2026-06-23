@@ -2,7 +2,6 @@ import { signal } from '@angular/core';
 import { describe, expect, it } from 'vitest';
 import { AgridControl } from '../agrid-control';
 import { AgridBrowserAdapter } from '../infrastructure/agrid-browser.adapter';
-import { GridItem } from '../agrid.types';
 import { AgridPresentationService } from './agrid-presentation.service';
 
 describe('AgridPresentationService', () => {
@@ -12,7 +11,7 @@ describe('AgridPresentationService', () => {
     const service = new AgridPresentationService({
       control: signal(control),
       visibleColDefs: signal([{ field: 'amount', header: 'Amount' }]),
-      filteredItems: signal([]),
+      exportRows: signal([]),
       locale: signal('en-US'),
     });
 
@@ -26,7 +25,7 @@ describe('AgridPresentationService', () => {
     const service = new AgridPresentationService({
       control: signal(null),
       visibleColDefs: signal([]),
-      filteredItems: signal([]),
+      exportRows: signal([]),
       locale: signal('de-DE'),
     });
 
@@ -37,7 +36,7 @@ describe('AgridPresentationService', () => {
     const service = new AgridPresentationService({
       control: signal(null),
       visibleColDefs: signal([]),
-      filteredItems: signal([]),
+      exportRows: signal([]),
       locale: signal('en-US'),
       getRowClass: signal(({ index }) => (index % 2 === 0 ? 'even' : 'odd')),
     });
@@ -56,7 +55,7 @@ describe('AgridPresentationService', () => {
     const service = new AgridPresentationService({
       control: signal(null),
       visibleColDefs: signal([]),
-      filteredItems: signal([]),
+      exportRows: signal([]),
       locale: signal('en-US'),
     });
     expect(service.getRowClass({ a: 1 }, 0)).toBe('');
@@ -67,7 +66,7 @@ describe('AgridPresentationService', () => {
       new AgridPresentationService({
         control: signal(null),
         visibleColDefs: signal([]),
-        filteredItems: signal([]),
+        exportRows: signal([]),
         locale: signal('en-US'),
       }).getAggregateLabel({ field: 'x', header: 'X', aggregate: agg as never });
 
@@ -86,7 +85,7 @@ describe('AgridPresentationService', () => {
     const service = new AgridPresentationService({
       control: signal(control),
       visibleColDefs: signal([]),
-      filteredItems: signal([]),
+      exportRows: signal([]),
       locale: signal('en-US'),
     });
     expect(service.getAggregateLabel({ field: 'x', header: 'X', aggregate: 'sum' })).toBe('Ø');
@@ -97,7 +96,7 @@ describe('AgridPresentationService', () => {
     const service = new AgridPresentationService({
       control: signal(null),
       visibleColDefs: signal([]),
-      filteredItems: signal([]),
+      exportRows: signal([]),
       locale: signal('en-US'),
     });
     const col = { field: 'x', header: 'X' };
@@ -108,7 +107,7 @@ describe('AgridPresentationService', () => {
     expect(service.getFooterDisplay(col, 'text')).toBe('text');
   });
 
-  it('exports projected data rows to CSV, escaping and filtering non-data rows', () => {
+  it('exports the supplied rows to CSV, escaping values and headers', () => {
     const captured: { filename: string; text: string; mime: string }[] = [];
     const browser = {
       downloadText: (filename: string, text: string, mime: string) => {
@@ -117,12 +116,7 @@ describe('AgridPresentationService', () => {
       },
     } as unknown as AgridBrowserAdapter;
 
-    const items: GridItem[] = [
-      { originalIndex: 0, row: { name: 'Alice', note: 'a,b' } } as unknown as GridItem,
-      { detailFor: 0, row: { name: 'detail' } } as unknown as GridItem, // not a data row → excluded
-      { originalIndex: 1, row: { name: 'Bob "B"', note: 'x' } } as unknown as GridItem,
-    ];
-
+    // Row selection (filter/sort/grouping) is the component's job; the service formats what it gets.
     const service = new AgridPresentationService(
       {
         control: signal(null),
@@ -130,7 +124,10 @@ describe('AgridPresentationService', () => {
           { field: 'name', header: 'Name' },
           { field: 'note', header: 'No,te' },
         ]),
-        filteredItems: signal(items),
+        exportRows: signal([
+          { name: 'Alice', note: 'a,b' },
+          { name: 'Bob "B"', note: 'x' },
+        ]),
         locale: signal('en-US'),
       },
       browser,
@@ -143,9 +140,111 @@ describe('AgridPresentationService', () => {
     expect(captured[0].mime).toBe('text/csv;charset=utf-8;');
 
     const lines = captured[0].text.split('\n');
-    expect(lines).toHaveLength(3); // header + 2 data rows (detail row excluded)
+    expect(lines).toHaveLength(3); // header + 2 data rows
     expect(lines[0]).toBe('Name,"No,te"'); // header comma escaped
     expect(lines[1]).toBe('Alice,"a,b"'); // value comma escaped
     expect(lines[2]).toBe('"Bob ""B""",x'); // embedded quotes doubled and wrapped
   });
+
+  it('exports typed cells to xlsx and downloads bytes with the xlsx mime type', () => {
+    const captured: { filename: string; bytes: Uint8Array; mime: string }[] = [];
+    const browser = {
+      downloadBytes: (filename: string, bytes: Uint8Array, mime: string) => {
+        captured.push({ filename, bytes, mime });
+        return true;
+      },
+    } as unknown as AgridBrowserAdapter;
+
+    const service = new AgridPresentationService(
+      {
+        control: signal(null),
+        visibleColDefs: signal([
+          { field: 'amount', header: 'Amount', type: 'number' },
+          { field: 'dept', header: 'Dept', values: [{ value: 2, label: 'Sales' }] },
+        ]),
+        exportRows: signal([{ amount: 1200, dept: 2 }]),
+        locale: signal('en-US'),
+      },
+      browser,
+    );
+
+    service.exportXlsx('grid.xlsx');
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0].filename).toBe('grid.xlsx');
+    expect(captured[0].mime).toBe(
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+
+    const sheet = unzip(captured[0].bytes)['xl/worksheets/sheet1.xml'];
+    // numeric column → native number cell
+    expect(sheet).toContain('<c r="A2"><v>1200</v></c>');
+    // value-list column → resolved label as inline string (only one data row exported)
+    expect(sheet).toContain('<is><t>Sales</t></is>');
+    expect(sheet.match(/<row /g)).toHaveLength(2); // header + 1 data row
+  });
+
+  it('exports a collapsible outline with subtotal rows when grouped', () => {
+    const captured: Uint8Array[] = [];
+    const browser = {
+      downloadBytes: (_filename: string, bytes: Uint8Array) => {
+        captured.push(bytes);
+        return true;
+      },
+    } as unknown as AgridBrowserAdapter;
+
+    const service = new AgridPresentationService(
+      {
+        control: signal(null),
+        visibleColDefs: signal([
+          { field: 'dept', header: 'Dept' },
+          { field: 'amount', header: 'Amount', type: 'number', aggregate: 'sum' },
+        ]),
+        exportRows: signal([]), // ignored when exportGroups is present
+        exportGroups: signal([
+          {
+            label: 'Eng',
+            rows: [{ dept: 'Eng', amount: 100 }, { dept: 'Eng', amount: 200 }],
+            aggregates: { amount: 300 },
+          },
+        ]),
+        locale: signal('en-US'),
+      },
+      browser,
+    );
+
+    service.exportXlsx('grouped.xlsx');
+
+    const sheet = unzip(captured[0])['xl/worksheets/sheet1.xml'];
+    expect(sheet).toContain('<outlinePr summaryBelow="0"/>');         // collapsible outline
+    expect(sheet).toContain('<is><t>Eng (2)</t></is>');               // group summary label + count
+    expect(sheet).toContain('<c r="B2" s="1"><v>300</v></c>');        // bold subtotal on summary row
+    expect(sheet).toContain('outlineLevel="1"');                       // detail rows indented
+    expect(sheet.match(/<row /g)).toHaveLength(4); // header + summary + 2 detail rows
+  });
 });
+
+/** Minimal reader for the STORED-only archives produced by buildXlsx. */
+function unzip(bytes: Uint8Array): Record<string, string> {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const decoder = new TextDecoder();
+  let eocd = bytes.length - 22;
+  while (eocd >= 0 && view.getUint32(eocd, true) !== 0x06_05_4b_50) eocd--;
+  const count = view.getUint16(eocd + 10, true);
+  let cd = view.getUint32(eocd + 16, true);
+  const out: Record<string, string> = {};
+  for (let i = 0; i < count; i++) {
+    const size = view.getUint32(cd + 24, true);
+    const nameLen = view.getUint16(cd + 28, true);
+    const extraLen = view.getUint16(cd + 30, true);
+    const commentLen = view.getUint16(cd + 32, true);
+    const localOffset = view.getUint32(cd + 42, true);
+    const name = decoder.decode(bytes.subarray(cd + 46, cd + 46 + nameLen));
+    const localNameLen = view.getUint16(localOffset + 26, true);
+    const localExtraLen = view.getUint16(localOffset + 28, true);
+    const dataStart = localOffset + 30 + localNameLen + localExtraLen;
+    out[name] = decoder.decode(bytes.subarray(dataStart, dataStart + size));
+    cd += 46 + nameLen + extraLen + commentLen;
+  }
+  return out;
+}

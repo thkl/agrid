@@ -60,6 +60,7 @@ import {
   AgridSidebarTab,
 } from './editing/agrid-sidebar.component';
 import {
+  buildExportGroups,
   isDataRowItem as isDataRowItemFn,
   isDetailRowItem as isDetailRowItemFn,
   isGroupHeaderItem as isGroupHeaderItemFn,
@@ -504,17 +505,6 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     this.emitRowChanged(originalIndex);
     this.emitRecordEdit(originalIndex);
     this.sidebarController.closeSidebar();
-  }
-
-  /**
-   * Download the currently visible, filtered rows as a CSV file.
-   * Uses display values (ValueOption labels, formatters) and respects column visibility.
-   * Group header rows are excluded — only data rows are exported.
-   *
-   * @param filename  Output filename, defaults to `'export.csv'`.
-   */
-  exportCsv(filename = 'export.csv'): void {
-    this.presentation.exportCsv(filename);
   }
 
   /** @internal */ goToFirstPage(): void { this.control()?.setPage(1); }
@@ -969,7 +959,32 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   private readonly presentation = new AgridPresentationService({
     control: this.control,
     visibleColDefs: this.visibleColDefs,
-    filteredItems: this.filteredItems,
+    // Export the full filtered + sorted set, not the rendered projection: grouping,
+    // pagination, and collapsed groups must not drop rows from the file.
+    exportRows: computed(() => {
+      const rows = this.dataSource().rows();
+      return this.projection.filteredSortedIndices()
+        .map(index => rows[index])
+        .filter((row): row is Record<string, unknown> => !!row);
+    }),
+    // When grouped, export a fully-expanded grouped structure with subtotals (xlsx outline).
+    exportGroups: computed(() => {
+      const control = this.control();
+      const groupField = control?.groupByField();
+      if (!control || !groupField || this.pivotMode()) return null;
+      const cols = this.visibleColDefs();
+      const groupCol = cols.find(col => col.field === groupField)
+        ?? this.colDefs().find(col => col.field === groupField);
+      return buildExportGroups(
+        this.dataSource().rows(),
+        this.projection.filteredSortedIndices(),
+        groupField,
+        groupCol,
+        cols,
+        control.aggregates(),
+        this.locale(),
+      );
+    }),
     locale: this.locale,
     getRowClass: this.rowClassFn,
   });
@@ -1348,6 +1363,16 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     // causes the computed pivot rows to be regenerated.
     this.pivotDataSource.linkSignal(this.pivotRows);
     effect(() => this.sidebarController.syncAutoOpen());
+
+    // Expose CSV/XLSX export through the provider so callers don't need a ViewChild on the grid.
+    effect(onCleanup => {
+      const provider = this.provider();
+      provider.ɵattachExport({
+        csv: filename => this.presentation.exportCsv(filename),
+        xlsx: filename => this.presentation.exportXlsx(filename),
+      });
+      onCleanup(() => provider.ɵattachExport(null));
+    });
 
     afterRenderEffect(() => {
       if (this.firstDataRenderedEmitted) return;

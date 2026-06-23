@@ -1,8 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 import { AgridComponent } from './agrid.component';
 import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridProvider } from './agrid-provider';
+import { AgridBrowserAdapter } from './infrastructure/agrid-browser.adapter';
 import {
   GridEditEvent,
   GridItem,
@@ -57,6 +59,26 @@ describe('AgridComponent grouped control column selection', () => {
   });
 
   afterEach(() => fixture.destroy());
+
+  it('exports every filtered row via the provider even when groups are collapsed', () => {
+    // Regression: export read the rendered projection, so collapsed groups (no child data rows
+    // on screen) produced an empty file. It must export the full filtered/sorted set instead.
+    component.collapseGroups();
+    fixture.detectChanges();
+
+    const download = vi.spyOn(AgridBrowserAdapter.prototype, 'downloadText').mockReturnValue(true);
+    try {
+      provider.exportCsv();
+      expect(download).toHaveBeenCalledTimes(1);
+      const csv = download.mock.calls[0][1];
+      const lines = csv.split('\n');
+      expect(lines[0]).toBe('Name,Department');
+      expect(lines).toHaveLength(5); // header + all 4 data rows
+      for (const name of ['Alice', 'Bob', 'Carol', 'David']) expect(csv).toContain(name);
+    } finally {
+      download.mockRestore();
+    }
+  });
 
   it('selects and highlights the exact grouped row clicked in the control column', () => {
     const rows = visibleDataRows(component.filteredItems());

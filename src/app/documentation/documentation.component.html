@@ -263,7 +263,7 @@
         <span>Selection status bar</span>
         <span>Copy, paste, and fill</span>
         <span>Custom cell renderers</span>
-        <span>CSV export</span>
+        <span>CSV &amp; Excel export</span>
         <span>Localization</span>
         <span>Column state persistence</span>
         <span>Large dataset support</span>
@@ -297,7 +297,8 @@
             <tr><th>Method</th><th>Description</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>exportCsv(filename?)</code></td><td>Downloads visible filtered data as CSV.</td></tr>
+            <tr><td><code>provider.exportCsv(filename?)</code></td><td>Downloads visible filtered data as CSV.</td></tr>
+            <tr><td><code>provider.exportXlsx(filename?)</code></td><td>Downloads visible filtered data as a zero-dependency <code>.xlsx</code> workbook.</td></tr>
             <tr><td><code>autosizeAllColumns()</code></td><td>Fits every visible column to its current content.</td></tr>
             <tr><td><code>expandGroups()</code></td><td>Expands all groups.</td></tr>
             <tr><td><code>collapseGroups()</code></td><td>Collapses all groups.</td></tr>

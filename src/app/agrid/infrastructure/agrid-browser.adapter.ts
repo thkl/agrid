@@ -87,13 +87,24 @@ export class AgridBrowserAdapter {
 
   /** Downloads text through a temporary object URL and anchor element. */
   downloadText(filename: string, text: string, mimeType: string): boolean {
+    return this.downloadBlob(filename, new Blob([text], { type: mimeType }));
+  }
+
+  /** Downloads raw bytes (e.g. a generated `.xlsx`) through a temporary object URL. */
+  downloadBytes(filename: string, bytes: Uint8Array, mimeType: string): boolean {
+    // Copy into a fresh ArrayBuffer-backed view so the Blob part type is satisfied.
+    const part = new Uint8Array(bytes);
+    return this.downloadBlob(filename, new Blob([part], { type: mimeType }));
+  }
+
+  private downloadBlob(filename: string, blob: Blob): boolean {
     const urlApi = (this.win as unknown as { URL?: typeof URL } | null)?.URL
       ?? (typeof URL === 'undefined' ? null : URL);
     if (!this.doc?.body || !urlApi?.createObjectURL) return false;
     let url: string | null = null;
     let anchor: HTMLAnchorElement | null = null;
     try {
-      url = urlApi.createObjectURL(new Blob([text], { type: mimeType }));
+      url = urlApi.createObjectURL(blob);
       anchor = this.doc.createElement('a');
       anchor.href = url;
       anchor.download = filename;

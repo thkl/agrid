@@ -1,6 +1,6 @@
 # agrid
 
-`agrid` is an Angular data grid with spreadsheet-like editing, virtual scrolling, filtering, sorting, grouping, column state, pinned columns, selection, clipboard workflows, row operations, pagination, and custom cell renderers.
+`agrid` is an Angular data grid with spreadsheet-like editing, virtual scrolling, filtering, sorting, grouping, column state, pinned columns, selection, clipboard workflows, row operations, pagination, CSV/Excel export, and custom cell renderers.
 
 
 [![npm version](https://img.shields.io/npm/v/@thkl/agrid.svg)](https://www.npmjs.com/package/@thkl/agrid)
@@ -88,7 +88,7 @@ export class PageComponent {
 - Grouping with expand/collapse and custom group actions.
 - Sidebar column visibility picker.
 - Add-row placeholder and automatic row insertion.
-- CSV export of visible filtered data rows.
+- CSV and zero-dependency Excel (`.xlsx`) export of visible, filtered data rows.
 - **Date auto-formatting** — ISO strings and `Date` objects are detected and displayed as locale-formatted dates automatically.
 - **Zebra stripes** — alternating row shading for easier reading.
 - **Readonly mode** — disable all editing with a single input.
@@ -464,7 +464,6 @@ Call these through `viewChild(AgridComponent)`.
 
 | Method | Description |
 | --- | --- |
-| `exportCsv(filename?)` | Downloads visible, filtered data rows as CSV using display values. Group headers are excluded. |
 | `autosizeAllColumns()` | Resizes every visible column to fit its header text and current row values. Call after setting data. |
 | `expandGroups()` | Expands every group when grouping is active. |
 | `collapseGroups()` | Collapses every group when grouping is active. |
@@ -480,6 +479,20 @@ Call these through `viewChild(AgridComponent)`.
 | `setColumnMarked(field, marked)` | Sets one complete column's mark state and emits `columnMark` when it changes. |
 | `toggleColumnMarked(field)` | Toggles one complete column's mark state. |
 | `clearMarkedColumns()` | Clears all marked columns. |
+
+### Data Export
+
+Export lives on the **provider**, so you can trigger it from anywhere that holds the provider — no `viewChild(AgridComponent)` required:
+
+```ts
+provider.exportCsv();                  // downloads "export.csv"
+provider.exportCsv('employees.csv');
+
+provider.exportXlsx();                 // downloads "export.xlsx"
+provider.exportXlsx('employees.xlsx');
+```
+
+Both use display values (value-list labels, formatters) and respect column visibility; group-header rows are excluded. `exportXlsx` writes a real `.xlsx` workbook with **zero third-party dependencies** — numbers and dates are emitted as native, sortable/summable cells under a bold frozen header row. Both methods operate on the grid's current filtered, visible projection and are a no-op until an `<agrid>` bound to the provider has rendered.
 
 ### Public Component State
 

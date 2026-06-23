@@ -211,6 +211,16 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
  * Create one provider per independent grid instance. A provider may be selected
  * from an array when a component renders multiple grids.
  */
+/**
+ * Live export hooks installed by the rendered grid component so the provider can export the
+ * grid's current filtered/visible projection without the caller holding a component reference.
+ * @internal
+ */
+export interface AgridExportBridge {
+  csv: (filename: string) => void;
+  xlsx: (filename: string) => void;
+}
+
 export class AgridProvider<T extends object = any> {
   /** Mutable row data consumed by the grid. */
   datasource: AgridDataSource<T>;
@@ -239,6 +249,7 @@ export class AgridProvider<T extends object = any> {
   options: AGridOptions;
 
   private readonly _localizations = new Map<string, AgridLocaleTextOverrides>();
+  private exportBridge: AgridExportBridge | null = null;
 
   /** Read-only view of registered per-locale text overrides. Used by the grid to resolve locale text. */
   get localizations(): ReadonlyMap<string, AgridLocaleTextOverrides> {
@@ -448,5 +459,39 @@ export class AgridProvider<T extends object = any> {
     }
     this.control.loadState(settings.control);
     this.pivotConfig = settings.pivotConfig as AgridPivotConfig<T> | null;
+  }
+
+  /**
+   * Download the grid's current filtered, visible rows as a CSV file.
+   *
+   * Uses display values (value-list labels, formatters) and respects column visibility; group
+   * header rows are excluded. Requires a rendered `<agrid>` bound to this provider — when no grid
+   * is mounted (e.g. before first render) this is a no-op.
+   *
+   * @param filename  Output filename, defaults to `'export.csv'`.
+   */
+  exportCsv(filename = 'export.csv'): void {
+    this.exportBridge?.csv(filename);
+  }
+
+  /**
+   * Download the grid's current filtered, visible rows as an `.xlsx` workbook.
+   *
+   * Numbers and dates are written as native, sortable/summable cells; value-list columns and
+   * custom formatters fall back to display text. Requires a rendered `<agrid>` bound to this
+   * provider — a no-op when no grid is mounted. Generated with zero third-party dependencies.
+   *
+   * @param filename  Output filename, defaults to `'export.xlsx'`.
+   */
+  exportXlsx(filename = 'export.xlsx'): void {
+    this.exportBridge?.xlsx(filename);
+  }
+
+  /**
+   * @internal Installed by the rendered `<agrid>` so {@link exportCsv}/{@link exportXlsx} reach the
+   * live projection. Pass `null` on teardown.
+   */
+  ɵattachExport(bridge: AgridExportBridge | null): void {
+    this.exportBridge = bridge;
   }
 }

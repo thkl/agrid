@@ -432,6 +432,18 @@ export interface DetailActionParams<T extends object = any> {
   rowIndex: number;
 }
 
+/**
+ * One group's export payload: its label, member rows in display order, and the per-column
+ * subtotal map. Produced for grouped exports so formats that support it (e.g. `.xlsx`) can emit
+ * collapsible outlines with subtotal rows. @internal
+ */
+export interface AgridExportGroup {
+  label: string;
+  rows: Record<string, unknown>[];
+  /** Per-column aggregate values (field → value), only for columns with a configured aggregate. */
+  aggregates: Record<string, unknown>;
+}
+
 /** Text-template button shown above the editable master/detail textarea. */
 export interface DetailAction<T extends object = any> {
   id: string;

@@ -113,3 +113,27 @@ describe('AgridProvider runtime state ownership', () => {
     })).toThrowError(/not configured/);
   });
 });
+
+describe('AgridProvider export bridge', () => {
+  it('is a no-op before a grid attaches its export bridge', () => {
+    const provider = new AgridProvider({ columns: [{ field: 'a', header: 'A' }] });
+    expect(() => provider.exportCsv()).not.toThrow();
+    expect(() => provider.exportXlsx()).not.toThrow();
+  });
+
+  it('delegates to the attached bridge with the resolved filename, and detaches on null', () => {
+    const provider = new AgridProvider({ columns: [{ field: 'a', header: 'A' }] });
+    const csv: string[] = [];
+    const xlsx: string[] = [];
+    provider.ɵattachExport({ csv: f => csv.push(f), xlsx: f => xlsx.push(f) });
+
+    provider.exportCsv();
+    provider.exportXlsx('report.xlsx');
+    expect(csv).toEqual(['export.csv']); // default filename
+    expect(xlsx).toEqual(['report.xlsx']);
+
+    provider.ɵattachExport(null);
+    provider.exportCsv();
+    expect(csv).toEqual(['export.csv']); // unchanged after detach
+  });
+});

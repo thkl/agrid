@@ -5,6 +5,7 @@ import {
   applyQuickFilter,
   applyTextAndValueFilters,
   applySortToIndices,
+  buildExportGroups,
   buildGroupedItems,
   buildPathTreeItems,
   computeAggregates,
@@ -850,5 +851,43 @@ describe('buildPathTreeItems', () => {
         [0, 'Item 01.01.0001 (0001:01.01.0001)'],
         [1, 'Item 01.01.0002 (0002:01.01.0002)'],
       ]);
+  });
+});
+
+// ── buildExportGroups ────────────────────────────────────────────────────────────
+
+describe('buildExportGroups', () => {
+  const rows = [
+    { dept: 'Eng', amount: 100 },
+    { dept: 'Sales', amount: 50 },
+    { dept: 'Eng', amount: 200 },
+    { dept: 'Eng', amount: 300 },
+  ];
+  const cols: ColDef[] = [
+    { field: 'dept', header: 'Dept' },
+    { field: 'amount', header: 'Amount', type: 'number', aggregate: 'sum' },
+  ];
+  const deptCol = cols[0];
+
+  it('groups filtered rows in first-seen order with per-column subtotals', () => {
+    const groups = buildExportGroups(rows, [0, 1, 2, 3], 'dept', deptCol, cols, {});
+
+    expect(groups.map(group => group.label)).toEqual(['Eng', 'Sales']);
+    expect(groups[0].rows).toHaveLength(3);
+    expect(groups[0].aggregates).toEqual({ amount: 600 }); // 100 + 200 + 300
+    expect(groups[1].aggregates).toEqual({ amount: 50 });
+  });
+
+  it('honors the supplied (filtered/sorted) index subset and order', () => {
+    // Only Eng rows 3 and 2, in that order.
+    const groups = buildExportGroups(rows, [3, 2], 'dept', deptCol, cols, {});
+    expect(groups).toHaveLength(1);
+    expect(groups[0].rows.map(row => row['amount'])).toEqual([300, 200]);
+    expect(groups[0].aggregates).toEqual({ amount: 500 });
+  });
+
+  it('lets a runtime control aggregate override the column definition', () => {
+    const groups = buildExportGroups(rows, [0, 2, 3], 'dept', deptCol, cols, { amount: 'count' });
+    expect(groups[0].aggregates).toEqual({ amount: 3 });
   });
 });

@@ -75,7 +75,8 @@ function generateRows(count: number): Record<string, unknown>[] {
           <button class="demo-btn" (click)="_grid()?.expandGroups()">Expand All</button>
           <button class="demo-btn" (click)="_grid()?.collapseGroups()">Collapse All</button>
         }
-        <button class="demo-btn" (click)="_grid()?.exportCsv()">Export CSV</button>
+        <button class="demo-btn" (click)="gridProvider.exportCsv()">Export CSV</button>
+        <button class="demo-btn" (click)="gridProvider.exportXlsx()">Export XLSX</button>
       </div>
       <agrid
         class="demo-grid"
@@ -196,7 +197,8 @@ export class AgridDemoComponent {
         id: 'export',
         label: 'Export',
         items: [
-          { id: 'export-csv', label: 'All rows'  },
+          { id: 'export-csv', label: 'All rows (csv)'  },
+          { id: 'export-xlsx', label: 'All rows (xlsx)'  },
           {
             id: 'export-selected',
             label: 'Selected rows',
@@ -266,7 +268,8 @@ export class AgridDemoComponent {
       this.lastEdit.set('Grid data refreshed');
       return;
     }
-    if (id === 'export' || id === 'export-csv') this._grid()?.exportCsv();
+    if (id === 'export' || id === 'export-csv') this.gridProvider.exportCsv();
+    if (id === 'export-xlsx') this.gridProvider.exportXlsx();
     this.lastEdit.set(`Menu action: ${id}`);
   }
 
