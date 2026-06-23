@@ -403,6 +403,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   private readonly markedIndices = signal<Set<number>>(new Set());
   private readonly markedFields = signal<Set<string>>(new Set());
   private firstDataRenderedEmitted = false;
+  private detailReturnCell: CellPosition | null = null;
 
   /** Original datasource indices marked for inclusion in copy operations. */
   readonly markedRowIndices: Signal<ReadonlySet<number>> =
@@ -1551,6 +1552,9 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     if (!col || !this.isCellEditable(col, item.detailFor)) return;
     event?.preventDefault();
     event?.stopPropagation();
+    this.detailReturnCell = event instanceof KeyboardEvent ? this.selectedCell() : null;
+    this.selectedCell.set(null);
+    this.selectedRange.set(null);
     this.detailEditingRow.set(item.detailFor);
     this.detailDraft.set(String(item.row[col.field] ?? ''));
     this.detailValidationError.set(null);
@@ -1576,6 +1580,43 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       event.preventDefault();
       this.commitDetailFieldEdit(item);
     }
+  }
+
+  private detailKeyboardTarget(direction: 1 | -1): DetailRowItem | null {
+    const sel = this.selectedCell();
+    if (!sel) return null;
+    const items = this.displayItems();
+    const selectedIndex = items.findIndex(item =>
+      isDataRowItemFn(item) && item.originalIndex === sel.rowIndex,
+    );
+    if (selectedIndex < 0) return null;
+    const candidate = items[selectedIndex + direction];
+    return isDetailRowItemFn(candidate) && this.isDetailFieldEditable(candidate)
+      ? candidate
+      : null;
+  }
+
+  private focusDetailEditorFromKeyboard(event: KeyboardEvent): boolean {
+    if (this.editingCell() || this.detailEditingRow() !== null) return false;
+    if (event.ctrlKey || event.metaKey || event.altKey) return false;
+    const sel = this.selectedCell();
+    if (!sel) return false;
+    const direction = event.key === 'ArrowRight' || (event.key === 'Tab' && !event.shiftKey)
+      ? 1
+      : event.key === 'ArrowLeft' || (event.key === 'Tab' && event.shiftKey)
+        ? -1
+        : null;
+    if (direction === null) return false;
+    const lastColIndex = this.visibleColDefs().length - 1;
+    if ((direction === 1 && sel.colIndex < lastColIndex) || (direction === -1 && sel.colIndex > 0)) {
+      return false;
+    }
+    const target = this.detailKeyboardTarget(direction);
+    if (!target) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    this.startDetailFieldEdit(target, event);
+    return true;
   }
 
   /** @internal Commit a multiline detail edit through normal grid edit semantics. */
@@ -1636,6 +1677,10 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     this.detailEditingRow.set(null);
     this.detailDraft.set('');
     this.detailValidationError.set(null);
+    if (this.detailReturnCell) {
+      this.selectedCell.set(this.detailReturnCell);
+      this.detailReturnCell = null;
+    }
   }
 
   /** @internal Resolved per-row CSS classes from the host `getRowClass` callback. */
@@ -2127,6 +2172,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       this.cancelRowDelete();
       return;
     }
+    if (this.focusDetailEditorFromKeyboard(event)) return;
     this.navigationController.handleKeyDown(event);
   }
 

@@ -1441,12 +1441,17 @@ describe('AgridComponent pinned rows and master/detail', () => {
     const provider = new AgridProvider({
       columns: [
         { field: 'name', header: 'Name' },
-        { field: 'kind', header: 'Kind' },
+        {
+          field: 'kind',
+          header: 'Kind',
+          validate: value => value === 'invalid' ? 'Kind is invalid' : null,
+        },
+        { field: 'status', header: 'Status' },
       ],
       datasource: new AgridDataSource([
-        { name: 'Row 0', kind: 'data' },
-        { name: 'Row 1', kind: 'data' },
-        { name: 'Summary', kind: 'summary' },
+        { name: 'Row 0', kind: 'data', status: 'open' },
+        { name: 'Row 1', kind: 'data', status: 'open' },
+        { name: 'Summary', kind: 'summary', status: 'closed' },
       ]),
       control: new AgridControl({ allowRowReorder: false }),
       getRowClass: ({ row }) => (row['kind'] === 'summary' ? 'is-summary' : ''),
@@ -1520,6 +1525,101 @@ describe('AgridComponent pinned rows and master/detail', () => {
       newValue: 'first line\nsecond line',
     });
     expect(component.provider().control.canUndo()).toBe(true);
+  });
+
+  it('routes forward and backward keyboard movement through the detail textarea', () => {
+    component.toggleDetail(0);
+    fixture.detectChanges();
+
+    component.selectedCell.set({ rowIndex: 0, colIndex: 1 });
+    const withinRow = new KeyboardEvent('keydown', {
+      key: 'ArrowRight',
+      bubbles: true,
+      cancelable: true,
+    });
+    component.onKeyDown(withinRow);
+    fixture.detectChanges();
+
+    expect(withinRow.defaultPrevented).toBe(true);
+    expect(component.detailEditingRow()).toBeNull();
+    expect(component.selectedCell()).toEqual({ rowIndex: 0, colIndex: 2 });
+
+    const forward = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    component.onKeyDown(forward);
+    fixture.detectChanges();
+
+    expect(forward.defaultPrevented).toBe(true);
+    expect(component.detailEditingRow()).toBe(0);
+    expect(component.selectedCell()).toBeNull();
+
+    component.cancelDetailFieldEdit();
+    expect(component.selectedCell()).toEqual({ rowIndex: 0, colIndex: 2 });
+
+    component.selectedCell.set({ rowIndex: 1, colIndex: 0 });
+    const backward = new KeyboardEvent('keydown', {
+      key: 'ArrowLeft',
+      bubbles: true,
+      cancelable: true,
+    });
+    component.onKeyDown(backward);
+    fixture.detectChanges();
+
+    expect(backward.defaultPrevented).toBe(true);
+    expect(component.detailEditingRow()).toBe(0);
+    expect(component.selectedCell()).toBeNull();
+  });
+
+  it('clears the active cell outline while editing a detail textarea from click', () => {
+    component.toggleDetail(0);
+    component.selectedCell.set({ rowIndex: 0, colIndex: 1 });
+    fixture.detectChanges();
+
+    const value = fixture.nativeElement.querySelector('.ag-detail-column-value') as HTMLElement;
+    value.click();
+    fixture.detectChanges();
+
+    expect(component.detailEditingRow()).toBe(0);
+    expect(component.selectedCell()).toBeNull();
+
+    component.cancelDetailFieldEdit();
+
+    expect(component.selectedCell()).toBeNull();
+  });
+
+  it('keeps invalid detail textarea edits active and does not let grid Tab navigation steal them', () => {
+    const failures: unknown[] = [];
+    component.validationFailed.subscribe(event => failures.push(event));
+    component.toggleDetail(0);
+    fixture.detectChanges();
+
+    const value = fixture.nativeElement.querySelector('.ag-detail-column-value') as HTMLElement;
+    value.click();
+    fixture.detectChanges();
+
+    const textarea = fixture.nativeElement.querySelector(
+      '.ag-detail-column-textarea',
+    ) as HTMLTextAreaElement;
+    textarea.value = 'invalid';
+    textarea.dispatchEvent(new Event('input'));
+    textarea.dispatchEvent(new FocusEvent('blur'));
+    fixture.detectChanges();
+
+    expect(component.detailEditingRow()).toBe(0);
+    expect(component.detailValidationError()).toBe('Kind is invalid');
+    expect(component.provider().datasource.getRow(0)['kind']).toBe('data');
+    expect(failures).toHaveLength(1);
+
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    textarea.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    }));
+    fixture.detectChanges();
+
+    expect(component.detailEditingRow()).toBe(0);
+    expect(component.detailDraft()).toBe('invalid');
+    expect(component.selectedCell()).toEqual({ rowIndex: 0, colIndex: 0 });
   });
 
   it('resolves whole-row CSS classes from getRowClass', () => {
