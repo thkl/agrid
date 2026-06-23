@@ -235,11 +235,6 @@
   --agrid-row-indication-duration: 1000ms;
 }
 
-.ag-row > agrid-cell:not(.editing),
-.ag-row > .ag-control-cell {
-  transition: background-color var(--agrid-row-indication-duration) ease-out;
-}
-
 .ag-row--pending-delete > :not(.ag-delete-confirmation) {
   opacity: 0.2;
   pointer-events: none;
@@ -354,9 +349,19 @@
   box-shadow: inset 3px 0 0 #bf8700;
 }
 
-.ag-row--indicating > agrid-cell:not(.editing),
-.ag-row--indicating > .ag-control-cell {
-  background: var(--agrid-row-indication-color) !important;
+.ag-row--indicating::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  background: var(--agrid-row-indication-color);
+  animation: ag-row-indication-fade var(--agrid-row-indication-duration) ease-out forwards;
+}
+
+@keyframes ag-row-indication-fade {
+  from { opacity: 0.35; }
+  to { opacity: 0; }
 }
 
 .ag-row agrid-cell.ag-column--marked:not(.editing),

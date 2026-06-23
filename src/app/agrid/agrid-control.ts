@@ -75,7 +75,7 @@ export interface AgridRowIndication {
   color: string;
   /** Fade duration in milliseconds. */
   durationMs: number;
-  /** `true` for the initial colored frame, then `false` while fading back. */
+  /** `true` while the row flash is present. */
   active: boolean;
 }
 
@@ -189,15 +189,6 @@ export class AgridControl {
       next.set(rowIndex, { color, durationMs: duration, active: true });
       return next;
     });
-    const fadeTimer = setTimeout(() => {
-      this._rowIndications.update(current => {
-        const currentIndication = current.get(rowIndex);
-        if (!currentIndication) return current;
-        const next = new Map(current);
-        next.set(rowIndex, { ...currentIndication, active: false });
-        return next;
-      });
-    }, 16);
     const removeTimer = setTimeout(() => {
       this._rowIndications.update(current => {
         if (!current.has(rowIndex)) return current;
@@ -206,8 +197,8 @@ export class AgridControl {
         return next;
       });
       this.rowIndicationTimers.delete(rowIndex);
-    }, duration + 32);
-    this.rowIndicationTimers.set(rowIndex, [fadeTimer, removeTimer]);
+    }, duration);
+    this.rowIndicationTimers.set(rowIndex, [removeTimer]);
   }
 
   private clearRowIndicationTimers(rowIndex: number): void {

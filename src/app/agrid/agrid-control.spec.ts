@@ -50,7 +50,7 @@ describe('AgridControl', () => {
       expect(restored.autoAddRows()).toBe(false);
     });
 
-    it('indicates one row temporarily and fades it before removal', () => {
+    it('indicates one row temporarily before removal', () => {
       vi.useFakeTimers();
       const ctrl = new AgridControl();
 
@@ -62,14 +62,10 @@ describe('AgridControl', () => {
         active: true,
       });
 
-      vi.advanceTimersByTime(16);
-      expect(ctrl.rowIndications().get(2)).toEqual({
-        color: '#00ff00',
-        durationMs: 1000,
-        active: false,
-      });
+      vi.advanceTimersByTime(999);
+      expect(ctrl.rowIndications().get(2)?.active).toBe(true);
 
-      vi.advanceTimersByTime(1016);
+      vi.advanceTimersByTime(1);
       expect(ctrl.rowIndications().has(2)).toBe(false);
     });
   });

@@ -587,7 +587,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** @internal Whether a row is currently in the colored phase of a control indication. */
   rowIndicationActive(originalIndex: number): boolean {
-    return this.control()?.rowIndications().get(originalIndex)?.active ?? false;
+    return this.control()?.rowIndications().has(originalIndex) ?? false;
   }
 
   /** @internal CSS color for a transient row indication. */
