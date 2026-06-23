@@ -2133,6 +2133,9 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** @internal */
   onDraftChange(value: unknown): void { this.editController.setDraft(value); }
 
+  /** @internal Commit the active inline editor without moving selection. */
+  onCommitEdit(): void { this.editController.commit(); }
+
   private quickFilterTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**

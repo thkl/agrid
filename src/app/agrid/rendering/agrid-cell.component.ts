@@ -242,6 +242,9 @@ export class AgridCellComponent {
    */
   draftChange = output<unknown>();
 
+  /** Emitted when an editor wants the grid to commit the current draft immediately. */
+  commitEdit = output<void>();
+
   /** Live draft value managed by the cell during an active edit. */
   readonly draft = signal<unknown>('');
 
@@ -415,5 +418,6 @@ export class AgridCellComponent {
     const rawValue = opts[idx]?.rawValue ?? '';
     this.draft.set(rawValue);
     this.draftChange.emit(rawValue);
+    this.commitEdit.emit();
   }
 }

@@ -415,6 +415,48 @@ describe('AgridComponent Tab navigation', () => {
     }]);
   });
 
+  it('emits rowChanged after a values dropdown edit leaves the row', async () => {
+    const valueProvider = new AgridProvider({
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'status', header: 'Status', values: ['Open', 'Done'] },
+      ],
+      datasource: new AgridDataSource([
+        { name: 'Task 1', status: 'Open' },
+        { name: 'Task 2', status: 'Open' },
+      ]),
+      control: new AgridControl({ allowRowReorder: false }),
+    });
+    const valueFixture = TestBed.createComponent(AgridComponent);
+    valueFixture.componentRef.setInput('provider', valueProvider);
+    valueFixture.detectChanges();
+    const valueComponent = valueFixture.componentInstance;
+    const emitted: RowUpdateEvent[] = [];
+    valueComponent.rowChanged.subscribe(event => emitted.push(event));
+
+    valueComponent.onStartEdit(0, 1);
+    valueComponent.onDraftChange('Done');
+    valueComponent.onCommitEdit();
+    await Promise.resolve();
+
+    expect(valueProvider.datasource.getRow(0)['status']).toBe('Done');
+    expect(emitted).toHaveLength(0);
+
+    valueComponent.onKeyDown(new KeyboardEvent('keydown', {
+      key: 'Tab',
+      cancelable: true,
+    }));
+    valueFixture.detectChanges();
+    await Promise.resolve();
+
+    expect(valueComponent.selectedCell()).toEqual({ rowIndex: 1, colIndex: 0 });
+    expect(emitted).toEqual([{
+      row: { name: 'Task 1', status: 'Done' },
+      originalIndex: 0,
+    }]);
+    valueFixture.destroy();
+  });
+
   it('emits rowChanged when filter focus clears an edited cell selection', async () => {
     const emitted: RowUpdateEvent[] = [];
     component.rowChanged.subscribe(event => emitted.push(event));

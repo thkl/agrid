@@ -116,7 +116,8 @@
               [class.ag-cell--pinned-last]="bc.lastPinned"
               (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
               (activate)="onActivate(item.originalIndex, ci, $event)" (startEdit)="onStartEdit(item.originalIndex, ci)"
-              (draftChange)="onDraftChange($event)" (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)"
+              (draftChange)="onDraftChange($event)" (commitEdit)="onCommitEdit()"
+              (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)"
               (infoClick)="onCellInfo(item.originalIndex, col, item.row)" (treeToggle)="onTreeToggle(item)"
               (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
             }
@@ -268,6 +269,7 @@
                 (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
                 (activate)="onActivate(item.originalIndex, ci, $event)"
                 (startEdit)="onStartEdit(item.originalIndex, ci)" (draftChange)="onDraftChange($event)"
+                (commitEdit)="onCommitEdit()"
                 (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)" (treeToggle)="onTreeToggle(item)"
                 (infoClick)="onCellInfo(item.originalIndex, col, item.row)"
                 (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
@@ -506,7 +508,8 @@
               [class.ag-cell--pinned]="true" [class.ag-cell--pinned-first]="bc.firstRightPinned"
               (pointerdown)="onCellPointerDown($event, item.originalIndex, ci)"
               (activate)="onActivate(item.originalIndex, ci, $event)" (startEdit)="onStartEdit(item.originalIndex, ci)"
-              (draftChange)="onDraftChange($event)" (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)"
+              (draftChange)="onDraftChange($event)" (commitEdit)="onCommitEdit()"
+              (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)"
               (infoClick)="onCellInfo(item.originalIndex, col, item.row)" (treeToggle)="onTreeToggle(item)"
               (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
             }
