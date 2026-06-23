@@ -232,6 +232,12 @@
 .ag-row {
   display: grid;
   position: relative;
+  --agrid-row-indication-duration: 1000ms;
+}
+
+.ag-row > agrid-cell:not(.editing),
+.ag-row > .ag-control-cell {
+  transition: background-color var(--agrid-row-indication-duration) ease-out;
 }
 
 .ag-row--pending-delete > :not(.ag-delete-confirmation) {
@@ -346,6 +352,11 @@
 
 .ag-row--marked {
   box-shadow: inset 3px 0 0 #bf8700;
+}
+
+.ag-row--indicating > agrid-cell:not(.editing),
+.ag-row--indicating > .ag-control-cell {
+  background: var(--agrid-row-indication-color) !important;
 }
 
 .ag-row agrid-cell.ag-column--marked:not(.editing),

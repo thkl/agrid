@@ -379,9 +379,9 @@ Set `detailColumnField` to a column field when the panel should expose one large
 The formatted value is shown normally; click it or focus it and press Enter to open a textarea.
 Blur or Ctrl/Cmd+Enter commits, while Escape cancels. Editability, validation, history, and edit
 events follow the linked column's normal cell behavior.
-Set `detailActions` to add text-template buttons above the textarea. Each action has a `label` and
-a `text` string or row-aware resolver; clicking inserts at the current selection, or appends if the
-button opens the textarea.
+Set `detailActions` to add text-template buttons above the textarea. Each action has an `id`,
+`label`, and optional `text` string or row-aware resolver; clicking inserts at the current
+selection, or appends if the button opens the textarea.
 
 ## Standalone tree control
 
@@ -520,6 +520,7 @@ Use `rowChanged` to send one request after the user edits one or more fields in 
 ```ts
 saveRow(event: RowUpdateEvent<Person>): void {
   this.http.patch(`/api/people/${event.row.id}`, event.row).subscribe(() => {
+    this.provider.control.indicate(event.originalIndex, '#2da44e', 1000);
     this.grid()?.clearChangedCells(event.originalIndex);
   });
 }
@@ -528,6 +529,8 @@ saveRow(event: RowUpdateEvent<Person>): void {
 The event fires with the latest complete row when inline navigation leaves that row, or when the
 sidebar editor Save button is used. `cellEdit` and `recordEdit` remain available for every committed
 field change. With `showChangedCellIndicator: true`, changed cells keep a corner marker until the
-PATCH succeeds. Override `--agrid-color-cell-changed` to customize its color.
+PATCH succeeds. Override `--agrid-color-cell-changed` to customize its color. Call
+`control.indicate(index, color, durationMs)` to flash a complete row for transient server-side
+feedback.
 
 Full documentation and demos: https://thkl.github.io/agrid/

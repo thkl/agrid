@@ -13,6 +13,7 @@ export { AgridBrowserAdapter } from './infrastructure/agrid-browser.adapter'
 
 export type {
   AgridControlState,
+  AgridRowIndication,
   ColumnFilter,
   FilterOperator,
   HistoryEntry,

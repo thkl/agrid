@@ -368,6 +368,19 @@ describe('AgridComponent Tab navigation', () => {
     plainFixture.destroy();
   });
 
+  it('renders transient row indications from the grid control', () => {
+    provider.control.indicate(0, '#00ff00', 750);
+    fixture.detectChanges();
+
+    const indicatedRow = fixture.nativeElement.querySelector(
+      '[data-original-index="0"]',
+    ) as HTMLElement;
+
+    expect(indicatedRow.classList.contains('ag-row--indicating')).toBe(true);
+    expect(indicatedRow.style.getPropertyValue('--agrid-row-indication-color')).toBe('#00ff00');
+    expect(indicatedRow.style.getPropertyValue('--agrid-row-indication-duration')).toBe('750ms');
+  });
+
   it('emits rowChanged once with the latest row after inline editing leaves the row', async () => {
     provider.datasource.addRow({ name: 'Bob', department: 'Support' });
     const emitted: RowUpdateEvent[] = [];
@@ -1460,8 +1473,8 @@ describe('AgridComponent pinned rows and master/detail', () => {
       detailRenderer: ({ row }) => `<b>${row['name']}</b>`,
       detailColumnField: 'kind',
       detailActions: [
-        { label: 'Greeting', text: 'Hello ' },
-        { label: 'Row name', text: ({ row }) => String(row.name) },
+        { id: 'greeting', label: 'Greeting', text: 'Hello ' },
+        { id: 'row-name', label: 'Row name', text: ({ row }) => String(row.name) },
       ],
     });
 

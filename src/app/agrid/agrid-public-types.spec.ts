@@ -173,6 +173,7 @@ describe('typed public contracts', () => {
       { id: 1, name: 'Alice', active: true },
     ]);
     const detailAction: DetailAction<PersonRow> = {
+      id: 'name',
       label: 'Name',
       text: ({ row, rowIndex }) => {
         expectTypeOf(row).toEqualTypeOf<PersonRow>();

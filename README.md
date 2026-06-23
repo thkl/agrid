@@ -181,6 +181,7 @@ user finishes editing it:
 ```ts
 saveRow(event: RowUpdateEvent<PersonRow>): void {
   this.http.patch(`/api/people/${event.row.id}`, event.row).subscribe(() => {
+    this.provider.control.indicate(event.originalIndex, '#2da44e', 1000);
     this.grid()?.clearChangedCells(event.originalIndex);
   });
 }
@@ -202,7 +203,8 @@ readonly provider = new AgridProvider<PersonRow>({
 
 After a successful API request, call `clearChangedCells(index)` for the complete row,
 `clearChangedCells(index, ['name', 'email'])` for selected fields, or
-`clearChangedCells()` for every marker.
+`clearChangedCells()` for every marker. Call `control.indicate(index, color, durationMs)` to flash
+a complete row for transient server-side feedback.
 
 ## AgridProvider Configuration
 
@@ -265,7 +267,7 @@ readonly gridProvider = new AgridProvider({
 | `masterDetail` | `boolean` | `false` | Enables expandable detail panels. In tree mode, only leaf rows can expand details. Not available while grouped. |
 | `detailRenderer` | `(p: { row }) => string` | `undefined` | Returns sanitized HTML for an expanded detail panel. |
 | `detailColumnField` | column field | `undefined` | Shows one linked column as a multiline editable field in the detail panel. |
-| `detailActions` | `{ label; text }[]` | `[]` | Adds template buttons above the linked detail textarea. `text` may be a string or `(p: { row; rowIndex }) => string`. |
+| `detailActions` | `{ id; label; text? }[]` | `[]` | Adds template buttons above the linked detail textarea. `text` may be a string or `(p: { row; rowIndex }) => string`. |
 | `detailRowHeight` | `number` | `200` | Fixed height in pixels of an expanded detail panel. |
 
 ### Tree grids and descendant rollups
@@ -432,6 +434,7 @@ Three options are `WritableSignal` properties on the provider instance — updat
 | `control.loading` | `Signal<boolean>` | Whether the loading overlay is visible. Change with `setLoading()`. |
 | `control.readonly` | `Signal<boolean>` | Whether readonly mode is active. Change with `setReadonly()`. |
 | `control.autoAddRows` | `Signal<boolean>` | Whether automatic row insertion is active. Change with `setAutoAddRows()`. |
+| `control.indicate(rowIndex, color, durationMs?)` | method | Flashes one original datasource row with a CSS color, then fades back over `durationMs` (default `1000`). |
 
 Example — toggle readonly in a host component:
 
@@ -1379,8 +1382,8 @@ readonly provider = new AgridProvider<Order>({
   detailRowHeight: 160, // fixed panel height in px (default 200)
   detailColumnField: 'notes',
   detailActions: [
-    { label: 'Follow-up', text: '\nFollow-up required.' },
-    { label: 'Customer', text: ({ row }) => `\nCustomer: ${row.customer}` },
+    { id: 'follow-up', label: 'Follow-up', text: '\nFollow-up required.' },
+    { id: 'customer', label: 'Customer', text: ({ row }) => `\nCustomer: ${row.customer}` },
   ],
   detailRenderer: ({ row }) => `<div class="order-detail">${row.notes}</div>`,
 });

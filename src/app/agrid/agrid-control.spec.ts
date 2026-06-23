@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AgridControl } from './agrid-control';
 
 // AgridControl uses signal()/computed() which work outside injection context.
@@ -25,6 +25,8 @@ describe('AgridControl', () => {
   });
 
   describe('runtime grid state', () => {
+    afterEach(() => vi.useRealTimers());
+
     it('updates loading, readonly, and auto-add state through commands', () => {
       const ctrl = new AgridControl();
       ctrl.setLoading(true);
@@ -46,6 +48,29 @@ describe('AgridControl', () => {
       expect(restored.loading()).toBe(false);
       expect(restored.readonly()).toBe(false);
       expect(restored.autoAddRows()).toBe(false);
+    });
+
+    it('indicates one row temporarily and fades it before removal', () => {
+      vi.useFakeTimers();
+      const ctrl = new AgridControl();
+
+      ctrl.indicate(2, '#00ff00', 1000);
+
+      expect(ctrl.rowIndications().get(2)).toEqual({
+        color: '#00ff00',
+        durationMs: 1000,
+        active: true,
+      });
+
+      vi.advanceTimersByTime(16);
+      expect(ctrl.rowIndications().get(2)).toEqual({
+        color: '#00ff00',
+        durationMs: 1000,
+        active: false,
+      });
+
+      vi.advanceTimersByTime(1016);
+      expect(ctrl.rowIndications().has(2)).toBe(false);
     });
   });
 

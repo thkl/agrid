@@ -59,8 +59,11 @@
             [class.ag-row--selected]="isPinnedPaneRowSelected(item)"
             [class.ag-row--marked]="isDataRowItem(item) && isRowMarked(item.originalIndex)"
             [class.ag-row--pending-delete]="isDataRowItem(item) && isRowPendingDelete(item.originalIndex)"
+            [class.ag-row--indicating]="isDataRowItem(item) && rowIndicationActive(item.originalIndex)"
             [class]="isDataRowItem(item) ? getRowClass(item.row, item.originalIndex) : ''"
             [attr.data-original-index]="getItemOriginalIndex(item)" [style.height.px]="rowPx(item)"
+            [style.--agrid-row-indication-color]="isDataRowItem(item) ? rowIndicationColor(item.originalIndex) : null"
+            [style.--agrid-row-indication-duration.ms]="isDataRowItem(item) ? rowIndicationDuration(item.originalIndex) : null"
             [style.grid-template-columns]="isDataRowItem(item) || isLoadingRow(item) || item === 'ghost' ? pinnedGridTemplateColumns() : null"
             (pointerdown)="isDataRowItem(item) && onRowPointerDown($event, item.originalIndex)"
             (click)="isDataRowItem(item) && onRowClick($event, item)">
@@ -229,8 +232,11 @@
               [class.ag-row--selected]="isDataRowItem(item) && isRowSelected(item.originalIndex)"
               [class.ag-row--marked]="isDataRowItem(item) && isRowMarked(item.originalIndex)"
               [class.ag-row--pending-delete]="isDataRowItem(item) && isRowPendingDelete(item.originalIndex)"
+              [class.ag-row--indicating]="isDataRowItem(item) && rowIndicationActive(item.originalIndex)"
               [class]="isDataRowItem(item) ? getRowClass(item.row, item.originalIndex) : ''"
               [attr.data-original-index]="getItemOriginalIndex(item)" [style.height.px]="rowPx(item)"
+              [style.--agrid-row-indication-color]="isDataRowItem(item) ? rowIndicationColor(item.originalIndex) : null"
+              [style.--agrid-row-indication-duration.ms]="isDataRowItem(item) ? rowIndicationDuration(item.originalIndex) : null"
               [style.grid-template-columns]="isDataRowItem(item) || isLoadingRow(item) || item === 'ghost' ? scrollableGridTemplateColumns() : null"
               (pointerdown)="isDataRowItem(item) && onRowPointerDown($event, item.originalIndex)"
               (click)="isDataRowItem(item) && onRowClick($event, item)">
@@ -287,7 +293,7 @@
                   <span class="ag-detail-column-label">{{ detailCol.header }}</span>
                   @if (detailActions().length && isDetailFieldEditable(item)) {
                   <div class="ag-detail-action-bar" role="toolbar" [attr.aria-label]="detailCol.header + ' templates'">
-                    @for (action of detailActions(); track action.label) {
+                    @for (action of detailActions(); track action.id) {
                     <button type="button" class="ag-detail-action-btn"
                       (click)="applyDetailAction(item, action, $event)">{{ action.label }}</button>
                     }
@@ -467,8 +473,11 @@
             [class.ag-row--selected]="isDataRowItem(item) && isRowSelected(item.originalIndex)"
             [class.ag-row--marked]="isDataRowItem(item) && isRowMarked(item.originalIndex)"
             [class.ag-row--pending-delete]="isDataRowItem(item) && isRowPendingDelete(item.originalIndex)"
+            [class.ag-row--indicating]="isDataRowItem(item) && rowIndicationActive(item.originalIndex)"
             [class]="isDataRowItem(item) ? getRowClass(item.row, item.originalIndex) : ''"
             [style.height.px]="rowPx(item)"
+            [style.--agrid-row-indication-color]="isDataRowItem(item) ? rowIndicationColor(item.originalIndex) : null"
+            [style.--agrid-row-indication-duration.ms]="isDataRowItem(item) ? rowIndicationDuration(item.originalIndex) : null"
             [style.grid-template-columns]="isDataRowItem(item) || isLoadingRow(item) || item === 'ghost' ? rightGridTemplateColumns() : null">
             @if (isDataRowItem(item)) {
             @for (bc of rightBodyColumns(); track bc.field) {

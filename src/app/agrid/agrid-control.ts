@@ -69,6 +69,16 @@ export interface ColumnFilter {
   operand2?: string | null;
 }
 
+/** Transient row indication state produced by {@link AgridControl.indicate}. */
+export interface AgridRowIndication {
+  /** CSS color shown while the row flash is active. */
+  color: string;
+  /** Fade duration in milliseconds. */
+  durationMs: number;
+  /** `true` for the initial colored frame, then `false` while fading back. */
+  active: boolean;
+}
+
 /** Serializable snapshot of the grid's UI state. Used with `toJSON` / `fromJSON`. */
 export interface AgridControlState {
   /** Per-field column width overrides in pixels. */
@@ -140,6 +150,8 @@ export class AgridControl {
   private readonly _loading = signal(false);
   private readonly _readonly = signal(false);
   private readonly _autoAddRows = signal(false);
+  private readonly _rowIndications = signal<ReadonlyMap<number, AgridRowIndication>>(new Map());
+  private readonly rowIndicationTimers = new Map<number, ReturnType<typeof setTimeout>[]>();
 
   /** @param state Optional initial state, e.g. deserialized from storage. */
   constructor(state?: Partial<AgridControlState>) {
@@ -159,6 +171,48 @@ export class AgridControl {
   /** Show or hide the grid loading overlay. */
   setLoading(value: boolean): void {
     this._loading.set(value);
+  }
+
+  /** Transient row flash indicators keyed by original datasource row index. */
+  readonly rowIndications: Signal<ReadonlyMap<number, AgridRowIndication>> =
+    this._rowIndications.asReadonly();
+
+  /**
+   * Flash one datasource row with `color`, then fade back over `durationMs`.
+   * This is transient UI state and is not serialized.
+   */
+  indicate(rowIndex: number, color: string, durationMs = 1000): void {
+    const duration = Math.max(0, durationMs);
+    this.clearRowIndicationTimers(rowIndex);
+    this._rowIndications.update(current => {
+      const next = new Map(current);
+      next.set(rowIndex, { color, durationMs: duration, active: true });
+      return next;
+    });
+    const fadeTimer = setTimeout(() => {
+      this._rowIndications.update(current => {
+        const currentIndication = current.get(rowIndex);
+        if (!currentIndication) return current;
+        const next = new Map(current);
+        next.set(rowIndex, { ...currentIndication, active: false });
+        return next;
+      });
+    }, 16);
+    const removeTimer = setTimeout(() => {
+      this._rowIndications.update(current => {
+        if (!current.has(rowIndex)) return current;
+        const next = new Map(current);
+        next.delete(rowIndex);
+        return next;
+      });
+      this.rowIndicationTimers.delete(rowIndex);
+    }, duration + 32);
+    this.rowIndicationTimers.set(rowIndex, [fadeTimer, removeTimer]);
+  }
+
+  private clearRowIndicationTimers(rowIndex: number): void {
+    for (const timer of this.rowIndicationTimers.get(rowIndex) ?? []) clearTimeout(timer);
+    this.rowIndicationTimers.delete(rowIndex);
   }
 
   /** Whether all grid editing and mutation UI is disabled. This transient state is not serialized. */

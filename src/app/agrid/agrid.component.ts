@@ -585,6 +585,21 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     return this.changedCells().has(this.changedCellKey(originalIndex, field));
   }
 
+  /** @internal Whether a row is currently in the colored phase of a control indication. */
+  rowIndicationActive(originalIndex: number): boolean {
+    return this.control()?.rowIndications().get(originalIndex)?.active ?? false;
+  }
+
+  /** @internal CSS color for a transient row indication. */
+  rowIndicationColor(originalIndex: number): string | null {
+    return this.control()?.rowIndications().get(originalIndex)?.color ?? null;
+  }
+
+  /** @internal Fade duration for a transient row indication. */
+  rowIndicationDuration(originalIndex: number): number | null {
+    return this.control()?.rowIndications().get(originalIndex)?.durationMs ?? null;
+  }
+
   /** @internal Full display value for a cell — used as the `title` tooltip attribute. */
   getCellTitle(col: ColDef, value: unknown): string {
     return this.presentation.getCellTitle(col, value);
@@ -1606,7 +1621,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     }
     const text = typeof action.text === 'function'
       ? action.text({ row: item.row, rowIndex: item.detailFor })
-      : action.text;
+      : action.text ?? '';
     const textarea = (this._hostEl.nativeElement as HTMLElement)
       .querySelector<HTMLTextAreaElement>(`textarea[data-detail-row="${item.detailFor}"]`);
     const current = this.detailDraft();
