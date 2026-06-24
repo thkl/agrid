@@ -143,6 +143,66 @@ const columns: ColDef<Task>[] = [
 ];`,
   },
   {
+    path: '/charts',
+    label: 'Charts',
+    title: 'Configurable diagrams from grid data',
+    summary:
+      'A reusable <agrid-chart> component configured exactly like the grid: build an AgridChartProvider and pass it in. Link it to the grid provider’s visibleRows with a transform and the chart follows the grid’s filters and sorting — filter a region out and the chart updates instantly.',
+    points: [
+      'Same API shape as the grid: <agrid-chart [provider]="chartProvider" />.',
+      'Link source: gridProvider.visibleRows for filter/sort-aware data.',
+      'A transform(rows, type) callback shapes the rows into chart data.',
+      'No effects to wire — the dataset is a derived signal.',
+    ],
+    code: `readonly chartProvider = new AgridChartProvider<RegionRow>({
+  type: 'column',
+  source: this.gridProvider.visibleRows,   // filtered + sorted rows
+  transform: (rows, type) => ({
+    categories: rows.map(r => r.region),
+    series: [{ values: rows.map(r => r.total) }],
+  }),
+  height: 300,
+});
+
+// Switch type at runtime — the chart (and transform) re-run.
+this.chartProvider.type.set('pie');
+
+// Template
+// <agrid-chart [provider]="chartProvider" />`,
+  },
+  {
+    path: '/sparklines',
+    label: 'Sparklines',
+    title: 'Zero-dependency inline charts',
+    summary:
+      'Excel-style in-cell charts drawn with plain SVG. A cellRendererComponent reads a number[] field and renders a line or bar sparkline — no charting library, just the renderer API and a pure geometry helper.',
+    points: [
+      'Store a numeric series per row (e.g. 12 monthly values).',
+      'buildSparkline() scales the series into an SVG box (line + bar geometry).',
+      'A small renderer component emits the <path> / <rect> elements.',
+      'High, low, and last points are highlighted on the line variant.',
+    ],
+    code: `@Component({
+  selector: 'line-sparkline',
+  template: \`
+    <svg [attr.width]="w" [attr.height]="h">
+      <path fill="none" [attr.d]="geo().linePath" />
+      @if (geo().last; as l) { <circle [attr.cx]="l.x" [attr.cy]="l.y" r="2" /> }
+    </svg>\`,
+})
+export class LineSparkline {
+  private readonly ctx = inject(AGRID_RENDERER_CONTEXT);
+  readonly w = 96; readonly h = 26;
+  readonly geo = computed(() =>
+    buildSparkline(this.ctx.value() as number[], { width: this.w, height: this.h }));
+}
+
+const columns: ColDef[] = [
+  { field: 'name', header: 'Product' },
+  { field: 'trend', header: 'Trend', cellRendererComponent: LineSparkline },
+];`,
+  },
+  {
     path: '/conditional-formatting',
     label: 'Conditional formatting',
     title: 'Row-aware cell styling',

@@ -13,6 +13,17 @@ export { AGRID_EDITOR_CONTEXT } from './editing/agrid-cell-editor';
 export type { AgridEditorContext } from './editing/agrid-cell-editor';
 export { AGRID_RENDERER_CONTEXT } from './rendering/agrid-cell-renderer';
 export type { AgridRendererContext } from './rendering/agrid-cell-renderer';
+export { AgridChartComponent } from './rendering/agrid-chart.component';
+export { AgridChartProvider } from './agrid-chart-provider';
+export type { AgridChartProviderConfig } from './agrid-chart-provider';
+export { AGRID_CHART_PALETTE, buildChart } from './infrastructure/agrid-chart';
+export type {
+  AgridChartData,
+  AgridChartLayout,
+  AgridChartOptions,
+  AgridChartSeries,
+  AgridChartType,
+} from './infrastructure/agrid-chart';
 export { AgridBrowserAdapter } from './infrastructure/agrid-browser.adapter'
 
 export type {

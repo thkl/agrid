@@ -847,6 +847,17 @@ export class AgridComponent<T extends object = any> implements OnChanges {
    */
   readonly filteredItems: Signal<GridItem[]> = this.projection.filteredItems;
 
+  /**
+   * @internal The full filtered + sorted row set (grouping/pagination ignored). Reused for export
+   * and published to the provider as `visibleRows` so charts and consumers can react to filters.
+   */
+  readonly ɵvisibleRows = computed(() => {
+    const rows = this.dataSource().rows();
+    return this.projection.filteredSortedIndices()
+      .map(index => rows[index])
+      .filter((row): row is Record<string, unknown> => !!row);
+  });
+
   /** Virtual scroll source — injects ghost row during a reorder drag. */
   /** Maps originalIndex → true if the data row should receive the odd-row stripe. Counts only data rows, so group headers don't shift the pattern. */
   readonly dataRowIsOdd = computed<Map<number, boolean>>(() => {
@@ -995,12 +1006,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     visibleColDefs: this.visibleColDefs,
     // Export the full filtered + sorted set, not the rendered projection: grouping,
     // pagination, and collapsed groups must not drop rows from the file.
-    exportRows: computed(() => {
-      const rows = this.dataSource().rows();
-      return this.projection.filteredSortedIndices()
-        .map(index => rows[index])
-        .filter((row): row is Record<string, unknown> => !!row);
-    }),
+    exportRows: this.ɵvisibleRows,
     // When grouped, export a fully-expanded grouped structure with subtotals (xlsx outline).
     exportGroups: computed(() => {
       const control = this.control();
@@ -1421,6 +1427,10 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       });
       onCleanup(() => provider.ɵattachExport(null));
     });
+
+    // Publish the live filtered/sorted rows so charts (and other consumers) can react to filters.
+    effect(() => this.provider().ɵsetVisibleRows(this.ɵvisibleRows()));
+    this.destroyRef.onDestroy(() => this.provider().ɵsetVisibleRows(null));
 
     afterRenderEffect(() => {
       if (this.firstDataRenderedEmitted) return;

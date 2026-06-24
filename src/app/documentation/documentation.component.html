@@ -74,6 +74,7 @@
         <a href="#guide-tree"><strong>Display tree data</strong><span>Parent IDs, paths, and descendant rollups</span></a>
         <a href="#guide-pagination"><strong>Load and paginate</strong><span>Local pages and lazy server blocks</span></a>
         <a href="#guide-settings"><strong>Save user settings</strong><span>Backend-safe snapshots and restoration</span></a>
+        <a href="#guide-charts"><strong>Chart grid data</strong><span>Filter-aware SVG diagrams from a provider</span></a>
       </div>
     </section>
 
@@ -240,6 +241,30 @@
       </div>
     </section>
 
+    <section id="guide-charts" class="guide-chapter">
+      <div class="chapter-kicker">Chapter 10</div>
+      <h2>How to chart grid data</h2>
+      <p>
+        <code>&lt;agrid-chart&gt;</code> renders zero-dependency SVG charts — column, bar, line, area,
+        pie, and donut — and is configured exactly like the grid: build an
+        <code>AgridChartProvider</code> and pass it in. Link it to a grid's <code>visibleRows</code>
+        with a <code>transform</code> and the chart follows the grid's filters and sorting live.
+      </p>
+      <pre><code>{{ chartsCode }}</code></pre>
+      <div class="guide-facts">
+        <div><strong>Same shape as the grid</strong><span>&lt;agrid-chart [provider]="chartProvider" /&gt;.</span></div>
+        <div><strong>Reactive</strong><span>type and data are signals; switching type re-runs the transform.</span></div>
+        <div><strong>Filter-aware</strong><span>visibleRows follows the grid's filters and sorting.</span></div>
+      </div>
+      <ul>
+        <li><code>visibleRows</code> reflects <strong>filtering and sorting</strong> — filter a row out and it leaves the chart.</li>
+        <li>It deliberately <strong>ignores grouping and pagination</strong>: a chart wants the whole filtered set, not one page. Aggregate inside <code>transform</code> if you want grouped totals.</li>
+        <li>Before the grid mounts it falls back to every datasource row.</li>
+        <li>Pie and donut charts use the first series; values become slices labelled by <code>categories</code>.</li>
+      </ul>
+      <a class="chapter-demo-link" routerLink="/charts">Open the live charts demo <span>→</span></a>
+    </section>
+
     <section id="features">
       <h2>Features</h2>
       <div class="feature-list">
@@ -264,6 +289,7 @@
         <span>Copy, paste, and fill</span>
         <span>Custom cell renderers</span>
         <span>Custom cell editors</span>
+        <span>Charts (SVG, zero-dep)</span>
         <span>CSV &amp; Excel export</span>
         <span>Localization</span>
         <span>Column state persistence</span>

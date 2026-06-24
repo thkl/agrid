@@ -5,6 +5,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@thkl/agrid.svg)](https://www.npmjs.com/package/@thkl/agrid)
 
+![image](./public/demo/screenshot_agrid.png)
 
 ## Live Demo
 
@@ -96,6 +97,7 @@ export class PageComponent {
 - **Pagination** — built-in page controls driven by `AgridControl`.
 - **Custom cell renderers** — render any Angular component per column for rich cell content (the legacy HTML-string renderer is deprecated).
 - **Custom cell editors** — render any Angular component while editing; the grid keeps validation, history, and the commit lifecycle.
+- **Charts** — zero-dependency SVG column/bar/line/area/pie/donut diagrams via `<agrid-chart>`, configured with an `AgridChartProvider`. Link to a grid's `visibleRows` to follow filters and sorting live.
 - **Column autosize all** — fit every visible column to its content in one call.
 - **Master/detail rows** — expand any row to reveal a custom HTML detail panel beneath it.
 - **Pinned rows** — keep summary/total rows fixed at the top or bottom of the body.
@@ -1058,6 +1060,80 @@ const columns: ColDef[] = [
 
 Pair `cellEditor` with `cellRenderer` to control how the value looks when the cell isn't being
 edited. See the **Custom editors** demo for star-rating, colour-swatch, and slider editors.
+
+## Charts
+
+`AgridChartComponent` renders zero-dependency SVG charts — column, bar, line, area, pie, and donut —
+configured exactly like the grid: build an `AgridChartProvider` and pass it in.
+
+```ts
+import { AgridChartComponent, AgridChartProvider } from '@thkl/agrid';
+
+readonly chartProvider = new AgridChartProvider({
+  type: 'column',
+  data: {
+    categories: ['Q1', 'Q2', 'Q3', 'Q4'],
+    series: [
+      { name: 'North', values: [120, 145, 138, 162] },
+      { name: 'South', values: [98, 110, 134, 128] },
+    ],
+  },
+  height: 300,
+});
+```
+
+```html
+<agrid-chart [provider]="chartProvider" />
+```
+
+The chart sizes itself to its container width (observed) and the provider's `height`. Every option
+is a signal: `type` is writable, so `chartProvider.type.set('pie')` re-renders.
+
+### `AgridChartProvider` configuration
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `type` | `'column' \| 'bar' \| 'line' \| 'area' \| 'pie' \| 'donut'` | — | Diagram type. Writable signal — set it to switch at runtime. |
+| `data` | `AgridChartData` | — | Static dataset (`{ categories?, series: [{ name?, color?, values }] }`). Ignored when `source` is set. |
+| `source` | `Signal<readonly T[]>` | — | A reactive row source to derive the dataset from. Requires `transform`. See below. |
+| `transform` | `(rows, type) => AgridChartData` | — | Turns the `source` rows (and current type) into a dataset. Re-runs when the rows or type change. |
+| `height` | `number` | `220` | Chart height in pixels (width follows the host). |
+| `showLegend` | `boolean` | `true` | Show the series/category legend. |
+| `showAxis` | `boolean` | `true` | Draw value/category axes (cartesian types). |
+| `palette` | `string[]` | built-in | Override the series/slice colours. |
+
+Pie and donut charts use the **first** series; its values become slices labelled by `categories`.
+
+### Linking a chart to a grid
+
+Pass a grid provider's `visibleRows` as the `source` and the chart follows the grid live — including
+its **filters and sorting**:
+
+```ts
+readonly chartProvider = new AgridChartProvider<RegionRow>({
+  type: 'column',
+  source: this.gridProvider.visibleRows,           // filtered + sorted rows
+  transform: (rows, type) => ({
+    categories: rows.map(r => r.region),
+    series: [{ values: rows.map(r => r.total) }],
+  }),
+});
+```
+
+`AgridProvider.visibleRows` is a `Signal<readonly T[]>` of the grid's current rows. Important
+semantics:
+
+- It reflects **filtering and sorting** — filter a row out of the grid and it leaves the chart too.
+- It deliberately **ignores grouping and pagination**: a chart wants the whole filtered set, not a
+  single page or grouped subtotals. (Use a `transform` to aggregate if you want grouped totals.)
+- It is **published by the rendered grid component**. Before the grid mounts (or with no grid
+  attached) it falls back to every datasource row.
+
+With a `source` the dataset is a derived signal, so `setData()` is unavailable — update the source or
+the `transform` instead. Without a `source`, use `chartProvider.setData(next)` to replace static data.
+
+See the **Charts** demo: a grid beside a chart with a type switcher, where filtering a region or
+editing a cell redraws the chart instantly.
 
 ## Column Autosize
 

@@ -415,6 +415,25 @@ grid()?.loadSettings(savedSettings);
 // Create a snapshot on demand.
 const snapshot = provider.saveSettings();`;
 
+  readonly chartsCode = `import { AgridChartComponent, AgridChartProvider } from '@thkl/agrid';
+
+// Linked to the grid's filtered + sorted rows.
+readonly chartProvider = new AgridChartProvider<RegionRow>({
+  type: 'column',
+  source: this.gridProvider.visibleRows,
+  transform: (rows, type) => ({
+    categories: rows.map(r => r.region),
+    series: [{ values: rows.map(r => r.total) }],
+  }),
+  height: 300,
+});
+
+// Switch type at runtime — the chart (and transform) re-run.
+this.chartProvider.type.set('pie');
+
+// Template:
+// <agrid-chart [provider]="chartProvider" />`;
+
   readonly layoutCode = `mat-card {
   height: 600px;
   display: flex;

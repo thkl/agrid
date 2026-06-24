@@ -22,6 +22,14 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/custom-editors.component').then(m => m.CustomEditorsDemoComponent),
   },
   {
+    path: 'sparklines',
+    loadComponent: () => import('./demos/sparklines.component').then(m => m.SparklinesDemoComponent),
+  },
+  {
+    path: 'charts',
+    loadComponent: () => import('./demos/charts.component').then(m => m.ChartsDemoComponent),
+  },
+  {
     path: 'conditional-formatting',
     loadComponent: () => import('./demos/conditional-formatting.component').then(m => m.ConditionalFormattingDemoComponent),
   },

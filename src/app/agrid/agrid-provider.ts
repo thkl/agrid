@@ -1,4 +1,4 @@
-import { signal, WritableSignal } from '@angular/core';
+import { Signal, computed, signal, WritableSignal } from '@angular/core';
 import { AgridControl, AgridControlState, ɵgetAgridControlRuntimeState } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridServerSideRowModel } from './agrid-server-side-row-model';
@@ -259,6 +259,25 @@ export class AgridProvider<T extends object = any> {
 
   private readonly _localizations = new Map<string, AgridLocaleTextOverrides>();
   private exportBridge: AgridExportBridge | null = null;
+  private readonly _visibleRows = signal<readonly T[] | null>(null);
+
+  /**
+   * The grid's currently filtered and sorted rows, as published by the rendered grid component.
+   * Falls back to every datasource row when no grid is attached. Link a chart to this signal to
+   * keep it in sync with the grid's filters and sorting.
+   */
+  readonly visibleRows: Signal<readonly T[]> = computed(
+    () => this._visibleRows() ?? this.datasource.rows(),
+  );
+
+  /**
+   * @internal Published by the rendered grid whenever its filtered/sorted projection changes.
+   * Pass `null` on teardown so {@link visibleRows} falls back to the raw datasource. The grid works
+   * in terms of record rows; the public {@link visibleRows} re-types them as `T`.
+   */
+  ɵsetVisibleRows(rows: readonly Record<string, unknown>[] | null): void {
+    this._visibleRows.set(rows as readonly T[] | null);
+  }
 
   /** Read-only view of registered per-locale text overrides. Used by the grid to resolve locale text. */
   get localizations(): ReadonlyMap<string, AgridLocaleTextOverrides> {
