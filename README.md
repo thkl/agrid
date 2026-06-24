@@ -94,7 +94,7 @@ export class PageComponent {
 - **Zebra stripes** — alternating row shading for easier reading.
 - **Readonly mode** — disable all editing with a single input.
 - **Pagination** — built-in page controls driven by `AgridControl`.
-- **Custom cell renderers** — return HTML strings per column for rich cell content.
+- **Custom cell renderers** — render any Angular component per column for rich cell content (the legacy HTML-string renderer is deprecated).
 - **Custom cell editors** — render any Angular component while editing; the grid keeps validation, history, and the commit lifecycle.
 - **Column autosize all** — fit every visible column to its content in one call.
 - **Master/detail rows** — expand any row to reveal a custom HTML detail panel beneath it.
@@ -623,7 +623,8 @@ interface ColDef {
 | `hidden` | No | Hides the column on first render. |
 | `pinned` | No | `'left'` or `'right'` to pin the column initially. Left-pinned columns render in a fixed pane before the scrollable area; right-pinned columns render in a fixed pane after it. |
 | `aggregate` | No | Shows an aggregate footer value: `'sum'`, `'avg'`, `'min'`, `'max'`, or `'count'`. |
-| `cellRenderer` | No | Custom HTML renderer. Return an HTML string; Angular sanitizes it automatically. See [Custom Cell Renderers](#custom-cell-renderers). |
+| `cellRendererComponent` | No | A standalone Angular component rendered for the cell's display state. The component injects `AGRID_RENDERER_CONTEXT`. See [Custom Cell Renderers](#custom-cell-renderers). |
+| `cellRenderer` | No | **Deprecated** — use `cellRendererComponent`. Custom HTML renderer: return an HTML string; Angular sanitizes it automatically. |
 | `cellEditor` | No | A standalone Angular component to use as the cell editor instead of the built-in input. The component injects `AGRID_EDITOR_CONTEXT`. See [Custom Cell Editors](#custom-cell-editors). |
 | `cellClass` | No | Returns a CSS class name for each cell. Applied alongside built-in state classes. |
 | `infoIcon` | No | Shows a right-aligned `?` action. Set it to `true` or return a boolean per cell. Clicking it emits `cellInfo` with the row, field, value, original index, and column definition. |
@@ -932,35 +933,72 @@ edits from grid events because an evicted block is fetched again.
 
 ## Custom Cell Renderers
 
-Return an HTML string from `cellRenderer` to render rich content in a cell. Angular's built-in
-sanitization runs automatically. Use CSS classes rather than inline styles; Angular strips unsafe
-attributes and logs a development warning when renderer output requires sanitization. Escape
-dynamic text before interpolating it into HTML.
+Point `ColDef.cellRendererComponent` at any standalone Angular component to control the cell's
+display (read) state. The component injects `AGRID_RENDERER_CONTEXT` to read the value, row, and
+column as signals — with full Angular bindings, event handlers, and child components, and **no
+manual HTML escaping or sanitization**. This needs no third-party dependency.
+
+```ts
+import { AGRID_RENDERER_CONTEXT } from '@thkl/agrid';
+
+@Component({
+  selector: 'status-badge',
+  template: `<span class="badge" [class]="'badge--' + value()">{{ value() }}</span>`,
+})
+export class StatusBadge {
+  private readonly ctx = inject(AGRID_RENDERER_CONTEXT);
+  readonly value = computed(() => String(this.ctx.value() ?? ''));
+}
+
+@Component({
+  selector: 'score-bar',
+  template: `<span class="track"><span class="fill" [style.width.%]="value()"></span></span>`,
+})
+export class ScoreBar {
+  private readonly ctx = inject(AGRID_RENDERER_CONTEXT);
+  readonly value = computed(() => Number(this.ctx.value() ?? 0));
+}
+
+const columns: ColDef[] = [
+  { field: 'status', header: 'Status', editable: false, cellRendererComponent: StatusBadge },
+  { field: 'score', header: 'Performance', editable: false, cellRendererComponent: ScoreBar },
+];
+```
+
+### `AgridRendererContext`
+
+| Member | Type | Description |
+| --- | --- | --- |
+| `value` | `Signal<T>` | The cell's current value. |
+| `row` | `Signal<Record<string, unknown>>` | The full row record — useful when the display depends on sibling fields. |
+| `column` | `Signal<ColDef>` | The column definition being rendered. |
+
+A component renderer also works for `boolean` columns, replacing the default checkbox. See the
+**Custom cells** demo for badge and score-bar renderers.
+
+### Deprecated: HTML-string `cellRenderer`
+
+> **Deprecated.** Prefer `cellRendererComponent`. The string renderer remains supported for now but
+> will be removed in a future release.
+
+Return an HTML string from `cellRenderer` to render content in a cell. Angular's built-in
+sanitization runs automatically. Use CSS classes rather than inline styles, and escape dynamic text
+before interpolating it into HTML.
 
 ```ts
 const columns: ColDef[] = [
   {
     field: 'status',
     header: 'Status',
-    width: 100,
     editable: false,
-    cellRenderer: ({ value }) => {
-      const status = value === 'active' ? 'active' : 'inactive';
-      return `<span class="status-badge status-badge--${status}">${status}</span>`;
-    },
-  },
-  {
-    field: 'salary',
-    header: 'Salary',
-    width: 120,
-    editable: false,
-    cellRenderer: ({ value, row }) =>
-      `<strong>$${Number(value).toLocaleString()}</strong>`,
+    cellRenderer: ({ value }) =>
+      `<span class="status-badge status-badge--${value}">${value}</span>`,
   },
 ];
 ```
 
-The `row` parameter gives you access to the full row object, useful when the display depends on sibling fields.
+The `row` parameter gives you access to the full row object. When both are set,
+`cellRendererComponent` wins.
 
 ## Custom Cell Editors
 

@@ -377,8 +377,24 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
    */
   validate?: (value: T[K], row: T) => string | null | undefined;
   /**
+   * Custom component rendered for the cell's display (read) state, instead of the plain text value.
+   * The component injects {@link AGRID_RENDERER_CONTEXT} to read the value, row, and column. Unlike
+   * {@link cellRenderer}, this supports full Angular bindings, event handlers, and child components
+   * with no manual escaping.
+   *
+   * @example
+   * ```ts
+   * { field: 'status', cellRendererComponent: StatusBadgeComponent }
+   * ```
+   */
+  cellRendererComponent?: Type<unknown>;
+  /**
    * Custom cell renderer. Returns an HTML string displayed instead of the plain text value.
    * Angular's built-in HTML sanitization is applied automatically.
+   *
+   * @deprecated Use {@link cellRendererComponent} instead. A component renderer supports Angular
+   * bindings and event handlers, and avoids the HTML-string escaping/sanitization caveats. The
+   * string renderer remains supported for now but will be removed in a future release.
    *
    * @example
    * ```ts

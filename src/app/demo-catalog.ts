@@ -59,31 +59,38 @@ readonly provider = new AgridProvider({
   {
     path: '/custom-cells',
     label: 'Custom cells',
-    title: 'Custom renderers and cell classes',
+    title: 'Component renderers and cell classes',
     summary:
-      'Render badges and progress indicators while retaining the grid’s normal sorting, filtering, and editing behavior.',
+      'Render badges and progress bars with real Angular components — full bindings, no HTML-string escaping — while retaining the grid’s normal sorting, filtering, and editing behavior.',
     points: [
-      'Return sanitized HTML from cellRenderer.',
+      'Point cellRendererComponent at a standalone component.',
+      'Inject AGRID_RENDERER_CONTEXT to read value, row, and column reactively.',
       'Use cellClass for state-based styling.',
       'Lock structural columns that should not be moved or hidden.',
     ],
-    code: `const columns: ColDef<Person>[] = [
+    code: `@Component({
+  selector: 'status-badge',
+  template: \`<span class="badge" [class]="'badge--' + value()">{{ value() }}</span>\`,
+})
+export class StatusBadge {
+  private readonly ctx = inject(AGRID_RENDERER_CONTEXT);
+  readonly value = computed(() => String(this.ctx.value() ?? ''));
+}
+
+@Component({
+  selector: 'score-bar',
+  template: \`<span class="track"><span class="fill" [style.width.%]="value()"></span></span>\`,
+})
+export class ScoreBar {
+  private readonly ctx = inject(AGRID_RENDERER_CONTEXT);
+  readonly value = computed(() => Number(this.ctx.value() ?? 0));
+}
+
+const columns: ColDef<Person>[] = [
   { field: 'id', header: 'ID', locked: true, editable: false },
   { field: 'name', header: 'Name', filterable: true },
-  {
-    field: 'status',
-    header: 'Status',
-    editable: false,
-    cellRenderer: ({ value }) =>
-      \`<span class="status-badge">\${value}</span>\`,
-  },
-  {
-    field: 'score',
-    header: 'Performance',
-    editable: false,
-    cellRenderer: ({ value }) =>
-      \`<progress max="100" value="\${value}"></progress>\`,
-  },
+  { field: 'status', header: 'Status', editable: false, cellRendererComponent: StatusBadge },
+  { field: 'score', header: 'Performance', editable: false, cellRendererComponent: ScoreBar },
 ];
 
 readonly provider = new AgridProvider({

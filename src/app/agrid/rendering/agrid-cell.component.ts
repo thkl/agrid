@@ -14,6 +14,7 @@ import {
 import { NgComponentOutlet } from '@angular/common';
 import { CellFormat, ColDef, ValueOption } from '../agrid.types';
 import { AGRID_EDITOR_CONTEXT, AgridEditorContext } from '../editing/agrid-cell-editor';
+import { AGRID_RENDERER_CONTEXT, AgridRendererContext } from './agrid-cell-renderer';
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from '../agrid-localization';
 import {
   coerceDateInputValue,
@@ -121,7 +122,9 @@ import { resolveCellSpanLayout } from './agrid-cell-span';
           }
         </span>
       }
-      @if (col().cellRenderer) {
+      @if (col().cellRendererComponent; as renderer) {
+        <ng-container [ngComponentOutlet]="renderer" [ngComponentOutletInjector]="rendererInjector" />
+      } @else if (col().cellRenderer) {
         <span class="ag-cell-value" [innerHTML]="renderedHtml()"></span>
       } @else {
         <span class="ag-cell-value">{{ displayValue() }}</span>
@@ -288,6 +291,22 @@ export class AgridCellComponent {
     parent: inject(Injector),
   });
 
+  /**
+   * Context exposed to a {@link ColDef.cellRendererComponent} via {@link AGRID_RENDERER_CONTEXT}.
+   * Display-only — the signals are the cell's own inputs, so the renderer stays reactive.
+   */
+  private readonly rendererContext: AgridRendererContext = {
+    value: this.value,
+    row: this.row,
+    column: this.col,
+  };
+
+  /** Injector that supplies {@link AGRID_RENDERER_CONTEXT} to a custom renderer component. */
+  protected readonly rendererInjector = Injector.create({
+    providers: [{ provide: AGRID_RENDERER_CONTEXT, useValue: this.rendererContext }],
+    parent: inject(Injector),
+  });
+
   /** String value accepted by the active native input element. */
   readonly editorValue = computed((): string => {
     const draft = this.draft();
@@ -312,7 +331,10 @@ export class AgridCellComponent {
 
   /** Whether this cell renders as an inline boolean checkbox (no edit mode). */
   readonly booleanCell = computed(
-    (): boolean => this.col().type === 'boolean' && !this.col().cellRenderer,
+    (): boolean =>
+      this.col().type === 'boolean'
+      && !this.col().cellRenderer
+      && !this.col().cellRendererComponent,
   );
 
   /** Truthiness of the current boolean value (accepts `true`, `'true'`, `1`, `'1'`). */

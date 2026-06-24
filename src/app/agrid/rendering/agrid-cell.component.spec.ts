@@ -1,7 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { AgridCellComponent } from './agrid-cell.component';
 import { AGRID_EDITOR_CONTEXT } from '../editing/agrid-cell-editor';
+import { AGRID_RENDERER_CONTEXT } from './agrid-cell-renderer';
 
 describe('AgridCellComponent custom renderer', () => {
   let fixture: ComponentFixture<AgridCellComponent>;
@@ -414,5 +415,66 @@ describe('AgridCellComponent custom editor', () => {
     editor.ctx.cancel();
 
     expect(cancels).toBe(1);
+  });
+});
+
+@Component({
+  selector: 'test-renderer',
+  template: `<span class="rendered">{{ value() }} / {{ dept() }}</span>`,
+})
+class TestRendererComponent {
+  private readonly ctx = inject(AGRID_RENDERER_CONTEXT);
+  readonly value = computed(() => String(this.ctx.value() ?? ''));
+  readonly dept = computed(() => String(this.ctx.column().field));
+}
+
+describe('AgridCellComponent custom renderer component', () => {
+  let fixture: ComponentFixture<AgridCellComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [AgridCellComponent, TestRendererComponent],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(AgridCellComponent);
+    fixture.componentRef.setInput('rowIndex', 0);
+    fixture.componentRef.setInput('colIndex', 0);
+    fixture.componentRef.setInput('value', 'Active');
+    fixture.componentRef.setInput('row', { status: 'Active' });
+    fixture.componentRef.setInput('col', {
+      field: 'status',
+      header: 'Status',
+      cellRendererComponent: TestRendererComponent,
+    });
+  });
+
+  afterEach(() => fixture.destroy());
+
+  it('renders the component with reactive value/column context instead of plain text', () => {
+    fixture.detectChanges();
+
+    const rendered = fixture.nativeElement.querySelector('test-renderer .rendered') as HTMLElement;
+    expect(rendered).not.toBeNull();
+    expect(rendered.textContent).toBe('Active / status');
+    expect(fixture.nativeElement.querySelector('.ag-cell-value')).toBeNull();
+
+    fixture.componentRef.setInput('value', 'Pending');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('test-renderer .rendered').textContent)
+      .toBe('Pending / status');
+  });
+
+  it('renders a component renderer for a boolean column instead of the checkbox', () => {
+    fixture.componentRef.setInput('col', {
+      field: 'done',
+      header: 'Done',
+      type: 'boolean',
+      cellRendererComponent: TestRendererComponent,
+    });
+    fixture.componentRef.setInput('value', true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.ag-cell-checkbox')).toBeNull();
+    expect(fixture.nativeElement.querySelector('test-renderer')).not.toBeNull();
   });
 });

@@ -435,7 +435,8 @@
             <tr><td><code>hidden</code></td><td>No</td><td>Hides the column initially.</td></tr>
             <tr><td><code>pinned</code></td><td>No</td><td>Pins to <code>'left'</code> or <code>'right'</code>.</td></tr>
             <tr><td><code>aggregate</code></td><td>No</td><td><code>sum</code>, <code>avg</code>, <code>min</code>, <code>max</code>, <code>count</code>, or a custom function. Shown in the footer and as per-group subtotals.</td></tr>
-            <tr><td><code>cellRenderer</code></td><td>No</td><td>Returns sanitized HTML for the cell.</td></tr>
+            <tr><td><code>cellRendererComponent</code></td><td>No</td><td>A standalone component rendered for the cell's display state. It injects <code>AGRID_RENDERER_CONTEXT</code> to read value, row, and column.</td></tr>
+            <tr><td><code>cellRenderer</code></td><td>No</td><td><em>Deprecated</em> — use <code>cellRendererComponent</code>. Returns sanitized HTML for the cell.</td></tr>
             <tr><td><code>cellEditor</code></td><td>No</td><td>A standalone component used as the cell editor. It injects <code>AGRID_EDITOR_CONTEXT</code> to read the value and stage drafts.</td></tr>
             <tr><td><code>cellClass</code></td><td>No</td><td>Returns a CSS class for the cell.</td></tr>
             <tr><td><code>infoIcon</code></td><td>No</td><td>Shows a right-aligned <code>?</code> action. A function can enable it per cell.</td></tr>
