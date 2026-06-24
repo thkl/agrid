@@ -45,6 +45,7 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
   { color: '#0d9488', bg: '#f0fdfa', label: '⊟', title: 'Tree data',                 desc: 'Hierarchical rows from flat parent/child data, with expand/collapse and filter-aware ancestors.' },
   { color: '#059669', bg: '#ecfdf5', label: '⚡', title: 'Client & server pagination', desc: 'Built-in page controls for both local datasets and remote API-driven sources.' },
   { color: '#d97706', bg: '#fffbeb', label: '◧', title: 'Custom cell renderers',      desc: 'Plug in any Angular component as a cell renderer for rich, interactive cells.' },
+  { color: '#d97706', bg: '#fffbeb', label: '◧', title: 'Custom cell editors',      desc: 'Plug in any Angular component as a cell editor for rich, interactive cells.' },
   { color: '#db2777', bg: '#fdf2f8', label: '⇆', title: 'Column reordering & pinning', desc: 'Drag headers to rearrange columns. Pin columns left or right to keep them visible.' },
   { color: '#0284c7', bg: '#f0f9ff', label: '☑', title: 'Multi-row selection',        desc: 'Click, Shift-click, and Ctrl-click for single or range selection.' },
   { color: '#16a34a', bg: '#f0fdf4', label: '↧', title: 'CSV export',                 desc: 'Export the current filtered and sorted view to CSV in a single call.' },
@@ -168,6 +169,11 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
             <a class="demo-card" routerLink="/custom-cells">
               <div class="demo-card-title">Custom cells</div>
               <div class="demo-card-desc">Angular components rendered directly inside grid cells.</div>
+              <span class="demo-card-link">Open →</span>
+            </a>
+            <a class="demo-card" routerLink="/custom-editors">
+              <div class="demo-card-title">Custom cell editors</div>
+              <div class="demo-card-desc">Build a custom editor when your content differs from build in editors.</div>
               <span class="demo-card-link">Open →</span>
             </a>
             <a class="demo-card" routerLink="/conditional-formatting">
