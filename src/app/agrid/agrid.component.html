@@ -302,7 +302,7 @@
                 <div class="ag-detail-column-field">
                   <span class="ag-detail-column-label">{{ detailCol.header }}</span>
                   @if (detailActions().length && isDetailFieldEditable(item)) {
-                  <div class="ag-detail-action-bar" role="toolbar" [attr.aria-label]="detailCol.header + ' templates'">
+                  <div class="ag-detail-action-bar" role="toolbar" [attr.aria-label]="detailCol.header + localeText().templates">
                     @for (action of detailActions(); track action.id) {
                     <button type="button" class="ag-detail-action-btn"
                       (click)="applyDetailAction(item, action, $event)">{{ action.label }}</button>

@@ -1476,12 +1476,15 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       wrapper.addEventListener('keydown', onKeyDown, { capture: true });
       // Keep the column-virtualization viewport width current when the grid is resized without
       // a horizontal scroll (e.g. a layout/container change or sidebar toggle).
-      const resizeObserver = new ResizeObserver(() => this.syncColumnViewportMetrics());
-      resizeObserver.observe(this.horizontalScrollerEl().nativeElement);
+      const ResizeObserverCtor = globalThis.ResizeObserver;
+      const resizeObserver = ResizeObserverCtor
+        ? new ResizeObserverCtor(() => this.syncColumnViewportMetrics())
+        : null;
+      resizeObserver?.observe(this.horizontalScrollerEl().nativeElement);
       this.destroyRef.onDestroy(() => {
         renderedRangeSubscription.unsubscribe();
         wrapper.removeEventListener('keydown', onKeyDown, { capture: true });
-        resizeObserver.disconnect();
+        resizeObserver?.disconnect();
       });
       this.ensureServerRowsVisible();
     });

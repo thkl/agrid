@@ -92,6 +92,7 @@ export interface AgridLocaleText {
   export:string;
   exportCsv:string;
   exportXlsx:string;
+  templates:string;
 }
 
 /** Partial locale text supplied to {@link AgridProvider.addLocalization}. */
@@ -188,7 +189,8 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     saveConfig:'Save Config',
     export: 'Export',
     exportCsv:'Export to csv',
-    exportXlsx:'Export to xlsx'
+    exportXlsx:'Export to xlsx',
+    templates:' templates',
   },
   de: {
     actions: 'Aktionen',
@@ -279,7 +281,8 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     saveConfig: 'Konfig.speichern',
     export:'Export',
     exportCsv:'Export nach csv',
-    exportXlsx:'Export nach xlsx'
+    exportXlsx:'Export nach xlsx',
+    templates:' Vorlagen'
   },
 };
 

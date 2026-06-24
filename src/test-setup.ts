@@ -10,6 +10,30 @@
 import { getTestBed } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 
+class TestResizeObserver implements ResizeObserver {
+  constructor(private readonly callback: ResizeObserverCallback) {}
+
+  observe(target: Element): void {
+    const entry = {
+      target,
+      contentRect: target.getBoundingClientRect(),
+    } as ResizeObserverEntry;
+    this.callback([entry], this);
+  }
+
+  unobserve(): void {}
+
+  disconnect(): void {}
+}
+
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    configurable: true,
+    writable: true,
+    value: TestResizeObserver,
+  });
+}
+
 getTestBed().initTestEnvironment(BrowserTestingModule, platformBrowserTesting(), {
   errorOnUnknownElements: true,
   errorOnUnknownProperties: true,

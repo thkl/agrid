@@ -134,9 +134,10 @@ export class AgridChartComponent {
       const el = this.host.nativeElement;
       const measure = () => this.width.set(el.clientWidth);
       measure();
-      const observer = new ResizeObserver(measure);
-      observer.observe(el);
-      destroyRef.onDestroy(() => observer.disconnect());
+      const ResizeObserverCtor = globalThis.ResizeObserver;
+      const observer = ResizeObserverCtor ? new ResizeObserverCtor(measure) : null;
+      observer?.observe(el);
+      destroyRef.onDestroy(() => observer?.disconnect());
     });
   }
 }
