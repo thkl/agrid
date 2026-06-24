@@ -203,6 +203,9 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
 
   /** Hides the grids status bar if set to true. @default false */
   hideGridStatusBar?:boolean;
+
+  /** Enable Menubuttons for csv and xsls export @default false */
+  enableExportButtons?:boolean;
 }
 
 /**
@@ -341,6 +344,9 @@ export class AgridProvider<T extends object = any> {
   /** Hides the summary status bar */
   hideGridStatusBar?:boolean;
 
+  /** Enables export Menu if true */
+  enableExportButtons?: boolean;
+
   /** @deprecated Use `control.loading` and `control.setLoading()` instead. */
   readonly loading: WritableSignal<boolean>;
   /** @deprecated Use `control.readonly` and `control.setReadonly()` instead. */
@@ -403,6 +409,7 @@ export class AgridProvider<T extends object = any> {
     this.detailRowHeight  = config.detailRowHeight ?? 200;
     this.gridId = config.gridId;
     this.hideGridStatusBar = config.hideGridStatusBar;
+    this.enableExportButtons = config.enableExportButtons;
   }
 
   /** Returns the current reactive row array. */

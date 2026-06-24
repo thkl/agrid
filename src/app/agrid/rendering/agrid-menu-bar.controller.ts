@@ -11,6 +11,10 @@ import {
 
 /** Synthetic id of the built-in "save configuration" entry. @internal */
 export const AGRID_SAVE_CONFIG_ACTION = '_internal_save_config';
+export const AGRID_EXPORT_ACTION = '_internal_export';
+export const AGRID_EXPORT_CSV_ACTION = '_internal_export_csv';
+export const AGRID_EXPORT_XLSX_ACTION = '_internal_export_xlsx';
+
 
 /** Dependencies and callbacks required by {@link AgridMenuBarController}. @internal */
 export interface AgridMenuBarControllerOptions<T extends object = any> {
@@ -23,12 +27,21 @@ export interface AgridMenuBarControllerOptions<T extends object = any> {
   gridId: Signal<string | undefined>;
   /** Localized label for the built-in save-configuration entry. */
   saveConfigLabel: Signal<string>;
+  /** Enable Export Menu */
+  enableExportButtons: Signal<boolean | undefined>;
+  /** Localized labels for the built-in export entry. */
+  exportLabel: Signal<string>;
+  exportCsvLabel: Signal<string>;
+  exportXlsxLabel: Signal<string>;
+
   /** Emits a user-defined menu-bar action id. */
   emitAction: (id: string) => void;
   /** Closes other grid menus when a dropdown opens. */
   closeOtherMenus: () => void;
   /** Persists the current grid configuration (e.g. to local storage). */
   persistSettings: () => void;
+  /** the Export Action */
+  exportData:(format:string)=>void;
 }
 
 /**
@@ -61,13 +74,24 @@ export class AgridMenuBarController<T extends object = any> {
   /** Menu-bar buttons currently allowed by their visibility resolvers. */
   readonly visibleItems = computed(() => {
     const userEntries = this.opts.menuBarItems().filter(item => this.isItemVisible(item));
-    const savedEntry = this.opts.gridId()
+    const buildInActions: AgridMenuBarItem[] = this.opts.gridId()
       ? [{ id: AGRID_SAVE_CONFIG_ACTION, label: this.opts.saveConfigLabel(), icon: '↓' }]
       : [];
-    return [...savedEntry, ...userEntries];
+
+    if (this.opts.enableExportButtons()) {
+      buildInActions.push(
+        {
+          id: AGRID_EXPORT_ACTION, label: this.opts.exportLabel(),
+          items: [
+            { id: AGRID_EXPORT_CSV_ACTION, label: this.opts.exportCsvLabel() },
+            { id: AGRID_EXPORT_XLSX_ACTION, label: this.opts.exportXlsxLabel() }
+          ]
+        });
+    }
+    return [...buildInActions, ...userEntries];
   });
 
-  constructor(private readonly opts: AgridMenuBarControllerOptions<T>) {}
+  constructor(private readonly opts: AgridMenuBarControllerOptions<T>) { }
 
   /** Whether a menu-bar button or dropdown item should be rendered. */
   isItemVisible(item: AgridMenuBarMenuItem<T>): boolean {
@@ -87,10 +111,22 @@ export class AgridMenuBarController<T extends object = any> {
 
   /** Dispatches a menu-bar action, persisting config for the built-in save entry. */
   runAction(id: string): void {
+
     if (id === AGRID_SAVE_CONFIG_ACTION && this.opts.gridId()) {
       this.opts.persistSettings();
       return;
     }
+
+    if (id === AGRID_EXPORT_CSV_ACTION && this.opts.enableExportButtons()) {
+      this.opts.exportData('csv');
+      return;
+    }
+
+    if (id === AGRID_EXPORT_XLSX_ACTION && this.opts.enableExportButtons()) {
+      this.opts.exportData('xlsx');
+      return;
+    }
+
     this.opts.emitAction(id);
   }
 

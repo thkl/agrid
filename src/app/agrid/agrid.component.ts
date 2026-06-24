@@ -298,6 +298,8 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   readonly gridId = computed<string | undefined>(() => this.provider().gridId)
 
+  readonly enableExportButtons = computed<boolean | undefined>(() => this.provider().enableExportButtons)
+
   // ── Outputs ──────────────────────────────────────────────────────────────────
 
   /** Emitted after the user commits a cell edit. */
@@ -1144,7 +1146,11 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     selectedCell: this.selectedCell,
     menuBarItems: this.menuBarItems,
     gridId: this.gridId,
+    enableExportButtons: this.enableExportButtons,
     saveConfigLabel: computed(() => this.localeText().saveConfig),
+    exportLabel: computed(() => this.localeText().export),
+    exportCsvLabel: computed(() => this.localeText().exportCsv),
+    exportXlsxLabel: computed(() => this.localeText().exportXlsx),
     emitAction: id => this.menuBarAction.emit(id),
     closeOtherMenus: () => {
       this.rowController.closeContextMenu();
@@ -1155,6 +1161,16 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     persistSettings: () => {
       const gridConfig = this.provider().saveSettings();
       localStorage.setItem(`agrid_settings_${this.gridId()}`, JSON.stringify(gridConfig));
+    },
+    exportData: (format) => {
+      switch (format) {
+        case 'csv':   
+          this.provider().exportCsv();
+          break;
+        case 'xlsx':
+          this.provider().exportXlsx();
+          break;
+      }
     },
   });
 

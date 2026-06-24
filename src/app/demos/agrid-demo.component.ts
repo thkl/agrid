@@ -191,21 +191,9 @@ export class AgridDemoComponent {
     confirmRowDelete:true,
     enableQuickFilter: true,
     gridId:'demo_grid',
+    enableExportButtons:true,
     menuBarItems: [
       { id: 'refresh', label: 'Refresh', icon: '\u21bb' },
-      {
-        id: 'export',
-        label: 'Export',
-        items: [
-          { id: 'export-csv', label: 'All rows (csv)'  },
-          { id: 'export-xlsx', label: 'All rows (xlsx)'  },
-          {
-            id: 'export-selected',
-            label: 'Selected rows',
-            disabled: context => context.selectedRows.length === 0,
-          },
-        ],
-      },
     ],
     hideGridStatusBar:true
   });
