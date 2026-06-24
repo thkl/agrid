@@ -242,7 +242,11 @@
               (pointerdown)="isDataRowItem(item) && onRowPointerDown($event, item.originalIndex)"
               (click)="isDataRowItem(item) && onRowClick($event, item)">
               @if (isDataRowItem(item)) {
-              @for (bc of scrollableBodyColumns(); track bc.field) {
+              @if (columnWindow().leftWidth > 0) {
+              <div class="ag-virtual-col-spacer" aria-hidden="true"
+                [style.grid-column]="'1 / span ' + columnWindow().start"></div>
+              }
+              @for (bc of virtualScrollableBodyColumns(); track bc.field) {
               @let col = bc.col;
               @let ci = bc.visibleColIndex;
               <agrid-cell [col]="col" [paneColumns]="scrollableColDefs()" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]" [localeText]="localeText()"
@@ -273,6 +277,10 @@
                 (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)" (treeToggle)="onTreeToggle(item)"
                 (infoClick)="onCellInfo(item.originalIndex, col, item.row)"
                 (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
+              }
+              @if (columnWindowRightSpan() > 0) {
+              <div class="ag-virtual-col-spacer" aria-hidden="true"
+                [style.grid-column]="'span ' + columnWindowRightSpan()"></div>
               }
               } @else if (isLoadingRow(item)) {
               <div class="ag-loading-row" aria-hidden="true"><span></span></div>

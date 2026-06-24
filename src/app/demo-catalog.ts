@@ -524,6 +524,67 @@ readonly provider = new AgridProvider({
 });`,
   },
   {
+    path: '/column-virtualization',
+    label: 'Column virtualization',
+    title: 'Wide grids with many columns',
+    summary:
+      'Beyond a column-count threshold the scrollable pane renders only the columns near the horizontal viewport (plus overscan), so a 60-column grid keeps a small per-row DOM. Pinned columns always render.',
+    points: [
+      'Activates automatically past ~30 scrollable columns — no configuration.',
+      'The full grid-template-columns is preserved, so headers, filters, and footers stay aligned and scroll width is exact.',
+      'Leading/trailing spacer cells hold the place of off-screen columns.',
+      'Pin the columns that must always stay visible with pinned: left | right.',
+    ],
+    code: `const columns: ColDef[] = [
+  { field: 'id', header: 'ID', pinned: 'left' },
+  { field: 'name', header: 'Name', pinned: 'left' },
+  ...Array.from({ length: 60 }, (_, i) => ({
+    field: \`m\${i + 1}\`,
+    header: \`Metric \${i + 1}\`,
+    type: 'number',
+  })),
+];
+
+readonly provider = new AgridProvider({
+  columns,
+  datasource: new AgridDataSource(rows),
+  control: new AgridControl(),
+  zebraStripes: true,
+});`,
+  },
+  {
+    path: '/column-performance',
+    label: 'Column benchmark',
+    title: 'Wide-grid benchmark',
+    summary:
+      'A performance harness scaled across columns instead of rows: switch between 50, 100, 200, and 400 columns and time filter, sort, and update operations. Render and operation times stay flat because only the columns near the viewport are materialized per row.',
+    points: [
+      'Pick a column count (50–400) — the same dataset, re-columned.',
+      'Run an operation and read the elapsed time in the status output.',
+      'Compare timings across column counts to see the per-row DOM stay bounded.',
+      'Two identity columns are pinned; the rest are virtualized.',
+    ],
+    code: `const columns: ColDef[] = [
+  { field: 'id', header: 'ID', pinned: 'left' },
+  { field: 'name', header: 'Name', pinned: 'left' },
+  ...Array.from({ length: metricCount }, (_, i) => ({
+    field: \`m\${i + 1}\`,
+    header: \`Metric \${i + 1}\`,
+    type: 'number',
+  })),
+];
+
+readonly provider = new AgridProvider({
+  columns,
+  datasource: new AgridDataSource(createRows(5_000, metricCount)),
+  control: new AgridControl(),
+  zebraStripes: true,
+});
+
+// Re-column at runtime — the columns signal is writable.
+this.provider.columns.set(createColumns(nextCount));`,
+  },
+  {
     path: '/performance',
     label: 'Performance',
     title: 'Large-dataset virtual scrolling',

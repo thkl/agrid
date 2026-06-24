@@ -26,6 +26,7 @@ import {
   AgridHeaderGroup,
   AgridHeaderGroupRun,
 } from './columns/agrid-column-layout.model';
+import { AgridColumnVirtualizationController } from './columns/agrid-column-virtualization.controller';
 import { AgridColumnMenuComponent } from './columns/agrid-column-menu.component';
 import { AgridColumnMenuController } from './columns/agrid-column-menu.controller';
 import { AgridColumnReorderController } from './columns/agrid-column-reorder.controller';
@@ -809,6 +810,31 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly pinnedPaneWidth = this.columnLayout.pinnedPaneWidth;
   readonly scrollableTotalWidth = this.columnLayout.scrollableTotalWidth;
 
+  /** Live horizontal scroll metrics of the scrollable pane, fed to column virtualization. */
+  private readonly colScrollLeft = signal(0);
+  private readonly colViewportWidth = signal(0);
+
+  /** Windows the scrollable-pane columns to those near the horizontal viewport. */
+  private readonly columnVirtualization = new AgridColumnVirtualizationController({
+    columnWidths: computed(() => this.scrollableColDefs().map(col => this.getColumnWidth(col))),
+    scrollLeft: this.colScrollLeft,
+    viewportWidth: this.colViewportWidth,
+  });
+
+  /** @internal Current rendered column window (full set + zero spacers when inactive). */
+  readonly columnWindow = this.columnVirtualization.window;
+
+  /** @internal Scrollable body columns sliced to the active window. */
+  readonly virtualScrollableBodyColumns = computed(() => {
+    const window = this.columnWindow();
+    return this.scrollableBodyColumns().slice(window.start, window.end);
+  });
+
+  /** @internal Number of hidden scrollable columns after the window (trailing spacer span). */
+  readonly columnWindowRightSpan = computed(() =>
+    this.scrollableBodyColumns().length - this.columnWindow().end,
+  );
+
   /**
    * Filtered, sorted, and optionally grouped row list for `*cdkVirtualFor`.
    * Appends `null` when the explicit add-row placeholder is active.
@@ -1425,6 +1451,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
     afterNextRender(() => {
       this.viewReady = true;
+      this.syncColumnViewportMetrics();
       const wrapper = this.wrapperEl().nativeElement;
       const renderedRangeSubscription = this.viewport().renderedRangeStream.subscribe(() =>
         this.ensureServerRowsVisible()
@@ -2516,7 +2543,15 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** @internal Keeps the row-delete prompt visible while columns scroll horizontally. */
   onHorizontalScroll(): void {
+    this.syncColumnViewportMetrics();
     this.rowController.repositionDeleteConfirmation();
+  }
+
+  /** @internal Refreshes the scroll offset / viewport width driving column virtualization. */
+  private syncColumnViewportMetrics(): void {
+    const scroller = this.horizontalScrollerEl().nativeElement;
+    this.colScrollLeft.set(scroller.scrollLeft);
+    this.colViewportWidth.set(scroller.clientWidth);
   }
 
   /** @internal */

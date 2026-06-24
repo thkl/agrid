@@ -94,6 +94,10 @@
   will-change: transform;
 }
 
+.ag-virtual-col-spacer {
+  pointer-events: none;
+}
+
 .ag-loading-row {
   grid-column: 1 / -1;
   display: flex;

@@ -62,6 +62,14 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/performance.component').then(m => m.PerformanceDemoComponent),
   },
   {
+    path: 'column-virtualization',
+    loadComponent: () => import('./demos/column-virtualization.component').then(m => m.ColumnVirtualizationDemoComponent),
+  },
+  {
+    path: 'column-performance',
+    loadComponent: () => import('./demos/column-performance.component').then(m => m.ColumnPerformanceDemoComponent),
+  },
+  {
     path: 'tree',
     loadComponent: () => import('./demos/tree.component').then(m => m.TreeDemoComponent),
   },
