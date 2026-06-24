@@ -257,6 +257,7 @@ readonly gridProvider = new AgridProvider({
 | `groupActions` | `GroupAction[]` | `[]` | Actions shown in each group header menu. |
 | `cellMenuItems` | `(CellContextMenuItem \| null)[]` | `[]` | Additional items in the cell right-click context menu. `null` inserts a divider. |
 | `zebraStripes` | `boolean` | `false` | Shades every other row. Override `--agrid-color-bg-stripe` to change the shade. |
+| `columnVirtualizationThreshold` | `number` | `30` | Renders only the scrollable columns near the horizontal viewport once the scrollable-column count exceeds this value. Lower it to virtualize sooner, or set `Infinity` to disable. Pinned columns always render. |
 | `showChangedCellIndicator` | `boolean` | `false` | Marks committed cell changes until `clearChangedCells()` is called. |
 | `confirmRowDelete` | `boolean` | `false` | Fades the target row and shows a localized in-row Yes/No confirmation. |
 | `emptyText` | `string` | `undefined` | Text shown when the grid has no rows. Falls back to the locale default. |

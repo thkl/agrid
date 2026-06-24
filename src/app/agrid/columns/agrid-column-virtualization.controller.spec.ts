@@ -14,7 +14,7 @@ describe('AgridColumnVirtualizationController', () => {
       columnWidths: signal(opts.widths),
       scrollLeft: signal(opts.scrollLeft ?? 0),
       viewportWidth: signal(opts.viewportWidth ?? 0),
-      minColumns: opts.minColumns ?? 4,
+      minColumns: signal(opts.minColumns ?? 4),
       overscanPx: opts.overscanPx ?? 0,
     });
   }
@@ -61,6 +61,31 @@ describe('AgridColumnVirtualizationController', () => {
     expect(win.end).toBe(3);
     expect(win.leftWidth).toBe(100);
     expect(win.rightWidth).toBe(400);
+  });
+
+  it('renders the full set when the threshold is raised above the column count', () => {
+    const ctrl = make({
+      widths: Array(10).fill(100),
+      viewportWidth: 250,
+      scrollLeft: 300,
+      minColumns: 1000, // effectively disabled
+    });
+    expect(ctrl.window()).toEqual({ start: 0, end: 10, leftWidth: 0, rightWidth: 0 });
+  });
+
+  it('reacts to a threshold change', () => {
+    const minColumns = signal(1000);
+    const ctrl = new AgridColumnVirtualizationController({
+      columnWidths: signal(Array(10).fill(100)),
+      scrollLeft: signal(300),
+      viewportWidth: signal(250),
+      minColumns,
+      overscanPx: 0,
+    });
+    expect(ctrl.window().end - ctrl.window().start).toBe(10); // disabled
+
+    minColumns.set(4); // now virtualizes
+    expect(ctrl.window().end - ctrl.window().start).toBeLessThan(10);
   });
 
   it('always renders at least one column when scrolled to the far edge', () => {

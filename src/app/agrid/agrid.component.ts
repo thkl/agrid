@@ -814,11 +814,17 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   private readonly colScrollLeft = signal(0);
   private readonly colViewportWidth = signal(0);
 
+  /** Scrollable-column count above which column virtualization activates. */
+  readonly columnVirtualizationThreshold = computed(
+    () => this.provider().columnVirtualizationThreshold,
+  );
+
   /** Windows the scrollable-pane columns to those near the horizontal viewport. */
   private readonly columnVirtualization = new AgridColumnVirtualizationController({
     columnWidths: computed(() => this.scrollableColDefs().map(col => this.getColumnWidth(col))),
     scrollLeft: this.colScrollLeft,
     viewportWidth: this.colViewportWidth,
+    minColumns: this.columnVirtualizationThreshold,
   });
 
   /** @internal Current rendered column window (full set + zero spacers when inactive). */
@@ -1458,9 +1464,14 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       );
       const onKeyDown = (event: KeyboardEvent) => this.onKeyDown(event);
       wrapper.addEventListener('keydown', onKeyDown, { capture: true });
+      // Keep the column-virtualization viewport width current when the grid is resized without
+      // a horizontal scroll (e.g. a layout/container change or sidebar toggle).
+      const resizeObserver = new ResizeObserver(() => this.syncColumnViewportMetrics());
+      resizeObserver.observe(this.horizontalScrollerEl().nativeElement);
       this.destroyRef.onDestroy(() => {
         renderedRangeSubscription.unsubscribe();
         wrapper.removeEventListener('keydown', onKeyDown, { capture: true });
+        resizeObserver.disconnect();
       });
       this.ensureServerRowsVisible();
     });

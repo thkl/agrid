@@ -135,6 +135,12 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   cellMenuItems?: (CellContextMenuItem<T> | null)[];
   /** Shade every other row slightly for easier reading. @default false */
   zebraStripes?: boolean;
+  /**
+   * Render only the scrollable columns near the horizontal viewport once the scrollable-column
+   * count exceeds this threshold. Lower it to virtualize sooner, or set a very large value
+   * (e.g. `Infinity`) to disable column virtualization entirely. @default 30
+   */
+  columnVirtualizationThreshold?: number;
   /** Show a color marker on cells changed through grid editing. @default false */
   showChangedCellIndicator?: boolean;
   /** Ask for confirmation before grid row-delete actions. @default false */
@@ -314,6 +320,8 @@ export class AgridProvider<T extends object = any> {
   cellMenuItems: (CellContextMenuItem<T> | null)[];
   /** Whether alternating data rows receive stripe styling. */
   zebraStripes: boolean;
+  /** Scrollable-column count above which column virtualization activates. */
+  columnVirtualizationThreshold: number;
   /** Whether committed cell changes receive a visual marker. */
   showChangedCellIndicator: boolean;
   /** Whether grid row-delete actions require in-row confirmation. */
@@ -392,6 +400,7 @@ export class AgridProvider<T extends object = any> {
     this.groupActions     = config.groupActions ?? [];
     this.cellMenuItems    = config.cellMenuItems ?? [];
     this.zebraStripes     = config.zebraStripes ?? false;
+    this.columnVirtualizationThreshold = config.columnVirtualizationThreshold ?? 30;
     this.showChangedCellIndicator = config.showChangedCellIndicator ?? false;
     this.confirmRowDelete = config.confirmRowDelete ?? false;
     this.emptyText        = config.emptyText;

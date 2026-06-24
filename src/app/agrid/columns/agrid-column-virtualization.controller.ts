@@ -25,8 +25,11 @@ export interface AgridColumnVirtualizationOptions {
   scrollLeft: Signal<number>;
   /** Visible width of the scrollable pane viewport. */
   viewportWidth: Signal<number>;
-  /** Below this column count virtualization is skipped (the full set renders). */
-  minColumns?: number;
+  /**
+   * At or below this scrollable-column count virtualization is skipped (the full set renders).
+   * A very large value effectively disables virtualization.
+   */
+  minColumns: Signal<number>;
   /** Extra pixels rendered beyond each edge to avoid blank flashes while scrolling. */
   overscanPx?: number;
 }
@@ -38,11 +41,9 @@ export interface AgridColumnVirtualizationOptions {
  * @internal
  */
 export class AgridColumnVirtualizationController {
-  private readonly minColumns: number;
   private readonly overscanPx: number;
 
   constructor(private readonly opts: AgridColumnVirtualizationOptions) {
-    this.minColumns = opts.minColumns ?? 30;
     this.overscanPx = opts.overscanPx ?? 240;
   }
 
@@ -55,7 +56,7 @@ export class AgridColumnVirtualizationController {
     const widths = this.opts.columnWidths();
     const count = widths.length;
     const viewportWidth = this.opts.viewportWidth();
-    if (count <= this.minColumns || viewportWidth <= 0) {
+    if (count <= this.opts.minColumns() || viewportWidth <= 0) {
       return { start: 0, end: count, leftWidth: 0, rightWidth: 0 };
     }
 
