@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { AgridCellComponent } from './agrid-cell.component';
+import { AGRID_EDITOR_CONTEXT } from '../editing/agrid-cell-editor';
 
 describe('AgridCellComponent custom renderer', () => {
   let fixture: ComponentFixture<AgridCellComponent>;
@@ -304,5 +305,114 @@ describe('AgridCellComponent custom renderer', () => {
     expect(input.value).toBe('Active');
     expect(input.selectionStart).toBe(6);
     expect(input.selectionEnd).toBe(6);
+  });
+});
+
+@Component({
+  selector: 'test-editor',
+  template: `<button (click)="onPick()">pick</button>`,
+})
+class TestEditorComponent {
+  readonly ctx = inject(AGRID_EDITOR_CONTEXT);
+  onPick(): void {
+    this.ctx.setDraft('picked');
+    this.ctx.commit();
+  }
+}
+
+describe('AgridCellComponent custom editor', () => {
+  let fixture: ComponentFixture<AgridCellComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [AgridCellComponent, TestEditorComponent],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(AgridCellComponent);
+    fixture.componentRef.setInput('rowIndex', 2);
+    fixture.componentRef.setInput('colIndex', 1);
+    fixture.componentRef.setInput('value', 'Open');
+    fixture.componentRef.setInput('row', { status: 'Open' });
+    fixture.componentRef.setInput('seedChar', 'x');
+    fixture.componentRef.setInput('col', {
+      field: 'status',
+      header: 'Status',
+      cellEditor: TestEditorComponent,
+    });
+  });
+
+  afterEach(() => fixture.destroy());
+
+  it('renders the custom editor instead of the native input while editing', () => {
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('test-editor')).toBeNull();
+
+    fixture.componentRef.setInput('editing', true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('test-editor')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.ag-cell-input')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.ag-cell-select')).toBeNull();
+  });
+
+  it('exposes value, row, column, and seedChar to the editor through the context', () => {
+    fixture.componentRef.setInput('editing', true);
+    fixture.detectChanges();
+
+    const editor = fixture.debugElement.query(
+      el => el.componentInstance instanceof TestEditorComponent,
+    ).componentInstance as TestEditorComponent;
+
+    expect(editor.ctx.value()).toBe('Open');
+    expect(editor.ctx.row()).toEqual({ status: 'Open' });
+    expect(editor.ctx.column().field).toBe('status');
+    expect(editor.ctx.seedChar()).toBe('x');
+  });
+
+  it('forwards setDraft + commit from the editor to the grid', () => {
+    const drafts: unknown[] = [];
+    let commits = 0;
+    fixture.componentInstance.draftChange.subscribe(value => drafts.push(value));
+    fixture.componentInstance.editorCommit.subscribe(() => commits++);
+    fixture.componentRef.setInput('editing', true);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('test-editor button') as HTMLButtonElement;
+    button.click();
+
+    expect(drafts).toEqual(['picked']);
+    expect(commits).toBe(1);
+  });
+
+  it('stops editor pointerdown/click from bubbling to the cell host (which would cancel the edit)', () => {
+    fixture.componentRef.setInput('editing', true);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    let bubbledPointerDowns = 0;
+    let bubbledClicks = 0;
+    host.addEventListener('pointerdown', () => bubbledPointerDowns++);
+    host.addEventListener('click', () => bubbledClicks++);
+
+    const button = host.querySelector('test-editor button') as HTMLButtonElement;
+    button.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(bubbledPointerDowns).toBe(0);
+    expect(bubbledClicks).toBe(0);
+  });
+
+  it('forwards a cancel request from the editor', () => {
+    let cancels = 0;
+    fixture.componentInstance.editorCancel.subscribe(() => cancels++);
+    fixture.componentRef.setInput('editing', true);
+    fixture.detectChanges();
+
+    const editor = fixture.debugElement.query(
+      el => el.componentInstance instanceof TestEditorComponent,
+    ).componentInstance as TestEditorComponent;
+    editor.ctx.cancel();
+
+    expect(cancels).toBe(1);
   });
 });

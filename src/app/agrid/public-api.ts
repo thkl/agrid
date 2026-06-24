@@ -9,6 +9,8 @@ export { AgridServerSideRowModel } from './agrid-server-side-row-model';
 export { AGRID_LOCALE_TEXT } from './agrid-localization';
 export { AgridProvider } from './agrid-provider';
 export { ColDefAutoSize } from './agrid.types';
+export { AGRID_EDITOR_CONTEXT } from './editing/agrid-cell-editor';
+export type { AgridEditorContext } from './editing/agrid-cell-editor';
 export { AgridBrowserAdapter } from './infrastructure/agrid-browser.adapter'
 
 export type {

@@ -96,6 +96,46 @@ readonly provider = new AgridProvider({
 });`,
   },
   {
+    path: '/custom-editors',
+    label: 'Custom editors',
+    title: 'Component cell editors',
+    summary:
+      'Swap the built-in text input for any Angular component — a star rating, a colour picker, a slider — while the grid keeps ownership of validation, history, and the commit lifecycle.',
+    points: [
+      'Reference a standalone component from ColDef.cellEditor.',
+      'Inject AGRID_EDITOR_CONTEXT to read value/row/column and stage drafts with setDraft.',
+      'Call commit() to confirm immediately, or let Tab / Enter / Escape work for free.',
+      'Pair it with cellRenderer to control how the value looks when not editing.',
+    ],
+    code: `@Component({
+  selector: 'star-rating-editor',
+  template: \`
+    @for (n of [1,2,3,4,5]; track n) {
+      <button (click)="pick(n)">{{ n <= value() ? '★' : '☆' }}</button>
+    }\`,
+})
+export class StarRatingEditor {
+  private readonly ctx = inject(AGRID_EDITOR_CONTEXT);
+  readonly value = signal(Number(this.ctx.value() ?? 0));
+  pick(n: number): void {
+    this.value.set(n);
+    this.ctx.setDraft(n);   // stage the value
+    this.ctx.commit();      // confirm immediately
+  }
+}
+
+const columns: ColDef<Task>[] = [
+  { field: 'task', header: 'Task' },
+  {
+    field: 'rating',
+    header: 'Rating',
+    type: 'number',
+    cellEditor: StarRatingEditor,
+    cellRenderer: ({ value }) => '★'.repeat(value),
+  },
+];`,
+  },
+  {
     path: '/conditional-formatting',
     label: 'Conditional formatting',
     title: 'Row-aware cell styling',

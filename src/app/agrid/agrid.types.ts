@@ -1,7 +1,7 @@
 import type { AgridDataSource } from './agrid-datasource';
 import type { AgridProvider } from './agrid-provider';
 import type { FilterOperator } from './agrid-control';
-import type { Signal } from '@angular/core';
+import type { Signal, Type } from '@angular/core';
 
 /** String-valued property names available on a row type. */
 export type AgridField<T extends object> = Extract<keyof T, string>;
@@ -387,6 +387,18 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
    * ```
    */
   cellRenderer?: (params: { value: T[K]; row: T }) => string;
+  /**
+   * Custom editor component shown while the cell is in edit mode, instead of the built-in
+   * text input / dropdown / checkbox. The component injects {@link AGRID_EDITOR_CONTEXT} to read
+   * the current value and stage drafts; the grid keeps ownership of validation, history, and the
+   * commit/cancel lifecycle, so Tab, Enter, and Escape work without extra wiring.
+   *
+   * @example
+   * ```ts
+   * { field: 'rating', cellEditor: RatingEditor }
+   * ```
+   */
+  cellEditor?: Type<unknown>;
   /**
    * Show a right-aligned info button in this column's cells.
    * Pass a predicate to show it only for selected rows or values.

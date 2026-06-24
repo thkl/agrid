@@ -10,12 +10,14 @@ describe('AgridMenuBarController', () => {
     items?: AgridMenuBarItem[];
     gridId?: string | undefined;
     selectedRowIndices?: ReadonlySet<number>;
+    enableExportButtons?: boolean;
   } = {}) {
     const dataSource = new AgridDataSource([{ name: 'Alice' }, { name: 'Bob' }]);
     const provider = new AgridProvider();
     const emitAction = vi.fn();
     const closeOtherMenus = vi.fn();
     const persistSettings = vi.fn();
+    const exportData = vi.fn();
     const controller = new AgridMenuBarController({
       dataSource: signal(dataSource),
       provider: signal(provider),
@@ -24,11 +26,16 @@ describe('AgridMenuBarController', () => {
       menuBarItems: signal(overrides.items ?? []),
       gridId: signal(overrides.gridId),
       saveConfigLabel: signal('Save'),
+      enableExportButtons: signal(overrides.enableExportButtons),
+      exportLabel: signal('Export'),
+      exportCsvLabel: signal('CSV'),
+      exportXlsxLabel: signal('Excel'),
       emitAction,
       closeOtherMenus,
       persistSettings,
+      exportData,
     });
-    return { controller, dataSource, emitAction, closeOtherMenus, persistSettings };
+    return { controller, dataSource, emitAction, closeOtherMenus, persistSettings, exportData };
   }
 
   it('exposes context with sorted, resolved selected rows', () => {

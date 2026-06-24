@@ -2047,6 +2047,12 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** @internal */
   onDraftChange(value: unknown): void { this.editController.setDraft(value); }
 
+  /** @internal A custom cell editor requested a commit (e.g. picking a value). */
+  onEditorCommit(): void { this.editController.commit(); }
+
+  /** @internal A custom cell editor requested cancellation. */
+  onEditorCancel(): void { this.editController.cancel(); }
+
   private quickFilterTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**

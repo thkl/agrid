@@ -69,6 +69,7 @@ export class PageComponent {
 - CDK virtual scrolling for large row sets.
 - Signal-based data source and control state.
 - Editable text cells and select editors for fixed value columns.
+- Custom component cell editors via `ColDef.cellEditor` (star ratings, pickers, sliders) with zero extra dependencies.
 - Keyboard navigation with auto-scroll to the active cell.
 - Type-to-edit, Enter/F2 edit, Tab/Enter commit, Escape cancel.
 - Undo/redo for edits, paste, and fill operations.
@@ -94,6 +95,7 @@ export class PageComponent {
 - **Readonly mode** — disable all editing with a single input.
 - **Pagination** — built-in page controls driven by `AgridControl`.
 - **Custom cell renderers** — return HTML strings per column for rich cell content.
+- **Custom cell editors** — render any Angular component while editing; the grid keeps validation, history, and the commit lifecycle.
 - **Column autosize all** — fit every visible column to its content in one call.
 - **Master/detail rows** — expand any row to reveal a custom HTML detail panel beneath it.
 - **Pinned rows** — keep summary/total rows fixed at the top or bottom of the body.
@@ -622,6 +624,7 @@ interface ColDef {
 | `pinned` | No | `'left'` or `'right'` to pin the column initially. Left-pinned columns render in a fixed pane before the scrollable area; right-pinned columns render in a fixed pane after it. |
 | `aggregate` | No | Shows an aggregate footer value: `'sum'`, `'avg'`, `'min'`, `'max'`, or `'count'`. |
 | `cellRenderer` | No | Custom HTML renderer. Return an HTML string; Angular sanitizes it automatically. See [Custom Cell Renderers](#custom-cell-renderers). |
+| `cellEditor` | No | A standalone Angular component to use as the cell editor instead of the built-in input. The component injects `AGRID_EDITOR_CONTEXT`. See [Custom Cell Editors](#custom-cell-editors). |
 | `cellClass` | No | Returns a CSS class name for each cell. Applied alongside built-in state classes. |
 | `infoIcon` | No | Shows a right-aligned `?` action. Set it to `true` or return a boolean per cell. Clicking it emits `cellInfo` with the row, field, value, original index, and column definition. |
 
@@ -958,6 +961,64 @@ const columns: ColDef[] = [
 ```
 
 The `row` parameter gives you access to the full row object, useful when the display depends on sibling fields.
+
+## Custom Cell Editors
+
+When the built-in text input, dropdown, or checkbox isn't enough, point `ColDef.cellEditor` at any
+standalone Angular component. The grid instantiates it while the cell is in edit mode and provides
+an `AgridEditorContext` through dependency injection. The editor is purely an *input surface* — the
+grid keeps ownership of validation (`validate`), undo/redo history, and the commit/cancel lifecycle,
+so **Tab, Enter, and Escape keep working without any extra wiring** (their key events bubble up to
+the grid). This needs no third-party dependency — just Angular.
+
+Inject `AGRID_EDITOR_CONTEXT` to talk to the grid:
+
+```ts
+import { AGRID_EDITOR_CONTEXT } from '@thkl/agrid';
+
+@Component({
+  selector: 'star-rating-editor',
+  template: `
+    @for (n of [1, 2, 3, 4, 5]; track n) {
+      <button type="button" (click)="pick(n)">{{ n <= value() ? '★' : '☆' }}</button>
+    }`,
+})
+export class StarRatingEditor {
+  private readonly ctx = inject(AGRID_EDITOR_CONTEXT);
+  readonly value = signal(Number(this.ctx.value() ?? 0));
+
+  pick(n: number): void {
+    this.value.set(n);
+    this.ctx.setDraft(n);   // stage the value the grid will commit
+    this.ctx.commit();      // confirm immediately (optional — Tab/Enter also commit)
+  }
+}
+
+const columns: ColDef[] = [
+  {
+    field: 'rating',
+    header: 'Rating',
+    type: 'number',
+    cellEditor: StarRatingEditor,
+    cellRenderer: ({ value }) => '★'.repeat(Number(value)), // how it looks when not editing
+  },
+];
+```
+
+### `AgridEditorContext`
+
+| Member | Type | Description |
+| --- | --- | --- |
+| `value` | `Signal<T>` | The cell's value when editing started. |
+| `row` | `Signal<Record<string, unknown>>` | The full row record. |
+| `column` | `Signal<ColDef>` | The column definition being edited. |
+| `seedChar` | `Signal<string>` | The printable character that triggered type-to-edit, or `''`. Seed a free-text editor with it. |
+| `setDraft(value)` | method | Stage a value; the grid commits the last staged value on Tab/Enter. |
+| `commit()` | method | Commit the staged value programmatically (same as pressing Enter). |
+| `cancel()` | method | Discard the edit (same as pressing Escape). |
+
+Pair `cellEditor` with `cellRenderer` to control how the value looks when the cell isn't being
+edited. See the **Custom editors** demo for star-rating, colour-swatch, and slider editors.
 
 ## Column Autosize
 

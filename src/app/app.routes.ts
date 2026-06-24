@@ -18,6 +18,10 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/custom-cells.component').then(m => m.CustomCellsDemoComponent),
   },
   {
+    path: 'custom-editors',
+    loadComponent: () => import('./demos/custom-editors.component').then(m => m.CustomEditorsDemoComponent),
+  },
+  {
     path: 'conditional-formatting',
     loadComponent: () => import('./demos/conditional-formatting.component').then(m => m.ConditionalFormattingDemoComponent),
   },

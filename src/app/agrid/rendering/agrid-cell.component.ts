@@ -2,14 +2,18 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  Injector,
   computed,
   effect,
+  inject,
   input,
   output,
   signal,
   viewChild,
 } from '@angular/core';
+import { NgComponentOutlet } from '@angular/common';
 import { CellFormat, ColDef, ValueOption } from '../agrid.types';
+import { AGRID_EDITOR_CONTEXT, AgridEditorContext } from '../editing/agrid-cell-editor';
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from '../agrid-localization';
 import {
   coerceDateInputValue,
@@ -30,6 +34,7 @@ import { resolveCellSpanLayout } from './agrid-cell-span';
 @Component({
   selector: 'agrid-cell',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [NgComponentOutlet],
   host: {
     role: 'gridcell',
     '[class.selected]': 'selected()',
@@ -67,7 +72,16 @@ import { resolveCellSpanLayout } from './agrid-cell-span';
         (dblclick)="$event.stopPropagation()"
       />
     } @else if (editing()) {
-      @if (col().values?.length) {
+      @if (col().cellEditor; as editor) {
+        <div
+          class="ag-cell-editor"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="$event.stopPropagation()"
+          (dblclick)="$event.stopPropagation()"
+        >
+          <ng-container [ngComponentOutlet]="editor" [ngComponentOutletInjector]="editorInjector" />
+        </div>
+      } @else if (col().values?.length) {
         <select
           #editSelect
           class="ag-cell-select"
@@ -242,8 +256,37 @@ export class AgridCellComponent {
    */
   draftChange = output<unknown>();
 
+  /** Emitted when a custom editor requests a commit (e.g. selecting a value). */
+  readonly editorCommit = output<void>();
+
+  /** Emitted when a custom editor requests cancellation. */
+  readonly editorCancel = output<void>();
+
   /** Live draft value managed by the cell during an active edit. */
   readonly draft = signal<unknown>('');
+
+  /**
+   * Context exposed to a {@link ColDef.cellEditor} component via {@link AGRID_EDITOR_CONTEXT}.
+   * The signals are the cell's own inputs, so the editor stays reactive to value/row changes.
+   */
+  private readonly editorContext: AgridEditorContext = {
+    value: this.value,
+    row: this.row,
+    column: this.col,
+    seedChar: this.seedChar,
+    setDraft: value => {
+      this.draft.set(value);
+      this.draftChange.emit(value);
+    },
+    commit: () => this.editorCommit.emit(),
+    cancel: () => this.editorCancel.emit(),
+  };
+
+  /** Injector that supplies {@link AGRID_EDITOR_CONTEXT} to a custom editor component. */
+  protected readonly editorInjector = Injector.create({
+    providers: [{ provide: AGRID_EDITOR_CONTEXT, useValue: this.editorContext }],
+    parent: inject(Injector),
+  });
 
   /** String value accepted by the active native input element. */
   readonly editorValue = computed((): string => {
