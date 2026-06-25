@@ -146,10 +146,18 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   );
   readonly enableRowMarking = computed(() => this.provider().enableRowMarking);
   readonly enableColumnMarking = computed(() => this.provider().enableColumnMarking);
+  readonly showRowNumbers = computed(() => this.provider().showRowNumbers);
   readonly showControlColumn = computed(() =>
-    this.provider().showControlColumn || this.enableRowMarking() || this.masterDetail()
+    this.provider().showControlColumn
+    || this.showRowNumbers()
+    || this.enableRowMarking()
+    || this.masterDetail()
   );
-  readonly controlColumnWidth = computed(() => this.enableRowMarking() ? 48 : 24);
+  readonly controlColumnWidth = computed(() => {
+    if (!this.showRowNumbers()) return this.enableRowMarking() ? 48 : 24;
+    const numberWidth = this.rowNumberColumnWidth();
+    return this.enableRowMarking() ? numberWidth + 20 : numberWidth;
+  });
   readonly showSidebar = computed(() => this.provider().showSidebar);
   readonly autoOpenDetail = computed(() => this.provider().autoOpenDetail);
   readonly serverSideFiltering = computed(() => this.provider().serverSideFiltering);
@@ -694,6 +702,11 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly scrollableBodyColumns = computed(() => this.buildBodyColumns(this.scrollableColDefs()));
   readonly rightBodyColumns = computed(() => this.buildBodyColumns(this.rightPinnedColDefs()));
 
+  /** @internal Whether a pane needs per-cell span resolution. */
+  readonly pinnedPaneHasSpans = computed(() => this.pinnedColDefs().some(col => col.colSpan));
+  readonly scrollablePaneHasSpans = computed(() => this.scrollableColDefs().some(col => col.colSpan));
+  readonly rightPaneHasSpans = computed(() => this.rightPinnedColDefs().some(col => col.colSpan));
+
   /**
    * Resolves the per-column bindings shared by every data, footer, and ghost cell. Reads only
    * layout/drag/pinning signals, so the result is reused across all rows and recomputes only
@@ -867,6 +880,29 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       if (isDataRowItemFn(item)) map.set(item.originalIndex, (rank++ % 2) !== 0);
     }
     return map;
+  });
+
+  /** Maps originalIndex → 1-based filtered/sorted row number for the control column. */
+  readonly rowNumbers = computed<Map<number, number>>(() => {
+    const map = new Map<number, number>();
+    this.projection.filteredSortedIndices().forEach((originalIndex, index) => {
+      map.set(originalIndex, index + 1);
+    });
+    return map;
+  });
+
+  /** Width needed for the largest currently rendered row number. */
+  readonly rowNumberColumnWidth = computed(() => {
+    const maxNumber = Math.max(
+      1,
+      ...[
+        ...this.pinnedTopItems(),
+        ...this.filteredItems(),
+        ...this.pinnedBottomItems(),
+      ].map(item => this.visibleRowNumber(item)).filter(number => number !== null),
+    );
+    const digits = String(maxNumber).length;
+    return Math.max(36, 20 + digits * 8);
   });
 
   readonly displayItems = computed<GridItem[]>(() => {
@@ -1631,6 +1667,11 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** @internal */
   getItemOriginalIndex(item: GridItem): number | null {
     return isDataRowItemFn(item) ? item.originalIndex : null;
+  }
+
+  /** @internal 1-based row number for visible data rows. */
+  visibleRowNumber(item: GridItem): number | null {
+    return isDataRowItemFn(item) ? this.rowNumbers().get(item.originalIndex) ?? null : null;
   }
 
   /** @internal True when the item is a master/detail panel row. */

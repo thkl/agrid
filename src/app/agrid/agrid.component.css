@@ -24,6 +24,8 @@
 :host {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
   min-height: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 13px;
@@ -35,6 +37,7 @@
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-width: 0;
   min-height: 0;
   border: 1px solid var(--agrid-color-border);
   overflow: hidden;
@@ -470,8 +473,25 @@
   color: var(--agrid-color-text-muted);
 }
 
+.ag-control-cell--numbered::after {
+  content: none;
+}
+
 .ag-control-cell--reorder:active {
   cursor: grabbing;
+}
+
+.ag-row-number {
+  min-width: 0;
+  color: var(--agrid-color-text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  user-select: none;
+  white-space: nowrap;
 }
 
 .ag-row-marker {

@@ -72,9 +72,13 @@
             <div class="ag-control-cell" role="rowheader" aria-colindex="1"
               [class.ag-control-cell--reorder]="allowRowReorder()"
               [class.ag-control-cell--marking]="enableRowMarking()"
+              [class.ag-control-cell--numbered]="showRowNumbers()"
               (contextmenu)="onControlContextMenu($event, item.originalIndex)"
               (click)="onControlCellClick($event, item.originalIndex)"
               (pointerdown)="onControlPointerDown($event, item.originalIndex)">
+              @if (showRowNumbers()) {
+              <span class="ag-row-number">{{ rowNumbers().get(item.originalIndex) }}</span>
+              }
               @if (canToggleDetail(item)) {
               <button class="ag-detail-toggle" type="button"
                 [class.ag-detail-toggle--expanded]="isDetailExpanded(item.originalIndex)"
@@ -92,7 +96,7 @@
             @for (bc of pinnedBodyColumns(); track bc.field) {
             @let col = bc.col;
             @let ci = bc.visibleColIndex;
-            <agrid-cell [col]="col" [paneColumns]="pinnedColDefs()" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]" [localeText]="localeText()"
+            <agrid-cell [col]="col" [paneColumns]="pinnedColDefs()" [paneHasSpans]="pinnedPaneHasSpans()" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]" [localeText]="localeText()"
               [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
               [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
               [attr.aria-colindex]="bc.ariaColIndex"
@@ -249,7 +253,7 @@
               @for (bc of virtualScrollableBodyColumns(); track bc.field) {
               @let col = bc.col;
               @let ci = bc.visibleColIndex;
-              <agrid-cell [col]="col" [paneColumns]="scrollableColDefs()" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]" [localeText]="localeText()"
+              <agrid-cell [col]="col" [paneColumns]="scrollableColDefs()" [paneHasSpans]="scrollablePaneHasSpans()" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]" [localeText]="localeText()"
                 [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
                 [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
                 [attr.aria-colindex]="bc.ariaColIndex"
@@ -493,7 +497,7 @@
             @for (bc of rightBodyColumns(); track bc.field) {
             @let col = bc.col;
             @let ci = bc.visibleColIndex;
-            <agrid-cell [col]="col" [paneColumns]="rightPinnedColDefs()" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]" [localeText]="localeText()"
+            <agrid-cell [col]="col" [paneColumns]="rightPinnedColDefs()" [paneHasSpans]="rightPaneHasSpans()" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]" [localeText]="localeText()"
               [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
               [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
               [attr.aria-colindex]="bc.ariaColIndex"

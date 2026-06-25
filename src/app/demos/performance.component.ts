@@ -172,6 +172,7 @@ export class PerformanceDemoComponent {
     datasource: this.datasource,
     control: this.control,
     zebraStripes: true,
+    showRowNumbers:true,
   });
   readonly grid = viewChild(AgridComponent);
   readonly filteredRowCount = computed(

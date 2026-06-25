@@ -115,6 +115,25 @@ describe('AgridCellComponent custom renderer', () => {
     expect(formatterCalls).toBe(1);
   });
 
+  it('skips span layout unless the containing pane has span columns', () => {
+    const columns = [
+      { field: 'status', header: 'Status', colSpan: 2 },
+      { field: 'next', header: 'Next' },
+    ];
+    fixture.componentRef.setInput('col', columns[0]);
+    fixture.componentRef.setInput('paneColumns', columns);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.getAttribute('aria-colspan')).toBeNull();
+    expect(fixture.nativeElement.style.gridColumn).toBe('');
+
+    fixture.componentRef.setInput('paneHasSpans', true);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.getAttribute('aria-colspan')).toBe('2');
+    expect(fixture.nativeElement.style.gridColumn).toBe('span 2');
+  });
+
   it('applies conditional formatting from the current cell context', () => {
     const row = { status: 'Active' };
     let received: unknown;

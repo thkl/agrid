@@ -55,8 +55,7 @@ export class AgridColumnVirtualizationController {
   readonly window = computed<AgridColumnWindow>(() => {
     const widths = this.opts.columnWidths();
     const count = widths.length;
-    const viewportWidth = this.opts.viewportWidth();
-    if (count <= this.opts.minColumns() || viewportWidth <= 0) {
+    if (count <= this.opts.minColumns()) {
       return { start: 0, end: count, leftWidth: 0, rightWidth: 0 };
     }
 
@@ -67,6 +66,9 @@ export class AgridColumnVirtualizationController {
     const total = prefix[count];
 
     const scrollLeft = this.opts.scrollLeft();
+    const viewportWidth = this.opts.viewportWidth() > 0
+      ? this.opts.viewportWidth()
+      : this.overscanPx * 4;
     const min = scrollLeft - this.overscanPx;
     const max = scrollLeft + viewportWidth + this.overscanPx;
 

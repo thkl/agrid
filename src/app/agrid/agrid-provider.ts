@@ -77,6 +77,8 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   autoAddRows?: boolean;
   /** Show a 24 px control column with a drag handle and right-click context menu. */
   showControlColumn?: boolean;
+  /** Show automatic row numbers in the control column instead of the drag-handle glyph. @default false */
+  showRowNumbers?: boolean;
   /** Show row-marking checkboxes in a 48 px control column for clipboard inclusion. @default false */
   enableRowMarking?: boolean;
   /** Allow clicking column headers to mark complete columns. @default false */
@@ -307,6 +309,8 @@ export class AgridProvider<T extends object = any> {
   allowAddRows: boolean;
   /** Whether the control column is rendered. */
   showControlColumn: boolean;
+  /** Whether the control column displays automatic row numbers. */
+  showRowNumbers: boolean;
   /** Whether rows can be marked for inclusion in clipboard copies. */
   enableRowMarking: boolean;
   /** Whether complete columns can be marked from their headers. */
@@ -404,6 +408,7 @@ export class AgridProvider<T extends object = any> {
     if (config.autoAddRows !== undefined) this.control.setAutoAddRows(config.autoAddRows);
     this.autoAddRows      = runtimeState.autoAddRows;
     this.showControlColumn = config.showControlColumn ?? false;
+    this.showRowNumbers = config.showRowNumbers ?? false;
     this.enableRowMarking = config.enableRowMarking ?? false;
     this.enableColumnMarking = config.enableColumnMarking ?? false;
     this.showSidebar      = config.showSidebar ?? false;

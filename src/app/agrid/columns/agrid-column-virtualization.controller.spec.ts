@@ -24,9 +24,9 @@ describe('AgridColumnVirtualizationController', () => {
     expect(ctrl.window()).toEqual({ start: 0, end: 4, leftWidth: 0, rightWidth: 0 });
   });
 
-  it('renders the full set when the viewport has not been measured yet', () => {
-    const ctrl = make({ widths: Array(10).fill(100), viewportWidth: 0 });
-    expect(ctrl.window()).toEqual({ start: 0, end: 10, leftWidth: 0, rightWidth: 0 });
+  it('renders an initial window when the viewport has not been measured yet', () => {
+    const ctrl = make({ widths: Array(10).fill(100), viewportWidth: 0, overscanPx: 100 });
+    expect(ctrl.window()).toEqual({ start: 0, end: 5, leftWidth: 0, rightWidth: 500 });
   });
 
   it('windows to the visible columns and reports spacer widths', () => {

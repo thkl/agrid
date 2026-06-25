@@ -74,7 +74,7 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
   { color: '#047857', bg: '#ecfdf5', label: '∑', title: 'Tree node aggregates', desc: 'Roll up sum, average, count, or custom aggregates from descendant entries into every expandable tree node.', isNew: true },
   { color: '#0369a1', bg: '#f0f9ff', label: '↻', title: 'Persistable grid settings', desc: 'Load and save one serializable settings object so user layouts and pivot choices can round-trip through your backend.', isNew: true },
   { color: '#a16207', bg: '#fefce8', label: '⇥', title: 'Extended keyboard navigation', desc: 'Move by viewport with Page Up and Page Down, or jump to row and grid edges with Home and End.', isNew: true },
-  { color: '#2563eb', bg: '#eff6ff', label: '◐', title: 'Charts', desc: 'Zero-dependency SVG column, bar, line, area, pie, and donut diagrams. Link to the grid to follow filters and sorting live.', isNew: true },
+  { color: '#2563eb', bg: '#eff6ff', label: '◐', title: 'Charts / graphs', desc: 'Zero-dependency SVG column, bar, line, area, pie, and donut diagrams. Link to the grid to follow filters and sorting live.', isNew: true },
   { color: '#0d9488', bg: '#f0fdfa', label: '∿', title: 'Sparklines', desc: 'Tiny inline line and bar charts drawn per row from a number[] field, using a custom cell renderer.', isNew: true },
 ];
 
@@ -211,7 +211,7 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
               <span class="demo-card-link">Open →</span>
             </a>
             <a class="demo-card" routerLink="/charts">
-              <div class="demo-card-title">Charts</div>
+              <div class="demo-card-title">Charts / graphs</div>
               <div class="demo-card-desc">Zero-dependency SVG diagrams driven by an AgridChartProvider, linked to the grid's filtered rows.</div>
               <span class="demo-card-link">Open →</span>
             </a>

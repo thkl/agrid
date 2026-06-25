@@ -24,6 +24,9 @@ import {
 } from '../agrid.utils';
 import { resolveCellSpanLayout } from './agrid-cell-span';
 
+const DEFAULT_CELL_SPAN_LAYOUT = { covered: false, span: 1 } as const;
+const EMPTY_CELL_FORMAT: CellFormat = {};
+
 /**
  * Individual cell component used inside `AgridComponent`.
  *
@@ -152,6 +155,9 @@ export class AgridCellComponent {
   /** Visible columns in this cell's pane, used to clamp spans at pane boundaries. */
   paneColumns = input<readonly ColDef[]>([]);
 
+  /** Whether any visible column in this pane can span cells. */
+  paneHasSpans = input<boolean>(false);
+
   /** Absolute row index within the data source. */
   rowIndex = input.required<number>();
 
@@ -168,22 +174,27 @@ export class AgridCellComponent {
   row = input<Record<string, unknown>>({});
 
   /** Horizontal span and coverage state for this row. */
-  readonly cellSpanLayout = computed(() => resolveCellSpanLayout(
-    this.paneColumns(),
-    this.paneColumns().indexOf(this.col()),
-    this.row(),
-    this.rowIndex(),
-  ));
+  readonly cellSpanLayout = computed(() => {
+    if (!this.paneHasSpans()) return DEFAULT_CELL_SPAN_LAYOUT;
+    const paneColumns = this.paneColumns();
+    return resolveCellSpanLayout(
+      paneColumns,
+      paneColumns.indexOf(this.col()),
+      this.row(),
+      this.rowIndex(),
+    );
+  });
 
   /** Runtime formatting resolved from the column definition and current cell context. */
   readonly resolvedCellFormat = computed((): CellFormat => {
     const col = this.col();
+    if (!col.cellFormat) return EMPTY_CELL_FORMAT;
     return col.cellFormat?.({
       row: this.row(),
       value: this.value(),
       column: col,
       originalIndex: this.rowIndex(),
-    }) ?? {};
+    }) ?? EMPTY_CELL_FORMAT;
   });
 
   /** Per-cell formatting wins over the column's default text alignment. */

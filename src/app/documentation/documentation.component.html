@@ -74,7 +74,7 @@
         <a href="#guide-tree"><strong>Display tree data</strong><span>Parent IDs, paths, and descendant rollups</span></a>
         <a href="#guide-pagination"><strong>Load and paginate</strong><span>Local pages and lazy server blocks</span></a>
         <a href="#guide-settings"><strong>Save user settings</strong><span>Backend-safe snapshots and restoration</span></a>
-        <a href="#guide-charts"><strong>Chart grid data</strong><span>Filter-aware SVG diagrams from a provider</span></a>
+        <a href="#guide-charts"><strong>Chart grid data</strong><span>Filter-aware SVG graphs from a provider</span></a>
       </div>
     </section>
 
@@ -245,8 +245,8 @@
       <div class="chapter-kicker">Chapter 10</div>
       <h2>How to chart grid data</h2>
       <p>
-        <code>&lt;agrid-chart&gt;</code> renders zero-dependency SVG charts — column, bar, line, area,
-        pie, and donut — and is configured exactly like the grid: build an
+        <code>&lt;agrid-chart&gt;</code> renders zero-dependency SVG charts/graphs — column, bar, line,
+        area, pie, and donut — and is configured exactly like the grid: build an
         <code>AgridChartProvider</code> and pass it in. Link it to a grid's <code>visibleRows</code>
         with a <code>transform</code> and the chart follows the grid's filters and sorting live.
       </p>
@@ -262,6 +262,20 @@
         <li>Before the grid mounts it falls back to every datasource row.</li>
         <li>Pie and donut charts use the first series; values become slices labelled by <code>categories</code>.</li>
       </ul>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Provider option</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>type</code></td><td><code>'column'</code>, <code>'bar'</code>, <code>'line'</code>, <code>'area'</code>, <code>'pie'</code>, or <code>'donut'</code>. Writable signal for runtime switching.</td></tr>
+            <tr><td><code>data</code></td><td>Static <code>AgridChartData</code> with optional <code>categories</code> and one or more numeric series.</td></tr>
+            <tr><td><code>source</code> + <code>transform</code></td><td>Derives chart data from a reactive row source, usually <code>gridProvider.visibleRows</code>.</td></tr>
+            <tr><td><code>height</code></td><td>Chart height in pixels. Width follows the host element.</td></tr>
+            <tr><td><code>showLegend</code>, <code>showAxis</code>, <code>palette</code></td><td>Display controls for legend, cartesian axes, and colors.</td></tr>
+          </tbody>
+        </table>
+      </div>
       <a class="chapter-demo-link" routerLink="/charts">Open the live charts demo <span>→</span></a>
     </section>
 
@@ -289,7 +303,7 @@
         <span>Copy, paste, and fill</span>
         <span>Custom cell renderers</span>
         <span>Custom cell editors</span>
-        <span>Charts (SVG, zero-dep)</span>
+        <span>Charts / graphs (SVG, zero-dep)</span>
         <span>CSV &amp; Excel export</span>
         <span>Localization</span>
         <span>Column state persistence</span>
@@ -375,6 +389,7 @@
             <tr><td><code>allowAddRows</code></td><td><code>false</code></td><td>Shows an add-row placeholder.</td></tr>
             <tr><td><code>autoAddRows</code></td><td><code>false</code></td><td>Adds a row when navigation leaves the last row.</td></tr>
             <tr><td><code>showControlColumn</code></td><td><code>false</code></td><td>Shows row actions and reorder handles.</td></tr>
+            <tr><td><code>showRowNumbers</code></td><td><code>false</code></td><td>Shows filtered and sorted row numbers in the control column instead of the reorder handle glyph.</td></tr>
             <tr><td><code>enableRowMarking</code></td><td><code>false</code></td><td>Shows row checkboxes in a 48 px control column and includes marked rows in every copy operation.</td></tr>
             <tr><td><code>showSidebar</code></td><td><code>false</code></td><td>Shows the column visibility sidebar.</td></tr>
             <tr><td><code>serverSideFiltering</code></td><td><code>false</code></td><td>Emits filter, sort, and quick-filter requests instead of applying them locally. See <a href="#filtering">Filtering</a>.</td></tr>

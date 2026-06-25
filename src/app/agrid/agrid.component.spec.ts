@@ -915,6 +915,95 @@ describe('AgridComponent Tab navigation', () => {
     markingFixture.destroy();
   });
 
+  it('renders optional control-column row numbers in filtered and sorted order', async () => {
+    const numberedProvider = new AgridProvider({
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'department', header: 'Department' },
+      ],
+      datasource: new AgridDataSource([
+        { name: 'Alice', department: 'Engineering' },
+        { name: 'Bob', department: 'Sales' },
+        { name: 'Carol', department: 'Engineering' },
+        { name: 'David', department: 'Engineering' },
+      ]),
+      showRowNumbers: true,
+    });
+    numberedProvider.control.setQuickFilter('Engineering');
+    numberedProvider.control.setSort('name', 'desc');
+    const numberedFixture = TestBed.createComponent(AgridComponent);
+    numberedFixture.componentRef.setInput('provider', numberedProvider);
+    numberedFixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    numberedFixture.detectChanges();
+    const numberedComponent = numberedFixture.componentInstance;
+    const numbers = [...numberedFixture.nativeElement.querySelectorAll('.ag-row-number')]
+      .map(el => (el as HTMLElement).textContent?.trim());
+    const firstControlCell = numberedFixture.nativeElement.querySelector(
+      '.ag-control-cell',
+    ) as HTMLElement;
+
+    expect(numberedComponent.showControlColumn()).toBe(true);
+    expect(numberedComponent.controlColumnWidth()).toBe(36);
+    expect(numberedComponent.rowNumbers().get(3)).toBe(1);
+    expect(numberedComponent.rowNumbers().get(2)).toBe(2);
+    expect(numberedComponent.rowNumbers().get(0)).toBe(3);
+    expect(numbers).toEqual(['1', '2', '3']);
+    expect(firstControlCell.classList.contains('ag-control-cell--numbered')).toBe(true);
+    expect(firstControlCell.classList.contains('ag-control-cell--reorder')).toBe(true);
+    numberedFixture.destroy();
+  });
+
+  it('keeps row numbers readable when row marking also uses the control column', async () => {
+    const numberedMarkingProvider = new AgridProvider({
+      columns: provider.columns(),
+      datasource: new AgridDataSource([{ name: 'Alice', department: 'Engineering' }]),
+      showRowNumbers: true,
+      enableRowMarking: true,
+    });
+    const numberedMarkingFixture = TestBed.createComponent(AgridComponent);
+    numberedMarkingFixture.componentRef.setInput('provider', numberedMarkingProvider);
+    numberedMarkingFixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    numberedMarkingFixture.detectChanges();
+    const numberedMarkingComponent = numberedMarkingFixture.componentInstance;
+
+    expect(numberedMarkingComponent.controlColumnWidth()).toBe(56);
+    expect(numberedMarkingFixture.nativeElement.querySelector('.ag-row-number')?.textContent?.trim())
+      .toBe('1');
+    expect(numberedMarkingFixture.nativeElement.querySelector('.ag-row-marker')).not.toBeNull();
+    numberedMarkingFixture.destroy();
+  });
+
+  it('sizes the control column from the largest visible row number', async () => {
+    const rows = Array.from({ length: 10000 }, (_, index) => ({
+      name: `Row ${index + 1}`,
+      department: 'Performance',
+    }));
+    const numberedProvider = new AgridProvider({
+      columns: provider.columns(),
+      datasource: new AgridDataSource(rows),
+      showRowNumbers: true,
+    });
+    numberedProvider.control.setPageSize(10);
+    const numberedFixture = TestBed.createComponent(AgridComponent);
+    numberedFixture.componentRef.setInput('provider', numberedProvider);
+    numberedFixture.detectChanges();
+    const numberedComponent = numberedFixture.componentInstance;
+
+    expect(numberedComponent.controlColumnWidth()).toBe(36);
+
+    numberedProvider.control.setPage(1000);
+    numberedFixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    numberedFixture.detectChanges();
+
+    expect(numberedComponent.controlColumnWidth()).toBe(60);
+    expect(numberedFixture.nativeElement.querySelector('.ag-row-number')?.textContent?.trim())
+      .toBe('9991');
+    numberedFixture.destroy();
+  });
+
   it('keeps marked rows attached across grid insertions and deletions', () => {
     provider.enableRowMarking = true;
     component.toggleRowMarked(0);

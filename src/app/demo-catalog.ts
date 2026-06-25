@@ -145,9 +145,9 @@ const columns: ColDef<Task>[] = [
   {
     path: '/charts',
     label: 'Charts',
-    title: 'Configurable diagrams from grid data',
+    title: 'Configurable charts and graphs from grid data',
     summary:
-      'A reusable <agrid-chart> component configured exactly like the grid: build an AgridChartProvider and pass it in. Link it to the grid provider’s visibleRows with a transform and the chart follows the grid’s filters and sorting — filter a region out and the chart updates instantly.',
+      'A reusable <agrid-chart> component configured exactly like the grid: build an AgridChartProvider and pass it in. Link it to the grid provider’s visibleRows with a transform and the chart or graph follows the grid’s filters and sorting — filter a region out and the chart updates instantly.',
     points: [
       'Same API shape as the grid: <agrid-chart [provider]="chartProvider" />.',
       'Link source: gridProvider.visibleRows for filter/sort-aware data.',

@@ -1,6 +1,6 @@
 # agrid
 
-`agrid` is an Angular data grid with spreadsheet-like editing, virtual scrolling, filtering, sorting, grouping, column state, pinned columns, selection, clipboard workflows, row operations, pagination, CSV/Excel export, and custom cell renderers.
+`agrid` is an Angular data grid with spreadsheet-like editing, virtual scrolling, filtering, sorting, grouping, column state, pinned columns, selection, clipboard workflows, row operations, pagination, CSV/Excel export, charts/graphs, and custom cell renderers.
 
 
 [![npm version](https://img.shields.io/npm/v/@thkl/agrid.svg)](https://www.npmjs.com/package/@thkl/agrid)
@@ -97,7 +97,7 @@ export class PageComponent {
 - **Pagination** — built-in page controls driven by `AgridControl`.
 - **Custom cell renderers** — render any Angular component per column for rich cell content (the legacy HTML-string renderer is deprecated).
 - **Custom cell editors** — render any Angular component while editing; the grid keeps validation, history, and the commit lifecycle.
-- **Charts** — zero-dependency SVG column/bar/line/area/pie/donut diagrams via `<agrid-chart>`, configured with an `AgridChartProvider`. Link to a grid's `visibleRows` to follow filters and sorting live.
+- **Charts / graphs** — zero-dependency SVG column/bar/line/area/pie/donut diagrams via `<agrid-chart>`, configured with an `AgridChartProvider`. Link to a grid's `visibleRows` to follow filters and sorting live.
 - **Column autosize all** — fit every visible column to its content in one call.
 - **Master/detail rows** — expand any row to reveal a custom HTML detail panel beneath it.
 - **Pinned rows** — keep summary/total rows fixed at the top or bottom of the body.
@@ -245,6 +245,7 @@ readonly gridProvider = new AgridProvider({
 | `allowAddRows` | `boolean` | `false` | Shows a `+ Add row` placeholder at the bottom when `autoAddRows` is `false`. |
 | `autoAddRows` | `boolean` | `false` | Automatically inserts a blank row when navigation moves past the last real row. |
 | `showControlColumn` | `boolean` | `false` | Shows a 24 px control column for row context actions and drag handles. |
+| `showRowNumbers` | `boolean` | `false` | Shows 1-based filtered/sorted row numbers in the control column, replacing the drag-handle glyph. |
 | `enableRowMarking` | `boolean` | `false` | Makes row headers clickable, shows checkboxes in a 48 px control column, and includes marked rows in every copy operation. |
 | `enableColumnMarking` | `boolean` | `false` | Makes column-header surfaces clickable and exposes marked fields through `markedColumnFields`. |
 | `showSidebar` | `boolean` | `false` | Shows a collapsible column visibility sidebar. Requires `control`. |
@@ -1061,10 +1062,10 @@ const columns: ColDef[] = [
 Pair `cellEditor` with `cellRenderer` to control how the value looks when the cell isn't being
 edited. See the **Custom editors** demo for star-rating, colour-swatch, and slider editors.
 
-## Charts
+## Charts / Graphs
 
-`AgridChartComponent` renders zero-dependency SVG charts — column, bar, line, area, pie, and donut —
-configured exactly like the grid: build an `AgridChartProvider` and pass it in.
+`AgridChartComponent` renders zero-dependency SVG charts/graphs — column, bar, line, area, pie,
+and donut — configured exactly like the grid: build an `AgridChartProvider` and pass it in.
 
 ```ts
 import { AgridChartComponent, AgridChartProvider } from '@thkl/agrid';
@@ -1132,8 +1133,9 @@ semantics:
 With a `source` the dataset is a derived signal, so `setData()` is unavailable — update the source or
 the `transform` instead. Without a `source`, use `chartProvider.setData(next)` to replace static data.
 
-See the **Charts** demo: a grid beside a chart with a type switcher, where filtering a region or
-editing a cell redraws the chart instantly.
+See the **Charts** demo for a grid beside a chart with a type switcher. The main demo also has a
+**Show Charts** menu action that opens a graph panel linked to the grid's filtered rows. In both
+cases, filtering a row or editing a cell redraws the chart instantly.
 
 ## Column Autosize
 
@@ -1525,6 +1527,7 @@ collapsed descendants; navigating to one expands its ancestor path before scroll
 
 - Copy exports the active cell or selected rectangular range as TSV.
 - With `enableRowMarking`, clicking a row header outside its nested controls or using its checkbox toggles the mark and emits `rowMark`.
+- With `showRowNumbers`, the control column displays 1-based row numbers for the current filtered and sorted row order instead of the drag-handle glyph.
 - Marked rows are appended to every copy using the copied columns.
 - Copying without an active cell copies all visible columns from the marked rows.
 - Context-menu `Copy cell` and `Copy row` also include marked rows without duplicates.

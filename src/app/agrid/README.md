@@ -2,7 +2,7 @@
 
 A signal-based, standalone data grid for Angular 21 with virtual scrolling, editing,
 filtering, sorting, grouping, tree data, pinned columns, selection, clipboard operations,
-and pagination.
+pagination, and linked SVG charts/graphs.
 
 ## Install
 
@@ -72,6 +72,10 @@ be dragged.
 `confirmRowDelete` protects grid delete actions with a localized in-row Yes/No confirmation.
 Direct calls to `AgridDataSource.removeRow()` remain immediate.
 
+`showRowNumbers` displays 1-based row numbers in the control column for the current filtered and
+sorted row order. When row reordering is enabled, the number replaces the drag-handle glyph while
+the control cell remains draggable.
+
 `enableRowMarking` makes each control-cell row header clickable and adds a checkbox. Clicking the
 header outside its nested controls toggles the same mark state and emits `(rowMark)` with the row,
 its original datasource index, and the resulting `marked` state. Marked rows are included in
@@ -85,6 +89,52 @@ rows remain included when filters hide them.
 Selecting numeric cells displays a live status bar with count, sum, average, minimum, and maximum.
 Read the same values from `grid.selectionSummary()`. The signal is `null` when the active selection
 contains no finite numeric values.
+
+## Charts / Graphs
+
+Use `AgridChartComponent` with an `AgridChartProvider` to render zero-dependency SVG graphs. The
+same provider pattern as the grid keeps setup predictable:
+
+```ts
+import { AgridChartComponent, AgridChartProvider } from '@thkl/agrid';
+
+readonly chartProvider = new AgridChartProvider({
+  type: 'column',
+  data: {
+    categories: ['Q1', 'Q2', 'Q3', 'Q4'],
+    series: [
+      { name: 'North', values: [120, 145, 138, 162] },
+      { name: 'South', values: [98, 110, 134, 128] },
+    ],
+  },
+  height: 300,
+});
+```
+
+```html
+<agrid-chart [provider]="chartProvider" />
+```
+
+Supported `type` values are `column`, `bar`, `line`, `area`, `pie`, and `donut`. `type`, `height`,
+`showLegend`, `showAxis`, and `palette` are signals, so runtime changes redraw immediately.
+
+To link a graph to a grid, pass `provider.visibleRows` as `source` and provide a `transform`. The
+chart follows filtering, sorting, and edits live:
+
+```ts
+readonly chartProvider = new AgridChartProvider<Person>({
+  type: 'bar',
+  source: this.provider.visibleRows,
+  transform: rows => ({
+    categories: rows.map(row => row.name),
+    series: [{ name: 'Score', values: rows.map(row => Number(row.score ?? 0)) }],
+  }),
+});
+```
+
+`visibleRows` is the filtered and sorted row set. It intentionally ignores grouping and pagination;
+aggregate inside `transform` when the graph should show grouped totals or page-specific summaries.
+Pie and donut graphs use the first series and label slices from `categories`.
 
 Set `enableColumnMarking: true` to toggle complete-column highlighting by clicking a header outside
 its menu and resize controls. The grid exposes `markedColumnFields()` and emits `(columnMark)`.
