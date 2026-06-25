@@ -1642,6 +1642,20 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       this.navigationController.revealRow(added.index);
     });
 
+    effect(() => {
+      const control = this.control();
+      if (!control) return;
+      control.ɵfilterReapplyRevision();
+      this.dataSource().ɵreapplyFiltersToAddedRows();
+    });
+
+    effect(() => {
+      const control = this.control();
+      if (!control) return;
+      const hasDeferredRows = this.dataSource().ɵunfilteredAddedRows().size > 0;
+      control.ɵsetFilterReapplyNeeded(hasDeferredRows && control.hasAnyActiveFilter());
+    });
+
     // Deselect when clicking outside the grid.
     const onOutsidePointerDown = (e: PointerEvent) => {
       const isInsideGrid = this._hostEl.nativeElement.contains(e.target as Node);

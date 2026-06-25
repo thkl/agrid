@@ -150,6 +150,8 @@ export class AgridControl {
   private readonly _loading = signal(false);
   private readonly _readonly = signal(false);
   private readonly _autoAddRows = signal(false);
+  private readonly _filterReapplyRevision = signal(0);
+  private readonly _filterReapplyNeeded = signal(false);
   private readonly _rowIndications = signal<ReadonlyMap<number, AgridRowIndication>>(new Map());
   private readonly _changedCells = signal<ReadonlySet<string>>(new Set());
   private readonly rowIndicationTimers = new Map<number, ReturnType<typeof setTimeout>[]>();
@@ -284,6 +286,31 @@ export class AgridControl {
   setAutoAddRows(value: boolean): void {
     this._autoAddRows.set(value);
   }
+
+  /**
+   * Reapply active filters to rows that were inserted while filters were already active.
+   * By default, newly inserted rows stay visible until this method is called.
+   */
+  reapplyFilters(): void {
+    this._filterReapplyNeeded.set(false);
+    this._filterReapplyRevision.update(revision => revision + 1);
+  }
+
+  /**
+   * `true` when inserted rows are currently bypassing active filters or sorts.
+   * Bind this to visual feedback for a "Reapply filters" action.
+   */
+  readonly filterReapplyNeeded: Signal<boolean> =
+    this._filterReapplyNeeded.asReadonly();
+
+  /** @internal Updates {@link filterReapplyNeeded} from the rendered grid projection. */
+  ɵsetFilterReapplyNeeded(value: boolean): void {
+    this._filterReapplyNeeded.set(value);
+  }
+
+  /** @internal Emits whenever {@link reapplyFilters} is called. */
+  readonly ɵfilterReapplyRevision: Signal<number> =
+    this._filterReapplyRevision.asReadonly();
 
   /**
    * When `true`, the control column shows a drag handle and rows can be

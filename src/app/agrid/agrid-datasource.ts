@@ -21,6 +21,7 @@ export class AgridDataSource<T extends object = any> {
   private readonly _rows = linkedSignal<T[]>(() => this._linkedRows()?.() ?? []);
   private _writableLinkedRows: WritableSignal<T[]> | null = null;
   private readonly _rowAdded = signal<{ index: number; sequence: number } | null>(null);
+  private readonly _unfilteredAddedRows = signal<ReadonlySet<number>>(new Set());
   private _changeSequence = 0;
 
   /**
@@ -42,6 +43,14 @@ export class AgridDataSource<T extends object = any> {
     this._rowAdded.asReadonly();
 
   /**
+   * Rows inserted since filters were last explicitly reapplied.
+   * Attached grids include these rows even when they do not match active filters.
+   * @internal
+   */
+  readonly ɵunfilteredAddedRows: Signal<ReadonlySet<number>> =
+    this._unfilteredAddedRows.asReadonly();
+
+  /**
    * Link an external row signal to this data source.
    *
    * Whenever `source` changes, its array becomes the current datasource value without an
@@ -61,6 +70,7 @@ export class AgridDataSource<T extends object = any> {
    */
   setData(rows: T[]): void {
     this.setRows([...rows]);
+    this.ɵreapplyFiltersToAddedRows();
   }
 
   /**
@@ -106,6 +116,12 @@ export class AgridDataSource<T extends object = any> {
       next.splice(atIndex, 0, row);
       return next;
     });
+    this._unfilteredAddedRows.update(current => {
+      const next = new Set<number>();
+      for (const index of current) next.add(index >= insertedAt ? index + 1 : index);
+      next.add(insertedAt);
+      return next;
+    });
     this._rowAdded.set({ index: insertedAt, sequence: ++this._changeSequence });
     return insertedAt;
   }
@@ -117,6 +133,14 @@ export class AgridDataSource<T extends object = any> {
    */
   removeRow(index: number): void {
     this.updateRows(rows => rows.filter((_, i) => i !== index));
+    this._unfilteredAddedRows.update(current => {
+      const next = new Set<number>();
+      for (const addedIndex of current) {
+        if (addedIndex < index) next.add(addedIndex);
+        else if (addedIndex > index) next.add(addedIndex - 1);
+      }
+      return next;
+    });
   }
 
   /**
@@ -128,11 +152,27 @@ export class AgridDataSource<T extends object = any> {
    */
   moveRow(from: number, to: number): void {
     if (from === to) return;
+    let insertedAt = from;
     this.updateRows(rows => {
       const arr = [...rows];
       const [item] = arr.splice(from, 1);
-      arr.splice(to > from ? to - 1 : to, 0, item);
+      insertedAt = to > from ? to - 1 : to;
+      arr.splice(insertedAt, 0, item);
       return arr;
+    });
+    this._unfilteredAddedRows.update(current => {
+      const next = new Set<number>();
+      for (const index of current) {
+        if (index === from) {
+          next.add(insertedAt);
+          continue;
+        }
+        let moved = index;
+        if (moved > from) moved -= 1;
+        if (moved >= insertedAt) moved += 1;
+        next.add(moved);
+      }
+      return next;
     });
   }
 
@@ -154,5 +194,10 @@ export class AgridDataSource<T extends object = any> {
   protected setRows(rows: T[]): void {
     this._writableLinkedRows?.set(rows);
     this._rows.set(rows);
+  }
+
+  /** @internal Clears the transient filter bypass applied to newly inserted rows. */
+  ɵreapplyFiltersToAddedRows(): void {
+    this._unfilteredAddedRows.set(new Set());
   }
 }

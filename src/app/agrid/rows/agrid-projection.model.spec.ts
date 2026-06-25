@@ -73,6 +73,39 @@ describe('AgridProjectionModel', () => {
     expect(dataRows(model.filteredItems()).map(item => item.row['name'])).toEqual(['Bob']);
   });
 
+  it('keeps newly inserted rows visible until filters are explicitly reapplied', () => {
+    const control = new AgridControl();
+    control.setTextFilter('department', 'engineering');
+    control.addSort('name', 'desc');
+    const { dataSource, model } = createModel({ control });
+
+    dataSource.addRow({ name: 'Dana', department: 'Support', amount: 40 });
+
+    expect(dataRows(model.filteredItems()).map(item => item.row['name']))
+      .toEqual(['Carol', 'Bob', 'Dana']);
+
+    dataSource.ɵreapplyFiltersToAddedRows();
+
+    expect(dataRows(model.filteredItems()).map(item => item.row['name']))
+      .toEqual(['Carol', 'Bob']);
+  });
+
+  it('keeps newly inserted rows out of active sorts until filters are reapplied', () => {
+    const control = new AgridControl();
+    control.addSort('name', 'asc');
+    const { dataSource, model } = createModel({ control });
+
+    dataSource.addRow({ name: '', department: 'Support', amount: 40 });
+
+    expect(dataRows(model.filteredItems()).map(item => item.row['name']))
+      .toEqual(['Alice', 'Bob', 'Carol', '']);
+
+    dataSource.ɵreapplyFiltersToAddedRows();
+
+    expect(dataRows(model.filteredItems()).map(item => item.row['name']))
+      .toEqual(['', 'Alice', 'Bob', 'Carol']);
+  });
+
   it('groups rows and applies secondary sorts inside expanded groups', () => {
     const control = new AgridControl({ groupByField: 'department' });
     control.addSort('amount', 'desc');

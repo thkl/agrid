@@ -63,6 +63,7 @@ export class AgridProjectionModel {
     if (!control || this.opts.serverSideFiltering()) return indices;
 
     const filters = control.filters();
+    const hasRowFilter = this.hasActiveRowFilter(filters, control.quickFilter());
     indices = applyTextAndValueFilters(
       rows,
       indices,
@@ -74,12 +75,23 @@ export class AgridProjectionModel {
     if (quick) {
       indices = applyQuickFilter(rows, indices, quick, this.opts.visibleColDefs(), this.opts.locale());
     }
+    if (hasRowFilter) indices = this.includeUnfilteredAddedRows(indices, rows.length);
     if (control.groupByField() && !this.opts.pivotMode?.()) return indices;
 
     const sortEntries = this.sortEntries(filters);
-    return sortEntries.length
-      ? applySortToIndices(rows, indices, sortEntries, colMap, this.opts.locale())
-      : indices;
+    if (!sortEntries.length) return indices;
+
+    const addedRows = this.opts.dataSource().ɵunfilteredAddedRows();
+    if (addedRows.size === 0) {
+      return applySortToIndices(rows, indices, sortEntries, colMap, this.opts.locale());
+    }
+
+    const added = indices.filter(index => addedRows.has(index));
+    const regular = indices.filter(index => !addedRows.has(index));
+    return [
+      ...applySortToIndices(rows, regular, sortEntries, colMap, this.opts.locale()),
+      ...added,
+    ];
   });
 
   /** Total filtered row count, unaffected by client-side pagination. */
@@ -351,6 +363,28 @@ export class AgridProjectionModel {
     return this.effectiveSortOrder()
       .map(field => [field, filters[field]] as [string, ColumnFilter])
       .filter(([, filter]) => !!filter?.sort);
+  }
+
+  private hasActiveRowFilter(filters: Record<string, ColumnFilter>, quickFilter: string): boolean {
+    return !!quickFilter || Object.values(filters).some(filter =>
+      !!filter.text
+      || filter.selectedValues !== null
+      || (!!filter.operator && filter.operand != null && filter.operand !== '')
+    );
+  }
+
+  private includeUnfilteredAddedRows(indices: number[], rowCount: number): number[] {
+    const addedRows = this.opts.dataSource().ɵunfilteredAddedRows();
+    if (addedRows.size === 0) return indices;
+    const visible = new Set(indices);
+    const next = [...indices];
+    for (const index of addedRows) {
+      if (index >= 0 && index < rowCount && !visible.has(index)) {
+        visible.add(index);
+        next.push(index);
+      }
+    }
+    return next;
   }
 
   private appendTreeDetailItems(

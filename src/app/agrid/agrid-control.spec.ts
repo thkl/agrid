@@ -38,16 +38,30 @@ describe('AgridControl', () => {
       expect(ctrl.autoAddRows()).toBe(true);
     });
 
+    it('tracks whether filter reapply feedback is needed', () => {
+      const ctrl = new AgridControl();
+
+      expect(ctrl.filterReapplyNeeded()).toBe(false);
+
+      ctrl.ɵsetFilterReapplyNeeded(true);
+      expect(ctrl.filterReapplyNeeded()).toBe(true);
+
+      ctrl.reapplyFilters();
+      expect(ctrl.filterReapplyNeeded()).toBe(false);
+    });
+
     it('does not serialize transient runtime state', () => {
       const ctrl = new AgridControl();
       ctrl.setLoading(true);
       ctrl.setReadonly(true);
       ctrl.setAutoAddRows(true);
+      ctrl.ɵsetFilterReapplyNeeded(true);
 
       const restored = AgridControl.fromJSON(ctrl.toJSON());
       expect(restored.loading()).toBe(false);
       expect(restored.readonly()).toBe(false);
       expect(restored.autoAddRows()).toBe(false);
+      expect(restored.filterReapplyNeeded()).toBe(false);
     });
 
     it('indicates one row temporarily before removal', () => {

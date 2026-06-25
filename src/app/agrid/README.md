@@ -338,6 +338,11 @@ readonly provider = new AgridProvider<Person>({ columns, datasource, enableQuick
 Drive it programmatically with `control.setQuickFilter(text)`; it's part of `toJSON()` state and is
 cleared by `control.clearAllFilters()`.
 
+Rows inserted while filters or sorts are active stay visible in insertion order even if their values
+do not currently match. Wire `control.reapplyFilters()` to a button or save action when those
+inserted rows should be filtered and sorted like the rest of the datasource again. Use
+`control.filterReapplyNeeded()` to show visual feedback when that action is available.
+
 ## Server-side filtering
 
 With `serverSideFiltering: true` the grid never filters locally. The recommended integration point

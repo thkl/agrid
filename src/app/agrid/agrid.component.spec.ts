@@ -107,6 +107,26 @@ describe('AgridComponent grouped control column selection', () => {
     }]);
   });
 
+  it('keeps added rows visible under filters until the control reapplies filters', () => {
+    provider.control.setTextFilter('name', 'Alice');
+    provider.control.addSort('name', 'asc');
+    fixture.detectChanges();
+
+    provider.datasource.addRow({ name: '', department: 'Sales' });
+    fixture.detectChanges();
+
+    expect(visibleDataRows(component.filteredItems()).map(item => item.row['name']))
+      .toEqual(['Alice', '']);
+    expect(provider.control.filterReapplyNeeded()).toBe(true);
+
+    provider.control.reapplyFilters();
+    fixture.detectChanges();
+
+    expect(visibleDataRows(component.filteredItems()).map(item => item.row['name']))
+      .toEqual(['Alice']);
+    expect(provider.control.filterReapplyNeeded()).toBe(false);
+  });
+
   it('hides row deletion from the control-cell menu when readonly', () => {
     provider.readonlyGrid.set(true);
     component.contextMenu.set({ x: 1, y: 2, rowIndex: 0 });

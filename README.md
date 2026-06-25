@@ -66,6 +66,8 @@ export class PageComponent {
 
 ## Features
 
+See [ROADMAP.md](./ROADMAP.md) for the AG Grid comparison checklist and open parity items.
+
 - Angular 21 standalone component.
 - CDK virtual scrolling for large row sets.
 - Signal-based data source and control state.
@@ -1299,6 +1301,7 @@ interface ColumnFilter {
 | `filters` | Active filter/sort state by field. |
 | `pageSize` | Rows per page. `0` means all rows (no pagination). |
 | `currentPage` | Current page number (1-based). |
+| `filterReapplyNeeded` | Whether inserted rows are currently bypassing active filters or sorts. |
 | `canUndo` | Whether an undo history item exists. |
 | `canRedo` | Whether a redo history item exists. |
 
@@ -1325,6 +1328,7 @@ interface ColumnFilter {
 | `setTextFilter(field, text)` | Sets text filter. |
 | `setSelectedValues(field, values)` | Sets allowed values, or `null` for all. |
 | `setSort(field, sort)` | Sets sort and clears sort on other fields. |
+| `reapplyFilters()` | Applies active filters and sorts to rows inserted since the last explicit reapply. |
 | `clearFilter(field)` | Clears one column filter/sort. |
 | `clearAllFilters()` | Clears all filters and sorts. |
 | `hasActiveFilter(field)` | Returns whether a column has active filter/sort state. |

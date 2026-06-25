@@ -217,6 +217,12 @@ export class AgridDemoComponent {
     showRowNumbers:true,
     menuBarItems: [
       { id: 'refresh', label: 'Refresh', icon: '\u21bb' },
+      {
+        id: 'filter',
+        label: 'Reapply filters',
+        active: () => this.gridControl.filterReapplyNeeded(),
+        disabled: () => !this.gridControl.filterReapplyNeeded(),
+      },
       { id: 'graph', label:'Show Charts'}
     ],
     hideGridStatusBar:true
@@ -292,6 +298,9 @@ export class AgridDemoComponent {
     }
     if (id === 'graph') {
       this.hasChart.set(!this.hasChart());
+    }
+    if (id==='filter') {
+      this.gridControl.reapplyFilters();
     }
     this.lastEdit.set(`Menu action: ${id}`);
   }
