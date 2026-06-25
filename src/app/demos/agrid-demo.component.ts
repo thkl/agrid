@@ -1,9 +1,18 @@
 import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, signal, viewChild } from '@angular/core';
-import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef, GridEditEvent, GroupAction, NewRecord, RowReorderEvent, RowSelectEvent } from '../agrid';
+import { AgridChartComponent, AgridChartData, AgridChartProvider, AgridChartType, AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef, GridEditEvent, GroupAction, NewRecord, RowReorderEvent, RowSelectEvent } from '../agrid';
 import { ColDefAutoSize, ColumnHeaderActionEvent } from '../agrid/agrid.types';
 
 const alignmentSalary = signal<'left' | 'center' | 'right'>('right');
-
+interface EmRecord {
+  id:number;
+  firstName:string;
+  lastName:string;
+  email:string;
+  departmentId:number;
+  salary:number;
+  hiredAt:string;
+  active:boolean;
+}
 const COLUMNS: ColDef[] = [
   { field: 'id', header: 'ID', width: ColDefAutoSize, editable: false},
   { field: 'firstName', header: 'First Name', group: 'employee', width: ColDefAutoSize, filterable: true },
@@ -35,15 +44,16 @@ const COLUMNS: ColDef[] = [
 const FIRST_NAMES = ['Alice', 'Bob', 'Carol', 'David', 'Emma', 'Frank', 'Grace', 'Henry', 'Iris', 'Jack'];
 const LAST_NAMES = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Wilson'];
 const DEPARTMENTS = ['Engineering', 'Sales', 'Marketing', 'HR', 'Finance', 'Design', 'Operations'];
+const DEPSALERYF = [0.99,0.5,0.2,0.25,0.7,0.86,0.9,0.45];
 
-function generateRows(count: number): Record<string, unknown>[] {
+function generateRows(count: number): EmRecord[] {
   return Array.from({ length: count }, (_, i) => ({
     id: i + 1,
     firstName: FIRST_NAMES[i % FIRST_NAMES.length],
     lastName: LAST_NAMES[i % LAST_NAMES.length],
     email: `user${i + 1}@example.com`,
     departmentId: (i % DEPARTMENTS.length) + 1,  // numeric ID, displayed as label via ValueOption
-    salary: 50000 + ((i * 137) % 100000),
+    salary: Math.round((Math.round(i * Math.random()*(DEPSALERYF[(i % DEPARTMENTS.length) + 1])*150) % 100000) * 100),
     hiredAt: new Date(2018 + (i % 7), (i * 3) % 12, (i * 7) % 28 + 1).toISOString(),
     active: i % 3 !== 0,
   }));
@@ -52,7 +62,7 @@ function generateRows(count: number): Record<string, unknown>[] {
 @Component({
   selector: 'agrid-demo',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [AgridComponent],
+  imports: [AgridComponent,AgridChartComponent],
   template: `
     <div class="demo-wrapper">
       <div class="demo-header">
@@ -75,9 +85,11 @@ function generateRows(count: number): Record<string, unknown>[] {
           <button class="demo-btn" (click)="_grid()?.expandGroups()">Expand All</button>
           <button class="demo-btn" (click)="_grid()?.collapseGroups()">Collapse All</button>
         }
-        <button class="demo-btn" (click)="gridProvider.exportCsv()">Export CSV</button>
-        <button class="demo-btn" (click)="gridProvider.exportXlsx()">Export XLSX</button>
       </div>
+      <div style="display: flex;
+    flex-direction: row;gap:10px;
+    height: 100%;">
+        <div style="height:100%;width: 100%;">
       <agrid
         class="demo-grid"
         [provider]="gridProvider"
@@ -89,6 +101,14 @@ function generateRows(count: number): Record<string, unknown>[] {
         (menuBarAction)="onMenuBarAction($event)"
         (columnHeaderAction)="onColumHeaderAction($event)"
       />
+      </div>
+      @if(hasChart()) {
+      <div style="height:100%;width: 100%;align-content: end;">
+        <h3>Average Salery</h3>
+        <agrid-chart [provider]="chartProvider" />
+      </div>
+      }
+      </div>
       <div class="demo-footer">
         @if (lastEdit()) {
           <span class="edit-log">{{ lastEdit() }}</span>
@@ -155,6 +175,7 @@ function generateRows(count: number): Record<string, unknown>[] {
     .demo-grid {
       flex: 1;
       min-height: 0;
+      height:100%
     }
 
     .demo-footer {
@@ -174,7 +195,8 @@ function generateRows(count: number): Record<string, unknown>[] {
 })
 export class AgridDemoComponent {
   readonly columns = COLUMNS;
-  readonly ds = new AgridDataSource(generateRows(50));
+  readonly dataRows = generateRows(50);
+  readonly ds = new AgridDataSource(this.dataRows);
   readonly gridControl = new AgridControl({ allowRowReorder: false , pageSize:20 });
   readonly gridProvider = new AgridProvider({
     locale: 'auto',
@@ -194,13 +216,22 @@ export class AgridDemoComponent {
     enableExportButtons:true,
     menuBarItems: [
       { id: 'refresh', label: 'Refresh', icon: '\u21bb' },
+      { id: 'graph', label:'Show Charts'}
     ],
     hideGridStatusBar:true
   });
   readonly lastEdit = signal('');
   readonly autoAdd = signal(false);
+  readonly hasChart = signal(false);
   readonly isGrouped = computed(() => this.gridControl.groupByField() === 'departmentId');
 
+   readonly chartProvider = new AgridChartProvider({
+      type: 'column',
+      source: this.gridProvider.visibleRows,
+      transform: (rows, type) => this.buildChartData(rows, type),
+      height: 300,
+    });
+    
   constructor() {
     this.gridProvider.groupDescription = this.groupDescriptionFn;
     this.gridProvider.groupActions = this.groupActionsList;
@@ -211,6 +242,8 @@ export class AgridDemoComponent {
       }
     });
   }
+
+  
 
   readonly groupDescriptionFn = (label: string): string => {
     const count = this.ds.rows().filter(r => {
@@ -256,8 +289,9 @@ export class AgridDemoComponent {
       this.lastEdit.set('Grid data refreshed');
       return;
     }
-    if (id === 'export' || id === 'export-csv') this.gridProvider.exportCsv();
-    if (id === 'export-xlsx') this.gridProvider.exportXlsx();
+    if (id === 'graph') {
+      this.hasChart.set(!this.hasChart());
+    }
     this.lastEdit.set(`Menu action: ${id}`);
   }
 
@@ -304,5 +338,38 @@ export class AgridDemoComponent {
 
   toggleGroup(checked: boolean): void {
     this.gridControl.setGroupBy(checked ? 'departmentId' : null);
+  }
+
+  private buildChartData(rows: readonly EmRecord[], type: AgridChartType): AgridChartData {
+    const avr = this.avgSalaryPerDepartment(rows as EmRecord[]);
+    const series =  [...Array(DEPARTMENTS.length).keys()].map(d=>({name:DEPARTMENTS[d],values:[avr[d]]}));
+ 
+        // Single series of region totals — slices read as a share of the whole.
+        return {
+          series: series
+        };
+  
+    }
+
+  avgSalaryPerDepartment(rows:EmRecord[]) {
+   return Object.values(
+  rows.reduce((acc, employee) => {
+    const deptId = employee.departmentId;
+
+    if (!acc[deptId]) {
+      acc[deptId] = {
+        departmentId: deptId,
+        totalSalary: 0,
+        count: 0,
+      };
+    }
+
+    acc[deptId].totalSalary += employee.salary;
+    acc[deptId].count++;
+
+    return acc;
+  }, {} as Record<number, { departmentId: number; totalSalary: number; count: number }>)
+).map(({ departmentId, totalSalary, count }) => totalSalary / count);
+
   }
 }

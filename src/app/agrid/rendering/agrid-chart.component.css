@@ -1,0 +1,60 @@
+:host {
+    display: block;
+    width: 100%;
+    font-family: inherit;
+}
+
+.agrid-chart__svg {
+    display: block;
+}
+
+.agrid-chart__grid {
+    stroke: var(--agrid-chart-grid, #e5e7eb);
+    stroke-width: 1;
+}
+
+.agrid-chart__line {
+    stroke-width: 1.75;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.agrid-chart__slice {
+    stroke: var(--agrid-chart-slice-stroke, #fff);
+    stroke-width: 1;
+}
+
+.agrid-chart__axis {
+    fill: var(--agrid-chart-axis, #6b7280);
+    font-size: 10px;
+}
+
+.agrid-chart__slice-label {
+    fill: #fff;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.agrid-chart__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    margin: 6px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+    color: var(--agrid-chart-axis, #4b5563);
+}
+
+.agrid-chart__legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.agrid-chart__swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    display: inline-block;
+}
