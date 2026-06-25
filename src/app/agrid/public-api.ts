@@ -54,6 +54,8 @@ export type {
 export type { AgridTreeProviderConfig } from './agrid-tree-provider';
 export type {
   AgridEnterEditAction,
+  AgridCurrentCell,
+  AgridCurrentRow,
   AgridField,
   AgridMenuBarContext,
   AgridMenuBarItem,
@@ -77,6 +79,7 @@ export type {
   CellFormatParams,
   CellInfoEvent,
   CellPosition,
+  CellSelectEvent,
   CellReadonlyParams,
   CellSpanParams,
   ColumnHeaderActionEvent,

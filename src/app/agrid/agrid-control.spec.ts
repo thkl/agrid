@@ -276,6 +276,43 @@ describe('AgridControl', () => {
       expect(ctrl.getFilter('name').text).toBe('alice');
     });
 
+    it('gets and sets a detached filter model', () => {
+      ctrl.setTextFilter('name', 'alice');
+      ctrl.setSelectedValues('status', ['active']);
+      ctrl.setRangeFilter('score', 'gte', '10');
+      ctrl.setQuickFilter('global');
+      ctrl.addSort('name', 'asc');
+      ctrl.addSort('score', 'desc');
+
+      const model = ctrl.getFilterModel();
+      model.filters['status'].selectedValues?.push('mutated');
+      model.sortOrder?.reverse();
+
+      expect(ctrl.getFilter('status').selectedValues).toEqual(['active']);
+      expect(ctrl.sortOrder()).toEqual(['name', 'score']);
+
+      const restored = new AgridControl();
+      restored.setFilterModel(model);
+
+      expect(restored.getFilter('name').text).toBe('alice');
+      expect(restored.getFilter('status').selectedValues).toEqual(['active', 'mutated']);
+      expect(restored.getFilter('score')).toMatchObject({ operator: 'gte', operand: '10', sort: 'desc' });
+      expect(restored.quickFilter()).toBe('global');
+      expect(restored.sortOrder()).toEqual(['score', 'name']);
+    });
+
+    it('clears filters and sorts with a null filter model', () => {
+      ctrl.setTextFilter('name', 'alice');
+      ctrl.setQuickFilter('global');
+      ctrl.addSort('name', 'asc');
+
+      ctrl.setFilterModel(null);
+
+      expect(ctrl.filters()).toEqual({});
+      expect(ctrl.quickFilter()).toBe('');
+      expect(ctrl.sortOrder()).toEqual([]);
+    });
+
     it('setSelectedValues stores values', () => {
       ctrl.setSelectedValues('status', ['active']);
       expect(ctrl.getFilter('status').selectedValues).toEqual(['active']);

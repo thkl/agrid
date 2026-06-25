@@ -227,6 +227,9 @@ readonly provider = new AgridProvider<Person>({
 `visible`, `active`, and `disabled` may be booleans or callbacks. Callback context includes
 `rows`, `selectedRows`, `selectedCell`, `provider`, and `datasource`.
 
+For imperative selection reads, call `grid.getCurrentRow()` or `grid.getCurrentCell()`. The
+`(cellSelect)` output emits the same selected-cell shape and `null` when cell selection clears.
+
 ## Input masks
 
 Use `inputMask` to select a string mask for each row and cell. The callback
@@ -337,6 +340,9 @@ readonly provider = new AgridProvider<Person>({ columns, datasource, enableQuick
 
 Drive it programmatically with `control.setQuickFilter(text)`; it's part of `toJSON()` state and is
 cleared by `control.clearAllFilters()`.
+
+Use `control.getFilterModel()` and `control.setFilterModel(model)` to persist or restore just the
+filter, quick-filter, and sort state without the rest of the grid settings.
 
 Rows inserted while filters or sorts are active stay visible in insertion order even if their values
 do not currently match. Wire `control.reapplyFilters()` to a button or save action when those

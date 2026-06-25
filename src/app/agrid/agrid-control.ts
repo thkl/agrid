@@ -115,6 +115,16 @@ export interface AgridControlState {
   aggregates?: Record<string, 'sum' | 'avg' | 'min' | 'max' | 'count'>;
 }
 
+/** Detached, JSON-safe filter/search/sort state for {@link AgridControl}. */
+export interface AgridFilterModel {
+  /** Per-field column filter and sort state. */
+  filters: Record<string, ColumnFilter>;
+  /** Global quick-filter text. Empty or omitted means inactive. */
+  quickFilter?: string;
+  /** Ordered sorted fields, from highest to lowest priority. */
+  sortOrder?: string[];
+}
+
 /**
  * Signal-based container for mutable grid UI state such as column widths and active filters.
  *
@@ -635,6 +645,34 @@ export class AgridControl {
     return this._filters()[field] ?? { text: '', selectedValues: null, sort: null };
   }
 
+  /** Return a detached JSON-safe snapshot of active column filters, quick filter, and sort order. */
+  getFilterModel(): AgridFilterModel {
+    return {
+      filters: this.cloneFilters(this._filters()),
+      quickFilter: this._quickFilter() || undefined,
+      sortOrder: [...this._sortOrder()],
+    };
+  }
+
+  /**
+   * Replace active column filters, quick filter, and sort order from a filter model.
+   * Pass `null` to clear all filters and sorts.
+   */
+  setFilterModel(model: AgridFilterModel | null): void {
+    if (!model) {
+      this.clearAllFilters();
+      return;
+    }
+    const filters = this.cloneFilters(model.filters ?? {});
+    this._filters.set(filters);
+    this._quickFilter.set(model.quickFilter ?? '');
+    const ordered = (model.sortOrder ?? []).filter(field => !!filters[field]?.sort);
+    const missingSortedFields = Object.entries(filters)
+      .filter(([field, filter]) => !!filter.sort && !ordered.includes(field))
+      .map(([field]) => field);
+    this._sortOrder.set([...ordered, ...missingSortedFields]);
+  }
+
   /**
    * Set the free-text filter for a column.
    * An empty string removes the text filter for that column.
@@ -800,6 +838,18 @@ export class AgridControl {
   /** Restore an `AgridControl` from a previously serialized state. */
   static fromJSON(state: Partial<AgridControlState>): AgridControl {
     return new AgridControl(state);
+  }
+
+  private cloneFilters(filters: Record<string, ColumnFilter>): Record<string, ColumnFilter> {
+    return Object.fromEntries(
+      Object.entries(filters).map(([field, filter]) => [
+        field,
+        {
+          ...filter,
+          selectedValues: filter.selectedValues ? [...filter.selectedValues] : filter.selectedValues,
+        },
+      ]),
+    );
   }
 }
 

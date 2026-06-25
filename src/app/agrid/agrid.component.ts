@@ -73,8 +73,8 @@ import {
 import { AgridVariableRowSizeDirective } from './infrastructure/agrid-variable-row-size.strategy';
 import {
   AgridAggregate, AgridSelectionSummary,
-  AgridBodyColumn, AgridField, AgridHeaderColumn, AgridPivotConfig,
-  AgridServerQuery, CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, ColumnHeaderActionEvent, ColumnMarkEvent, DetailAction, DetailRowItem, FilterChangeEvent, FirstDataRenderedEvent, GridEditEvent,
+  AgridBodyColumn, AgridCurrentCell, AgridCurrentRow, AgridField, AgridHeaderColumn, AgridPivotConfig,
+  AgridServerQuery, CellContextMenuItem, CellInfoEvent, CellPosition, CellSelectEvent, ColDef, ColumnHeaderActionEvent, ColumnMarkEvent, DetailAction, DetailRowItem, FilterChangeEvent, FirstDataRenderedEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, PathTreeNodeItem, RecordEditEvent, RowClickEvent,
   RowMarkEvent, RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent, ValueOption,
   RowDetailActionEvent,
@@ -392,6 +392,9 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** Emitted when a column's optional cell information button is clicked. */
   cellInfo = output<CellInfoEvent<T>>();
 
+  /** Emitted when the selected cell changes. `null` = cell selection cleared. */
+  cellSelect = output<CellSelectEvent<T> | null>();
+
   /** Emitted for every enabled menu-bar button or dropdown item, carrying its configured id. */
   menuBarAction = output<string>();
 
@@ -402,6 +405,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** Currently focused cell, or `null`. */
   readonly selectedCell = signal<CellPosition | null>(null);
+  private lastEmittedCell: CellPosition | null | undefined = undefined;
 
   /** Original indices of rows whose master/detail panel is currently expanded. */
   private readonly _expandedDetailIds = signal<Set<number>>(new Set());
@@ -446,6 +450,38 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** Whether the active text editor should select all text when it opens. */
   get selectTextOnEdit() { return this.editController.selectTextOnEdit; }
+
+  /** Return the first currently selected row, or `null` when no row is selected. */
+  getCurrentRow(): AgridCurrentRow<T> | null {
+    const originalIndex = this.selectedRowIndex();
+    if (originalIndex === null) return null;
+    const row = this.dataSource().rows()[originalIndex] as T | undefined;
+    return row ? { row, originalIndex } : null;
+  }
+
+  /** Return the currently selected cell with row, field, value, and column metadata. */
+  getCurrentCell(): AgridCurrentCell<T> | null {
+    return this.resolveCurrentCell(this.selectedCell());
+  }
+
+  private resolveCurrentCell(position: CellPosition | null): AgridCurrentCell<T> | null {
+    if (!position) return null;
+    const row = this.dataSource().rows()[position.rowIndex] as T | undefined;
+    const column = this.visibleColDefs()[position.colIndex] as unknown as ColDef<T> | undefined;
+    if (!row || !column) return null;
+    return {
+      position: { ...position },
+      row,
+      originalIndex: position.rowIndex,
+      field: column.field as AgridField<T>,
+      value: row[column.field as keyof T],
+      column,
+    } as AgridCurrentCell<T>;
+  }
+
+  private sameCell(a: CellPosition | null, b: CellPosition | null): boolean {
+    return a?.rowIndex === b?.rowIndex && a?.colIndex === b?.colIndex;
+  }
 
   /** Toggle the sidebar open/closed. */
   toggleSidebar(): void { this.sidebarController.toggle(); }
@@ -1575,6 +1611,17 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     effect(() => {
       const activeRowIndex = this.selectedCell()?.rowIndex ?? null;
       this.flushDirtyInlineRows(activeRowIndex);
+    });
+
+    effect(() => {
+      const cell = this.selectedCell();
+      if (this.lastEmittedCell === undefined && cell === null) {
+        this.lastEmittedCell = null;
+        return;
+      }
+      if (this.sameCell(this.lastEmittedCell ?? null, cell)) return;
+      this.lastEmittedCell = cell ? { ...cell } : null;
+      this.cellSelect.emit(this.resolveCurrentCell(cell));
     });
 
     afterNextRender(() => {

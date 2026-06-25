@@ -107,6 +107,46 @@ describe('AgridComponent grouped control column selection', () => {
     }]);
   });
 
+  it('returns the current selected row', () => {
+    expect(component.getCurrentRow()).toBeNull();
+
+    component.onControlPointerDown(primaryPointerEvent(), 2);
+
+    expect(component.getCurrentRow()).toEqual({
+      row: provider.datasource.getRow(2),
+      originalIndex: 2,
+    });
+  });
+
+  it('returns and emits the current selected cell', () => {
+    const emitted: unknown[] = [];
+    component.cellSelect.subscribe(event => emitted.push(event));
+
+    component.selectedCell.set({ rowIndex: 0, colIndex: 1 });
+    fixture.detectChanges();
+
+    expect(component.getCurrentCell()).toMatchObject({
+      position: { rowIndex: 0, colIndex: 1 },
+      row: provider.datasource.getRow(0),
+      originalIndex: 0,
+      field: 'department',
+      value: 'Engineering',
+    });
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0]).toMatchObject({
+      position: { rowIndex: 0, colIndex: 1 },
+      field: 'department',
+      value: 'Engineering',
+    });
+
+    component.selectedCell.set(null);
+    fixture.detectChanges();
+
+    expect(component.getCurrentCell()).toBeNull();
+    expect(emitted).toHaveLength(2);
+    expect(emitted[1]).toBeNull();
+  });
+
   it('keeps added rows visible under filters until the control reapplies filters', () => {
     provider.control.setTextFilter('name', 'Alice');
     provider.control.addSort('name', 'asc');

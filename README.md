@@ -176,6 +176,7 @@ The `AgridLocaleTextOverrides` type covers all overridable labels.
 | `prepareAddRecord` | `NewRecord` | Emitted after the grid inserts a blank row. Patch `event.datasource` to target the correct grid when multiple providers are rendered. |
 | `rowReorder` | `RowReorderEvent` | Emitted after the user drops a reordered row. The host must call `dataSource.moveRow()`. |
 | `rowSelect` | `RowSelectEvent \| null` | Emitted when row selection changes. `null` means selection was cleared. |
+| `cellSelect` | `CellSelectEvent<T> \| null` | Emitted when cell selection changes. `null` means selection was cleared. |
 | `rowMark` | `RowMarkEvent<T>` | Emitted after the row-header surface or marker checkbox marks or unmarks a row. |
 | `columnMark` | `ColumnMarkEvent<T>` | Emitted after a header marks or unmarks a complete column. |
 | `columnHeaderAction` | `ColumnHeaderActionEvent<T>` | Emitted for a custom column-menu command with `{ column, key }`. |
@@ -520,6 +521,8 @@ Both use display values (value-list labels, formatters) and respect column visib
 | `editingCell` | `Signal<CellPosition \| null>` | Cell currently in edit mode. |
 | `selectedRowIndices` | `Signal<ReadonlySet<number>>` | Selected original row indices. |
 | `selectedRowIndex` | `Signal<number \| null>` | First selected row index, useful for single selection. |
+| `getCurrentRow()` | `AgridCurrentRow<T> \| null` | Returns the first selected row with its original index. |
+| `getCurrentCell()` | `AgridCurrentCell<T> \| null` | Returns the selected cell with row, field, value, and column metadata. |
 | `markedRowIndices` | `Signal<ReadonlySet<number>>` | Original datasource indices included in copy operations. |
 | `markedColumnFields` | `Signal<ReadonlySet<string>>` | Fields currently marked as complete columns. |
 | `selectionSummary` | `Signal<AgridSelectionSummary \| null>` | Live numeric statistics for the active cell or range. `null` when no numeric values are selected. |
@@ -1325,6 +1328,8 @@ interface ColumnFilter {
 | `getColumnWidth(field, defaultWidth)` | Returns effective width. |
 | `setColumnWidth(field, width)` | Sets a width override with a 40 px minimum. |
 | `getFilter(field)` | Returns current filter state or defaults. |
+| `getFilterModel()` | Returns a detached serializable filter, quick-filter, and sort snapshot. |
+| `setFilterModel(model)` | Replaces filters, quick filter, and sort order. Pass `null` to clear them. |
 | `setTextFilter(field, text)` | Sets text filter. |
 | `setSelectedValues(field, values)` | Sets allowed values, or `null` for all. |
 | `setSort(field, sort)` | Sets sort and clears sort on other fields. |
@@ -1440,6 +1445,22 @@ interface RowSelectEvent {
 ```
 
 `rowSelect` emits `null` when selection is cleared.
+
+### CellSelectEvent
+
+```ts
+interface CellSelectEvent<T> {
+  position: CellPosition;
+  row: T;
+  originalIndex: number;
+  field: keyof T;
+  value: T[keyof T];
+  column: ColDef<T>;
+}
+```
+
+`cellSelect` emits `null` when selection is cleared. Use `grid.getCurrentCell()` to read the same
+shape on demand.
 
 ### RowReorderEvent
 

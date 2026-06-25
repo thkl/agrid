@@ -7,7 +7,10 @@ import { AgridPageItem, AgridPageSelectorComponent } from './agrid-page-selector
 import { AgridTreeComponent } from './agrid-tree.component';
 import { AgridTreeProvider } from './agrid-tree-provider';
 import {
+  AgridCurrentCell,
+  AgridCurrentRow,
   CellInfoEvent,
+  CellSelectEvent,
   ColDef,
   ColumnHeaderActionEvent,
   ColumnMarkEvent,
@@ -41,6 +44,7 @@ interface PersonRow {
       (columnHeaderAction)="onColumnHeaderAction($event)"
       (firstDataRendered)="onFirstDataRendered($event)"
       (cellInfo)="onCellInfo($event)"
+      (cellSelect)="onCellSelect($event)"
       (menuBarAction)="onMenuBarAction($event)"
     />
     <agrid-tree [provider]="treeProvider" (nodeClick)="onTreeNode($event)" />
@@ -107,6 +111,12 @@ class TypedGridHost {
   }
 
   onCellInfo(event: CellInfoEvent<PersonRow>): void {
+    expectTypeOf(event.row).toEqualTypeOf<PersonRow>();
+    expectTypeOf(event.field).toEqualTypeOf<'id' | 'name' | 'active'>();
+  }
+
+  onCellSelect(event: CellSelectEvent<PersonRow> | null): void {
+    if (!event) return;
     expectTypeOf(event.row).toEqualTypeOf<PersonRow>();
     expectTypeOf(event.field).toEqualTypeOf<'id' | 'name' | 'active'>();
   }
@@ -202,6 +212,9 @@ describe('typed public contracts', () => {
     expectTypeOf<RowSelectEvent<PersonRow>['rows'][number]['row']>()
       .toEqualTypeOf<PersonRow>();
     expectTypeOf<CellInfoEvent<PersonRow>['row']>().toEqualTypeOf<PersonRow>();
+    expectTypeOf<AgridCurrentRow<PersonRow>['row']>().toEqualTypeOf<PersonRow>();
+    expectTypeOf<AgridCurrentCell<PersonRow>['row']>().toEqualTypeOf<PersonRow>();
+    expectTypeOf<CellSelectEvent<PersonRow>['row']>().toEqualTypeOf<PersonRow>();
 
     const edit = null as GridEditEvent<PersonRow> | null;
     if (edit?.field === 'name') {

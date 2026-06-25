@@ -752,6 +752,35 @@ export type CellInfoEvent<T extends object = any> = {
   }
 }[AgridField<T>];
 
+/** Current selected row returned by {@link AgridComponent.getCurrentRow}. */
+export interface AgridCurrentRow<T extends object = any> {
+  /** Selected datasource row. */
+  row: T;
+  /** Zero-based row index in the datasource. */
+  originalIndex: number;
+}
+
+/** Current selected cell returned by {@link AgridComponent.getCurrentCell} and emitted by `(cellSelect)`. */
+export type AgridCurrentCell<T extends object = any> = {
+  [K in AgridField<T>]: {
+    /** Selected cell position. */
+    position: CellPosition;
+    /** Datasource row containing the selected cell. */
+    row: T;
+    /** Zero-based row index in the datasource. */
+    originalIndex: number;
+    /** Selected column field. */
+    field: K;
+    /** Current raw field value. */
+    value: T[K];
+    /** Column definition for the selected cell. */
+    column: ColDef<T, K>;
+  }
+}[AgridField<T>];
+
+/** Emitted when the selected cell changes. `null` means the cell selection was cleared. */
+export type CellSelectEvent<T extends object = any> = AgridCurrentCell<T>;
+
 /**
  * Emitted asynchronously after an edit changes a row and the data source has been updated.
  *
