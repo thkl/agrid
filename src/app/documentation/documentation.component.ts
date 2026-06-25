@@ -250,22 +250,21 @@ control.setQuickFilter('alice');`;
   },
 ];`;
 
-  readonly serverSideCode = `<agrid
-  [provider]="provider"
-  (filterChange)="onFilter($event)"
-  (sortChange)="onSort($event)"
-  (quickFilterChange)="onQuickFilter($event)"
-/>
+  readonly serverSideCode = `<agrid [provider]="provider" (serverQueryChange)="loadRows($event)" />
 
-onFilter(event: FilterChangeEvent): void {
-  if (event.operator) {
-    // menu condition on a text, number, or date column
-    fetchRange(event.field, event.operator, event.operand, event.operand2);
-  } else {
-    // free-text filter ('' clears it)
-    fetchText(event.field, event.value);
-  }
-}`;
+loadRows(query: AgridServerQuery): void {
+  this.api.orders(query).subscribe(result => {
+    this.datasource.setData(result.rows);
+    this.control.setTotalRows(result.total);
+  });
+}
+
+// Or drive a signal-backed store directly from the provider:
+effect(() => {
+  const query = this.provider.serverQuery();
+  if (!query) return;
+  this.store.load(query);
+});`;
 
   readonly persistenceCode = `const saved = localStorage.getItem('agrid-state');
 const control = AgridControl.fromJSON(saved ? JSON.parse(saved) : {});

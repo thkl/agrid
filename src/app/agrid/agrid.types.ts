@@ -1,6 +1,6 @@
 import type { AgridDataSource } from './agrid-datasource';
 import type { AgridProvider } from './agrid-provider';
-import type { FilterOperator } from './agrid-control';
+import type { ColumnFilter, FilterOperator } from './agrid-control';
 import type { Signal, Type } from '@angular/core';
 
 /** String-valued property names available on a row type. */
@@ -906,12 +906,51 @@ export interface PageChangeEvent {
   endRow: number;
 }
 
-/** Emitted when a header text filter or column-menu condition changes server-side. */
+/** Sort entry used by server-side query snapshots. */
+export interface AgridServerSort {
+  /** Field name of the sorted column. */
+  field: string;
+  /** Sort direction for this field. */
+  direction: 'asc' | 'desc';
+}
+
+/**
+ * Complete server-side query snapshot derived from `AgridControl`.
+ *
+ * It is emitted by `(serverQueryChange)` and published as `AgridProvider.serverQuery` whenever
+ * `serverSideFiltering` is enabled or `AgridControl.totalRows` enables server-side pagination.
+ * `endRow` follows the existing `(pageChange)` event: it is inclusive. Server totals are not part
+ * of the query so updating `control.setTotalRows(...)` after a response does not itself trigger a
+ * second fetch.
+ */
+export interface AgridServerQuery {
+  /** Active column filters keyed by field. */
+  filters: Readonly<Record<string, ColumnFilter>>;
+  /** Ordered sort stack after the grid's `sortOption` is applied. */
+  sort: readonly AgridServerSort[];
+  /** Global quick-filter text. Empty string when inactive. */
+  quickFilter: string;
+  /** Current page number (1-based). */
+  page: number;
+  /** Rows per page. `0` means no page size is configured. */
+  pageSize: number;
+  /** Zero-based index of the first requested row. */
+  startRow: number;
+  /** Zero-based index of the last requested row (inclusive), or `-1` when no rows are known. */
+  endRow: number;
+}
+
+/** Emitted when a header text, value, or column-menu condition changes server-side. */
 export interface FilterChangeEvent {
   /** Field name of the filtered column. */
   field: string;
   /** Current free-text filter value. An empty string clears the text filter. */
   value: string;
+  /**
+   * Current value-checklist selection.
+   * `null` means all values are selected / no value filter is active.
+   */
+  selectedValues?: readonly string[] | null;
   /**
    * Text, number, or date condition operator from the column-menu UI.
    * `null` clears the condition.

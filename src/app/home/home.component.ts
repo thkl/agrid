@@ -200,6 +200,11 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
               <div class="demo-card-desc">Full-featured grid with editing, grouping, filtering, and CSV export.</div>
               <span class="demo-card-link">Open →</span>
             </a>
+            <a class="demo-card" routerLink="/filters">
+              <div class="demo-card-title">Filters</div>
+              <div class="demo-card-desc">Text, value, condition, number, date, boolean, quick, and server-query filters in one grid.</div>
+              <span class="demo-card-link">Open →</span>
+            </a>
             <a class="demo-card" routerLink="/custom-cells">
               <div class="demo-card-title">Custom cells</div>
               <div class="demo-card-desc">Angular components rendered directly inside grid cells.</div>

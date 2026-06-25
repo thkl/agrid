@@ -10,6 +10,16 @@ pagination, and linked SVG charts/graphs.
 npm install @thkl/agrid @angular/cdk
 ```
 
+## Feature Highlights
+
+- Virtual rows and virtual columns for large and wide datasets.
+- Text, value, quick, and condition filters with local or server-side workflows.
+- Inline editing, validation, undo/redo, paste, fill, custom editors, and custom renderers.
+- Range selection, selection summaries, row selection, row marking, column marking, and row numbers.
+- Grouping, aggregate footers, tree data with descendant rollups, pivot tables, and master/detail rows.
+- Pinned columns, pinned rows, column reordering, column autosize, and persistable settings.
+- CSV, zero-dependency `.xlsx` export, sparklines, and linked SVG charts/graphs.
+
 ## Usage
 
 ```ts
@@ -330,13 +340,30 @@ cleared by `control.clearAllFilters()`.
 
 ## Server-side filtering
 
-With `serverSideFiltering: true` the grid never filters locally — it emits events so the host can
-refetch:
+With `serverSideFiltering: true` the grid never filters locally. The recommended integration point
+is the complete query snapshot:
 
-- `(filterChange)` — header text filters emit `{ field, value }`; menu conditions emit
+```html
+<agrid [provider]="provider" (serverQueryChange)="loadRows($event)" />
+```
+
+```ts
+effect(() => {
+  const query = provider.serverQuery();
+  if (!query) return;
+  store.load(query);
+});
+```
+
+`AgridServerQuery` contains column filters, value selections, menu conditions, ordered sorts,
+quick-filter text, and page range (`startRow..endRow`, inclusive). The older granular outputs remain
+available for compatibility:
+
+- `(filterChange)` — header text filters emit `{ field, value }`; value filters emit
+  `{ field, value: '', selectedValues }`; menu conditions emit
   `{ field, value: '', operator, operand, operand2 }` (operator `null` clears the condition).
 - `(sortChange)` — `{ field, direction }`.
-- `(quickFilterChange)` — the quick-filter text (debounced by `filterDebounceMs`).
+- `(quickFilterChange)` — the quick-filter text.
 
 ```html
 <agrid [provider]="provider"
@@ -346,7 +373,7 @@ refetch:
 ```
 
 Text/range/quick events are debounced by `filterDebounceMs` (default 300 ms; `0` disables). The
-The distinct-value picker is hidden in this mode unless the column supplies an explicit `values`
+distinct-value picker is hidden in this mode unless the column supplies an explicit `values`
 list representing the complete server-side value set.
 
 ## Grouping and aggregates

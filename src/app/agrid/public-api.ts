@@ -65,6 +65,8 @@ export type {
   AgridPathSegmentParams,
   AgridPathTreeConfig,
   AgridSelectionSummary,
+  AgridServerQuery,
+  AgridServerSort,
   AgridColumnHeaderMenuItem,
   AgridTreeConfig,
   AgridTreeNodeEvent,

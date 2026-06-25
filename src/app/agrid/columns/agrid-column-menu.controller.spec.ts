@@ -119,6 +119,30 @@ describe('AgridColumnMenuController', () => {
     expect(control.getFilter('department').selectedValues).toBeNull();
   });
 
+  it('emits server-side value filter selections', () => {
+    const { controller, filterEvents } = setup();
+    controller.menu.set({ field: 'department', mode: 'column', x: 0, y: 0 });
+
+    controller.toggleValue('department', 'Sales');
+    controller.toggleAll('department');
+
+    expect(filterEvents).toEqual([
+      { field: 'department', value: '', selectedValues: ['Engineering'] },
+      { field: 'department', value: '', selectedValues: null },
+    ]);
+  });
+
+  it('emits a value filter reset when clearing a server-side filter', () => {
+    const { controller, control, filterEvents } = setup();
+    control.setSelectedValues('department', ['Engineering']);
+
+    controller.clearFilter('department');
+
+    expect(filterEvents).toEqual([
+      { field: 'department', value: '', selectedValues: null },
+    ]);
+  });
+
   it('clears filters and sorts while emitting server-side reset events', () => {
     const { controller, control, filterEvents, sortEvents } = setup();
     control.setTextFilter('name', 'ali');

@@ -18,6 +18,10 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/custom-cells.component').then(m => m.CustomCellsDemoComponent),
   },
   {
+    path: 'filters',
+    loadComponent: () => import('./demos/filters.component').then(m => m.FiltersDemoComponent),
+  },
+  {
     path: 'custom-editors',
     loadComponent: () => import('./demos/custom-editors.component').then(m => m.CustomEditorsDemoComponent),
   },

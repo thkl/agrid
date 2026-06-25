@@ -79,28 +79,38 @@ export class PageComponent {
 - Live selection status bar with count, sum, average, minimum, and maximum.
 - Fill handle for repeating selected cell/range values down or right.
 - Find panel with Ctrl/Cmd+F, full filtered-dataset matching, and next/previous navigation.
+- Quick filter for searching across all visible columns.
 - Text filters, string/number/date condition filters, value filters, and single-column sorting.
+- Server-side filter/sort events for remote data workflows.
 - Column menu with sort, clear sort, autosize, pin/unpin, hide, group, and clear filter actions.
 - Column resizing by drag and autosize by double-click.
 - Column reordering by header drag.
+- Column virtualization for very wide grids.
+- Conditional cell formatting with colors, typography, borders, and alignment.
 - Row-aware horizontal cell spanning, clamped within each pinned or scrollable pane.
 - Split-pane pinned columns on the left.
-- Optional control column for row context actions and row reordering.
+- Optional control column for row context actions, row numbers, row marking, and row reordering.
+- Column marking for complete-column highlighting and clipboard workflows.
 - Row selection: none, single, or multi.
 - Grouping with expand/collapse and custom group actions.
 - Sidebar column visibility picker.
 - Add-row placeholder and automatic row insertion.
 - CSV and zero-dependency Excel (`.xlsx`) export of visible, filtered data rows.
+- Server-side row model with lazy block loading and virtual placeholders.
 - **Date auto-formatting** — ISO strings and `Date` objects are detected and displayed as locale-formatted dates automatically.
 - **Zebra stripes** — alternating row shading for easier reading.
 - **Readonly mode** — disable all editing with a single input.
 - **Pagination** — built-in page controls driven by `AgridControl`.
+- **Pivot tables** — derive read-only cross-tab views from row, column, value, and aggregate fields.
+- **Tree node aggregates** — roll up sum, average, count, or custom values into expandable tree nodes.
 - **Custom cell renderers** — render any Angular component per column for rich cell content (the legacy HTML-string renderer is deprecated).
 - **Custom cell editors** — render any Angular component while editing; the grid keeps validation, history, and the commit lifecycle.
 - **Charts / graphs** — zero-dependency SVG column/bar/line/area/pie/donut diagrams via `<agrid-chart>`, configured with an `AgridChartProvider`. Link to a grid's `visibleRows` to follow filters and sorting live.
+- **Sparklines** — inline SVG line and bar charts rendered per row from numeric series data.
 - **Column autosize all** — fit every visible column to its content in one call.
 - **Master/detail rows** — expand any row to reveal a custom HTML detail panel beneath it.
 - **Pinned rows** — keep summary/total rows fixed at the top or bottom of the body.
+- **Persistable settings** — save and restore serializable column, filter, sidebar, and pivot state.
 - **Row CSS classes** — apply conditional classes to whole rows via `getRowClass`.
 
 ## Component API
@@ -861,26 +871,27 @@ readonly provider = new AgridProvider({
 ```html
 <agrid
   [provider]="provider"
-  (filterChange)="onFilter($event)"
-  (sortChange)="onSort($event)"
+  (serverQueryChange)="loadRows($event)"
 />
 ```
 
 ```ts
-readonly filters = new Map<string, string>();
-readonly sorts = new Map<string, 'asc' | 'desc'>();
-
-onFilter(event: FilterChangeEvent): void {
-  if (event.value) this.filters.set(event.field, event.value);
-  else this.filters.delete(event.field);
-  this.loadRows();
+loadRows(query: AgridServerQuery): void {
+  this.api.orders(query).subscribe(result => {
+    this.ds.setData(result.rows);
+    this.ctrl.setTotalRows(result.total);
+  });
 }
+```
 
-onSort(event: SortChangeEvent): void {
-  if (event.direction) this.sorts.set(event.field, event.direction);
-  else this.sorts.delete(event.field);
-  this.loadRows();
-}
+For signal-backed stores, subscribe to the provider instead of template outputs:
+
+```ts
+effect(() => {
+  const query = this.provider.serverQuery();
+  if (!query) return;
+  this.store.load(query);
+});
 ```
 
 In server-side mode:
@@ -888,7 +899,8 @@ In server-side mode:
 - Filter and sort state remains visible in the grid headers.
 - The grid does not filter or sort loaded rows locally.
 - The distinct-value checklist is hidden unless `ColDef.values` supplies the complete server-side value set.
-- Clearing emits an empty filter value or a `null` sort direction.
+- `AgridServerQuery` contains column filters, value selections, menu conditions, ordered sorts, quick-filter text, and page range.
+- Clearing emits an empty filter value, `selectedValues: null`, or a `null` sort direction on the compatibility outputs.
 - Multi-column sorting emits one event for each changed column.
 - Text filter events are debounced by `filterDebounceMs` (300 ms by default).
 
@@ -896,10 +908,10 @@ Use `sortOption: 'single'` for backends that accept only one sort field. Selecti
 clears the previous sort first. Use `'none'` to remove sorting controls completely; `'multi'`
 preserves the default multi-column behavior.
 
-The grid updates its visible filter state immediately, but only emits the final server filter value
-after the debounce delay. Set `filterDebounceMs: 0` when immediate events are required. For server
-pagination, call `control.setTotalRows(total)` after each response and replace the datasource
-contents with the returned page.
+The grid updates its visible filter state immediately, but only emits the final server text or
+condition value after the debounce delay. Set `filterDebounceMs: 0` when immediate events are
+required. For server pagination, set a `pageSize`, call `control.setTotalRows(total)` after each
+response, and replace the datasource contents with the returned page.
 
 ### Server-side row model
 
@@ -1367,10 +1379,31 @@ Emitted whenever a committed grid operation changes a cell.
 interface FilterChangeEvent {
   field: string;
   value: string;
+  selectedValues?: readonly string[] | null;
+  operator?: FilterOperator | null;
+  operand?: string | null;
+  operand2?: string | null;
 }
 ```
 
-An empty `value` clears the server-side text filter.
+An empty `value` clears the server-side text filter. `selectedValues: null` clears a value-list
+filter. Condition filters include `operator`, `operand`, and `operand2`.
+
+### AgridServerQuery
+
+```ts
+interface AgridServerQuery {
+  filters: Readonly<Record<string, ColumnFilter>>;
+  sort: readonly { field: string; direction: 'asc' | 'desc' }[];
+  quickFilter: string;
+  page: number;
+  pageSize: number;
+  startRow: number;
+  endRow: number; // inclusive
+}
+```
+
+Emitted by `(serverQueryChange)` and published as `provider.serverQuery`.
 
 ### SortChangeEvent
 

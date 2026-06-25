@@ -57,6 +57,58 @@ readonly provider = new AgridProvider({
 // <agrid [provider]="provider" (cellEdit)="onEdit($event)" />`,
   },
   {
+    path: '/filters',
+    label: 'Filters',
+    title: 'Every filter type in one grid',
+    summary:
+      'A server-style filter lab that drives all filter UI through one AgridServerQuery signal: text, values, typed conditions, dates, numbers, booleans, quick search, sorting, and pagination.',
+    points: [
+      'Enable serverSideFiltering and read provider.serverQuery() from an effect.',
+      'Provide values for server-side value checklists.',
+      'Use text, number, and date filterable columns to expose the right condition operators.',
+      'Set totalRows and replace the datasource with the returned page after each query.',
+    ],
+    code: `const columns: ColDef<Order>[] = [
+  { field: 'reference', header: 'Reference', filterable: true },
+  { field: 'customer', header: 'Customer', filterable: true },
+  { field: 'status', header: 'Status', filterable: true, values: statuses },
+  { field: 'amount', header: 'Amount', type: 'number', filterable: true },
+  { field: 'createdAt', header: 'Created', type: 'date', filterable: true },
+  {
+    field: 'paid',
+    header: 'Paid',
+    type: 'boolean',
+    filterable: true,
+    values: [
+      { value: true, label: 'Paid' },
+      { value: false, label: 'Open' },
+    ],
+  },
+];
+
+readonly datasource = new AgridDataSource<Order>([]);
+readonly control = new AgridControl({ pageSize: 25 });
+readonly provider = new AgridProvider({
+  columns,
+  datasource: this.datasource,
+  control: this.control,
+  serverSideFiltering: true,
+  enableQuickFilter: true,
+  sortOption: 'multi',
+});
+
+constructor() {
+  effect(() => {
+    const query = this.provider.serverQuery();
+    if (!query) return;
+    this.api.searchOrders(query).subscribe(result => {
+      this.control.setTotalRows(result.total);
+      this.datasource.setData(result.rows);
+    });
+  });
+}`,
+  },
+  {
     path: '/custom-cells',
     label: 'Custom cells',
     title: 'Component renderers and cell classes',

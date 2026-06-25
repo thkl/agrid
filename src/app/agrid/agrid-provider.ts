@@ -9,6 +9,7 @@ import {
   AgridField,
   AgridMenuBarItem,
   AgridPivotConfig,
+  AgridServerQuery,
   AgridTreeConfig,
   CellContextMenuItem,
   ColDef,
@@ -262,6 +263,7 @@ export class AgridProvider<T extends object = any> {
   private readonly _localizations = new Map<string, AgridLocaleTextOverrides>();
   private exportBridge: AgridExportBridge | null = null;
   private readonly _visibleRows = signal<readonly T[] | null>(null);
+  private readonly _serverQuery = signal<AgridServerQuery | null>(null);
 
   /**
    * The grid's currently filtered and sorted rows, as published by the rendered grid component.
@@ -273,12 +275,24 @@ export class AgridProvider<T extends object = any> {
   );
 
   /**
+   * Complete server-side filter/sort/page query published by the rendered grid.
+   * Useful for signal-backed stores that fetch data from an API. `null` means the grid is not in
+   * server-side filtering or pagination mode.
+   */
+  readonly serverQuery: Signal<AgridServerQuery | null> = this._serverQuery.asReadonly();
+
+  /**
    * @internal Published by the rendered grid whenever its filtered/sorted projection changes.
    * Pass `null` on teardown so {@link visibleRows} falls back to the raw datasource. The grid works
    * in terms of record rows; the public {@link visibleRows} re-types them as `T`.
    */
   ɵsetVisibleRows(rows: readonly Record<string, unknown>[] | null): void {
     this._visibleRows.set(rows as readonly T[] | null);
+  }
+
+  /** @internal Published by the rendered grid whenever the server-side query state changes. */
+  ɵsetServerQuery(query: AgridServerQuery | null): void {
+    this._serverQuery.set(query);
   }
 
   /** Read-only view of registered per-locale text overrides. Used by the grid to resolve locale text. */

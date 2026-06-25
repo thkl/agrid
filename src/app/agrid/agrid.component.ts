@@ -74,7 +74,7 @@ import { AgridVariableRowSizeDirective } from './infrastructure/agrid-variable-r
 import {
   AgridAggregate, AgridSelectionSummary,
   AgridBodyColumn, AgridField, AgridHeaderColumn, AgridPivotConfig,
-  CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, ColumnHeaderActionEvent, ColumnMarkEvent, DetailAction, DetailRowItem, FilterChangeEvent, FirstDataRenderedEvent, GridEditEvent,
+  AgridServerQuery, CellContextMenuItem, CellInfoEvent, CellPosition, ColDef, ColumnHeaderActionEvent, ColumnMarkEvent, DetailAction, DetailRowItem, FilterChangeEvent, FirstDataRenderedEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, PathTreeNodeItem, RecordEditEvent, RowClickEvent,
   RowMarkEvent, RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent, ValueOption,
   RowDetailActionEvent,
@@ -376,6 +376,9 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** Emitted when a column sort changes in server-side filtering mode. */
   sortChange = output<SortChangeEvent>();
 
+  /** Emitted with the complete server-side filter/sort/page query snapshot. */
+  serverQueryChange = output<AgridServerQuery>();
+
   /**
    * Emitted (debounced) when the global quick-filter text changes in server-side filtering mode.
    * The host should refetch rows matching the text. Not emitted in client mode, where the grid
@@ -413,6 +416,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   private readonly markedIndices = signal<Set<number>>(new Set());
   private readonly markedFields = signal<Set<string>>(new Set());
   private firstDataRenderedEmitted = false;
+  private serverQueryProvider: AgridProvider<T> | null = null;
 
   /** Original datasource indices marked for inclusion in copy operations. */
   readonly markedRowIndices: Signal<ReadonlySet<number>> =
@@ -1473,6 +1477,40 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     };
   }
 
+  private buildServerQuery(): AgridServerQuery | null {
+    const control = this.control();
+    if (!control) return null;
+    const pageSize = control.pageSize();
+    const serverFiltering = this.serverSideFiltering();
+    const serverPagination = !serverFiltering && control.totalRows() > 0 && pageSize > 0;
+    if (!serverFiltering && !serverPagination) return null;
+
+    const page = Math.max(1, control.currentPage());
+    const startRow = pageSize > 0 ? (page - 1) * pageSize : 0;
+    const endRow = pageSize > 0 ? startRow + pageSize - 1 : -1;
+    const filters = Object.fromEntries(
+      Object.entries(control.filters()).map(([field, filter]) => [field, {
+        ...filter,
+        selectedValues: filter.selectedValues ? [...filter.selectedValues] : null,
+      }]),
+    );
+    const sort = this.projection.effectiveSortOrder()
+      .flatMap(field => {
+        const direction = filters[field]?.sort;
+        return direction ? [{ field, direction }] : [];
+      });
+
+    return {
+      filters,
+      sort,
+      quickFilter: control.quickFilter(),
+      page,
+      pageSize,
+      startRow,
+      endRow,
+    };
+  }
+
   constructor() {
     // Keep one datasource identity so selection/controllers are not reset whenever source data
     // causes the computed pivot rows to be regenerated.
@@ -1492,6 +1530,19 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     // Publish the live filtered/sorted rows so charts (and other consumers) can react to filters.
     effect(() => this.provider().ɵsetVisibleRows(this.ɵvisibleRows()));
     this.destroyRef.onDestroy(() => this.provider().ɵsetVisibleRows(null));
+
+    // Publish one complete query object for signal-backed server data stores.
+    effect(() => {
+      const provider = this.provider();
+      if (this.serverQueryProvider && this.serverQueryProvider !== provider) {
+        this.serverQueryProvider.ɵsetServerQuery(null);
+      }
+      this.serverQueryProvider = provider;
+      const query = this.buildServerQuery();
+      provider.ɵsetServerQuery(query);
+      if (query) this.serverQueryChange.emit(query);
+    });
+    this.destroyRef.onDestroy(() => this.serverQueryProvider?.ɵsetServerQuery(null));
 
     afterRenderEffect(() => {
       if (this.firstDataRenderedEmitted) return;

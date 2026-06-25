@@ -342,6 +342,9 @@ export class AgridColumnMenuController {
     control.clearFilter(field);
     if (this.opts.serverSideFiltering()) {
       if (previous.text) this.opts.onFilterChange({ field, value: '' });
+      if (previous.selectedValues !== null) {
+        this.opts.onFilterChange({ field, value: '', selectedValues: null });
+      }
       if (previous.operator) {
         this.opts.onFilterChange({ field, value: '', operator: null, operand: null, operand2: null });
       }
@@ -383,6 +386,9 @@ export class AgridColumnMenuController {
     if (this.opts.serverSideFiltering()) {
       for (const [field, filter] of Object.entries(previous)) {
         if (filter.text) this.opts.onFilterChange({ field, value: '' });
+        if (filter.selectedValues !== null) {
+          this.opts.onFilterChange({ field, value: '', selectedValues: null });
+        }
         if (filter.operator) {
           this.opts.onFilterChange({ field, value: '', operator: null, operand: null, operand2: null });
         }
@@ -396,10 +402,9 @@ export class AgridColumnMenuController {
   toggleAll(field: string): void {
     const control = this.opts.control();
     if (!control) return;
-    control.setSelectedValues(
-      field,
-      control.getFilter(field).selectedValues === null ? [] : null,
-    );
+    const next = control.getFilter(field).selectedValues === null ? [] : null;
+    control.setSelectedValues(field, next);
+    this.emitValueServer(field, next);
   }
 
   /** Toggles one raw value in a field's value filter. */
@@ -411,7 +416,9 @@ export class AgridColumnMenuController {
     const next = current.includes(rawStr)
       ? current.filter(value => value !== rawStr)
       : [...current, rawStr];
-    control.setSelectedValues(field, next.length === allValues.length ? null : next);
+    const selectedValues = next.length === allValues.length ? null : next;
+    control.setSelectedValues(field, selectedValues);
+    this.emitValueServer(field, selectedValues);
   }
 
   /** Toggles left pinning for a field. */
@@ -472,5 +479,10 @@ export class AgridColumnMenuController {
     if (timer === undefined) return;
     clearTimeout(timer);
     this.filterDebounces.delete(field);
+  }
+
+  private emitValueServer(field: string, selectedValues: readonly string[] | null): void {
+    if (!this.opts.serverSideFiltering()) return;
+    this.opts.onFilterChange({ field, value: '', selectedValues });
   }
 }

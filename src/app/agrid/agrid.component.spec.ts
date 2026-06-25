@@ -1160,6 +1160,34 @@ describe('AgridComponent server-side filtering', () => {
       .toEqual(['Bob', 'Alice']);
   });
 
+  it('publishes a complete server query for signal-backed data stores', () => {
+    const emitted: unknown[] = [];
+    component.serverQueryChange.subscribe(event => emitted.push(event));
+    provider.control.setPageSize(25);
+    provider.control.setPage(2);
+
+    component.onTextFilterChange({ target: { value: 'ali' } } as unknown as Event, 'name');
+    component.filterMenu.set({ field: 'department', mode: 'column', x: 0, y: 0 });
+    component.onMenuToggleValue('department', 'Sales');
+    component.onMenuSort('name', 'asc');
+    component.onQuickFilterInput({ target: { value: 'priority' } } as unknown as Event);
+    fixture.detectChanges();
+
+    expect(provider.serverQuery()).toEqual({
+      filters: {
+        name: { text: 'ali', selectedValues: null, sort: 'asc' },
+        department: { text: '', selectedValues: ['Engineering'], sort: null },
+      },
+      sort: [{ field: 'name', direction: 'asc' }],
+      quickFilter: 'priority',
+      page: 2,
+      pageSize: 25,
+      startRow: 25,
+      endRow: 49,
+    });
+    expect(emitted.at(-1)).toEqual(provider.serverQuery());
+  });
+
   it('clears the previous sort when single sorting switches columns', () => {
     const emitted: unknown[] = [];
     component.sortChange.subscribe(event => emitted.push(event));

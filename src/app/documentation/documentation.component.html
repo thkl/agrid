@@ -284,6 +284,7 @@
       <div class="feature-list">
         <span>Angular standalone component</span>
         <span>CDK virtual scrolling</span>
+        <span>Column virtualization</span>
         <span>Signal-based state</span>
         <span>Inline editing</span>
         <span>Edit validation</span>
@@ -292,21 +293,29 @@
         <span>Column conditions</span>
         <span>Quick filter</span>
         <span>Boolean checkbox columns</span>
+        <span>Conditional formatting</span>
         <span>Grouping</span>
         <span>Aggregates and group subtotals</span>
         <span>Client-side pivot tables</span>
+        <span>Tree node aggregates</span>
         <span>Tree data</span>
-        <span>Pagination</span>
+        <span>Client and server pagination</span>
+        <span>Server-side row model</span>
         <span>Pinned columns</span>
+        <span>Pinned rows</span>
+        <span>Row numbers</span>
+        <span>Row and column marking</span>
         <span>Range selection</span>
         <span>Selection status bar</span>
         <span>Copy, paste, and fill</span>
         <span>Custom cell renderers</span>
         <span>Custom cell editors</span>
         <span>Charts / graphs (SVG, zero-dep)</span>
+        <span>Sparklines</span>
         <span>CSV &amp; Excel export</span>
         <span>Localization</span>
         <span>Column state persistence</span>
+        <span>Pivot state persistence</span>
         <span>Large dataset support</span>
       </div>
     </section>
@@ -371,6 +380,8 @@
       <p>
         The provider is the grid's configuration boundary. It lets the same component API serve
         simple grids, repeated grids, and grids whose data or behavior changes at runtime.
+        Runtime signals include <code>visibleRows</code> for filter-aware charts and
+        <code>serverQuery</code> for server-side data stores.
       </p>
       <div class="table-wrap">
         <table>
@@ -546,12 +557,12 @@
 
       <h3>Server-side filtering</h3>
       <p>
-        With <code>serverSideFiltering: true</code> the grid never filters locally — it emits
-        events so the host can refetch. Text filters emit <code>&#123; field, value &#125;</code>;
-        menu conditions add <code>operator</code>, <code>operand</code>, and
-        <code>operand2</code>; the quick filter emits its text through
-        <code>quickFilterChange</code>. All three are debounced by <code>filterDebounceMs</code>
-        (default 300 ms).
+        With <code>serverSideFiltering: true</code> the grid never filters locally — it publishes
+        one <code>AgridServerQuery</code> so the host can refetch. The query includes column
+        filters, value selections, menu conditions, ordered sorts, quick-filter text, and the
+        current page range. Use <code>(serverQueryChange)</code> from templates or
+        <code>provider.serverQuery</code> from a signal-backed store. Text, condition, and
+        quick-filter changes are debounced by <code>filterDebounceMs</code> (default 300 ms).
       </p>
       <pre><code>{{ serverSideCode }}</code></pre>
 
