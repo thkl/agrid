@@ -494,6 +494,40 @@ describe('AgridComponent Tab navigation', () => {
     }]);
   });
 
+  it('emits rowChanged after inline edit idle when the active row cannot be left', async () => {
+    vi.useFakeTimers();
+    try {
+      provider.control.setQuickFilter('Alice');
+      fixture.detectChanges();
+      const emitted: RowUpdateEvent[] = [];
+      component.rowChanged.subscribe(event => emitted.push(event));
+
+      component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+      component.onStartEdit(0, 0);
+      component.onDraftChange('Alicia');
+      component.onKeyDown(new KeyboardEvent('keydown', {
+        key: 'Enter',
+        cancelable: true,
+      }));
+      fixture.detectChanges();
+      await Promise.resolve();
+
+      expect(component.selectedCell()).toEqual({ rowIndex: 0, colIndex: 0 });
+      expect(emitted).toHaveLength(0);
+
+      vi.advanceTimersByTime(1999);
+      expect(emitted).toHaveLength(0);
+
+      vi.advanceTimersByTime(1);
+      expect(emitted).toEqual([{
+        row: { name: 'Alicia', department: 'Engineering' },
+        originalIndex: 0,
+      }]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('emits recordEdit for row zero after sidebar-only edits are saved', async () => {
     const sidebarProvider = new AgridProvider({
       columns: provider.columns(),

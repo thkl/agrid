@@ -1331,6 +1331,8 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   private readonly dirtyInlineRows = new Set<number>();
   private dirtyRowsDataSource: AgridDataSource | null = null;
   private changedCellsDataSource: AgridDataSource | null = null;
+  private dirtyInlineRowsIdleTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly dirtyInlineRowsIdleFlushMs = 2000;
 
   private emitEditEvents(event: GridEditEvent): void {
     this.cellEdit.emit(event as GridEditEvent<T>);
@@ -1357,6 +1359,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       this.dirtyRowsDataSource = datasource;
     }
     this.dirtyInlineRows.add(index);
+    this.scheduleDirtyInlineRowsIdleFlush();
   }
 
   private markCellChanged(event: GridEditEvent): void {
@@ -1374,6 +1377,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     if (this.dirtyRowsDataSource !== datasource) {
       this.dirtyInlineRows.clear();
       this.dirtyRowsDataSource = datasource;
+      this.clearDirtyInlineRowsIdleFlush();
       return;
     }
 
@@ -1382,6 +1386,27 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       this.dirtyInlineRows.delete(index);
       if (index >= 0 && index < datasource.length) this.emitRowChanged(index);
     }
+    if (this.dirtyInlineRows.size === 0) this.clearDirtyInlineRowsIdleFlush();
+    else this.scheduleDirtyInlineRowsIdleFlush();
+  }
+
+  private scheduleDirtyInlineRowsIdleFlush(): void {
+    this.clearDirtyInlineRowsIdleFlush();
+    if (this.dirtyInlineRows.size === 0) return;
+    this.dirtyInlineRowsIdleTimer = setTimeout(() => {
+      this.dirtyInlineRowsIdleTimer = null;
+      if (this.editingCell()) {
+        this.scheduleDirtyInlineRowsIdleFlush();
+        return;
+      }
+      this.flushDirtyInlineRows();
+    }, this.dirtyInlineRowsIdleFlushMs);
+  }
+
+  private clearDirtyInlineRowsIdleFlush(): void {
+    if (this.dirtyInlineRowsIdleTimer === null) return;
+    clearTimeout(this.dirtyInlineRowsIdleTimer);
+    this.dirtyInlineRowsIdleTimer = null;
   }
 
   private reconcileDirtyInlineRowsAfterRemoval(removedIndex: number): void {
@@ -1546,6 +1571,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     this.destroyRef.onDestroy(() => {
       this.browser.removeDocumentListener('keydown', onDocumentKeyDown);
       this.browser.removeDocumentListener('pointerdown', onOutsidePointerDown);
+      this.clearDirtyInlineRowsIdleFlush();
       if (this.quickFilterTimer !== null) clearTimeout(this.quickFilterTimer);
     });
 
