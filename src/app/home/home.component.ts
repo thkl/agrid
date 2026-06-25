@@ -3,71 +3,85 @@ import {
   Component,
   afterNextRender,
   inject,
+  signal,
   viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef } from '../agrid';
+import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef, AgridChartComponent, AgridChartProvider, AgridChartType, AgridChartData } from '../agrid';
 import { ColDefAutoSize } from '../agrid/agrid.types';
 import { ThemeService } from '../theme.service';
 
+const DEPARTEMENTS = [
+  { value: 'eng', label: 'Engineering' },
+  { value: 'design', label: 'Design' },
+  { value: 'product', label: 'Product' },
+  { value: 'sales', label: 'Sales' },
+]
+
+
 const PREVIEW_COLUMNS: ColDef[] = [
-  { field: 'name',       header: 'Name',       width: ColDefAutoSize, filterable: true },
-  { field: 'role',       header: 'Role',        width: ColDefAutoSize, filterable: true },
-  { field: 'department', header: 'Department',  width: ColDefAutoSize, filterable: true, groupable: true,
-    values: [
-      { value: 'eng',     label: 'Engineering' },
-      { value: 'design',  label: 'Design' },
-      { value: 'product', label: 'Product' },
-      { value: 'sales',   label: 'Sales' },
-    ],
+  { field: 'name', header: 'Name', width: ColDefAutoSize, filterable: true },
+  { field: 'role', header: 'Role', width: ColDefAutoSize, filterable: true },
+  {
+    field: 'department', header: 'Department', width: ColDefAutoSize, filterable: true, groupable: true,
+    values: DEPARTEMENTS,
   },
   { field: 'salary', header: 'Salary', width: ColDefAutoSize, type: 'number', aggregate: 'sum' },
   { field: 'joined', header: 'Joined', width: ColDefAutoSize, type: 'date' },
 ];
 
-const PREVIEW_ROWS = [
-  { name: 'Alice Chen',     role: 'Senior Engineer',  department: 'eng',     salary: 145000, joined: '2021-03-15' },
-  { name: 'Bob Müller',     role: 'Product Designer', department: 'design',  salary: 118000, joined: '2020-07-22' },
-  { name: 'Carol Park',     role: 'Product Manager',  department: 'product', salary: 132000, joined: '2022-01-10' },
-  { name: 'David Osei',     role: 'Engineer',         department: 'eng',     salary: 128000, joined: '2023-02-28' },
-  { name: 'Emma Torres',    role: 'Sales Lead',       department: 'sales',   salary: 105000, joined: '2019-11-05' },
-  { name: 'Frank Liu',      role: 'Staff Engineer',   department: 'eng',     salary: 165000, joined: '2018-06-18' },
-  { name: 'Grace Yamamoto', role: 'Designer',         department: 'design',  salary: 112000, joined: '2022-09-01' },
-  { name: 'Henry Okafor',   role: 'Engineer',         department: 'eng',     salary: 122000, joined: '2023-06-12' },
-  { name: 'Iris Svensson',  role: 'Sales Rep',        department: 'sales',   salary:  97000, joined: '2024-01-20' },
-  { name: 'James Nguyen',   role: 'PM',               department: 'product', salary: 138000, joined: '2021-08-03' },
+interface PreviewRecord {
+  name: string,
+  role: string,
+  department: string,
+  salary: number,
+  joined: string
+}
+
+
+const PREVIEW_ROWS: PreviewRecord[] = [
+  { name: 'Alice Chen', role: 'Senior Engineer', department: 'eng', salary: 145000, joined: '2021-03-15' },
+  { name: 'Bob Müller', role: 'Product Designer', department: 'design', salary: 118000, joined: '2020-07-22' },
+  { name: 'Carol Park', role: 'Product Manager', department: 'product', salary: 132000, joined: '2022-01-10' },
+  { name: 'David Osei', role: 'Engineer', department: 'eng', salary: 128000, joined: '2023-02-28' },
+  { name: 'Emma Torres', role: 'Sales Lead', department: 'sales', salary: 105000, joined: '2019-11-05' },
+  { name: 'Frank Liu', role: 'Staff Engineer', department: 'eng', salary: 165000, joined: '2018-06-18' },
+  { name: 'Grace Yamamoto', role: 'Designer', department: 'design', salary: 112000, joined: '2022-09-01' },
+  { name: 'Henry Okafor', role: 'Engineer', department: 'eng', salary: 122000, joined: '2023-06-12' },
+  { name: 'Iris Svensson', role: 'Sales Rep', department: 'sales', salary: 97000, joined: '2024-01-20' },
+  { name: 'James Nguyen', role: 'PM', department: 'product', salary: 138000, joined: '2021-08-03' },
 ];
 
 const FEATURES: { color: string; bg: string; label: string; title: string; desc: string; isNew?: boolean }[] = [
-  { color: '#4f46e5', bg: '#eef2ff', label: '⌨', title: 'Keyboard-driven editing',  desc: 'Enter or F2 to edit, Tab to confirm, Escape to cancel. No mouse required.' },
-  { color: '#0891b2', bg: '#ecfeff', label: '⇅', title: 'Sorting & filtering',       desc: 'Multi-column sort with Shift-click. Per-column dropdown filters with label resolution.' },
-  { color: '#7c3aed', bg: '#f5f3ff', label: '⊞', title: 'Grouping & aggregates',     desc: 'Group by any column with custom group descriptions and aggregate footer rows.' },
-  { color: '#0d9488', bg: '#f0fdfa', label: '⊟', title: 'Tree data',                 desc: 'Hierarchical rows from flat parent/child data, with expand/collapse and filter-aware ancestors.' },
+  { color: '#4f46e5', bg: '#eef2ff', label: '⌨', title: 'Keyboard-driven editing', desc: 'Enter or F2 to edit, Tab to confirm, Escape to cancel. No mouse required.' },
+  { color: '#0891b2', bg: '#ecfeff', label: '⇅', title: 'Sorting & filtering', desc: 'Multi-column sort with Shift-click. Per-column dropdown filters with label resolution.' },
+  { color: '#7c3aed', bg: '#f5f3ff', label: '⊞', title: 'Grouping & aggregates', desc: 'Group by any column with custom group descriptions and aggregate footer rows.' },
+  { color: '#0d9488', bg: '#f0fdfa', label: '⊟', title: 'Tree data', desc: 'Hierarchical rows from flat parent/child data, with expand/collapse and filter-aware ancestors.' },
   { color: '#059669', bg: '#ecfdf5', label: '⚡', title: 'Client & server pagination', desc: 'Built-in page controls for both local datasets and remote API-driven sources.' },
-  { color: '#d97706', bg: '#fffbeb', label: '◧', title: 'Custom cell renderers',      desc: 'Plug in any Angular component as a cell renderer for rich, interactive cells.' },
-  { color: '#d97706', bg: '#fffbeb', label: '◧', title: 'Custom cell editors',      desc: 'Plug in any Angular component as a cell editor for rich, interactive cells.' },
+  { color: '#d97706', bg: '#fffbeb', label: '◧', title: 'Custom cell renderers', desc: 'Plug in any Angular component as a cell renderer for rich, interactive cells.' },
+  { color: '#d97706', bg: '#fffbeb', label: '◧', title: 'Custom cell editors', desc: 'Plug in any Angular component as a cell editor for rich, interactive cells.' },
   { color: '#db2777', bg: '#fdf2f8', label: '⇆', title: 'Column reordering & pinning', desc: 'Drag headers to rearrange columns. Pin columns left or right to keep them visible.' },
-  { color: '#0284c7', bg: '#f0f9ff', label: '☑', title: 'Multi-row selection',        desc: 'Click, Shift-click, and Ctrl-click for single or range selection.' },
-  { color: '#16a34a', bg: '#f0fdf4', label: '↧', title: 'CSV export',                 desc: 'Export the current filtered and sorted view to CSV in a single call.' },
-  { color: '#9333ea', bg: '#faf5ff', label: '⌕', title: 'Find panel',                 desc: 'Ctrl+F opens a live search bar that highlights matching cells across all columns.' },
-  { color: '#0f766e', bg: '#f0fdfa', label: '⋮', title: 'Column sidebar',             desc: 'Slide-out panel to toggle visibility, reorder, and resize columns.' },
-  { color: '#b45309', bg: '#fef3c7', label: '↕', title: 'Row drag-reorder',           desc: 'Optional drag handle lets users manually reorder rows.' },
-  { color: '#7c3aed', bg: '#eff6ff', label: '◻', title: 'Virtual scrolling',          desc: 'Only visible rows are rendered — handles large datasets without slowdown.' },
-  { color: '#2563eb', bg: '#eff6ff', label: '▦', title: 'Clipboard & cell ranges',     desc: 'Select rectangular ranges, copy and paste TSV data, or drag to fill adjacent cells.' },
+  { color: '#0284c7', bg: '#f0f9ff', label: '☑', title: 'Multi-row selection', desc: 'Click, Shift-click, and Ctrl-click for single or range selection.' },
+  { color: '#16a34a', bg: '#f0fdf4', label: '↧', title: 'CSV export', desc: 'Export the current filtered and sorted view to CSV in a single call.' },
+  { color: '#9333ea', bg: '#faf5ff', label: '⌕', title: 'Find panel', desc: 'Ctrl+F opens a live search bar that highlights matching cells across all columns.' },
+  { color: '#0f766e', bg: '#f0fdfa', label: '⋮', title: 'Column sidebar', desc: 'Slide-out panel to toggle visibility, reorder, and resize columns.' },
+  { color: '#b45309', bg: '#fef3c7', label: '↕', title: 'Row drag-reorder', desc: 'Optional drag handle lets users manually reorder rows.' },
+  { color: '#7c3aed', bg: '#eff6ff', label: '◻', title: 'Virtual scrolling', desc: 'Only visible rows are rendered — handles large datasets without slowdown.' },
+  { color: '#2563eb', bg: '#eff6ff', label: '▦', title: 'Clipboard & cell ranges', desc: 'Select rectangular ranges, copy and paste TSV data, or drag to fill adjacent cells.' },
   { color: '#c2410c', bg: '#fff7ed', label: '⊕', title: 'Master-detail & pinned rows', desc: 'Expand rich detail panels and keep summary rows fixed at the top or bottom.' },
-  { color: '#be123c', bg: '#fff1f2', label: '✓', title: 'Readonly & validation',       desc: 'Switch modes at runtime and reject invalid edits with field-level feedback.' },
-  { color: '#6d28d9', bg: '#f5f3ff', label: '▥', title: 'Pivot tables',                 desc: 'Build cross-tab views from the grid sidebar, including row, column, value, aggregate, and generated-column controls.', isNew: true },
-  { color: '#047857', bg: '#ecfdf5', label: '∑', title: 'Tree node aggregates',         desc: 'Roll up sum, average, count, or custom aggregates from descendant entries into every expandable tree node.', isNew: true },
-  { color: '#0369a1', bg: '#f0f9ff', label: '↻', title: 'Persistable grid settings',    desc: 'Load and save one serializable settings object so user layouts and pivot choices can round-trip through your backend.', isNew: true },
+  { color: '#be123c', bg: '#fff1f2', label: '✓', title: 'Readonly & validation', desc: 'Switch modes at runtime and reject invalid edits with field-level feedback.' },
+  { color: '#6d28d9', bg: '#f5f3ff', label: '▥', title: 'Pivot tables', desc: 'Build cross-tab views from the grid sidebar, including row, column, value, aggregate, and generated-column controls.', isNew: true },
+  { color: '#047857', bg: '#ecfdf5', label: '∑', title: 'Tree node aggregates', desc: 'Roll up sum, average, count, or custom aggregates from descendant entries into every expandable tree node.', isNew: true },
+  { color: '#0369a1', bg: '#f0f9ff', label: '↻', title: 'Persistable grid settings', desc: 'Load and save one serializable settings object so user layouts and pivot choices can round-trip through your backend.', isNew: true },
   { color: '#a16207', bg: '#fefce8', label: '⇥', title: 'Extended keyboard navigation', desc: 'Move by viewport with Page Up and Page Down, or jump to row and grid edges with Home and End.', isNew: true },
-  { color: '#2563eb', bg: '#eff6ff', label: '◐', title: 'Charts',                       desc: 'Zero-dependency SVG column, bar, line, area, pie, and donut diagrams. Link to the grid to follow filters and sorting live.', isNew: true },
-  { color: '#0d9488', bg: '#f0fdfa', label: '∿', title: 'Sparklines',                   desc: 'Tiny inline line and bar charts drawn per row from a number[] field, using a custom cell renderer.', isNew: true },
+  { color: '#2563eb', bg: '#eff6ff', label: '◐', title: 'Charts', desc: 'Zero-dependency SVG column, bar, line, area, pie, and donut diagrams. Link to the grid to follow filters and sorting live.', isNew: true },
+  { color: '#0d9488', bg: '#f0fdfa', label: '∿', title: 'Sparklines', desc: 'Tiny inline line and bar charts drawn per row from a number[] field, using a custom cell renderer.', isNew: true },
 ];
 
 @Component({
   selector: 'app-home',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, AgridComponent],
+  imports: [RouterLink, AgridComponent, AgridChartComponent],
   template: `
     <div class="page" [class.dark-theme]="theme.darkMode()">
 
@@ -106,8 +120,10 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
             </div>
           </div>
 
+          <div class="live-demo">
           <!-- Browser frame -->
-          <div class="browser-wrap">
+          
+          <div class="browser-wrap" [class.browser-wrap-focus]="focusGrid()">
             <div class="browser-note browser-note-top">Signal-powered</div>
             <div class="browser-frame">
               <div class="browser-bar">
@@ -117,10 +133,26 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
                 <div class="browser-url"><span class="url-lock">◆</span>thkl.github.io/agrid</div>
               </div>
               <div class="browser-content">
-                <agrid class="preview-grid" [provider]="previewProvider" />
+                <agrid class="preview-grid" [provider]="previewProvider" (click)="activate_grid()"/>
               </div>
             </div>
             <div class="browser-note browser-note-bottom">10 rows · 5 columns</div>
+          </div>
+        
+
+        <div class="chart-wrap" [class.chart-wrap-focus]="focusChart()">
+          <div class="browser-frame">
+             <div class="browser-bar">
+                <span class="dot dot-red"></span>
+                <span class="dot dot-yellow"></span>
+                <span class="dot dot-green"></span>
+                <div class="browser-url"><span class="url-lock">◆</span>Charts</div>
+              </div>
+          <div class="browser-content">
+          <agrid-chart class="preview-chart" [provider]="chartProvider" (click)="activate_chart()"/>
+          </div>
+        </div>
+          </div>
           </div>
         </div>
       </section>
@@ -264,7 +296,6 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
       height:8px
     }
 
-
     .page {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       overflow-y: auto;
@@ -407,6 +438,12 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
     .preview-grid {
       width: 100%;
       height: 100%;
+    }
+
+    .preview-chart {
+      width: 100%;
+      height: 100%;
+      padding: 15px;
     }
 
     /* ── Sections shared ──────────────────── */
@@ -748,10 +785,37 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
     .hero-proof strong { color: #f0fdf4; font-size: 14px; }
     .hero-proof span { color: #81a98f; font-size: 10px; }
 
+    .chart-wrap {
+      max-width: 560px;
+      position: relative;
+      min-width: 0;
+      transform: perspective(1200px) rotateY(-2deg) rotateX(1deg) translateX(50%) translateY(-50%) scale(1);
+      opacity: 0.95;
+      transition:
+      transform 300ms ease,
+      opacity 300ms ease;;
+    }
+
+    .chart-wrap-focus {
+      transform: perspective(1200px) rotateY(-2deg) rotateX(1deg) translateX(50%) translateY(-50%) scale(1.05);
+      z-index: 1000;
+      opacity: 1;
+    }
+    
     .browser-wrap {
       position: relative;
       min-width: 0;
-      transform: perspective(1200px) rotateY(-2deg) rotateX(1deg);
+      transform: perspective(1200px) rotateY(-2deg) rotateX(1deg) scale(1);
+      opacity: 0.95;
+      transition:
+      transform 300ms ease,
+      opacity 300ms ease;;
+    }
+
+    .browser-wrap-focus {
+      transform: perspective(1200px) rotateY(-2deg) rotateX(1deg) scale(1.05);
+      z-index: 1000;
+      opacity: 1;
     }
 
     .browser-frame {
@@ -1163,7 +1227,59 @@ export class HomeComponent {
 
   readonly _grid = viewChild(AgridComponent);
 
+  focusGrid = signal<boolean>(true);
+  focusChart = signal<boolean>(false);
+
+  readonly chartProvider = new AgridChartProvider({
+    type: "column",
+    source: this.previewProvider.visibleRows,
+    transform: (rows, type) => this.buildChartData(rows as PreviewRecord[], type),
+    height: 300,
+  });
+
   constructor() {
     afterNextRender(() => this._grid()?.autosizeAllColumns());
+  }
+
+  avgSalaryPerDepartment(rows: PreviewRecord[]) {
+    return Object.values(
+      rows.reduce((acc, employee) => {
+        const department = employee.department;
+
+        if (!acc[department]) {
+          acc[department] = {
+            department: department,
+            salary: 0,
+            count: 0,
+          };
+        }
+
+        acc[department].salary += employee.salary;
+        acc[department].count++;
+
+        return acc;
+      }, {} as Record<string, { department: string; salary: number; count: number }>)
+    ).map(({ department, salary, count }) => { return { department: department, salary: salary / count } });
+
+  }
+
+  private buildChartData(rows: PreviewRecord[], type: AgridChartType): AgridChartData {
+    // Multi-series: one line/column group per region across the quarters.
+    const avr = this.avgSalaryPerDepartment(rows);
+    console.log(avr);
+    return {
+      categories: DEPARTEMENTS.map(d => d.label),
+      series: [{ name: "Average Salery", values: avr.map(a => a.salary) }],
+    };
+  }
+
+  activate_grid() {
+    this.focusGrid.set(true);
+    this.focusChart.set(false);
+  }
+
+  activate_chart() {
+    this.focusGrid.set(false);
+    this.focusChart.set(true);
   }
 }
