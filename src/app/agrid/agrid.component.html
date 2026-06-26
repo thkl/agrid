@@ -4,7 +4,7 @@
   [attr.aria-readonly]="readonlyGrid() ? 'true' : null" [attr.aria-busy]="loading() ? 'true' : null"
   (copy)="onCopy($event)" (paste)="onPaste($event)" (focusin)="onGridFocusIn($event)"
   (click)="closeContextMenu(); closeCellContextMenu(); closeFilterMenu(); closeGroupActionsMenu(); closeMenuBarMenu()">
-  @if (visibleMenuBarItems().length > 0 || enableQuickFilter()) {
+  @if (visibleMenuBarItems().length > 0 || enableQuickFilter() || showFormulaBar()) {
   <div class="ag-toolbar">
     @if (visibleMenuBarItems().length > 0) {
     <agrid-menu-bar [items]="visibleMenuBarItems()" [context]="menuBarContext()" [label]="localeText().actions"
@@ -14,6 +14,23 @@
     @if (enableQuickFilter()) {
     <input class="ag-quick-filter" type="search" [value]="quickFilterValue()" (input)="onQuickFilterInput($event)"
       [placeholder]="localeText().quickFilterPlaceholder" [attr.aria-label]="localeText().quickFilterPlaceholder" />
+    }
+    @if (showFormulaBar()) {
+    <div class="ag-formula-bar" (click)="$event.stopPropagation()">
+      <span class="ag-formula-bar-label">{{ formulaBarLabel() || 'fx' }}</span>
+      <input
+        class="ag-formula-bar-input"
+        type="text"
+        [value]="formulaBarDraft()"
+        [disabled]="!selectedCell() || readonlyGrid()"
+        (focus)="onFormulaBarFocus()"
+        (input)="onFormulaBarInput($event)"
+        (change)="commitFormulaBar()"
+        (blur)="onFormulaBarBlur()"
+        (keydown)="onFormulaBarKeydown($event)"
+        aria-label="Formula bar"
+      />
+    </div>
     }
   </div>
   }
@@ -739,6 +756,7 @@
     [showAggregationActions]="menu.mode === 'column' && pivotRowColumnField()===null"
     [pinned]="getColumnPinState(menu.field)" [groupable]="menu.mode === 'column' && !!getColDef(menu.field)?.groupable"
     [grouped]="isGroupedByField(menu.field)" [filterable]="!!getColDef(menu.field)?.filterable"
+    [column]="getColDef(menu.field) ?? null" [control]="control()" [filter]="getColumnFilter(menu.field)"
     [showFilterActions]="menu.mode === 'column'"
     [showValueFilter]="menu.mode === 'column' && (!serverSideFiltering() || !!getColDef(menu.field)?.values?.length)"
     [filterType]="getMenuFilterType(menu.field)" [operator]="getMenuOperator(menu.field)"
@@ -755,6 +773,7 @@
     (clearFilter)="onMenuClearFilter(menu.field)" (clearAll)="onMenuClearAll()"
     (searchChange)="onFilterMenuSearch($event)" (toggleAll)="onMenuToggleAll(menu.field)"
     (toggleValue)="onMenuToggleValue(menu.field, $event)" [aggregate]="getEffectiveAggregate(getColDef(menu.field)!)"
+    (filterReplace)="onMenuReplaceFilter(menu.field, $event)" (close)="closeOpenMenus()"
     [customItems]="menu.mode === 'column' ? getColDef(menu.field)?.headerMenuItems ?? [] : []"
     (customAction)="onColumnHeaderAction(menu.field, $event)"
     (setAggregate)="onMenuSetAggregate(menu.field, $event)" />

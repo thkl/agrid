@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, effect, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, viewChild } from '@angular/core';
 import {
+  AGRID_FILTER_CONTEXT,
   AgridComponent,
   AgridControl,
   AgridDataSource,
@@ -18,6 +19,7 @@ interface FilterLabRow {
   channel: 'Direct' | 'Partner' | 'Web' | 'Retail';
   status: 'New' | 'Qualified' | 'Won' | 'Lost';
   priority: 'Low' | 'Medium' | 'High' | 'Urgent';
+  owner: string;
   amount: number;
   margin: number;
   createdAt: string;
@@ -29,6 +31,7 @@ const REGIONS: FilterLabRow['region'][] = ['North', 'South', 'East', 'West'];
 const CHANNELS: FilterLabRow['channel'][] = ['Direct', 'Partner', 'Web', 'Retail'];
 const STATUSES: FilterLabRow['status'][] = ['New', 'Qualified', 'Won', 'Lost'];
 const PRIORITIES: FilterLabRow['priority'][] = ['Low', 'Medium', 'High', 'Urgent'];
+const OWNERS = Array.from({ length: 180 }, (_, index) => `Owner ${String(index + 1).padStart(3, '0')}`);
 const CUSTOMERS = [
   'Acme Systems',
   'Globex Europe',
@@ -55,6 +58,7 @@ function makeRows(count: number): FilterLabRow[] {
       channel: CHANNELS[(index + Math.floor(index / 5)) % CHANNELS.length],
       status: STATUSES[(index + Math.floor(index / 9)) % STATUSES.length],
       priority: PRIORITIES[(index * 2 + Math.floor(index / 7)) % PRIORITIES.length],
+      owner: OWNERS[(index * 17) % OWNERS.length],
       amount: 1_250 + ((index * 947) % 48_000),
       margin: -12 + ((index * 7) % 43),
       createdAt: created.toISOString().slice(0, 10),
@@ -72,6 +76,15 @@ const COLUMNS: ColDef<FilterLabRow>[] = [
   { field: 'channel', header: 'Channel', width: 112, editable: false, filterable: true, values: CHANNELS },
   { field: 'status', header: 'Status', width: 118, editable: false, filterable: true, values: STATUSES },
   { field: 'priority', header: 'Priority', width: 112, editable: false, filterable: true, values: PRIORITIES },
+  {
+    field: 'owner',
+    header: 'Owner',
+    width: 116,
+    editable: false,
+    filterable: true,
+    values: OWNERS,
+    filterValueLimit: 40,
+  },
   {
     field: 'amount',
     header: 'Amount',
@@ -106,6 +119,47 @@ const COLUMNS: ColDef<FilterLabRow>[] = [
   },
 ];
 
+@Component({
+  selector: 'demo-priority-filter',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <div class="priority-filter" aria-label="Priority presets">
+      <button type="button" (click)="set(['High', 'Urgent'])">High risk</button>
+      <button type="button" (click)="set(['Urgent'])">Urgent</button>
+      <button type="button" (click)="ctx.clear()">Reset</button>
+    </div>
+  `,
+  styles: [`
+    .priority-filter {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+    button {
+      min-height: 28px;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      background: #fff;
+      color: #24292f;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button:hover { background: #f6f8fa; }
+  `],
+})
+class PriorityFilterComponent {
+  readonly ctx = inject(AGRID_FILTER_CONTEXT);
+
+  set(values: string[]): void {
+    const current = this.ctx.filter();
+    this.ctx.setFilter({ ...current, selectedValues: values });
+  }
+}
+
+(COLUMNS.find(column => column.field === 'priority') as ColDef<FilterLabRow>).filterComponent = PriorityFilterComponent;
+
 const ALL_ROWS = makeRows(360);
 const FILTER_COLUMNS = COLUMNS as unknown as ColDef[];
 const COLUMN_MAP = new Map<string, ColDef>(FILTER_COLUMNS.map(column => [column.field, column]));
@@ -135,6 +189,18 @@ const COLUMN_MAP = new Map<string, ColDef>(FILTER_COLUMNS.map(column => [column.
         <span>Date: Created, Due</span>
         <span>Boolean: Paid</span>
         <span>Quick filter enabled</span>
+        <span>Owner list capped at 40 matches</span>
+      </section>
+
+      <section class="state-actions" aria-label="Filter state">
+        <label>
+          <input type="checkbox" [checked]="externalHighValueOnly()" (change)="toggleExternalFilter($any($event.target).checked)" />
+          High-value external filter
+        </label>
+        <button type="button" (click)="saveFilterState()">Save filters</button>
+        <button type="button" (click)="restoreFilterState()">Restore filters</button>
+        <button type="button" (click)="clearSavedFilterState()">Clear saved</button>
+        <span>{{ savedStateLabel() }}</span>
       </section>
 
       <agrid class="demo-grid" [provider]="provider" />
@@ -186,6 +252,7 @@ const COLUMN_MAP = new Map<string, ColDef>(FILTER_COLUMNS.map(column => [column.
 
     .stats,
     .filter-strip,
+    .state-actions,
     .query-bar {
       display: flex;
       align-items: center;
@@ -216,6 +283,35 @@ const COLUMN_MAP = new Map<string, ColDef>(FILTER_COLUMNS.map(column => [column.
       border: 1px solid #d8dee4;
       border-radius: 8px;
       background: #ffffff;
+    }
+
+    .state-actions {
+      min-height: 34px;
+      padding: 8px 10px;
+      border: 1px solid #d8dee4;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #3b434d;
+      font-size: 12px;
+    }
+
+    .state-actions label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 650;
+    }
+
+    .state-actions button {
+      min-height: 26px;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      background: #f6f8fa;
+      color: #24292f;
+      font: inherit;
+      font-weight: 650;
+      cursor: pointer;
+      padding: 0 9px;
     }
 
     .filter-strip span:nth-child(1),
@@ -264,6 +360,60 @@ const COLUMN_MAP = new Map<string, ColDef>(FILTER_COLUMNS.map(column => [column.
       font-weight: 700;
     }
 
+    :host-context(.app-shell--dark) p,
+    :host-context(.app-shell--dark) .query-bar {
+      color: var(--app-text-muted);
+    }
+
+    :host-context(.app-shell--dark) .stats span,
+    :host-context(.app-shell--dark) .filter-strip span,
+    :host-context(.app-shell--dark) .state-actions button {
+      border-color: var(--app-border);
+      background: var(--app-surface-muted);
+      color: var(--app-text);
+    }
+
+    :host-context(.app-shell--dark) .filter-strip,
+    :host-context(.app-shell--dark) .state-actions,
+    :host-context(.app-shell--dark) .query-bar {
+      border-color: var(--app-border);
+      background: var(--app-surface);
+    }
+
+    :host-context(.app-shell--dark) .state-actions {
+      color: var(--app-text);
+    }
+
+    :host-context(.app-shell--dark) .query-label {
+      color: var(--app-text);
+    }
+
+    :host-context(.app-shell--dark) .filter-strip span:nth-child(1),
+    :host-context(.app-shell--dark) .filter-strip span:nth-child(6) {
+      border-color: #255f94;
+      background: #112b43;
+      color: #8ecbff;
+    }
+
+    :host-context(.app-shell--dark) .filter-strip span:nth-child(2) {
+      border-color: #2f6842;
+      background: #132a1d;
+      color: #86efac;
+    }
+
+    :host-context(.app-shell--dark) .filter-strip span:nth-child(3),
+    :host-context(.app-shell--dark) .filter-strip span:nth-child(4) {
+      border-color: #7c5c17;
+      background: #2f240d;
+      color: #facc15;
+    }
+
+    :host-context(.app-shell--dark) .filter-strip span:nth-child(5) {
+      border-color: #6b3fa0;
+      background: #2a173f;
+      color: #d8b4fe;
+    }
+
     @media (max-width: 780px) {
       .demo-header {
         align-items: flex-start;
@@ -278,8 +428,11 @@ const COLUMN_MAP = new Map<string, ColDef>(FILTER_COLUMNS.map(column => [column.
   `],
 })
 export class FiltersDemoComponent {
+  private readonly storageKey = 'agrid-filter-demo-model';
   readonly ds = new AgridDataSource<FilterLabRow>([]);
   readonly ctrl = new AgridControl({ pageSize: 25 });
+  readonly externalHighValueOnly = signal(false);
+  readonly savedStateLabel = signal(this.hasSavedFilterState() ? 'Saved filter model available' : 'No saved filter model');
   readonly provider = new AgridProvider<FilterLabRow>({
     columns: COLUMNS,
     datasource: this.ds,
@@ -291,6 +444,7 @@ export class FiltersDemoComponent {
     showRowNumbers: true,
     zebraStripes: true,
     emptyText: 'No rows match the active filters',
+    externalFilter: ({ row }) => !this.externalHighValueOnly() || row.amount >= 25_000,
   });
   readonly grid = viewChild(AgridComponent<FilterLabRow>);
   readonly matchCount = signal(ALL_ROWS.length);
@@ -325,6 +479,9 @@ export class FiltersDemoComponent {
     let indices = rows.map((_, index) => index);
     indices = applyTextAndValueFilters(rows, indices, query.filters as Record<string, ColumnFilter>, COLUMN_MAP);
     indices = applyQuickFilter(rows, indices, query.quickFilter, FILTER_COLUMNS);
+    if (this.externalHighValueOnly()) {
+      indices = indices.filter(index => ALL_ROWS[index].amount >= 25_000);
+    }
     const sortEntries = query.sort.map(entry => [
       entry.field,
       { ...(query.filters[entry.field] ?? defaultFilter()), sort: entry.direction },
@@ -340,6 +497,34 @@ export class FiltersDemoComponent {
     this.ctrl.setTotalRows(indices.length);
     const pageIndices = indices.slice(query.startRow, query.endRow + 1);
     this.ds.setData(pageIndices.map(index => ALL_ROWS[index]));
+  }
+
+  toggleExternalFilter(value: boolean): void {
+    this.externalHighValueOnly.set(value);
+  }
+
+  saveFilterState(): void {
+    localStorage.setItem(this.storageKey, JSON.stringify(this.ctrl.getFilterModel()));
+    this.savedStateLabel.set('Saved filter model to local storage');
+  }
+
+  restoreFilterState(): void {
+    const saved = localStorage.getItem(this.storageKey);
+    if (!saved) {
+      this.savedStateLabel.set('No saved filter model');
+      return;
+    }
+    this.ctrl.setFilterModel(JSON.parse(saved));
+    this.savedStateLabel.set('Restored filter model from local storage');
+  }
+
+  clearSavedFilterState(): void {
+    localStorage.removeItem(this.storageKey);
+    this.savedStateLabel.set('No saved filter model');
+  }
+
+  private hasSavedFilterState(): boolean {
+    return typeof localStorage !== 'undefined' && localStorage.getItem(this.storageKey) !== null;
   }
 }
 

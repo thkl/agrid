@@ -160,7 +160,7 @@ export class AgridColumnSizingController {
     const values = [col.header];
     for (const item of this.opts.filteredItems()) {
       if (!isDataRowItem(item)) continue;
-      values.push(getDisplayForField(col, item.row[col.field], this.opts.locale()));
+      values.push(getDisplayForField(col, item.row[col.field], this.opts.locale(), item.row));
     }
     const measured = values.reduce(
       (max, value) => Math.max(max, context.measureText(value).width),

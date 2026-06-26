@@ -147,6 +147,147 @@ describe('AgridComponent grouped control column selection', () => {
     expect(emitted[1]).toBeNull();
   });
 
+  it('renders an optional formula bar and commits the selected cell raw value', () => {
+    provider = new AgridProvider({
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'score', header: 'Score', type: 'number' },
+      ],
+      datasource: new AgridDataSource([
+        { name: 'Alice', score: 1 },
+      ]),
+      control: new AgridControl(),
+      showFormulaBar: true,
+    });
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+
+    component.selectedCell.set({ rowIndex: 0, colIndex: 1 });
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.ag-formula-bar-input') as HTMLInputElement;
+    expect(input).not.toBeNull();
+    expect(input.value).toBe('1');
+
+    const edits: GridEditEvent[] = [];
+    component.cellEdit.subscribe(event => edits.push(event));
+    input.value = '42';
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    expect(provider.datasource.getRow(0)['score']).toBe(42);
+    expect(edits.at(-1)).toMatchObject({ field: 'score', oldValue: 1, newValue: 42 });
+  });
+
+  it('keeps formula bar typing out of grid keyboard navigation', () => {
+    provider = new AgridProvider({
+      columns: [{ field: 'name', header: 'Name' }],
+      datasource: new AgridDataSource([{ name: 'Alice' }]),
+      control: new AgridControl(),
+      showFormulaBar: true,
+    });
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    fixture.detectChanges();
+
+    const navigation = component['navigationController'] as unknown as {
+      handleKeyDown: (event: KeyboardEvent) => void;
+    };
+    const handleKeyDown = vi.spyOn(navigation, 'handleKeyDown');
+    const input = fixture.nativeElement.querySelector('.ag-formula-bar-input') as HTMLInputElement;
+
+    input.focus();
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'A', bubbles: true }));
+    input.value = 'Alicia';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(handleKeyDown).not.toHaveBeenCalled();
+    expect(component.formulaBarDraft()).toBe('Alicia');
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('commits formula bar blur edits to the cell that owned focus', () => {
+    provider = new AgridProvider({
+      columns: [
+        { field: 'budget', header: 'Budget', editor: 'formula' },
+        { field: 'name', header: 'Name' },
+      ],
+      datasource: new AgridDataSource([
+        { budget: '=1+1', name: 'Alice' },
+      ]),
+      control: new AgridControl(),
+      showFormulaBar: true,
+    });
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.ag-formula-bar-input') as HTMLInputElement;
+    input.dispatchEvent(new FocusEvent('focus'));
+    input.value = '=2+3';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    component.selectedCell.set({ rowIndex: 0, colIndex: 1 });
+    fixture.detectChanges();
+
+    input.dispatchEvent(new FocusEvent('blur'));
+    fixture.detectChanges();
+
+    expect(provider.datasource.getRow(0)['budget']).toBe('=2+3');
+    expect(provider.datasource.getRow(0)['name']).toBe('Alice');
+    expect(component.formulaBarDraft()).toBe('Alice');
+  });
+
+  it('returns focus to the grid after formula bar Enter commits', () => {
+    provider = new AgridProvider({
+      columns: [{ field: 'budget', header: 'Budget', editor: 'formula' }],
+      datasource: new AgridDataSource([{ budget: '=1+1' }]),
+      control: new AgridControl(),
+      showFormulaBar: true,
+    });
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    fixture.detectChanges();
+
+    const wrapper = fixture.nativeElement.querySelector('.ag-wrapper') as HTMLDivElement;
+    const input = fixture.nativeElement.querySelector('.ag-formula-bar-input') as HTMLInputElement;
+    input.focus();
+    input.value = '=2+3';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(provider.datasource.getRow(0)['budget']).toBe('=2+3');
+    expect(document.activeElement).toBe(wrapper);
+  });
+
+  it('updates the active edit draft from formula bar input', () => {
+    provider = new AgridProvider({
+      columns: [{ field: 'name', header: 'Name' }],
+      datasource: new AgridDataSource([{ name: 'Alice' }]),
+      control: new AgridControl(),
+      showFormulaBar: true,
+    });
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    component.onStartEdit(0, 0);
+    fixture.detectChanges();
+
+    component.onFormulaBarInput({ target: { value: 'Alicia' } } as unknown as Event);
+
+    expect(component.currentDraft()).toBe('Alicia');
+  });
+
   it('keeps added rows visible under filters until the control reapplies filters', () => {
     provider.control.setTextFilter('name', 'Alice');
     provider.control.addSort('name', 'asc');

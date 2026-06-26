@@ -235,6 +235,41 @@ control.setRangeFilter('total', null, null); // clear it`;
 // Or drive it from code — part of toJSON() state:
 control.setQuickFilter('alice');`;
 
+  readonly customFilterCode = `@Component({
+  selector: 'priority-filter',
+  template: \`
+    <button (click)="set(['High', 'Urgent'])">High risk</button>
+    <button (click)="ctx.clear()">Reset</button>
+  \`,
+})
+export class PriorityFilter {
+  readonly ctx = inject(AGRID_FILTER_CONTEXT);
+  set(values: string[]): void {
+    this.ctx.setFilter({ ...this.ctx.filter(), selectedValues: values });
+  }
+}
+
+const columns: ColDef<Order>[] = [
+  { field: 'priority', header: 'Priority', filterable: true, filterComponent: PriorityFilter },
+];
+
+readonly highValueOnly = signal(false);
+readonly provider = new AgridProvider<Order>({
+  columns,
+  datasource,
+  externalFilter: ({ row }) => !this.highValueOnly() || row.total >= 10000,
+});`;
+
+  readonly valueSearchCode = `const columns: ColDef<Order>[] = [
+  {
+    field: 'owner',
+    header: 'Owner',
+    filterable: true,
+    values: owners,        // full list searched by the menu
+    filterValueLimit: 50,  // max rendered matches at once
+  },
+];`;
+
   readonly validationCode = `const columns: ColDef<Person>[] = [
   {
     field: 'email',
@@ -328,7 +363,27 @@ const provider = new AgridProvider({ columns, datasource, control, showSidebar: 
     header: 'Status',
     values: ['Active', 'Paused'],
   },
+  {
+    field: 'assignee',
+    header: 'Assignee',
+    editor: 'richSelect',
+    asyncValues: () => fetch('/api/users').then(r => r.json()),
+  },
+  { field: 'notes', header: 'Notes', editor: 'largeText' },
+  {
+    field: 'budget',
+    header: 'Budget',
+    editor: 'formula',
+    formula: true,
+    formatter: value => \`$\${value}\`,
+  },
 ];
+
+const provider = new AgridProvider({
+  columns,
+  datasource,
+  showFormulaBar: true, // wider Excel-style input for selected cells
+});
 
 // Template:
 // <agrid [provider]="provider"
@@ -397,7 +452,37 @@ const rowModel = new AgridServerSideRowModel<Order>({
   },
 });
 
-const provider = new AgridProvider({ columns, control, serverSideRowModel: rowModel });`;
+const provider = new AgridProvider({ columns, control, serverSideRowModel: rowModel });
+
+// ViewChild(AgridComponent) controls cache and scroll behavior.
+grid.refreshServerSideRows({ purge: true, resetScroll: true });
+grid.refreshServerSideRows({ purge: false, resetScroll: false });
+rowModel.retryFailedBlock();`;
+
+  readonly backendContractCode = `// Server-side row model request: half-open block range.
+interface AgridServerSideRequest {
+  startRow: number;          // inclusive
+  endRow: number;            // exclusive
+  filters: Record<string, ColumnFilter>;
+  sort: { field: string; direction: 'asc' | 'desc' }[];
+  quickFilter: string;
+}
+
+interface AgridServerSideResult<T> {
+  rows: T[];
+  rowCount?: number;         // total matching rows, when known
+}
+
+// Server-side pagination/filter query: page range uses inclusive endRow.
+interface AgridServerQuery {
+  filters: Record<string, ColumnFilter>;
+  sort: { field: string; direction: 'asc' | 'desc' }[];
+  quickFilter: string;
+  page: number;
+  pageSize: number;
+  startRow: number;
+  endRow: number;
+}`;
 
   readonly settingsGuideCode = `// Save after a user changes pivot or column visibility.
 saveSettings(settings: AgridSettings): void {

@@ -109,6 +109,61 @@ describe('AgridServerSideRowModel', () => {
     control.setTextFilter('name', 'alice');
     expect(model.setQuery(control, [])).toBe(true);
   });
+
+  it('tracks failed blocks and retries them on demand', async () => {
+    let calls = 0;
+    const model = new AgridServerSideRowModel<Row>({
+      initialRowCount: 10,
+      blockSize: 10,
+      datasource: {
+        async getRows() {
+          calls++;
+          if (calls === 1) throw new Error('network');
+          return { rows: [{ id: 1, name: 'Recovered' }], rowCount: 1 };
+        },
+      },
+    });
+
+    model.ensureRange(0, 10);
+    await settle();
+
+    expect(model.failedBlockIndices()).toEqual([0]);
+    expect(model.error()).toBeInstanceOf(Error);
+
+    model.retryFailedBlock();
+    await settle();
+
+    expect(model.failedBlockIndices()).toEqual([]);
+    expect(model.error()).toBeNull();
+    expect(model.getRow(0)).toEqual({ id: 1, name: 'Recovered' });
+  });
+
+  it('purges loaded rows back to placeholders', async () => {
+    const model = new AgridServerSideRowModel<Row>({
+      initialRowCount: 10,
+      blockSize: 10,
+      datasource: {
+        async getRows(request) {
+          return {
+            rows: Array.from(
+              { length: request.endRow - request.startRow },
+              (_, offset) => ({ id: offset, name: 'Loaded' }),
+            ),
+            rowCount: 10,
+          };
+        },
+      },
+    });
+
+    model.ensureRange(0, 10);
+    await settle();
+    expect(model.isPlaceholder(0)).toBe(false);
+
+    model.purgeCache();
+
+    expect(model.isPlaceholder(0)).toBe(true);
+    expect(model.rowCount()).toBe(10);
+  });
 });
 
 async function settle(): Promise<void> {

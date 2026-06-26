@@ -926,6 +926,55 @@
   border-color: var(--agrid-color-accent-border);
 }
 
+.ag-formula-bar {
+  display: flex;
+  align-items: center;
+  flex: 1 1 360px;
+  min-width: 220px;
+  height: 30px;
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--agrid-color-bg);
+}
+
+.ag-formula-bar-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 74px;
+  height: 100%;
+  border-right: 1px solid var(--agrid-color-border);
+  background: var(--agrid-color-bg-muted);
+  color: var(--agrid-color-text-muted);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-formula-bar-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  padding: 0 9px;
+  box-sizing: border-box;
+  background: transparent;
+  color: var(--agrid-color-text);
+  font: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.ag-formula-bar-input:disabled {
+  color: var(--agrid-color-text-muted);
+  cursor: not-allowed;
+}
+
+.ag-formula-bar:focus-within {
+  border-color: var(--agrid-color-accent-border);
+}
+
 /* ── Master/detail ─────────────────────────────────────────────── */
 .ag-detail-toggle {
   display: inline-flex;

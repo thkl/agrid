@@ -39,7 +39,7 @@ export class AgridFindController {
       if (!row) return;
       for (let colIndex = 0; colIndex < cols.length; colIndex++) {
         const col = cols[colIndex];
-        const value = getDisplayForField(col, row[col.field], this.opts.locale()).toLowerCase();
+        const value = getDisplayForField(col, row[col.field], this.opts.locale(), row).toLowerCase();
         if (value.includes(query)) {
           matches.push({ rowIndex, colIndex });
         }

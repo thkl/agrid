@@ -81,9 +81,19 @@ export function coerceNumberInputValue(value: unknown): unknown {
   return Number.isNaN(numeric) ? value : numeric;
 }
 
-/** Resolve the display string for a raw cell value via ValueOption label, formatter, or coercion. */
-export function getDisplayForField(col: ColDef | undefined, raw: unknown, locale?: string): string {
+/** Resolve the display string for a raw cell value via formula, ValueOption label, formatter, or coercion. */
+export function getDisplayForField(
+  col: ColDef | undefined,
+  raw: unknown,
+  locale?: string,
+  row?: Record<string, unknown>,
+): string {
   if (!col) return String(raw ?? '');
+  if (col.formula && typeof raw === 'string' && raw.trim().startsWith('=')) {
+    const result = evaluateFormula(raw, row ?? {});
+    if (!result.ok) return '#ERR';
+    return col.formatter ? col.formatter(result.value) : formatFormulaResult(result.value);
+  }
   if (col.values?.length) {
     const opt = col.values.find(v =>
       typeof v === 'string' ? v === raw : (v as ValueOption).value === raw
@@ -95,6 +105,126 @@ export function getDisplayForField(col: ColDef | undefined, raw: unknown, locale
     return formatDateValue(raw, locale, col.type === 'date');
   }
   return String(raw ?? '');
+}
+
+/** Result of evaluating a row-local formula. */
+export type AgridFormulaResult =
+  | { ok: true; value: number }
+  | { ok: false; error: string };
+
+/** Evaluate a safe row-local arithmetic formula without using `eval`. */
+export function evaluateFormula(formula: string, row: Record<string, unknown>): AgridFormulaResult {
+  const source = formula.trim().startsWith('=') ? formula.trim().slice(1) : formula.trim();
+  if (!source) return { ok: false, error: 'empty formula' };
+  const parser = new FormulaParser(source, row);
+  try {
+    const value = parser.parse();
+    return Number.isFinite(value) ? { ok: true, value } : { ok: false, error: 'non-finite result' };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'invalid formula' };
+  }
+}
+
+function formatFormulaResult(value: number): string {
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(6)));
+}
+
+class FormulaParser {
+  private index = 0;
+
+  constructor(
+    private readonly source: string,
+    private readonly row: Record<string, unknown>,
+  ) {}
+
+  parse(): number {
+    const value = this.expression();
+    this.skipWhitespace();
+    if (this.index < this.source.length) throw new Error('unexpected token');
+    return value;
+  }
+
+  private expression(): number {
+    let value = this.term();
+    while (true) {
+      this.skipWhitespace();
+      if (this.match('+')) value += this.term();
+      else if (this.match('-')) value -= this.term();
+      else return value;
+    }
+  }
+
+  private term(): number {
+    let value = this.factor();
+    while (true) {
+      this.skipWhitespace();
+      if (this.match('*')) value *= this.factor();
+      else if (this.match('/')) value /= this.factor();
+      else return value;
+    }
+  }
+
+  private factor(): number {
+    this.skipWhitespace();
+    if (this.match('+')) return this.factor();
+    if (this.match('-')) return -this.factor();
+    if (this.match('(')) {
+      const value = this.expression();
+      this.expect(')');
+      return value;
+    }
+    if (this.peek() === '[') return this.bracketReference();
+    if (/[A-Za-z_]/.test(this.peek())) return this.identifier();
+    return this.number();
+  }
+
+  private number(): number {
+    const start = this.index;
+    while (/[0-9.]/.test(this.peek())) this.index++;
+    if (start === this.index) throw new Error('expected number');
+    const value = Number(this.source.slice(start, this.index));
+    if (Number.isNaN(value)) throw new Error('invalid number');
+    return value;
+  }
+
+  private identifier(): number {
+    const start = this.index;
+    while (/[A-Za-z0-9_]/.test(this.peek())) this.index++;
+    return this.referenceValue(this.source.slice(start, this.index));
+  }
+
+  private bracketReference(): number {
+    this.expect('[');
+    const start = this.index;
+    while (this.peek() && this.peek() !== ']') this.index++;
+    const field = this.source.slice(start, this.index);
+    this.expect(']');
+    return this.referenceValue(field);
+  }
+
+  private referenceValue(field: string): number {
+    const value = Number(this.row[field]);
+    if (Number.isNaN(value)) throw new Error(`invalid reference ${field}`);
+    return value;
+  }
+
+  private match(char: string): boolean {
+    if (this.source[this.index] !== char) return false;
+    this.index++;
+    return true;
+  }
+
+  private expect(char: string): void {
+    if (!this.match(char)) throw new Error(`expected ${char}`);
+  }
+
+  private peek(): string {
+    return this.source[this.index] ?? '';
+  }
+
+  private skipWhitespace(): void {
+    while (/\s/.test(this.peek())) this.index++;
+  }
 }
 
 /** Returns whether a virtual-scroll item represents a data row. */
@@ -153,14 +283,16 @@ export function applyTextAndValueFilters(
     const col = colMap.get(field);
     if (filter.text) {
       const lc = filter.text.toLowerCase();
-      result = result.filter(i => getDisplayForField(col, rows[i][field], locale).toLowerCase().includes(lc));
+      result = result.filter(i =>
+        getDisplayForField(col, rows[i][field], locale, rows[i]).toLowerCase().includes(lc),
+      );
     }
     if (filter.selectedValues !== null) {
       const allowed = new Set(filter.selectedValues);
       result = result.filter(i => allowed.has(String(rows[i][field] ?? '')));
     }
     if (filter.operator && filter.operand != null && filter.operand !== '') {
-      result = result.filter(i => passesConditionFilter(col, rows[i][field], filter, locale));
+      result = result.filter(i => passesConditionFilter(col, rows[i][field], filter, locale, rows[i]));
     }
   }
   return result;
@@ -174,9 +306,10 @@ export function passesConditionFilter(
   raw: unknown,
   filter: ColumnFilter,
   locale?: string,
+  row?: Record<string, unknown>,
 ): boolean {
   if (col?.type !== 'number' && col?.type !== 'date') {
-    const value = getDisplayForField(col, raw, locale).toLocaleLowerCase(locale);
+    const value = getDisplayForField(col, raw, locale, row).toLocaleLowerCase(locale);
     const operand = String(filter.operand ?? '').toLocaleLowerCase(locale);
     switch (filter.operator) {
       case 'eq': return value === operand;
@@ -233,7 +366,7 @@ export function applyQuickFilter(
   const q = text.trim().toLowerCase();
   if (!q) return indices;
   return indices.filter(i =>
-    cols.some(col => getDisplayForField(col, rows[i][col.field], locale).toLowerCase().includes(q)),
+    cols.some(col => getDisplayForField(col, rows[i][col.field], locale, rows[i]).toLowerCase().includes(q)),
   );
 }
 
@@ -279,7 +412,7 @@ export function applySortToIndices(
       dateLike[position] = isDateLike ? 1 : 0;
       dateValues[position] = Number.isNaN(dateValue) ? -1 : dateValue;
       numericValues[position] = numericValue;
-      displayValues[position] = isDateLike ? '' : getDisplayForField(col, raw, locale);
+      displayValues[position] = isDateLike ? '' : getDisplayForField(col, raw, locale, rows[index]);
     }
 
     return {

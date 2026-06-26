@@ -1,7 +1,7 @@
 import { DestroyRef, Signal, computed, signal } from '@angular/core';
 import { AgridBrowserAdapter } from '../infrastructure/agrid-browser.adapter';
 import { AgridColumnMenuValueItem } from './agrid-column-menu.component';
-import { AgridControl, FilterOperator } from '../agrid-control';
+import { AgridControl, ColumnFilter, FilterOperator } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
 import { ColDef, FilterChangeEvent, SortChangeEvent, ValueOption } from '../agrid.types';
 import { passesConditionFilter } from '../agrid.utils';
@@ -63,8 +63,13 @@ export class AgridColumnMenuController {
   });
 
   readonly visibleItems = computed(() => {
+    const menu = this.menu();
+    const col = menu ? this.getColDef(menu.field) : undefined;
     const search = this.search().toLowerCase();
-    return this.items().filter(item => !search || item.label.toLowerCase().includes(search));
+    const limit = Math.max(1, Math.floor(col?.filterValueLimit ?? 250));
+    return this.items()
+      .filter(item => !search || item.label.toLowerCase().includes(search))
+      .slice(0, limit);
   });
 
   readonly activeValues = computed(() => {
@@ -291,6 +296,23 @@ export class AgridColumnMenuController {
   /** Updates the distinct-value search text. */
   setSearch(value: string): void {
     this.search.set(value);
+  }
+
+  /** Replaces one field's filter state from a custom filter component. */
+  replaceFilter(field: string, filter: ColumnFilter): void {
+    const control = this.opts.control();
+    if (!control) return;
+    control.setFilter(field, filter);
+    if (!this.opts.serverSideFiltering()) return;
+    this.opts.onFilterChange({
+      field,
+      value: filter.text,
+      selectedValues: filter.selectedValues,
+      operator: filter.operator ?? null,
+      operand: filter.operand ?? null,
+      operand2: filter.operand2 ?? null,
+    });
+    if (filter.sort) this.opts.onSortChange({ field, direction: filter.sort });
   }
 
   /** Applies or clears a sort according to the configured sorting mode. */

@@ -72,6 +72,21 @@ describe('AgridDetailController', () => {
     expect(controller.isDetailFieldEditable(itemFor(0, dataSource))).toBe(false);
   });
 
+  it('formats formula detail field display without changing the multiline editor path', () => {
+    const col: ColDef = {
+      field: 'notes',
+      header: 'Notes',
+      formula: true,
+      formatter: value => `$${value}`,
+    };
+    const { controller, dataSource } = setup({ col });
+    dataSource.patchRow(0, { notes: '=hours * rate', hours: 3, rate: 90 } as Record<string, unknown>);
+
+    expect(controller.detailFieldDisplay(itemFor(0, dataSource))).toBe('$270');
+    controller.startDetailFieldEdit(itemFor(0, dataSource));
+    expect(controller.draft()).toBe('=hours * rate');
+  });
+
   it('starts editing, seeding the draft and clearing the selected cell', () => {
     const { controller, dataSource, selectedCell } = setup();
     selectedCell.set({ rowIndex: 0, colIndex: 0 });

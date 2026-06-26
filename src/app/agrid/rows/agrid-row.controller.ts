@@ -198,7 +198,7 @@ export class AgridRowController {
   copyCellToClipboard(originalIndex: number, col: ColDef): void {
     const rows = this.opts.dataSource().rows();
     const text = this.copyIndices(originalIndex)
-      .map(index => getDisplayForField(col, rows[index]?.[col.field], this.opts.locale()))
+      .map(index => getDisplayForField(col, rows[index]?.[col.field], this.opts.locale(), rows[index]))
       .join('\n');
     void this.browser.writeClipboard(text);
     this.closeCellContextMenu();
@@ -210,7 +210,7 @@ export class AgridRowController {
     const cols = this.opts.visibleColDefs();
     const text = this.copyIndices(originalIndex)
       .map(index => cols
-        .map(col => getDisplayForField(col, rows[index]?.[col.field], this.opts.locale()))
+        .map(col => getDisplayForField(col, rows[index]?.[col.field], this.opts.locale(), rows[index]))
         .join('\t'))
       .join('\n');
     void this.browser.writeClipboard(text);

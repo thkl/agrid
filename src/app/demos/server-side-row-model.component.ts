@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, signal, viewChild } from '@angular/core';
 import {
   AgridComponent,
   AgridControl,
@@ -81,6 +81,16 @@ const COLUMNS: ColDef<ServerOrder>[] = [
         </div>
       </header>
 
+      <section class="controls" aria-label="Server-side row model controls">
+        <button type="button" (click)="purgeCache()">Purge cache</button>
+        <button type="button" (click)="refreshPreserveScroll()">Refresh, preserve scroll</button>
+        <button type="button" (click)="refreshResetScroll()">Refresh, reset scroll</button>
+        <button type="button" (click)="failNextBlock()">Fail next block</button>
+        <button type="button" [disabled]="rowModel.failedBlockIndices().length === 0" (click)="retryFailedBlock()">
+          Retry failed block
+        </button>
+      </section>
+
       <section class="source-card" aria-label="Demo data source">
         <span>Static GitHub Pages source</span>
         <a [href]="dataUrl" target="_blank" rel="noopener">{{ dataUrl }}</a>
@@ -139,6 +149,15 @@ const COLUMNS: ColDef<ServerOrder>[] = [
       padding: 10px 12px; border: 1px solid #d0d7de; border-radius: 6px; background: #f6f8fa;
       font-size: 12px;
     }
+    .controls {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      padding: 9px 10px; border: 1px solid #d0d7de; border-radius: 6px; background: #fff;
+    }
+    .controls button {
+      min-height: 28px; border: 1px solid #d0d7de; border-radius: 6px; background: #f6f8fa;
+      color: #24292f; font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; padding: 0 9px;
+    }
+    .controls button:disabled { color: #8c959f; cursor: not-allowed; }
     .source-card > span { font-weight: 650; }
     .source-card a { overflow: hidden; color: #0969da; text-overflow: ellipsis; white-space: nowrap; }
     .source-card small { grid-column: 1 / -1; color: #57606a; }
@@ -157,6 +176,8 @@ const COLUMNS: ColDef<ServerOrder>[] = [
     .request-error { color: #cf222e; }
     :host-context(.app-shell--dark) .source-card,
     :host-context(.app-shell--dark) .aside-title { background: #161b22; border-color: #30363d; }
+    :host-context(.app-shell--dark) .controls { background: #0d1117; border-color: #30363d; }
+    :host-context(.app-shell--dark) .controls button { background: #161b22; border-color: #30363d; color: #c9d1d9; }
     :host-context(.app-shell--dark) aside { background: #0d1117; border-color: #30363d; }
     :host-context(.app-shell--dark) article { border-color: #30363d; }
     :host-context(.app-shell--dark) .status { border-color: #30363d; }
@@ -169,10 +190,12 @@ const COLUMNS: ColDef<ServerOrder>[] = [
   `],
 })
 export class ServerSideRowModelDemoComponent {
+  readonly grid = viewChild(AgridComponent<ServerOrder>);
   readonly dataUrl = new URL(DATA_PATH, document.baseURI).href;
   readonly control = new AgridControl();
   readonly requests = signal<RequestLog[]>([]);
   readonly requestCount = signal(0);
+  readonly failNextRequest = signal(false);
 
   private rowsPromise: Promise<ServerOrder[]> | null = null;
 
@@ -203,6 +226,10 @@ export class ServerSideRowModelDemoComponent {
     this.requestCount.set(id);
     const source = await this.loadRows();
     await delay(180);
+    if (this.failNextRequest()) {
+      this.failNextRequest.set(false);
+      throw new Error(`Demo failure for rows ${request.startRow}-${request.endRow - 1}`);
+    }
 
     let rows = source.filter(row => matchesRequest(row, request));
     if (request.sort.length) rows = [...rows].sort((left, right) => compareRows(left, right, request));
@@ -226,6 +253,27 @@ export class ServerSideRowModelDemoComponent {
       return response.json() as Promise<ServerOrder[]>;
     });
     return this.rowsPromise;
+  }
+
+  purgeCache(): void {
+    this.grid()?.refreshServerSideRows({ purge: true });
+  }
+
+  refreshPreserveScroll(): void {
+    this.grid()?.refreshServerSideRows({ purge: false, resetScroll: false });
+  }
+
+  refreshResetScroll(): void {
+    this.grid()?.refreshServerSideRows({ purge: true, resetScroll: true });
+  }
+
+  failNextBlock(): void {
+    this.failNextRequest.set(true);
+    this.grid()?.refreshServerSideRows({ purge: true });
+  }
+
+  retryFailedBlock(): void {
+    this.rowModel.retryFailedBlock();
   }
 }
 

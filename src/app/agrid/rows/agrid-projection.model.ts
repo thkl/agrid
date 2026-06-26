@@ -40,6 +40,8 @@ export interface AgridProjectionOptions {
   expandedTreeIds: Signal<Set<string | number>>;
   /** Host callback designating rows pinned to the top/bottom, or `undefined` when not pinning. */
   pinRow?: Signal<((row: Record<string, unknown>, index: number) => 'top' | 'bottom' | undefined) | undefined>;
+  /** Host callback for application-owned client-side filters. */
+  externalFilter?: Signal<((params: { row: Record<string, unknown>; index: number }) => boolean) | undefined>;
   /** Whether master/detail expandable rows are enabled. */
   masterDetail?: Signal<boolean>;
   /** Original indices of rows whose detail panel is currently expanded. */
@@ -74,6 +76,10 @@ export class AgridProjectionModel {
     const quick = control.quickFilter();
     if (quick) {
       indices = applyQuickFilter(rows, indices, quick, this.opts.visibleColDefs(), this.opts.locale());
+    }
+    const externalFilter = this.opts.externalFilter?.();
+    if (externalFilter) {
+      indices = indices.filter(index => externalFilter({ row: rows[index], index }));
     }
     if (hasRowFilter) indices = this.includeUnfilteredAddedRows(indices, rows.length);
     if (control.groupByField() && !this.opts.pivotMode?.()) return indices;

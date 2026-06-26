@@ -33,6 +33,7 @@ describe('AgridProjectionModel', () => {
     treeConfig?: AgridTreeConfig | null;
     expandedTreeIds?: (string | number)[];
     pinRow?: (row: Record<string, unknown>, index: number) => 'top' | 'bottom' | undefined;
+    externalFilter?: (params: { row: Record<string, unknown>; index: number }) => boolean;
     masterDetail?: boolean;
     expandedDetailIds?: number[];
   } = {}) {
@@ -55,6 +56,7 @@ describe('AgridProjectionModel', () => {
       treeConfig: signal(options.treeConfig ?? null),
       expandedTreeIds: signal(new Set(options.expandedTreeIds ?? [])),
       pinRow: signal(options.pinRow),
+      externalFilter: signal(options.externalFilter),
       masterDetail: signal(options.masterDetail ?? false),
       expandedDetailIds: signal(new Set(options.expandedDetailIds ?? [])),
     });
@@ -129,6 +131,27 @@ describe('AgridProjectionModel', () => {
 
     expect(model.filteredRowCount()).toBe(3);
     expect(model.totalPages()).toBe(5);
+    expect(dataRows(model.filteredItems()).map(item => item.row['name']))
+      .toEqual(['Alice', 'Bob', 'Carol']);
+  });
+
+  it('applies an application-owned external filter after built-in filters', () => {
+    const control = new AgridControl();
+    control.setTextFilter('department', 'engineering');
+    const { model } = createModel({
+      control,
+      externalFilter: ({ row }) => Number(row['amount']) > 10,
+    });
+
+    expect(dataRows(model.filteredItems()).map(item => item.row['name'])).toEqual(['Carol']);
+  });
+
+  it('does not apply external filters when server-side filtering owns the row set', () => {
+    const { model } = createModel({
+      serverSideFiltering: true,
+      externalFilter: () => false,
+    });
+
     expect(dataRows(model.filteredItems()).map(item => item.row['name']))
       .toEqual(['Alice', 'Bob', 'Carol']);
   });

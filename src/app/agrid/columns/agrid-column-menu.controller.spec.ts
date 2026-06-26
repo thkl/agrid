@@ -50,6 +50,44 @@ describe('AgridColumnMenuController', () => {
     ]);
   });
 
+  it('caps rendered value items while searching the full value list', () => {
+    const values = Array.from({ length: 20 }, (_, index) => `Owner ${index + 1}`);
+    const { controller } = setup({
+      columns: [
+        { field: 'owner', header: 'Owner', filterable: true, values, filterValueLimit: 5 },
+      ],
+    });
+    controller.menu.set({ field: 'owner', mode: 'column', x: 0, y: 0 });
+
+    expect(controller.valueItems()).toHaveLength(5);
+
+    controller.setSearch('20');
+
+    expect(controller.valueItems()).toEqual([
+      { label: 'Owner 20', rawStr: 'Owner 20', active: true, selected: true },
+    ]);
+  });
+
+  it('replaces a field filter from a custom filter component', () => {
+    const { controller, control, filterEvents } = setup();
+
+    controller.replaceFilter('department', {
+      text: '',
+      selectedValues: ['Engineering'],
+      sort: null,
+    });
+
+    expect(control.getFilter('department').selectedValues).toEqual(['Engineering']);
+    expect(filterEvents).toEqual([{
+      field: 'department',
+      value: '',
+      selectedValues: ['Engineering'],
+      operator: null,
+      operand: null,
+      operand2: null,
+    }]);
+  });
+
   it('does not scan values for non-filterable columns', () => {
     const formatter = vi.fn(value => String(value));
     const { controller } = setup({

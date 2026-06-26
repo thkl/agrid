@@ -103,6 +103,12 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
    */
   enableQuickFilter?: boolean;
   /**
+   * Show an Excel-style formula/input bar above the grid body. It displays the selected cell's raw
+   * value and lets users edit it in a wider input. Useful for formula and long text cells.
+   * @default false
+   */
+  showFormulaBar?: boolean;
+  /**
    * Optional command bar rendered above the column headers. Buttons and dropdown items emit
    * their id through the grid's single `(menuBarAction)` output.
    */
@@ -169,6 +175,11 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
    * ```
    */
   getRowClass?: (params: { row: T; index: number }) => string;
+  /**
+   * Optional application-owned predicate applied after built-in client-side filters and quick
+   * filter. Use this for filters that live outside the column menu.
+   */
+  externalFilter?: (params: { row: T; index: number }) => boolean;
 
   /**
    * Designate rows to pin to the top or bottom of the grid body. Pinned rows stay visible during
@@ -339,6 +350,8 @@ export class AgridProvider<T extends object = any> {
   filterDebounceMs: number;
   /** Whether the global quick-filter box is shown above the grid. */
   enableQuickFilter: boolean;
+  /** Whether the formula/input bar is shown above the grid body. */
+  showFormulaBar: boolean;
   /** Commands rendered in the optional menu bar above the column headers. */
   menuBarItems: AgridMenuBarItem<T>[];
   /** Enabled sorting mode. */
@@ -370,6 +383,8 @@ export class AgridProvider<T extends object = any> {
 
   /** Optional callback returning CSS classes for a whole data row. */
   getRowClass?: (params: { row: T; index: number }) => string;
+  /** Optional application-owned row predicate applied by the client-side projection. */
+  externalFilter?: (params: { row: T; index: number }) => boolean;
   /** Optional callback designating rows pinned to the top or bottom of the body. */
   pinRow?: (row: T, index: number) => 'top' | 'bottom' | undefined;
   /** Whether master/detail expandable detail rows are enabled. */
@@ -430,6 +445,7 @@ export class AgridProvider<T extends object = any> {
     this.serverSideFiltering = this.serverSideRowModel ? true : config.serverSideFiltering ?? false;
     this.filterDebounceMs = Math.max(0, config.filterDebounceMs ?? 300);
     this.enableQuickFilter = config.enableQuickFilter ?? false;
+    this.showFormulaBar = config.showFormulaBar ?? false;
     this.menuBarItems = config.menuBarItems ?? [];
     this.sortOption = config.sortOption ?? 'multi';
     this.rowSelection     = config.rowSelection ?? 'none';
@@ -448,6 +464,7 @@ export class AgridProvider<T extends object = any> {
     this.readonlyGrid     = runtimeState.readonly;
     this.useSidebarEditor = config.useSidebarEditor ?? false;
     this.getRowClass      = config.getRowClass;
+    this.externalFilter   = config.externalFilter;
     this.pinRow           = config.pinRow;
     this.masterDetail     = config.masterDetail ?? false;
     this.detailRenderer   = config.detailRenderer;

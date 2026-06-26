@@ -32,7 +32,7 @@ import { AgridColumnMenuController } from './columns/agrid-column-menu.controlle
 import { AgridColumnReorderController } from './columns/agrid-column-reorder.controller';
 import { AgridColumnSizingController } from './columns/agrid-column-sizing.controller';
 import { AgridColumnStateService } from './columns/agrid-column-state.service';
-import { AgridControl, FilterOperator } from './agrid-control';
+import { AgridControl, ColumnFilter, FilterOperator } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridDragHandler } from './rows/agrid-drag.handler';
 import { AgridDetailController } from './editing/agrid-detail.controller';
@@ -84,7 +84,7 @@ import {
 export type { GridItem };
 
 /**
- * Excel-like data grid for Angular 21.
+ * Excel-like data grid for Angular 21 and 22.
  *
  * ## Minimal setup
  * ```html
@@ -163,6 +163,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly serverSideFiltering = computed(() => this.provider().serverSideFiltering);
   readonly filterDebounceMs = computed(() => this.provider().filterDebounceMs);
   readonly enableQuickFilter = computed(() => this.provider().enableQuickFilter);
+  readonly showFormulaBar = computed(() => this.provider().showFormulaBar);
   readonly menuBarItems = computed(() => this.provider().menuBarItems);
   readonly quickFilterValue = computed(() => this.control()?.quickFilter() ?? '');
   readonly sortOption = computed(() => this.provider().sortOption);
@@ -191,6 +192,9 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** Host callback for per-row CSS classes, or `undefined`. */
   readonly rowClassFn = computed(() => this.provider().getRowClass as
     | ((params: { row: Record<string, unknown>; index: number }) => string)
+    | undefined);
+  readonly externalFilterFn = computed(() => this.provider().externalFilter as
+    | ((params: { row: Record<string, unknown>; index: number }) => boolean)
     | undefined);
   /** Host callback designating pinned rows, or `undefined`. */
   readonly pinRowFn = computed(() => this.provider().pinRow as
@@ -416,6 +420,9 @@ export class AgridComponent<T extends object = any> implements OnChanges {
    * provider predicate by {@link effectivePinRow}.
    */
   private readonly _pinnedRows = signal<Map<number, 'top' | 'bottom' | null>>(new Map());
+  readonly formulaBarDraft = signal('');
+  private readonly formulaBarFocused = signal(false);
+  private formulaBarEditCell: CellPosition | null = null;
 
   private readonly markedIndices = signal<Set<number>>(new Set());
   private readonly markedFields = signal<Set<string>>(new Set());
@@ -463,6 +470,13 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   getCurrentCell(): AgridCurrentCell<T> | null {
     return this.resolveCurrentCell(this.selectedCell());
   }
+
+  readonly formulaBarLabel = computed(() => {
+    const cell = this.selectedCell();
+    const col = cell ? this.visibleColDefs()[cell.colIndex] : null;
+    if (!cell || !col) return '';
+    return `${col.field}${cell.rowIndex + 1}`;
+  });
 
   private resolveCurrentCell(position: CellPosition | null): AgridCurrentCell<T> | null {
     if (!position) return null;
@@ -794,6 +808,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     pivotMode: this.pivotMode,
     expandedTreeIds: this.treeController.expandedIds,
     pinRow: this.effectivePinRow,
+    externalFilter: this.externalFilterFn,
     masterDetail: this.masterDetail,
     expandedDetailIds: this._expandedDetailIds,
   });
@@ -1624,6 +1639,23 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       this.cellSelect.emit(this.resolveCurrentCell(cell));
     });
 
+    effect(() => {
+      if (this.formulaBarFocused()) return;
+      const cell = this.selectedCell();
+      const editing = this.editingCell();
+      if (!cell) {
+        this.formulaBarDraft.set('');
+        return;
+      }
+      if (editing?.rowIndex === cell.rowIndex && editing.colIndex === cell.colIndex) {
+        this.formulaBarDraft.set(String(this.currentDraft() ?? ''));
+        return;
+      }
+      const row = this.dataSource().rows()[cell.rowIndex];
+      const col = this.visibleColDefs()[cell.colIndex];
+      this.formulaBarDraft.set(row && col ? String(row[col.field] ?? '') : '');
+    });
+
     afterNextRender(() => {
       this.viewReady = true;
       this.syncColumnViewportMetrics();
@@ -2122,6 +2154,11 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   getTextFilter(field: string): string { return this.columnMenuController.getTextFilter(field); }
 
+  /** @internal Complete filter snapshot for custom filter components. */
+  getColumnFilter(field: string): ColumnFilter {
+    return this.control()?.getFilter(field) ?? { text: '', selectedValues: null, sort: null };
+  }
+
   /** @internal Condition input type for a column, or `null` when unsupported. */
   getMenuFilterType(field: string): 'text' | 'number' | 'date' | null {
     return this.columnMenuController.getFilterType(field);
@@ -2277,6 +2314,74 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** @internal */
   onDraftChange(value: unknown): void { this.editController.setDraft(value); }
 
+  /** @internal */
+  onFormulaBarFocus(): void {
+    this.formulaBarFocused.set(true);
+    this.formulaBarEditCell = this.selectedCell();
+  }
+
+  /** @internal */
+  onFormulaBarInput(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.formulaBarEditCell ??= this.selectedCell();
+    this.formulaBarDraft.set(value);
+    const cell = this.selectedCell();
+    const editing = this.editingCell();
+    if (cell && editing?.rowIndex === cell.rowIndex && editing.colIndex === cell.colIndex) {
+      this.editController.setDraft(value);
+    }
+  }
+
+  /** @internal */
+  onFormulaBarBlur(): void {
+    if (!this.formulaBarFocused()) return;
+    this.commitFormulaBar(this.formulaBarEditCell);
+    this.finishFormulaBarInteraction();
+  }
+
+  /** @internal */
+  onFormulaBarKeydown(event: KeyboardEvent): void {
+    event.stopPropagation();
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (this.commitFormulaBar()) {
+        this.finishFormulaBarInteraction();
+        this.wrapperEl().nativeElement.focus();
+      }
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      this.resetFormulaBarDraft();
+    }
+  }
+
+  /** @internal */
+  commitFormulaBar(targetCell: CellPosition | null = this.formulaBarEditCell ?? this.selectedCell()): boolean {
+    const cell = targetCell;
+    if (!cell) return true;
+    const editing = this.editingCell();
+    if (editing?.rowIndex === cell.rowIndex && editing.colIndex === cell.colIndex) {
+      return this.editController.commit();
+    }
+    return this.editController.setCellValue(cell.rowIndex, cell.colIndex, this.formulaBarDraft());
+  }
+
+  private finishFormulaBarInteraction(): void {
+    this.formulaBarFocused.set(false);
+    this.formulaBarEditCell = null;
+    this.resetFormulaBarDraft();
+  }
+
+  private resetFormulaBarDraft(): void {
+    const cell = this.selectedCell();
+    if (!cell) {
+      this.formulaBarDraft.set('');
+      return;
+    }
+    const row = this.dataSource().rows()[cell.rowIndex];
+    const col = this.visibleColDefs()[cell.colIndex];
+    this.formulaBarDraft.set(row && col ? String(row[col.field] ?? '') : '');
+  }
+
   /** @internal A custom cell editor requested a commit (e.g. picking a value). */
   onEditorCommit(): void { this.editController.commit(); }
 
@@ -2329,6 +2434,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** @internal Main keyboard handler delegated from the wrapper div. */
   onKeyDown(event: KeyboardEvent): void {
+    if (this.isToolbarInputEvent(event)) return;
     if (event.key === 'Escape' && this.closeOpenMenus()) {
       event.preventDefault();
       event.stopPropagation();
@@ -2342,6 +2448,12 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     }
     if (this.focusDetailEditorFromKeyboard(event)) return;
     this.navigationController.handleKeyDown(event);
+  }
+
+  private isToolbarInputEvent(event: Event): boolean {
+    const target = event.target as Element | null;
+    if (!target?.closest('.ag-toolbar')) return false;
+    return target.matches('input, textarea, select, [contenteditable="true"]');
   }
 
   /** @internal Clears cell navigation while a header filter control owns focus. */
@@ -2716,6 +2828,11 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   }
 
   /** @internal */
+  onMenuReplaceFilter(field: string, filter: ColumnFilter): void {
+    this.columnMenuController.replaceFilter(field, filter);
+  }
+
+  /** @internal */
   onSidebarToggleColumn(field: string): void {
     this.columnMenuController.toggleColumnVisibility(field);
     this.emitSettingsChange();
@@ -2742,6 +2859,15 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     const start = Math.max(0, range.start - model.blockSize);
     const end = Math.max(range.end, range.start + model.blockSize) + model.blockSize;
     model.ensureRange(start, end);
+  }
+
+  /** Refresh the attached server-side row model and optionally reset vertical scroll to row zero. */
+  refreshServerSideRows(options: { purge?: boolean; resetScroll?: boolean } = {}): void {
+    const model = this.serverSideRowModel();
+    if (!model) return;
+    model.refresh({ purge: options.purge });
+    if (options.resetScroll && this.viewReady) this.viewport().scrollToIndex(0);
+    queueMicrotask(() => this.ensureServerRowsVisible());
   }
 
   /** @internal Keeps the row-delete prompt visible while columns scroll horizontally. */

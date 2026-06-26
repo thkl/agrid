@@ -76,7 +76,7 @@ export class AgridPresentationService {
     const locale = this.opts.locale();
     const body = rows
       .map(row => cols
-        .map(col => escape(getDisplayForField(col, row[col.field], locale)))
+        .map(col => escape(getDisplayForField(col, row[col.field], locale, row)))
         .join(','))
       .join('\n');
     this.browser.downloadText(
@@ -109,7 +109,7 @@ export class AgridPresentationService {
     return {
       name,
       header: cols.map(col => col.header),
-      rows: rows.map(row => ({ cells: cols.map(col => this.toXlsxCell(col, row[col.field], locale)) })),
+      rows: rows.map(row => ({ cells: cols.map(col => this.toXlsxCell(col, row[col.field], locale, row)) })),
     };
   }
 
@@ -132,7 +132,7 @@ export class AgridPresentationService {
       });
       rows.push({ cells: summary, level: 0, emphasized: true });
       for (const row of group.rows) {
-        rows.push({ cells: cols.map(col => this.toXlsxCell(col, row[col.field], locale)), level: 1 });
+        rows.push({ cells: cols.map(col => this.toXlsxCell(col, row[col.field], locale, row)), level: 1 });
       }
     }
     return { name, header: cols.map(col => col.header), rows, outline: true };
@@ -142,9 +142,11 @@ export class AgridPresentationService {
    * Maps a raw cell value to a typed spreadsheet cell so Excel keeps numbers and dates native
    * (sortable, summable). Mapped value lists and custom formatters fall back to display text.
    */
-  private toXlsxCell(col: ColDef, raw: unknown, locale: string): XlsxCell {
+  private toXlsxCell(col: ColDef, raw: unknown, locale: string, row?: Record<string, unknown>): XlsxCell {
     if (raw == null || raw === '') return { kind: 'empty' };
-    if (col.values?.length) return { kind: 'string', value: getDisplayForField(col, raw, locale) };
+    if (col.values?.length || col.formula) {
+      return { kind: 'string', value: getDisplayForField(col, raw, locale, row) };
+    }
     if (col.type === 'number' && typeof raw === 'number' && Number.isFinite(raw)) {
       return { kind: 'number', value: raw };
     }
@@ -153,6 +155,6 @@ export class AgridPresentationService {
       const date = raw instanceof Date ? raw : new Date(raw as string | number);
       if (!Number.isNaN(date.getTime())) return { kind: 'date', value: date };
     }
-    return { kind: 'string', value: getDisplayForField(col, raw, locale) };
+    return { kind: 'string', value: getDisplayForField(col, raw, locale, row) };
   }
 }

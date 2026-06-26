@@ -68,7 +68,7 @@ export class PageComponent {
 
 See [ROADMAP.md](./ROADMAP.md) for the AG Grid comparison checklist and open parity items.
 
-- Angular 21 standalone component.
+- Angular 21 and 22 standalone component.
 - CDK virtual scrolling for large row sets.
 - Signal-based data source and control state.
 - Editable text cells and select editors for fixed value columns.
@@ -265,6 +265,9 @@ readonly gridProvider = new AgridProvider({
 | `autoOpenDetail` | `boolean` | `false` | Opens the detail row automatically when a row is selected. |
 | `serverSideFiltering` | `boolean` | `false` | Emits filter/sort events instead of applying them locally and hides the value checklist. |
 | `filterDebounceMs` | `number` | `300` | Debounce delay for server-side `filterChange` events. Set to `0` to disable. |
+| `externalFilter` | `(params) => boolean` | `undefined` | Application-owned client-side predicate applied after built-in filters and quick filter. |
+| `enableQuickFilter` | `boolean` | `false` | Shows a global search box above the grid. In server-side mode it emits quick-filter requests instead of filtering locally. |
+| `showFormulaBar` | `boolean` | `false` | Shows an Excel-style input line above the grid for the selected cell's raw value. |
 | `menuBarItems` | `AgridMenuBarItem<T>[]` | `[]` | Optional buttons above the headers. Buttons may expose additional dropdown commands. |
 | `sortOption` | `'single' \| 'multi' \| 'none'` | `'multi'` | Allows one sort, multiple sorts, or disables sorting. |
 | `rowSelection` | `'single' \| 'multi' \| 'none'` | `'none'` | Row selection behavior. |
@@ -635,9 +638,14 @@ interface ColDef {
 | `colSpan` | No | Number of adjacent visible columns occupied by a cell, or a row-aware callback returning that number. Spans stop at pinned-pane boundaries. |
 | `locked` | No | Prevents the column from being hidden, reordered, or unpinned through the column menu. |
 | `values` | No | Fixed editor/filter values. Use `string[]` or `{ value, label }[]`. |
+| `editor` | No | Built-in editor: `'text'`, `'richSelect'`, `'largeText'`, or `'formula'`. |
+| `asyncValues` | No | Async option provider for the built-in rich-select editor. |
+| `formula` | No | Evaluates strings beginning with `=` for display, filtering, sorting, copy, and export while keeping the raw value in row data. |
 | `formatter` | No | Custom display formatter. Takes precedence over date auto-formatting. |
 | `inputMask` | No | Resolves a regular-expression input constraint for each string cell from its `row`, `value`, and `column`. Invalid proposed values are rejected. |
 | `filterable` | No | Enables text filter and value picker for the column. |
+| `filterComponent` | No | Standalone Angular component rendered in this column's filter menu. It injects `AGRID_FILTER_CONTEXT` and writes normal `ColumnFilter` state. |
+| `filterValueLimit` | No | Caps the number of value-filter choices rendered after mini-search matching. |
 | `groupable` | No | Enables "group by" in the column menu. |
 | `hidden` | No | Hides the column on first render. |
 | `pinned` | No | `'left'` or `'right'` to pin the column initially. Left-pinned columns render in a fixed pane before the scrollable area; right-pinned columns render in a fixed pane after it. |
@@ -750,6 +758,44 @@ const columns: ColDef[] = [
 ```
 
 The column sizes itself once on first render and then behaves like a normal resizable column.
+
+## Built-in Rich Editors and Formulas
+
+Use `ColDef.editor` when the default text input is too small but a custom Angular component would be
+overkill:
+
+```ts
+const columns: ColDef<Task>[] = [
+  {
+    field: 'assignee',
+    header: 'Assignee',
+    editor: 'richSelect',
+    asyncValues: () => fetch('/api/users').then(r => r.json()),
+  },
+  { field: 'notes', header: 'Notes', editor: 'largeText' },
+  {
+    field: 'budget',
+    header: 'Budget',
+    editor: 'formula',
+    formula: true,
+  },
+];
+
+const provider = new AgridProvider({
+  columns,
+  datasource,
+  showFormulaBar: true,
+});
+```
+
+`richSelect` searches through `values` and can load options from `asyncValues` when the editor
+opens. `largeText` renders a multiline textarea. `formula` gives the cell a formula-friendly input;
+set `formula: true` to evaluate raw strings that start with `=` for display, filtering, sorting,
+copy, and export. Formula evaluation uses a small parser in `agrid.utils.ts`; it does not call
+JavaScript `eval`.
+
+`showFormulaBar` adds an Excel-style input line above the grid. It edits the selected cell's raw
+value, which makes long text and formulas easier to work with than editing inside a narrow cell.
 
 ### Value Options
 

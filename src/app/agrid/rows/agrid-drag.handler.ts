@@ -77,7 +77,8 @@ export class AgridDragHandler {
   getGhostDisplay(col: ColDef): string {
     const idx = this.reorderOriginalIndex();
     if (idx === null) return '';
-    return getDisplayForField(col, this.opts.dataSource().rows()[idx]?.[col.field], this.opts.locale());
+    const row = this.opts.dataSource().rows()[idx];
+    return getDisplayForField(col, row?.[col.field], this.opts.locale(), row);
   }
 
   private readonly _reorderMove = (e: PointerEvent): void => {

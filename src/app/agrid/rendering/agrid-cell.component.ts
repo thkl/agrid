@@ -85,6 +85,40 @@ const EMPTY_CELL_FORMAT: CellFormat = {};
         >
           <ng-container [ngComponentOutlet]="editor" [ngComponentOutletInjector]="editorInjector" />
         </div>
+      } @else if (richSelectEditor()) {
+        <div class="ag-rich-select-editor" (keydown)="$event.stopPropagation()">
+          <input
+            #richSelectInput
+            class="ag-cell-input ag-rich-select-input"
+            [value]="richSelectSearch()"
+            (input)="onRichSelectSearch($event)"
+            [attr.placeholder]="asyncValueLoading() ? 'Loading...' : ''"
+          />
+          <div class="ag-rich-select-panel" role="listbox">
+            @if (asyncValueLoading()) {
+              <div class="ag-rich-select-empty">Loading...</div>
+            } @else {
+              @for (opt of filteredValueOptions(); track opt.label; let idx = $index) {
+                <button
+                  type="button"
+                  class="ag-rich-select-option"
+                  [class.ag-rich-select-option--active]="opt.rawValue === draft()"
+                  (click)="pickRichSelectOption(opt.rawValue)"
+                >{{ opt.label }}</button>
+              } @empty {
+                <div class="ag-rich-select-empty">No matches</div>
+              }
+            }
+          </div>
+        </div>
+      } @else if (largeTextEditor()) {
+        <textarea
+          #largeTextInput
+          class="ag-cell-large-text"
+          [class.ag-cell-input--invalid]="!!error()"
+          [value]="editorValue()"
+          (input)="onInput($event)"
+        ></textarea>
       } @else if (col().values?.length) {
         <select
           #editSelect
@@ -99,6 +133,7 @@ const EMPTY_CELL_FORMAT: CellFormat = {};
         <input
           #editInput
           class="ag-cell-input"
+          [class.ag-cell-input--formula]="formulaEditor()"
           [class.ag-cell-input--invalid]="!!error()"
           [type]="col().type === 'date' ? 'date' : 'text'"
           [attr.inputmode]="col().type === 'number' ? 'decimal' : null"
@@ -278,6 +313,10 @@ export class AgridCellComponent {
 
   /** Live draft value managed by the cell during an active edit. */
   readonly draft = signal<unknown>('');
+  readonly asyncValueOptions = signal<{ label: string; rawValue: unknown }[]>([]);
+  readonly asyncValueLoading = signal(false);
+  readonly richSelectSearch = signal('');
+  private asyncValueLoadId = 0;
 
   /**
    * Context exposed to a {@link ColDef.cellEditor} component via {@link AGRID_EDITOR_CONTEXT}.
@@ -366,11 +405,19 @@ export class AgridCellComponent {
    */
   readonly valueOptions = computed(() => {
     const vals = this.col().values ?? [];
-    return vals.map(v =>
+    const sync = vals.map(v =>
       typeof v === 'string'
         ? { label: v, rawValue: v as unknown }
         : { label: (v as ValueOption).label, rawValue: (v as ValueOption).value }
     );
+    return sync.length ? sync : this.asyncValueOptions();
+  });
+
+  readonly filteredValueOptions = computed(() => {
+    const search = this.richSelectSearch().toLowerCase();
+    return this.valueOptions()
+      .filter(item => !search || item.label.toLowerCase().includes(search))
+      .slice(0, Math.max(1, Math.floor(this.col().filterValueLimit ?? 100)));
   });
 
   /**
@@ -379,7 +426,7 @@ export class AgridCellComponent {
    */
   readonly displayValue = computed((): string => {
     return this.displayValueOverride()
-      ?? getDisplayForField(this.col(), this.value(), this.locale());
+      ?? getDisplayForField(this.col(), this.value(), this.locale(), this.row());
   });
 
   /**
@@ -394,10 +441,20 @@ export class AgridCellComponent {
 
   private readonly inputEl = viewChild<ElementRef<HTMLInputElement>>('editInput');
   private readonly selectEl = viewChild<ElementRef<HTMLSelectElement>>('editSelect');
+  private readonly largeTextEl = viewChild<ElementRef<HTMLTextAreaElement>>('largeTextInput');
+  private readonly richSelectEl = viewChild<ElementRef<HTMLInputElement>>('richSelectInput');
+
+  readonly richSelectEditor = computed(() =>
+    this.col().editor === 'richSelect'
+    || (!!this.col().asyncValues && this.editing()),
+  );
+  readonly largeTextEditor = computed(() => this.col().editor === 'largeText');
+  readonly formulaEditor = computed(() => this.col().editor === 'formula' || !!this.col().formula);
 
   constructor() {
     effect(() => {
       if (this.editing()) {
+        this.loadAsyncValues();
         const seed = this.seedChar();
         const isDate = this.col().type === 'date';
         const existingDate = isDate ? getDateInputValue(this.value()) : '';
@@ -424,6 +481,23 @@ export class AgridCellComponent {
               const len = displaySeed.length;
               input.setSelectionRange(len, len);
             }
+            return;
+          }
+
+          const largeText = this.largeTextEl()?.nativeElement;
+          if (largeText) {
+            largeText.value = String(acceptedInitialValue ?? '');
+            largeText.focus();
+            if (!seed && this.selectTextOnEdit()) largeText.select();
+            return;
+          }
+
+          const richSelect = this.richSelectEl()?.nativeElement;
+          if (richSelect) {
+            const current = this.valueOptions().find(option => option.rawValue === acceptedInitialValue);
+            this.richSelectSearch.set(seed || current?.label || String(acceptedInitialValue ?? ''));
+            richSelect.focus();
+            if (!seed) richSelect.select();
             return;
           }
 
@@ -466,7 +540,7 @@ export class AgridCellComponent {
 
   /** Forward `<input>` changes to the grid. */
   onInput(event: Event): void {
-    const input = event.target as HTMLInputElement;
+    const input = event.target as HTMLInputElement | HTMLTextAreaElement;
     const val = input.value;
     const mask = this.resolvedInputMask();
     if (mask && !matchesInputMask(val, mask)) {
@@ -491,5 +565,41 @@ export class AgridCellComponent {
     const rawValue = opts[idx]?.rawValue ?? '';
     this.draft.set(rawValue);
     this.draftChange.emit(rawValue);
+  }
+
+  onRichSelectSearch(event: Event): void {
+    this.richSelectSearch.set((event.target as HTMLInputElement).value);
+  }
+
+  pickRichSelectOption(rawValue: unknown): void {
+    this.draft.set(rawValue);
+    this.draftChange.emit(rawValue);
+    const selected = this.valueOptions().find(option => option.rawValue === rawValue);
+    this.richSelectSearch.set(selected?.label ?? String(rawValue ?? ''));
+    this.editorCommit.emit();
+  }
+
+  private loadAsyncValues(): void {
+    const provider = this.col().asyncValues;
+    if (!provider || this.col().values?.length) return;
+    const loadId = ++this.asyncValueLoadId;
+    this.asyncValueLoading.set(true);
+    Promise.resolve(provider({
+      row: this.row(),
+      value: this.value(),
+      column: this.col(),
+      originalIndex: this.rowIndex(),
+    })).then(values => {
+      if (loadId !== this.asyncValueLoadId) return;
+      this.asyncValueOptions.set(values.map(value =>
+        typeof value === 'string'
+          ? { label: value, rawValue: value as unknown }
+          : { label: (value as ValueOption).label, rawValue: (value as ValueOption).value },
+      ));
+    }).catch(() => {
+      if (loadId === this.asyncValueLoadId) this.asyncValueOptions.set([]);
+    }).finally(() => {
+      if (loadId === this.asyncValueLoadId) this.asyncValueLoading.set(false);
+    });
   }
 }

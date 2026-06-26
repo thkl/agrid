@@ -22,6 +22,7 @@
     <a href="#provider">Provider</a>
     <a href="#columns">Columns</a>
     <a href="#filtering">Filter reference</a>
+    <a href="#backend-contracts">Backend contracts</a>
     <a href="#treedata">Tree reference</a>
     <a href="#datasource">Data source</a>
     <a href="#control">Control</a>
@@ -122,7 +123,8 @@
       <h2>How to edit, validate, and save rows</h2>
       <p>
         Cells are editable by default. Disable editing per column or row, provide fixed values for
-        select editors, and reject invalid commits with a message.
+        select editors, use built-in rich select / large text / formula editors, and reject invalid
+        commits with a message.
       </p>
       <pre><code>{{ editingGuideCode }}</code></pre>
       <div class="guide-facts">
@@ -133,6 +135,17 @@
       <p>
         Use <code>showChangedCellIndicator</code> while a save request is pending, then call
         <code>clearChangedCells()</code> after the backend confirms success.
+      </p>
+      <h3>Built-in editors and formula bar</h3>
+      <p>
+        Set <code>editor</code> to <code>'richSelect'</code>, <code>'largeText'</code>, or
+        <code>'formula'</code> for richer edit surfaces without writing a custom component.
+        <code>richSelect</code> can load options from <code>asyncValues</code>. A column with
+        <code>formula: true</code> evaluates strings that start with <code>=</code> for display,
+        filtering, sorting, copy, and export while keeping the raw formula in row data.
+        <code>showFormulaBar</code> adds a wider Excel-style input above the grid for the selected
+        cell's raw value. Formula evaluation uses a small parser and does not call JavaScript
+        <code>eval</code>.
       </p>
     </section>
 
@@ -361,6 +374,7 @@
             <tr><td><code>clearMarkedRows()</code></td><td>Clears all rows marked for clipboard inclusion.</td></tr>
             <tr><td><code>saveSettings()</code></td><td>Returns a versioned, JSON-safe snapshot of pivot and control settings.</td></tr>
             <tr><td><code>loadSettings(settings)</code></td><td>Applies a saved snapshot to the live grid.</td></tr>
+            <tr><td><code>refreshServerSideRows(options?)</code></td><td>Refreshes an attached server-side row model. Use <code>purge: true</code> and <code>resetScroll: true</code> to clear cache and jump to row zero.</td></tr>
           </tbody>
         </table>
       </div>
@@ -404,7 +418,9 @@
             <tr><td><code>enableRowMarking</code></td><td><code>false</code></td><td>Shows row checkboxes in a 48 px control column and includes marked rows in every copy operation.</td></tr>
             <tr><td><code>showSidebar</code></td><td><code>false</code></td><td>Shows the column visibility sidebar.</td></tr>
             <tr><td><code>serverSideFiltering</code></td><td><code>false</code></td><td>Emits filter, sort, and quick-filter requests instead of applying them locally. See <a href="#filtering">Filtering</a>.</td></tr>
+            <tr><td><code>externalFilter</code></td><td><code>undefined</code></td><td>Application-owned client-side row predicate applied after built-in filters and quick filter.</td></tr>
             <tr><td><code>enableQuickFilter</code></td><td><code>false</code></td><td>Shows a search box above the grid that matches across all visible columns.</td></tr>
+            <tr><td><code>showFormulaBar</code></td><td><code>false</code></td><td>Shows an Excel-style input line for the currently selected cell's raw value.</td></tr>
             <tr><td><code>menuBarItems</code></td><td><code>[]</code></td><td>Optional command buttons above the headers, with dropdown items and runtime visible, active, and disabled states.</td></tr>
             <tr><td><code>sortOption</code></td><td><code>'multi'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
             <tr><td><code>rowSelection</code></td><td><code>'none'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
@@ -482,8 +498,13 @@
             <tr><td><code>validate</code></td><td>No</td><td>Rejects a committed value, returning an error message or <code>null</code>. See <a href="#filtering">Validation</a>.</td></tr>
             <tr><td><code>locked</code></td><td>No</td><td>Prevents hiding, reordering, and unpinning.</td></tr>
             <tr><td><code>values</code></td><td>No</td><td>Fixed editor and filter values or value-label pairs.</td></tr>
+            <tr><td><code>editor</code></td><td>No</td><td>Built-in editor: <code>'text'</code>, <code>'richSelect'</code>, <code>'largeText'</code>, or <code>'formula'</code>.</td></tr>
+            <tr><td><code>asyncValues</code></td><td>No</td><td>Async options for the built-in rich-select editor.</td></tr>
+            <tr><td><code>formula</code></td><td>No</td><td>Evaluates strings beginning with <code>=</code> as row-local formulas.</td></tr>
             <tr><td><code>formatter</code></td><td>No</td><td>Formats the displayed value.</td></tr>
             <tr><td><code>filterable</code></td><td>No</td><td>Enables the column filter UI.</td></tr>
+            <tr><td><code>filterComponent</code></td><td>No</td><td>Standalone custom filter component. It injects <code>AGRID_FILTER_CONTEXT</code> and writes normal <code>ColumnFilter</code> state.</td></tr>
+            <tr><td><code>filterValueLimit</code></td><td>No</td><td>Caps the number of value-filter choices rendered after mini-search matching.</td></tr>
             <tr><td><code>groupable</code></td><td>No</td><td>Enables grouping from the column menu.</td></tr>
             <tr><td><code>hidden</code></td><td>No</td><td>Hides the column initially.</td></tr>
             <tr><td><code>pinned</code></td><td>No</td><td>Pins to <code>'left'</code> or <code>'right'</code>.</td></tr>
@@ -555,6 +576,15 @@
       </p>
       <pre><code>{{ quickFilterCode }}</code></pre>
 
+      <h3>Custom and external filters</h3>
+      <p>
+        Use <code>filterComponent</code> when one column needs a custom menu surface. The component
+        injects <code>AGRID_FILTER_CONTEXT</code> and writes normal <code>ColumnFilter</code> state,
+        so persistence and server queries keep working. Use provider <code>externalFilter</code>
+        for filters owned by application UI outside the grid.
+      </p>
+      <pre><code>{{ customFilterCode }}</code></pre>
+
       <h3>Server-side filtering</h3>
       <p>
         With <code>serverSideFiltering: true</code> the grid never filters locally — it publishes
@@ -565,6 +595,13 @@
         quick-filter changes are debounced by <code>filterDebounceMs</code> (default 300 ms).
       </p>
       <pre><code>{{ serverSideCode }}</code></pre>
+
+      <h3>Large value lists</h3>
+      <p>
+        The value picker includes a mini-search and renders a capped number of matches. Set
+        <code>filterValueLimit</code> per column when a field has many distinct values.
+      </p>
+      <pre><code>{{ valueSearchCode }}</code></pre>
 
       <h3>Edit validation</h3>
       <p>
@@ -578,6 +615,28 @@
         <li>Rejected sidebar edits show the message under the field.</li>
         <li>Listen to <code>(validationFailed)</code> for <code>&#123; rowIndex, field, value, message, source &#125;</code>, where <code>source</code> is <code>'inline'</code> or <code>'sidebar'</code>.</li>
       </ul>
+    </section>
+
+    <section id="backend-contracts">
+      <h2>Backend contracts</h2>
+      <p>
+        Server-side filtering and the lazy row model both send JSON-safe models. Keep the backend
+        contract explicit so client and server agree on filters, sort priority, ranges, and totals.
+      </p>
+      <pre><code>{{ backendContractCode }}</code></pre>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Contract</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>filters</code></td><td>Record keyed by column field. <code>text</code>, <code>selectedValues</code>, and <code>operator</code>/<code>operand</code> are ANDed.</td></tr>
+            <tr><td><code>sort</code></td><td>Ordered array. Earlier entries have higher priority.</td></tr>
+            <tr><td><code>startRow</code>/<code>endRow</code></td><td><code>AgridServerQuery</code> uses an inclusive <code>endRow</code> for pages. <code>AgridServerSideRequest</code> uses a half-open block range: <code>startRow &lt;= row &lt; endRow</code>.</td></tr>
+            <tr><td><code>rowCount</code>/<code>totalRows</code></td><td>Return the total matching rows when known. The grid uses it for scrollbar height or page count.</td></tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <section id="treedata">

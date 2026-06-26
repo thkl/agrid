@@ -11,6 +11,15 @@ import { AgridComponent, AgridControl, AgridDataSource, ColDef } from '../agrid'
 import { AgridProvider } from '../agrid/agrid-provider';
 import { AGRID_EDITOR_CONTEXT } from '../agrid/editing/agrid-cell-editor';
 
+const TEAM_MEMBERS = [
+  'Avery Stone',
+  'Blair Kim',
+  'Casey Morgan',
+  'Devon Patel',
+  'Elliot Wu',
+  'Finley Garcia',
+];
+
 /* ------------------------------------------------------------------ *
  * Custom editor 1 — star rating. Commits as soon as the user picks.
  * ------------------------------------------------------------------ */
@@ -159,6 +168,17 @@ const COLUMNS: ColDef[] = [
   { field: 'id', header: '#', width: 50, editable: false, locked: true },
   { field: 'task', header: 'Task', width: 220, filterable: true },
   {
+    field: 'assignee',
+    header: 'Assignee',
+    width: 170,
+    editor: 'richSelect',
+    filterable: true,
+    asyncValues: async () => {
+      await new Promise(resolve => setTimeout(resolve, 180));
+      return TEAM_MEMBERS;
+    },
+  },
+  {
     field: 'rating', header: 'Rating', width: 130, type: 'number',
     cellEditor: StarRatingEditor,
     cellRenderer: ({ value }) => stars(Number(value)),
@@ -173,6 +193,23 @@ const COLUMNS: ColDef[] = [
     cellEditor: SliderEditor,
     cellRenderer: ({ value }) => progressBar(Number(value)),
   },
+  { field: 'estimate', header: 'Estimate', width: 96, type: 'number' },
+  { field: 'rate', header: 'Rate', width: 80, type: 'number' },
+  {
+    field: 'budget',
+    header: 'Budget',
+    width: 112,
+    formula: true,
+    editor: 'formula',
+    formatter: value => `$${value}`,
+  },
+  {
+    field: 'notes',
+    header: 'Notes',
+    width: 220,
+    editor: 'largeText',
+    filterable: true,
+  },
 ];
 
 const TASKS = [
@@ -185,9 +222,14 @@ function makeRows(n: number) {
   return Array.from({ length: n }, (_, i) => ({
     id: i + 1,
     task: TASKS[i % TASKS.length],
+    assignee: TEAM_MEMBERS[(i * 2) % TEAM_MEMBERS.length],
     rating: (i % 5) + 1,
     priority: PRIORITY_COLORS[i % PRIORITY_COLORS.length],
     progress: Math.round(((i * 17) % 100) / 5) * 5,
+    estimate: 2 + (i % 6),
+    rate: 120 + (i % 4) * 25,
+    budget: '=estimate * rate',
+    notes: `Planning notes for ${TASKS[i % TASKS.length]}. Double-click to edit this larger text block.`,
   }));
 }
 
@@ -199,7 +241,7 @@ function makeRows(n: number) {
     <div class="demo-wrap">
       <div class="demo-header">
         <h2>Custom editors</h2>
-        <span class="demo-meta">cellEditor · AGRID_EDITOR_CONTEXT · double-click a cell to edit</span>
+        <span class="demo-meta">custom components · async rich select · large text · formulas</span>
       </div>
       <agrid class="demo-grid" [provider]="provider" />
     </div>
@@ -227,6 +269,7 @@ export class CustomEditorsDemoComponent {
     control: new AgridControl(),
     zebraStripes: true,
     showControlColumn: true,
+    showFormulaBar: true,
     rowSelection: 'single',
   });
 

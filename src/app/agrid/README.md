@@ -1,6 +1,6 @@
 # @thkl/agrid
 
-A signal-based, standalone data grid for Angular 21 with virtual scrolling, editing,
+A signal-based, standalone data grid for Angular 21 and 22 with virtual scrolling, editing,
 filtering, sorting, grouping, tree data, pinned columns, selection, clipboard operations,
 pagination, and linked SVG charts/graphs.
 

@@ -148,6 +148,12 @@
       </div>
     }
 
+    @if (column()?.filterComponent && customFilterInjector(); as customInjector) {
+      <div class="ag-filter-menu-section ag-filter-menu-section--border ag-filter-menu-custom-filter">
+        <ng-container *ngComponentOutlet="column()!.filterComponent ?? null; injector: customInjector" />
+      </div>
+    }
+
     @if (showValueFilter()) {
       <div class="ag-filter-menu-section ag-filter-menu-section--border">
         <input

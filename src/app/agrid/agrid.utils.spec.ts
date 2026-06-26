@@ -12,6 +12,7 @@ import {
   buildSelectionRange,
   buildTreeItems,
   coerceDateInputValue,
+  evaluateFormula,
   formatDateValue,
   getDateInputValue,
   getDisplayForField,
@@ -149,6 +150,38 @@ describe('getDisplayForField', () => {
   it('returns String(raw) as final fallback', () => {
     const col: ColDef = { field: 'count', header: 'Count' };
     expect(getDisplayForField(col, 99)).toBe('99');
+  });
+
+  it('evaluates formula cells against the current row', () => {
+    const col: ColDef = { field: 'total', header: 'Total', formula: true };
+    expect(getDisplayForField(col, '=quantity * unitPrice', undefined, {
+      quantity: 4,
+      unitPrice: 12.5,
+    })).toBe('50');
+  });
+
+  it('applies formatters to evaluated formula results', () => {
+    const col: ColDef = {
+      field: 'total',
+      header: 'Total',
+      formula: true,
+      formatter: value => `$${value}`,
+    };
+    expect(getDisplayForField(col, '=hours * rate', undefined, { hours: 3, rate: 80 })).toBe('$240');
+  });
+});
+
+describe('evaluateFormula', () => {
+  it('supports arithmetic, parentheses, unary operators, and bracket field references', () => {
+    expect(evaluateFormula('=([unit price] * quantity) - discount', {
+      'unit price': 10,
+      quantity: 3,
+      discount: 5,
+    })).toEqual({ ok: true, value: 25 });
+  });
+
+  it('rejects invalid references', () => {
+    expect(evaluateFormula('=missing + 1', {})).toMatchObject({ ok: false });
   });
 });
 

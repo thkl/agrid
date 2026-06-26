@@ -13,6 +13,8 @@ export { AGRID_EDITOR_CONTEXT } from './editing/agrid-cell-editor';
 export type { AgridEditorContext } from './editing/agrid-cell-editor';
 export { AGRID_RENDERER_CONTEXT } from './rendering/agrid-cell-renderer';
 export type { AgridRendererContext } from './rendering/agrid-cell-renderer';
+export { AGRID_FILTER_CONTEXT } from './columns/agrid-filter-component';
+export type { AgridFilterContext } from './columns/agrid-filter-component';
 export { AgridChartComponent } from './rendering/agrid-chart.component';
 export { AgridChartProvider } from './agrid-chart-provider';
 export type { AgridChartProviderConfig } from './agrid-chart-provider';
@@ -49,6 +51,7 @@ export type {
   AgridServerSideRequest,
   AgridServerSideResult,
   AgridServerSideRowModelConfig,
+  AgridServerSideRefreshOptions,
   AgridServerSideSort,
 } from './agrid-server-side-row-model';
 export type { AgridTreeProviderConfig } from './agrid-tree-provider';
@@ -63,12 +66,15 @@ export type {
   AgridMenuBarState,
   AgridPivotConfig,
   AgridAggregate,
+  AgridAsyncValues,
+  AgridBuiltInEditor,
   AgridParentTreeConfig,
   AgridPathSegmentParams,
   AgridPathTreeConfig,
   AgridSelectionSummary,
   AgridServerQuery,
   AgridServerSort,
+  AsyncValueOptionsParams,
   AgridColumnHeaderMenuItem,
   AgridTreeConfig,
   AgridTreeNodeEvent,

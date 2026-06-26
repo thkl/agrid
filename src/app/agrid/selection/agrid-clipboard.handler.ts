@@ -99,7 +99,7 @@ export class AgridClipboardHandler {
       const col = cols[colIndex];
       if (!col) continue;
       cells.push(this.escapeTsvValue(
-        getDisplayForField(col, row[col.field], this.opts.locale())
+        getDisplayForField(col, row[col.field], this.opts.locale(), row)
       ));
     }
     return cells.join('\t');

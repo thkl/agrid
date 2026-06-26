@@ -87,7 +87,7 @@ export class AgridDetailController<T extends object = any> {
   /** Formatted value shown while a configured detail field is not being edited. */
   detailFieldDisplay(item: DetailRowItem): string {
     const col = this.opts.detailColumn();
-    return col ? getDisplayForField(col, item.row[col.field], this.opts.locale()) : '';
+    return col ? getDisplayForField(col, item.row[col.field], this.opts.locale(), item.row) : '';
   }
 
   /** Whether the configured detail field can be edited for this row. */

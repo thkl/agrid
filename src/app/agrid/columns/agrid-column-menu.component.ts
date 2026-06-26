@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  Injector,
   afterNextRender,
   computed,
   effect,
@@ -11,10 +12,12 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { NgComponentOutlet } from '@angular/common';
+import { AgridControl, ColumnFilter, FilterOperator } from '../agrid-control';
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from '../agrid-localization';
-import { FilterOperator } from '../agrid-control';
 import { AgridBrowserAdapter } from '../infrastructure/agrid-browser.adapter';
-import { AgridColumnHeaderMenuItem } from '../agrid.types';
+import { AgridColumnHeaderMenuItem, ColDef } from '../agrid.types';
+import { AGRID_FILTER_CONTEXT, AgridFilterContext } from './agrid-filter-component';
 
 /** Clamp a floating menu so it remains inside the browser viewport. @internal */
 export function fitColumnMenuToViewport(
@@ -48,12 +51,14 @@ export interface AgridColumnMenuValueItem {
 @Component({
   selector: 'agrid-column-menu',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [NgComponentOutlet],
   templateUrl: './agrid-column-menu.component.html',
   styleUrl: './agrid-column-menu.component.css',
 })
 export class AgridColumnMenuComponent {
   private readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
   private readonly browser = new AgridBrowserAdapter();
   private resizeObserver: ResizeObserver | null = null;
 
@@ -101,6 +106,18 @@ export class AgridColumnMenuComponent {
 
   /** Whether the active column supports value-filter controls. */
   filterable = input<boolean>(false);
+
+  /** Column definition for custom filter components. */
+  column = input<ColDef | null>(null);
+
+  /** Shared control that owns the active filter state. */
+  control = input<AgridControl | null>(null);
+
+  /** Current filter snapshot for the active column. */
+  filter = input<ColumnFilter>({ text: '', selectedValues: null, sort: null });
+
+  /** Emits a complete filter replacement from a custom filter component. */
+  filterReplace = output<ColumnFilter>();
 
   /** Whether clear-filter commands are shown above the condition controls. */
   showFilterActions = input<boolean>(true);
@@ -237,6 +254,27 @@ export class AgridColumnMenuComponent {
   readonly operandInputType = computed(() =>
     this.filterType() === 'date' ? 'date' : this.filterType() === 'number' ? 'number' : 'text',
   );
+
+  readonly customFilterInjector = computed(() => {
+    const column = this.column();
+    if (!column?.filterComponent) return null;
+    const context: AgridFilterContext = {
+      field: column.field,
+      column,
+      control: this.control(),
+      filter: computed(() => this.filter()),
+      setFilter: filter => this.filterReplace.emit(filter),
+      clear: () => this.clearFilter.emit(),
+      close: () => this.close.emit(),
+    };
+    return Injector.create({
+      providers: [{ provide: AGRID_FILTER_CONTEXT, useValue: context }],
+      parent: this.injector,
+    });
+  });
+
+  /** Requests closing the menu after a custom filter action. */
+  close = output<void>();
 
   constructor() {
     effect(() => {

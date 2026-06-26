@@ -38,6 +38,8 @@
 :host(.editing) {
   padding: 0;
   background: var(--agrid-color-bg);
+  overflow: visible;
+  z-index: 6;
 }
 
 .ag-cell-value {
@@ -151,6 +153,85 @@
   box-sizing: border-box;
   background: transparent;
   cursor: pointer;
+}
+
+.ag-cell-large-text {
+  position: absolute;
+  z-index: 8;
+  top: 0;
+  left: 0;
+  width: min(360px, max(100%, 280px));
+  min-height: 116px;
+  border: 1px solid var(--agrid-color-accent);
+  outline: none;
+  resize: both;
+  font: inherit;
+  line-height: 1.4;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  color: var(--agrid-color-text);
+  background: var(--agrid-color-bg);
+  box-shadow: 0 8px 24px var(--agrid-color-shadow);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.ag-cell-input--formula {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  color: var(--agrid-color-accent-fg);
+  background: var(--agrid-color-accent-subtle);
+}
+
+.ag-rich-select-editor {
+  position: absolute;
+  z-index: 8;
+  top: 0;
+  left: 0;
+  width: min(320px, max(100%, 240px));
+  color: var(--agrid-color-text);
+  background: var(--agrid-color-bg);
+  border: 1px solid var(--agrid-color-accent);
+  box-shadow: 0 8px 24px var(--agrid-color-shadow);
+}
+
+.ag-rich-select-input {
+  height: 32px;
+  border-bottom: 1px solid var(--agrid-color-border);
+}
+
+.ag-rich-select-panel {
+  max-height: 180px;
+  overflow: auto;
+  padding: 3px;
+  background: var(--agrid-color-bg);
+}
+
+.ag-rich-select-option {
+  display: block;
+  width: 100%;
+  min-height: 26px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--agrid-color-text);
+  font: inherit;
+  line-height: 1.2;
+  text-align: left;
+  padding: 4px 7px;
+  cursor: pointer;
+}
+
+.ag-rich-select-option:hover,
+.ag-rich-select-option--active {
+  background: var(--agrid-color-accent-subtle);
+  color: var(--agrid-color-accent-fg);
+}
+
+.ag-rich-select-empty {
+  padding: 7px;
+  color: var(--agrid-color-text-muted);
+  font-size: 12px;
+  line-height: 1.3;
 }
 
 .ag-cell-checkbox {

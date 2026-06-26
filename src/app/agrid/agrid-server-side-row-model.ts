@@ -50,6 +50,12 @@ interface ServerQuery {
   quickFilter: string;
 }
 
+/** Refresh behavior for server-side block cache invalidation. */
+export interface AgridServerSideRefreshOptions {
+  /** When `true`, clear all cached rows and replace them with placeholders. @default true */
+  purge?: boolean;
+}
+
 /**
  * Sparse datasource that lazy-loads row blocks while retaining global datasource indices.
  * Attach it to an `AgridProvider` through `serverSideRowModel`.
@@ -62,6 +68,7 @@ export class AgridServerSideRowModel<T extends object = any> extends AgridDataSo
   private slots: (T | ServerRowPlaceholder)[] = [];
   private readonly loadedBlocks = new Map<number, number>();
   private readonly loadingBlocks = new Set<number>();
+  private readonly failedBlocks = new Set<number>();
   private query: ServerQuery = { filters: {}, sort: [], quickFilter: '' };
   private queryKey = '';
   private generation = 0;
@@ -104,9 +111,40 @@ export class AgridServerSideRowModel<T extends object = any> extends AgridDataSo
     return true;
   }
 
-  /** Invalidate all cached blocks while preserving a known total row count. */
-  refresh(): void {
-    this.reset();
+  /** Invalidate cached blocks while preserving the current query and known total row count. */
+  refresh(options: AgridServerSideRefreshOptions = {}): void {
+    const purge = options.purge ?? true;
+    this.generation++;
+    this.loadingBlocks.clear();
+    this.failedBlocks.clear();
+    this._loading.set(false);
+    this._error.set(null);
+    if (purge) {
+      this.loadedBlocks.clear();
+      const length = this.knownRowCount ? this._rowCount() : this.blockSize;
+      this.replaceSlots(this.createPlaceholders(length));
+    } else {
+      this.loadedBlocks.clear();
+    }
+  }
+
+  /** Clear the block cache and show placeholders until requested blocks are reloaded. */
+  purgeCache(): void {
+    this.refresh({ purge: true });
+  }
+
+  /** Retry the most recently failed block, or a specific block index when supplied. */
+  retryFailedBlock(block?: number): void {
+    const target = block ?? [...this.failedBlocks].at(-1);
+    if (target === undefined) return;
+    this.failedBlocks.delete(target);
+    this.loadedBlocks.delete(target);
+    void this.loadBlock(target);
+  }
+
+  /** Failed block indices that can be passed to {@link retryFailedBlock}. */
+  failedBlockIndices(): number[] {
+    return [...this.failedBlocks].sort((left, right) => left - right);
   }
 
   /** Ensure every block intersecting the requested half-open range is loaded. */
@@ -129,6 +167,7 @@ export class AgridServerSideRowModel<T extends object = any> extends AgridDataSo
     this.generation++;
     this.loadedBlocks.clear();
     this.loadingBlocks.clear();
+    this.failedBlocks.clear();
     this._loading.set(false);
     this._error.set(null);
     const length = this.knownRowCount ? this._rowCount() : this.blockSize;
@@ -156,9 +195,13 @@ export class AgridServerSideRowModel<T extends object = any> extends AgridDataSo
       });
       if (generation !== this.generation) return;
       this.applyBlock(block, startRow, result);
+      this.failedBlocks.delete(block);
       this._error.set(null);
     } catch (error) {
-      if (generation === this.generation) this._error.set(error);
+      if (generation === this.generation) {
+        this.failedBlocks.add(block);
+        this._error.set(error);
+      }
     } finally {
       if (generation === this.generation) {
         this.loadingBlocks.delete(block);

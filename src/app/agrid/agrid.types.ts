@@ -178,6 +178,42 @@ export interface ValueOption<TValue = unknown> {
   label: string;
 }
 
+/**
+ * Built-in editor surfaces available without registering a custom Angular component.
+ *
+ * - `'text'` uses the default single-line input.
+ * - `'largeText'` uses a multiline textarea for longer content.
+ * - `'richSelect'` uses a searchable select surface backed by `values` or `asyncValues`.
+ * - `'formula'` uses a formula-friendly input. Pair it with {@link ColDefBase.formula} to
+ *   evaluate strings that start with `=`.
+ */
+export type AgridBuiltInEditor = 'text' | 'largeText' | 'richSelect' | 'formula';
+
+/** Parameters passed to {@link ColDefBase.asyncValues} when the rich-select editor opens. */
+export interface AsyncValueOptionsParams<
+  T extends object = any,
+  K extends AgridField<T> = AgridField<T>,
+> {
+  /** Row currently being edited. */
+  row: T;
+  /** Current raw value stored in the edited cell. */
+  value: T[K];
+  /** Column definition for the edited cell. */
+  column: ColDef<T, K>;
+  /** Original datasource index for the edited row. */
+  originalIndex: number;
+}
+
+/**
+ * Sync or async value options used by the built-in rich-select editor.
+ *
+ * Strings are stored and displayed as-is. {@link ValueOption} entries display `label` while
+ * committing `value` into the datasource.
+ */
+export type AgridAsyncValues<TValue = unknown> =
+  | readonly (string | ValueOption<TValue>)[]
+  | Promise<readonly (string | ValueOption<TValue>)[]>;
+
 /** Width sentinel that makes a column fill the remaining horizontal space. */
 export const ColDefAutoSize = -1;
 
@@ -288,6 +324,24 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
    */
   values?: string[] | ValueOption<T[K]>[];
   /**
+   * Built-in editor to use for this column.
+   * - `'richSelect'` renders a searchable select surface and can load async values.
+   * - `'largeText'` renders a multiline textarea for longer notes.
+   * - `'formula'` renders a formula input. Pair with `formula: true` to evaluate formulas.
+   * - `'text'` forces the default text input.
+   */
+  editor?: AgridBuiltInEditor;
+  /**
+   * Values loaded when the built-in rich-select editor opens. Use this for large or remote option
+   * lists. Static `values` are used immediately; `asyncValues` can return a Promise.
+   */
+  asyncValues?: (params: AsyncValueOptionsParams<T, K>) => AgridAsyncValues<T[K]>;
+  /**
+   * Evaluate strings beginning with `=` as row-local formulas for display, filtering, and export.
+   * Formulas support arithmetic, parentheses, and field-name references from the same row.
+   */
+  formula?: boolean;
+  /**
    * Optional display formatter applied when the column has no `values` list.
    * Receives the raw cell value and returns the string to display in the cell.
    *
@@ -321,6 +375,16 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
    * At least one filterable column must exist for the filter row to appear.
    */
   filterable?: boolean;
+  /**
+   * Custom component rendered inside this column's filter menu.
+   * The component injects `AGRID_FILTER_CONTEXT` to read and update the field filter.
+   */
+  filterComponent?: Type<unknown>;
+  /**
+   * Maximum number of value-filter choices rendered at once. Search still runs against the full
+   * value list, then caps the displayed matches. Defaults to `250`.
+   */
+  filterValueLimit?: number;
   /**
    * Set to `true` to allow grouping the grid by this column.
    * When set, the filter dropdown shows a "Group by" toggle for this column.

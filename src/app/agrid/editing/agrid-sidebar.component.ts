@@ -212,7 +212,7 @@ export class AgridSidebarComponent {
       }
       return {
         label: col.header,
-        value: getDisplayForField(col, rawValue, locale),
+        value: getDisplayForField(col, rawValue, locale, row),
         rawValue,
         inputValue,
         hidden: hiddenColumns.has(col.field),

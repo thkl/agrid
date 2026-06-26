@@ -645,6 +645,19 @@ export class AgridControl {
     return this._filters()[field] ?? { text: '', selectedValues: null, sort: null };
   }
 
+  /** Replace the complete filter/sort state for one field. */
+  setFilter(field: string, filter: ColumnFilter): void {
+    const nextFilter = this.cloneFilters({ [field]: filter })[field];
+    this._filters.update(filters => ({
+      ...filters,
+      [field]: nextFilter,
+    }));
+    this._sortOrder.update(order => {
+      const withoutField = order.filter(item => item !== field);
+      return nextFilter.sort ? [...withoutField, field] : withoutField;
+    });
+  }
+
   /** Return a detached JSON-safe snapshot of active column filters, quick filter, and sort order. */
   getFilterModel(): AgridFilterModel {
     return {

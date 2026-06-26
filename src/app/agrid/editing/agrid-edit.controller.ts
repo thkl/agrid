@@ -141,20 +141,23 @@ export class AgridEditController {
     if (!this.isCellEditable(col, rowIndex)) return false;
     const row = this.opts.dataSource().getRow(rowIndex);
     const oldValue = row[col.field];
-    if (oldValue === newValue) return true;
-    const message = col.validate?.(newValue as never, row as never) ?? null;
+    const storedValue = col.type === 'number'
+      ? coerceNumberInputValue(newValue)
+      : newValue;
+    if (oldValue === storedValue) return true;
+    const message = col.validate?.(storedValue as never, row as never) ?? null;
     if (message) {
       this.validationError.set({ rowIndex, colIndex, field: col.field, message });
-      this.opts.onValidationFailed({ rowIndex, field: col.field, value: newValue, message });
+      this.opts.onValidationFailed({ rowIndex, field: col.field, value: storedValue, message });
       return false;
     }
-    this.opts.dataSource().patchRow(rowIndex, { [col.field]: newValue });
-    this.opts.control()?.pushEdit({ rowIndex, field: col.field, oldValue, newValue });
+    this.opts.dataSource().patchRow(rowIndex, { [col.field]: storedValue });
+    this.opts.control()?.pushEdit({ rowIndex, field: col.field, oldValue, newValue: storedValue });
     this.opts.onCellEdit({
       position: { rowIndex, colIndex },
       field: col.field,
       oldValue,
-      newValue,
+      newValue: storedValue,
     });
     this.validationError.set(null);
     return true;

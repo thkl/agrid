@@ -272,6 +272,84 @@ describe('AgridCellComponent custom renderer', () => {
     expect(drafts).toEqual(['Done']);
   });
 
+  it('renders the built-in large text editor', async () => {
+    fixture.componentRef.setInput('col', {
+      field: 'notes',
+      header: 'Notes',
+      editor: 'largeText',
+    });
+    fixture.componentRef.setInput('value', 'Long note');
+    fixture.componentRef.setInput('row', { notes: 'Long note' });
+    fixture.componentRef.setInput('editing', true);
+    const drafts: unknown[] = [];
+    fixture.componentInstance.draftChange.subscribe(value => drafts.push(value));
+    fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    fixture.detectChanges();
+
+    const textarea = fixture.nativeElement.querySelector('.ag-cell-large-text') as HTMLTextAreaElement;
+    expect(textarea.value).toBe('Long note');
+
+    textarea.value = 'Updated note';
+    textarea.dispatchEvent(new Event('input'));
+
+    expect(drafts).toEqual(['Updated note']);
+  });
+
+  it('loads async values for the built-in rich select editor and commits a picked option', async () => {
+    fixture.componentRef.setInput('col', {
+      field: 'assignee',
+      header: 'Assignee',
+      editor: 'richSelect',
+      asyncValues: async () => ['Alice', 'Bob'],
+    });
+    fixture.componentRef.setInput('value', 'Alice');
+    fixture.componentRef.setInput('row', { assignee: 'Alice' });
+    fixture.componentRef.setInput('editing', true);
+    const drafts: unknown[] = [];
+    let commits = 0;
+    fixture.componentInstance.draftChange.subscribe(value => drafts.push(value));
+    fixture.componentInstance.editorCommit.subscribe(() => commits++);
+    fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.ag-rich-select-input') as HTMLInputElement;
+    input.value = 'bo';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const options = [...fixture.nativeElement.querySelectorAll('.ag-rich-select-option')] as HTMLButtonElement[];
+    expect(options.map(option => option.textContent?.trim())).toEqual(['Bob']);
+    options[0].click();
+
+    expect(drafts).toEqual(['Bob']);
+    expect(commits).toBe(1);
+  });
+
+  it('displays formula results and renders a formula editor for formula columns', async () => {
+    fixture.componentRef.setInput('col', {
+      field: 'budget',
+      header: 'Budget',
+      formula: true,
+      editor: 'formula',
+      formatter: (value: unknown) => `$${value}`,
+    });
+    fixture.componentRef.setInput('value', '=estimate * rate');
+    fixture.componentRef.setInput('row', { estimate: 3, rate: 120, budget: '=estimate * rate' });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.ag-cell-value').textContent).toBe('$360');
+
+    fixture.componentRef.setInput('editing', true);
+    fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('.ag-cell-input--formula') as HTMLInputElement;
+    expect(input.value).toBe('=estimate * rate');
+  });
+
   it('resolves and applies an input mask for the current row and cell', async () => {
     const row = { reference: '123456', numeric: true };
     let received: unknown;
