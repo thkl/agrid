@@ -119,18 +119,22 @@ describe('AgridProvider export bridge', () => {
     const provider = new AgridProvider({ columns: [{ field: 'a', header: 'A' }] });
     expect(() => provider.exportCsv()).not.toThrow();
     expect(() => provider.exportXlsx()).not.toThrow();
+    expect(() => provider.exportXls()).not.toThrow();
   });
 
   it('delegates to the attached bridge with the resolved filename, and detaches on null', () => {
     const provider = new AgridProvider({ columns: [{ field: 'a', header: 'A' }] });
     const csv: string[] = [];
     const xlsx: string[] = [];
-    provider.ɵattachExport({ csv: f => csv.push(f), xlsx: f => xlsx.push(f) });
+    const xls: string[] = [];
+    provider.ɵattachExport({ csv: f => csv.push(f), xlsx: f => xlsx.push(f), xls: f => xls.push(f) });
 
     provider.exportCsv();
     provider.exportXlsx('report.xlsx');
+    provider.exportXls('legacy.xls');
     expect(csv).toEqual(['export.csv']); // default filename
     expect(xlsx).toEqual(['report.xlsx']);
+    expect(xls).toEqual(['legacy.xls']);
 
     provider.ɵattachExport(null);
     provider.exportCsv();

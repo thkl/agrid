@@ -9,6 +9,7 @@
     "build:lib": "node scripts/bump-library-version.mjs && ng build agrid-package",
     "build:demo": "ng build",
     "copy:local": "node scripts/copy-library-source.mjs",
+    "tag:version": "node scripts/tag-version.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "pretest": "pnpm test:localization",
