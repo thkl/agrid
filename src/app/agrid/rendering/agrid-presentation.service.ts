@@ -1,6 +1,5 @@
 import { Signal } from '@angular/core';
 import { AgridBrowserAdapter } from '../infrastructure/agrid-browser.adapter';
-import { XLS_CONTENT_TYPE, buildXls } from '../infrastructure/agrid-xls';
 import { XLSX_CONTENT_TYPE, XlsxCell, XlsxRow, XlsxSheet, buildXlsx } from '../infrastructure/agrid-xlsx';
 import { AgridControl } from '../agrid-control';
 import { AgridExportGroup, ColDef } from '../agrid.types';
@@ -99,14 +98,6 @@ export class AgridPresentationService {
       ? this.buildGroupedSheet(sheetName, cols, groups, locale)
       : this.buildFlatSheet(sheetName, cols, this.opts.exportRows(), locale);
     this.browser.downloadBytes(filename, buildXlsx([sheet]), XLSX_CONTENT_TYPE);
-  }
-
-  /** Downloads a minimal BIFF8 `.xls` workbook for legacy importers. */
-  exportXls(filename: string, sheetName = 'Sheet1'): void {
-    const cols = this.opts.visibleColDefs();
-    const locale = this.opts.locale();
-    const sheet = this.buildFlatSheet(sheetName, cols, this.opts.exportRows(), locale);
-    this.browser.downloadBytes(filename, buildXls([sheet]), XLS_CONTENT_TYPE);
   }
 
   private buildFlatSheet(

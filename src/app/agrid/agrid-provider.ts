@@ -242,7 +242,6 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
 export interface AgridExportBridge {
   csv: (filename: string) => void;
   xlsx: (filename: string) => void;
-  xls: (filename: string) => void;
 }
 
 export class AgridProvider<T extends object = any> {
@@ -557,18 +556,6 @@ export class AgridProvider<T extends object = any> {
    */
   exportXlsx(filename = 'export.xlsx'): void {
     this.exportBridge?.xlsx(filename);
-  }
-
-  /**
-   * Download the grid's current filtered, visible rows as a minimal legacy `.xls` workbook.
-   *
-   * This writer targets import compatibility with simple BIFF8 readers. It supports plain typed
-   * cells but intentionally omits richer Excel features such as formulas, styling, and outlines.
-   *
-   * @param filename  Output filename, defaults to `'export.xls'`.
-   */
-  exportXls(filename = 'export.xls'): void {
-    this.exportBridge?.xls(filename);
   }
 
   /**

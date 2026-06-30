@@ -1574,7 +1574,6 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       provider.ɵattachExport({
         csv: filename => this.presentation.exportCsv(filename),
         xlsx: filename => this.presentation.exportXlsx(filename),
-        xls: filename => this.presentation.exportXls(filename),
       });
       onCleanup(() => provider.ɵattachExport(null));
     });

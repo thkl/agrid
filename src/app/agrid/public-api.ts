@@ -19,7 +19,7 @@ export { AgridChartComponent } from './rendering/agrid-chart.component';
 export { AgridChartProvider } from './agrid-chart-provider';
 export type { AgridChartProviderConfig } from './agrid-chart-provider';
 export { AGRID_CHART_PALETTE, buildChart } from './infrastructure/agrid-chart';
-export { XLS_CONTENT_TYPE, buildXls } from './infrastructure/agrid-xls';
+export { XLS_CONTENT_TYPE, buildXlsFromTemplate } from './infrastructure/agrid-xls';
 export type { XlsCell, XlsSheet } from './infrastructure/agrid-xls';
 export type {
   AgridChartData,
