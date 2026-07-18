@@ -343,6 +343,29 @@ readonly treeProvider = new AgridTreeProvider<Node>({
 <agrid-tree [provider]="treeProvider" (nodeClick)="openNode($event)" />
 ```
 
+For server-backed trees, keep the same parent/id config and add `serverTree`. The component calls
+`loadRoot` once on startup and calls `loadChildren` the first time a branch expands. Use
+`hasChildren` when the server knows a node has children before those rows are loaded locally; the
+tree shows a spinner while each request is pending.
+
+```ts
+readonly treeProvider = new AgridTreeProvider<Node>({
+  datasource: new AgridDataSource<Node>(),
+  treeConfig: {
+    getId: node => node.id,
+    getParentId: node => node.parentId,
+    treeField: 'name',
+  },
+  serverTree: {
+    loadRoot: () => api.getTreeRoot(),
+    loadChildren: ({ id }) => api.getTreeChildren(id),
+    hasChildren: node => node.hasChildren,
+    rootLoadingText: 'Loading root configuration',
+    childLoadingText: 'Loading child nodes',
+  },
+});
+```
+
 ### Client-side pivot
 
 The first pivot slice creates a read-only table from one row dimension, one column dimension, and

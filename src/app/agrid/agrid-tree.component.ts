@@ -68,7 +68,7 @@ export class AgridTreeComponent<T extends object = any> {
     return projected.filter((item): item is StandaloneTreeItem<T> =>
       item !== null && typeof item === 'object' && 'level' in item
       && ('pathNodeId' in item || 'row' in item),
-    );
+    ).map(item => this.withServerExpansionState(provider, item));
   });
 
   constructor() {
@@ -78,7 +78,15 @@ export class AgridTreeComponent<T extends object = any> {
       this.initializedProvider = provider;
       this.selectedKeys.set(new Set());
       this.focusedIndex.set(0);
-      provider.treeConfig.defaultExpanded ? this.expandAllNodes() : this.collapseAllNodes();
+      this.collapseAllNodes();
+      if (!provider.serverBacked) {
+        if (provider.treeConfig.defaultExpanded) this.expandAllNodes();
+        return;
+      }
+      void provider.loadRoot().then(() => {
+        if (this.provider() !== provider) return;
+        provider.treeConfig.defaultExpanded ? this.expandAllNodes() : this.collapseAllNodes();
+      });
     });
   }
 
@@ -102,6 +110,7 @@ export class AgridTreeComponent<T extends object = any> {
     for (const row of rows) {
       const parentId = config.getParentId(row);
       if (parentId != null) ids.add(parentId);
+      if (provider.hasServerChildren(row)) ids.add(config.getId(row));
     }
     this.treeController.expandAll(ids);
   }
@@ -114,7 +123,11 @@ export class AgridTreeComponent<T extends object = any> {
   /** Toggles one expandable node. */
   toggleNode(item: StandaloneTreeItem<T>): void {
     if (!item.expandable) return;
-    this.treeController.toggle(this.expansionId(item));
+    if (item.expanded) {
+      this.treeController.setExpanded(this.expansionId(item), false);
+      return;
+    }
+    void this.expandNode(item);
   }
 
   /** @internal */
@@ -128,6 +141,11 @@ export class AgridTreeComponent<T extends object = any> {
   /** @internal */
   description(item: StandaloneTreeItem<T>): string | undefined {
     return isPathNode(item) ? undefined : this.provider().getDescription?.(item.row);
+  }
+
+  /** @internal */
+  isLoading(item: StandaloneTreeItem<T>): boolean {
+    return !isPathNode(item) && this.provider().isNodeLoading(this.expansionId(item));
   }
 
   /** @internal */
@@ -241,5 +259,37 @@ export class AgridTreeComponent<T extends object = any> {
       if (this.items()[candidate].level < level) return candidate;
     }
     return -1;
+  }
+
+  private withServerExpansionState(
+    provider: AgridTreeProvider<T>,
+    item: StandaloneTreeItem<T>,
+  ): StandaloneTreeItem<T> {
+    if (isPathNode(item) || !provider.hasServerChildren(item.row)) return item;
+    const id = this.expansionId(item);
+    return {
+      ...item,
+      expandable: true,
+      expanded: this.expandedIds().has(id),
+    };
+  }
+
+  private async expandNode(item: StandaloneTreeItem<T>): Promise<void> {
+    const id = this.expansionId(item);
+    if (isPathNode(item)) {
+      this.treeController.setExpanded(id, true);
+      return;
+    }
+    const provider = this.provider();
+    if (!provider.serverBacked) {
+      this.treeController.setExpanded(id, true);
+      return;
+    }
+    const loaded = await provider.loadChildren({
+      node: this.toEvent(item),
+      id,
+      row: item.row,
+    });
+    if (loaded) this.treeController.setExpanded(id, true);
   }
 }

@@ -112,4 +112,65 @@ describe('AgridTreeComponent', () => {
     expect(component.items()).toHaveLength(2);
     expect(event.defaultPrevented).toBe(true);
   });
+
+  it('loads root rows from a server-backed provider', async () => {
+    let resolveRoot!: (rows: NodeRow[]) => void;
+    const rootRows = new Promise<NodeRow[]>(resolve => {
+      resolveRoot = resolve;
+    });
+    const provider = new AgridTreeProvider<NodeRow>({
+      datasource: new AgridDataSource<NodeRow>(),
+      treeConfig: { getId: row => row.id, getParentId: row => row.parentId, treeField: 'name' },
+      serverTree: {
+        loadRoot: () => rootRows,
+        loadChildren: async () => [],
+      },
+    });
+
+    await create(provider);
+    expect(provider.rootLoading()).toBe(true);
+    resolveRoot([{ id: 1, parentId: null, name: 'Server root' }]);
+    await rootRows;
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(provider.rootLoading()).toBe(false);
+    expect(component.items().map(item => component.label(item))).toEqual(['Server root']);
+  });
+
+  it('loads child rows on first expansion and exposes node loading state', async () => {
+    let resolveChildren!: (rows: NodeRow[]) => void;
+    const childRows = new Promise<NodeRow[]>(resolve => {
+      resolveChildren = resolve;
+    });
+    const provider = new AgridTreeProvider<NodeRow>({
+      datasource: new AgridDataSource<NodeRow>([
+        { id: 1, parentId: null, name: 'Root' },
+      ]),
+      treeConfig: { getId: row => row.id, getParentId: row => row.parentId, treeField: 'name' },
+      serverTree: {
+        loadRoot: async () => [{ id: 1, parentId: null, name: 'Root' }],
+        loadChildren: () => childRows,
+        hasChildren: row => row.id === 1,
+      },
+    });
+
+    await create(provider);
+    await Promise.resolve();
+    fixture.detectChanges();
+    const root = component.items()[0];
+
+    component.toggleNode(root);
+    expect(component.isLoading(root)).toBe(true);
+    expect(component.items().map(item => component.label(item))).toEqual(['Root']);
+
+    resolveChildren([{ id: 2, parentId: 1, name: 'Child' }]);
+    await childRows;
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(component.isLoading(root)).toBe(false);
+    expect(component.items().map(item => component.label(item))).toEqual(['Root', 'Child']);
+    expect(provider.loadedNodeIds()).toEqual(new Set([1]));
+  });
 });

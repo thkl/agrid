@@ -19,8 +19,8 @@ export { AgridChartComponent } from './rendering/agrid-chart.component';
 export { AgridChartProvider } from './agrid-chart-provider';
 export type { AgridChartProviderConfig } from './agrid-chart-provider';
 export { AGRID_CHART_PALETTE, buildChart } from './infrastructure/agrid-chart';
-export { XLS_CONTENT_TYPE, buildXlsFromTemplate } from './infrastructure/agrid-xls';
-export type { XlsCell, XlsSheet } from './infrastructure/agrid-xls';
+export { XLSX_CONTENT_TYPE, buildXlsx } from './infrastructure/agrid-xlsx';
+export type { XlsxCell, XlsxSheet } from './infrastructure/agrid-xlsx';
 export type {
   AgridChartData,
   AgridChartLayout,
@@ -56,7 +56,13 @@ export type {
   AgridServerSideRefreshOptions,
   AgridServerSideSort,
 } from './agrid-server-side-row-model';
-export type { AgridTreeProviderConfig } from './agrid-tree-provider';
+export type {
+  AgridServerTreeChildren,
+  AgridServerTreeChildrenRequest,
+  AgridServerTreeConfig,
+  AgridServerTreeRoot,
+  AgridTreeProviderConfig,
+} from './agrid-tree-provider';
 export type {
   AgridEnterEditAction,
   AgridCurrentCell,

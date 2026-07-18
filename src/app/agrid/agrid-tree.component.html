@@ -1,21 +1,37 @@
 <div #tree class="ag-tree" role="tree" [attr.aria-label]="provider().ariaLabel"
-  [attr.aria-multiselectable]="provider().selection === 'multi' ? 'true' : null">
-  @for (item of items(); track trackItem($index, item); let index = $index) {
+  [attr.aria-multiselectable]="provider().selection === 'multi' ? 'true' : null"
+  [attr.aria-busy]="provider().rootLoading() ? 'true' : null">
+  @if (provider().rootLoading()) {
+    <div class="ag-tree-loading" role="status">
+      <span class="ag-tree-spinner" aria-hidden="true"></span>
+      {{ provider().serverTree?.rootLoadingText ?? localeText().loading }}
+    </div>
+  } @else {
+    @for (item of items(); track trackItem($index, item); let index = $index) {
     <div class="ag-tree-node" role="treeitem" [attr.data-tree-index]="index"
       [attr.tabindex]="focusedIndex() === index ? 0 : -1"
       [attr.aria-level]="item.level + 1"
       [attr.aria-expanded]="item.expandable ? item.expanded : null"
+      [attr.aria-busy]="isLoading(item) ? 'true' : null"
       [attr.aria-selected]="provider().selection !== 'none' ? isSelected(item) : null"
       [class.ag-tree-node--selected]="isSelected(item)"
       [style.padding-left.px]="8 + item.level * 20"
       (click)="onNodeClick($event, item, index)"
       (dblclick)="onNodeDoubleClick($event, item)"
       (keydown)="onKeydown($event, item, index)">
-      <button class="ag-tree-toggle" type="button" tabindex="-1"
-        [class.ag-tree-toggle--expanded]="item.expanded"
-        [class.ag-tree-toggle--hidden]="!item.expandable"
-        [attr.aria-label]="(item.expanded ? localeText().collapse : localeText().expand) + ' ' + label(item)"
-        (click)="toggleNode(item); $event.stopPropagation()">&#9656;</button>
+      @if (isLoading(item)) {
+        <span class="ag-tree-toggle ag-tree-toggle--busy"
+          [attr.aria-label]="provider().serverTree?.childLoadingText ?? localeText().loading"
+          role="status">
+          <span class="ag-tree-spinner" aria-hidden="true"></span>
+        </span>
+      } @else {
+        <button class="ag-tree-toggle" type="button" tabindex="-1"
+          [class.ag-tree-toggle--expanded]="item.expanded"
+          [class.ag-tree-toggle--hidden]="!item.expandable"
+          [attr.aria-label]="(item.expanded ? localeText().collapse : localeText().expand) + ' ' + label(item)"
+          (click)="toggleNode(item); $event.stopPropagation()">&#9656;</button>
+      }
       <span class="ag-tree-content">
         <span class="ag-tree-label">{{ label(item) }}</span>
         @if (description(item); as detail) {
@@ -23,7 +39,8 @@
         }
       </span>
     </div>
-  } @empty {
-    <div class="ag-tree-empty">{{ provider().emptyText }}</div>
+    } @empty {
+      <div class="ag-tree-empty">{{ provider().emptyText }}</div>
+    }
   }
 </div>

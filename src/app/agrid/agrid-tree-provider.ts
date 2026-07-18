@@ -1,5 +1,53 @@
+import { signal } from '@angular/core';
 import { AgridDataSource } from './agrid-datasource';
-import { AgridTreeConfig, AgridTreeSelectionMode } from './agrid.types';
+import { AgridTreeConfig, AgridTreeNodeEvent, AgridTreeSelectionMode } from './agrid.types';
+
+/** Root payload returned by a server-backed standalone tree. */
+export interface AgridServerTreeRoot<T extends object> {
+  /** Initial root-level rows. */
+  rows: T[];
+  /** Optional tree config resolved with the root payload. */
+  treeConfig?: AgridTreeConfig<T>;
+}
+
+/** Child payload returned when a server-backed tree node expands. */
+export interface AgridServerTreeChildren<T extends object> {
+  /** Child rows to append to the provider datasource. */
+  rows: T[];
+}
+
+/** Parameters passed to a server child loader. */
+export interface AgridServerTreeChildrenRequest<T extends object> {
+  /** Normalized event view of the node being expanded. */
+  node: AgridTreeNodeEvent<T>;
+  /** Stable node id resolved from `treeConfig.getId(row)`. */
+  id: string | number;
+  /** Original datasource row for the node being expanded. */
+  row: T;
+}
+
+/** Async datasource hooks for the standalone tree control. */
+export interface AgridServerTreeConfig<T extends object> {
+  /**
+   * Load the initial root rows. The response may replace the local `treeConfig` when the
+   * server also determines hierarchy metadata.
+   */
+  loadRoot: () => Promise<T[] | AgridServerTreeRoot<T>>;
+  /** Load children for a node the first time it expands. */
+  loadChildren: (
+    request: AgridServerTreeChildrenRequest<T>,
+  ) => Promise<T[] | AgridServerTreeChildren<T>>;
+  /** Return `true` for rows that can request children even before any child rows exist locally. */
+  hasChildren?: (row: T) => boolean;
+  /** Cache child responses after the first successful expansion. Defaults to `true`. */
+  cacheChildren?: boolean;
+  /** Text shown while root rows are loading. */
+  rootLoadingText?: string;
+  /** Text exposed to assistive tech while children are loading. */
+  childLoadingText?: string;
+  /** Optional host-level error hook. */
+  onError?: (error: unknown, request: 'root' | AgridServerTreeChildrenRequest<T>) => void;
+}
 
 /** Configuration accepted by {@link AgridTreeProvider}. */
 export interface AgridTreeProviderConfig<T extends object> {
@@ -22,6 +70,8 @@ export interface AgridTreeProviderConfig<T extends object> {
   ariaLabel?: string;
   /** Text shown when the datasource is empty. */
   emptyText?: string;
+  /** Optional async loaders for server-backed root and child rows. */
+  serverTree?: AgridServerTreeConfig<T>;
 }
 
 /** Provider-style configuration and datasource container for `<agrid-tree>`. */
@@ -29,7 +79,7 @@ export class AgridTreeProvider<T extends object = any> {
   /** Rows projected into the standalone tree. */
   readonly datasource: AgridDataSource<T>;
   /** Shared hierarchy configuration; column-specific aggregation is not used here. */
-  readonly treeConfig: AgridTreeConfig<T>;
+  treeConfig: AgridTreeConfig<T>;
   /** Optional host label resolver for parent-linked datasource rows. */
   readonly getLabel?: (row: T) => string;
   /** Optional host resolver for secondary node text. */
@@ -42,6 +92,18 @@ export class AgridTreeProvider<T extends object = any> {
   readonly ariaLabel: string;
   /** Effective empty-state message. */
   readonly emptyText: string;
+  /** Optional async server-tree hooks. */
+  readonly serverTree?: AgridServerTreeConfig<T>;
+  /** Whether the root payload is currently being requested. */
+  readonly rootLoading = signal(false);
+  /** Latest async load error, if any. */
+  readonly loadError = signal<unknown>(null);
+  /** Node ids whose children are currently being requested. */
+  readonly loadingNodeIds = signal<Set<string | number>>(new Set());
+  /** Node ids whose children have already loaded successfully. */
+  readonly loadedNodeIds = signal<Set<string | number>>(new Set());
+
+  private rootLoaded = false;
 
   /** Normalize optional standalone-tree settings and retain the reactive datasource. */
   constructor(config: AgridTreeProviderConfig<T>) {
@@ -53,5 +115,73 @@ export class AgridTreeProvider<T extends object = any> {
     this.rowHeight = config.rowHeight ?? 36;
     this.ariaLabel = config.ariaLabel ?? 'Tree';
     this.emptyText = config.emptyText ?? 'No items';
+    this.serverTree = config.serverTree;
+  }
+
+  /** True when this provider should lazily request rows from a server. */
+  get serverBacked(): boolean {
+    return !!this.serverTree;
+  }
+
+  /** Load the root payload once for server-backed trees. */
+  async loadRoot(): Promise<void> {
+    if (!this.serverTree || this.rootLoaded || this.rootLoading()) return;
+    this.rootLoading.set(true);
+    this.loadError.set(null);
+    try {
+      const result = await this.serverTree.loadRoot();
+      const root = Array.isArray(result) ? { rows: result } : result;
+      if (root.treeConfig) this.treeConfig = root.treeConfig;
+      this.datasource.setData(root.rows);
+      this.rootLoaded = true;
+    } catch (error) {
+      this.loadError.set(error);
+      this.serverTree.onError?.(error, 'root');
+    } finally {
+      this.rootLoading.set(false);
+    }
+  }
+
+  /** Return whether a row should present an expander before local children exist. */
+  hasServerChildren(row: T): boolean {
+    return !!this.serverTree?.hasChildren?.(row);
+  }
+
+  /** Return whether the node is currently loading children. */
+  isNodeLoading(id: string | number): boolean {
+    return this.loadingNodeIds().has(id);
+  }
+
+  /** Load a node's children unless a cached response already exists. */
+  async loadChildren(request: AgridServerTreeChildrenRequest<T>): Promise<boolean> {
+    const serverTree = this.serverTree;
+    if (!serverTree) return true;
+    const cacheChildren = serverTree.cacheChildren ?? true;
+    if (cacheChildren && this.loadedNodeIds().has(request.id)) return true;
+    if (this.loadingNodeIds().has(request.id)) return false;
+
+    this.loadingNodeIds.update(ids => new Set(ids).add(request.id));
+    this.loadError.set(null);
+    try {
+      const result = await serverTree.loadChildren(request);
+      const children = Array.isArray(result) ? result : result.rows;
+      if (children.length) {
+        this.datasource.setData([...this.datasource.rows(), ...children]);
+      }
+      if (cacheChildren) {
+        this.loadedNodeIds.update(ids => new Set(ids).add(request.id));
+      }
+      return true;
+    } catch (error) {
+      this.loadError.set(error);
+      serverTree.onError?.(error, request);
+      return false;
+    } finally {
+      this.loadingNodeIds.update(ids => {
+        const next = new Set(ids);
+        next.delete(request.id);
+        return next;
+      });
+    }
   }
 }

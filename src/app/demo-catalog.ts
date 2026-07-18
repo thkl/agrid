@@ -582,28 +582,86 @@ readonly provider = new AgridProvider({
   {
     path: '/tree',
     label: 'Standalone tree',
-    title: 'Standalone tree from flat rows',
+    title: 'Standalone tree with local and server data',
     summary:
-      'AgridTree uses the grid hierarchy engine for compact navigation without rendering grid columns.',
+      'AgridTree uses the grid hierarchy engine for compact navigation, with either local rows or lazy server-loaded children.',
     points: [
       'Use the same parent-ID or path-based tree configuration as the grid.',
+      'Add serverTree loaders when the root config and child nodes should arrive on demand.',
+      'Expose hasChildren so unloaded server nodes still render an expander and spinner.',
       'Navigate and expand nodes with standard tree keyboard controls.',
-      'Receive typed row and generated branch events from one component.',
     ],
-    code: `readonly provider = new AgridTreeProvider<OrgRow>({
+    code: `interface OrgRow {
+  id: number;
+  parentId: number | null;
+  name: string;
+  role: string;
+  team: string;
+  hasChildren: boolean;
+}
+
+// Server responses use the same flat parent/id shape as local data.
+// GET /api/tree/root
+// {
+//   "rows": [
+//     { "id": 101, "parentId": null, "name": "Global Operations",
+//       "role": "Division", "team": "Operations", "hasChildren": true },
+//     { "id": 201, "parentId": null, "name": "Customer Programs",
+//       "role": "Division", "team": "Customer Success", "hasChildren": true }
+//   ]
+// }
+//
+// GET /api/tree/nodes/101/children
+// {
+//   "rows": [
+//     { "id": 102, "parentId": 101, "name": "Logistics",
+//       "role": "Department", "team": "Operations", "hasChildren": true },
+//     { "id": 103, "parentId": 101, "name": "Facilities",
+//       "role": "Department", "team": "Operations", "hasChildren": false }
+//   ]
+// }
+
+const treeConfig = {
+  getId: (row: OrgRow) => row.id,
+  getParentId: (row: OrgRow) => row.parentId,
+  treeField: 'name',
+} as const;
+
+const api = {
+  async getTreeRoot(): Promise<{ rows: OrgRow[] }> {
+    const response = await fetch('/api/tree/root');
+    return response.json();
+  },
+  async getTreeChildren(id: number): Promise<{ rows: OrgRow[] }> {
+    const response = await fetch(\`/api/tree/nodes/\${id}/children\`);
+    return response.json();
+  },
+};
+
+readonly provider = new AgridTreeProvider<OrgRow>({
   datasource: new AgridDataSource(rows),
-  treeConfig: {
-    getId: row => row.id,
-    getParentId: row => row.parentId,
-    treeField: 'name',
-    defaultExpanded: true,
+  treeConfig: { ...treeConfig, defaultExpanded: true },
+  getDescription: row => \`\${row.role} · \${row.team}\`,
+  selection: 'single',
+});
+
+readonly serverProvider = new AgridTreeProvider<OrgRow>({
+  datasource: new AgridDataSource(),
+  treeConfig,
+  serverTree: {
+    loadRoot: () => api.getTreeRoot(),
+    loadChildren: ({ id }) => api.getTreeChildren(Number(id)),
+    hasChildren: row => row.hasChildren === true,
+    rootLoadingText: 'Loading root configuration',
+    childLoadingText: 'Loading child nodes',
   },
   getDescription: row => \`\${row.role} · \${row.team}\`,
   selection: 'single',
 });
 
-// tree()?.expandAllNodes();
-// tree()?.collapseAllNodes();`,
+// Template
+// <agrid-tree [provider]="provider" />
+// <agrid-tree [provider]="serverProvider" />`,
   },
   {
     path: '/master-detail',

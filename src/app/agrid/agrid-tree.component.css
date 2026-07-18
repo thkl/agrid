@@ -65,6 +65,20 @@
 .ag-tree-toggle--expanded { transform: rotate(90deg); }
 .ag-tree-toggle--hidden { visibility: hidden; }
 .ag-tree-toggle:active { scale: 0.92; }
+.ag-tree-toggle--busy {
+  cursor: default;
+  pointer-events: none;
+}
+
+.ag-tree-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--agrid-color-border);
+  border-top-color: var(--agrid-color-accent);
+  border-radius: 50%;
+  box-sizing: border-box;
+  animation: ag-tree-spin 720ms linear infinite;
+}
 
 .ag-tree-content {
   display: flex;
@@ -90,6 +104,18 @@
 
 .ag-tree-empty { padding: 16px 12px; color: var(--agrid-color-text-muted); }
 
+.ag-tree-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  color: var(--agrid-color-text-muted);
+}
+
+@keyframes ag-tree-spin {
+  to { transform: rotate(360deg); }
+}
+
 @media (hover: hover) and (pointer: fine) {
   .ag-tree-node:hover:not(.ag-tree-node--selected),
   .ag-tree-toggle:hover { background: var(--agrid-color-bg-muted); }
@@ -97,4 +123,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ag-tree-toggle { transition: none; }
+  .ag-tree-spinner { animation-duration: 1.4s; }
 }

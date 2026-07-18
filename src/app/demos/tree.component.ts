@@ -13,6 +13,7 @@ interface OrgRow {
   role: string;
   team: string;
   headcount: number;
+  hasChildren?: boolean;
 }
 
 /**
@@ -39,6 +40,37 @@ const ROWS: OrgRow[] = [
   { id: 17, parentId: 15,   name: 'Pablo Gómez',     role: 'Brand Designer',   team: 'Design',      headcount: 0 },
 ];
 
+const TREE_CONFIG = {
+  getId: (row: OrgRow) => row.id,
+  getParentId: (row: OrgRow) => row.parentId,
+  treeField: 'name',
+} as const;
+
+const SERVER_ROOTS: OrgRow[] = [
+  { id: 101, parentId: null, name: 'Global Operations', role: 'Division', team: 'Operations', headcount: 18, hasChildren: true },
+  { id: 201, parentId: null, name: 'Customer Programs', role: 'Division', team: 'Customer Success', headcount: 11, hasChildren: true },
+  { id: 301, parentId: null, name: 'Finance Office', role: 'Division', team: 'Finance', headcount: 4, hasChildren: false },
+];
+
+const SERVER_CHILDREN = new Map<number, OrgRow[]>([
+  [101, [
+    { id: 102, parentId: 101, name: 'Logistics', role: 'Department', team: 'Operations', headcount: 7, hasChildren: true },
+    { id: 103, parentId: 101, name: 'Facilities', role: 'Department', team: 'Operations', headcount: 5, hasChildren: false },
+  ]],
+  [102, [
+    { id: 104, parentId: 102, name: 'Berlin Hub', role: 'Site team', team: 'Logistics', headcount: 3, hasChildren: false },
+    { id: 105, parentId: 102, name: 'Lisbon Hub', role: 'Site team', team: 'Logistics', headcount: 4, hasChildren: false },
+  ]],
+  [201, [
+    { id: 202, parentId: 201, name: 'Enterprise Accounts', role: 'Program', team: 'Customer Success', headcount: 6, hasChildren: false },
+    { id: 203, parentId: 201, name: 'Implementation', role: 'Program', team: 'Customer Success', headcount: 5, hasChildren: false },
+  ]],
+]);
+
+function delayed<T>(value: T, ms: number): Promise<T> {
+  return new Promise(resolve => setTimeout(() => resolve(value), ms));
+}
+
 @Component({
   selector: 'demo-tree',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -47,14 +79,24 @@ const ROWS: OrgRow[] = [
     <div class="demo-wrap">
       <div class="demo-header">
         <h2>Tree</h2>
-        <span class="demo-meta">Standalone control using the same parent/child tree projection as the grid</span>
+        <span class="demo-meta">Standalone control with local and server-backed parent/child projections</span>
       </div>
       <div class="demo-toolbar">
-        <button type="button" (click)="tree()?.expandAllNodes()">Expand all</button>
-        <button type="button" (click)="tree()?.collapseAllNodes()">Collapse all</button>
+        <button type="button" (click)="localTree()?.expandAllNodes()">Expand local</button>
+        <button type="button" (click)="localTree()?.collapseAllNodes()">Collapse local</button>
       </div>
-      <agrid-tree class="demo-tree" [provider]="provider"
-        (nodeClick)="onNodeClick($event)" />
+      <div class="demo-layout">
+        <section>
+          <h3>Local tree</h3>
+          <agrid-tree #localTreeView class="demo-tree" [provider]="provider"
+            (nodeClick)="onNodeClick($event)" />
+        </section>
+        <section>
+          <h3>Server tree</h3>
+          <agrid-tree class="demo-tree" [provider]="serverProvider"
+            (nodeClick)="onNodeClick($event)" />
+        </section>
+      </div>
       <div class="demo-event">{{ lastEvent() }}</div>
     </div>
   `,
@@ -67,25 +109,38 @@ const ROWS: OrgRow[] = [
     .demo-toolbar { display: flex; gap: 8px; }
     .demo-toolbar button { font: inherit; font-size: 12px; padding: 4px 12px; border: 1px solid #d0d7de; border-radius: 6px; background: #f6f8fa; cursor: pointer; }
     .demo-toolbar button:hover { background: #eef1f4; }
+    .demo-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; flex: 1; min-height: 0; }
+    section { display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: 8px; }
+    h3 { margin: 0; font-size: 13px; font-weight: 700; }
     .demo-tree { flex: 1; min-height: 0; border: 1px solid var(--agrid-color-border); border-radius: 6px; }
     .demo-event { min-height: 18px; color: #57606a; font-size: 12px; }
+    @media (max-width: 760px) { .demo-layout { grid-template-columns: 1fr; } }
   `],
 })
 export class TreeDemoComponent {
   readonly provider = new AgridTreeProvider<OrgRow>({
     datasource: new AgridDataSource(ROWS),
-    treeConfig: {
-      getId: row => row.id,
-      getParentId: row => row.parentId,
-      treeField: 'name',
-      defaultExpanded: true,
-    },
+    treeConfig: { ...TREE_CONFIG, defaultExpanded: true },
     getDescription: row => `${row.role} · ${row.team}`,
     selection: 'single',
     ariaLabel: 'Organization',
   });
+  readonly serverProvider = new AgridTreeProvider<OrgRow>({
+    datasource: new AgridDataSource(),
+    treeConfig: TREE_CONFIG,
+    serverTree: {
+      loadRoot: () => delayed({ rows: SERVER_ROOTS, treeConfig: TREE_CONFIG }, 500),
+      loadChildren: ({ id }) => delayed(SERVER_CHILDREN.get(Number(id)) ?? [], 650),
+      hasChildren: row => row.hasChildren === true,
+      rootLoadingText: 'Loading root configuration',
+      childLoadingText: 'Loading child nodes',
+    },
+    getDescription: row => `${row.role} · ${row.team}`,
+    selection: 'single',
+    ariaLabel: 'Server organization',
+  });
   readonly lastEvent = signal('Select a node to inspect its event.');
-  readonly tree = viewChild(AgridTreeComponent);
+  readonly localTree = viewChild<AgridTreeComponent<OrgRow>>('localTreeView');
 
   onNodeClick(event: AgridTreeNodeEvent<OrgRow>): void {
     this.lastEvent.set(`${event.kind} ${event.id}: ${event.label}`);
