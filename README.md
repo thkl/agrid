@@ -326,6 +326,7 @@ readonly gridProvider = new AgridProvider({
   columns: this.columns,
   datasource: this.ds,
   control: this.gridControl,
+  getRowId: row => row.id,
   zebraStripes: true,
   showSidebar: true,
   showControlColumn: true,
@@ -344,6 +345,7 @@ readonly gridProvider = new AgridProvider({
 | `datasource` | `AgridDataSource` | New empty datasource | Row data container. |
 | `serverSideRowModel` | `AgridServerSideRowModel` | `undefined` | Lazy block-based datasource with virtual placeholders, caching, and automatic filter/sort query forwarding. |
 | `control` | `AgridControl` | New default control | Manages filters, sort, grouping, pagination, and undo/redo. |
+| `getRowId` | `(row, index) => string \| number` | Object reference | Stable row identity used to keep selection and row-attached state on the same logical row when rows are inserted, removed, reordered, or replaced. |
 | `locale` | `string` | `'auto'` | BCP-47 locale tag for grid text and date formatting. `'auto'` reads `navigator.language` and falls back to `'en-US'`. |
 | `localization` | `AgridLocaleTextOverrides` | `undefined` | Overrides individual labels. See [Localization](#localization). |
 | `rowHeight` | `number` | `32` | Fixed row height in pixels. Required by CDK virtual scroll. |

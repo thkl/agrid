@@ -56,6 +56,11 @@ class TypedGridHost {
   readonly provider = new AgridProvider<PersonRow>({
     columns: [{ field: 'name', header: 'Name' }],
     datasource: new AgridDataSource<PersonRow>([]),
+    getRowId: (row, index) => {
+      expectTypeOf(row).toEqualTypeOf<PersonRow>();
+      expectTypeOf(index).toEqualTypeOf<number>();
+      return row.id;
+    },
     menuBarItems: [{
       id: 'activate',
       label: 'Activate',

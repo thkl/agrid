@@ -651,7 +651,7 @@
       [attr.aria-label]="localeText().next" (click)="goToNextPage()">›</button>
     <button class="ag-page-btn" [disabled]="control()!.currentPage() >= totalPages()"
       [attr.aria-label]="localeText().lastPage" (click)="goToLastPage()">»</button>
-    <span class="ag-page-count">{{ localeText().rows(filteredRowCount()) }}</span>
+    <span class="ag-page-count">{{ localeText().rows(paginationRowCount()) }}</span>
   </nav>
   }
 

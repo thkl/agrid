@@ -50,6 +50,14 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   /** Initial column definitions in display order. */
   columns?: ColDef<T>[];
   /**
+   * Return a stable id for a row.
+   *
+   * When datasource rows are replaced, inserted, removed, or reordered, the grid uses this id to
+   * keep cell selection, row selection, marked rows, and expanded detail rows attached to the same
+   * logical row. If omitted, reconciliation falls back to object reference equality.
+   */
+  getRowId?: (row: T, index: number) => string | number;
+  /**
    * Derive a read-only client-side pivot table from the datasource.
    * The first release supports one row field, one column field, and one value field.
    * Enable `showSidebar` to let users change this configuration from the grid's Pivot tab.
@@ -253,6 +261,8 @@ export class AgridProvider<T extends object = any> {
   control: AgridControl;
   /** Reactive column definitions in display order. */
   readonly columns: WritableSignal<ColDef<T>[]>;
+  /** Optional stable row-id resolver used to preserve row state across datasource replacement. */
+  readonly getRowId?: (row: T, index: number) => string | number;
   private readonly _pivotConfig = signal<AgridPivotConfig<T> | null>(null);
   /**
    * Client-side pivot configuration, or `null` for the normal row view.
@@ -426,6 +436,7 @@ export class AgridProvider<T extends object = any> {
     this.control      = config.control ?? new AgridControl({ allowRowReorder: true });
     const runtimeState = ɵgetAgridControlRuntimeState(this.control);
     this.columns      = signal(config.columns ?? []);
+    this.getRowId     = config.getRowId;
     this.pivotConfig  = config.pivotConfig ?? null;
     this.headerGroups = config.headerGroups ?? [];
     this.treeConfig   = config.treeConfig ?? null;

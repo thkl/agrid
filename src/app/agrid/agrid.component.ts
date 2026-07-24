@@ -13,6 +13,7 @@ import {
   input,
   output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
@@ -84,6 +85,12 @@ import {
 // Re-export for backward compatibility with existing imports of GridItem from this file.
 export type { GridItem };
 
+type RowStateSnapshot<T extends object> = {
+  provider: AgridProvider<T>;
+  datasource: AgridDataSource;
+  rows: readonly T[];
+};
+
 /**
  * Excel-like data grid for Angular 21 and 22.
  *
@@ -141,6 +148,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     datasource: AgridDataSource;
     treeConfig: AgridTreeConfig<T>;
   } | null = null;
+  private rowStateSnapshot: RowStateSnapshot<T> | null = null;
 
   // All display / behaviour options are read from the provider.
   readonly rowHeight = computed(() => this.provider().rowHeight);
@@ -839,6 +847,12 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** Total number of pages given the current filter and page size. */
   readonly totalPages = this.projection.totalPages;
 
+  /** Row count shown in the pagination footer. Uses server total when supplied. */
+  readonly paginationRowCount = computed(() => {
+    const totalRows = this.control()?.totalRows() ?? 0;
+    return totalRows > 0 ? totalRows : this.filteredRowCount();
+  });
+
   readonly showPagination = this.projection.showPagination;
 
   /** Number of semantic header rows currently rendered. */
@@ -1517,6 +1531,109 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     this.control()?.reconcileChangedCellsAfterRemoval(removedIndex);
   }
 
+  private reconcileRowState(
+    provider: AgridProvider<T>,
+    datasource: AgridDataSource,
+    rows: readonly T[],
+  ): void {
+    const previous = this.rowStateSnapshot;
+    this.rowStateSnapshot = { provider, datasource, rows };
+    if (!previous || previous.provider !== provider || previous.datasource !== datasource) return;
+    if (previous.rows === rows) return;
+
+    const mapIndex = this.buildRowIndexMapper(provider, previous.rows, rows);
+    const mapCell = (cell: CellPosition | null): CellPosition | null => {
+      if (!cell) return null;
+      if (cell.rowIndex >= previous.rows.length && cell.rowIndex < rows.length) return cell;
+      const rowIndex = mapIndex(cell.rowIndex);
+      return rowIndex === null ? null : { ...cell, rowIndex };
+    };
+
+    const selectedBefore = this.selectedCell();
+    const selectedAfter = mapCell(selectedBefore);
+    if (!this.sameCell(selectedBefore, selectedAfter)) this.selectedCell.set(selectedAfter);
+
+    const editingBefore = this.editController.editingCell();
+    const editingAfter = mapCell(editingBefore);
+    if (!this.sameCell(editingBefore, editingAfter)) {
+      if (editingAfter) this.editController.editingCell.set(editingAfter);
+      else this.editController.cancel();
+    }
+
+    const formulaAfter = mapCell(this.formulaBarEditCell);
+    this.formulaBarEditCell = formulaAfter;
+
+    const range = this.selectedRange();
+    if (range) {
+      const anchor = mapCell(range.anchor);
+      const focus = mapCell(range.focus);
+      this.selectedRange.set(anchor && focus ? { anchor, focus } : null);
+    }
+
+    this.rowController.selectedIndices.set(this.reconcileIndexSet(
+      this.rowController.selectedIndices(),
+      mapIndex,
+    ));
+    this.markedIndices.set(this.reconcileIndexSet(this.markedIndices(), mapIndex));
+    this._expandedDetailIds.set(this.reconcileIndexSet(this._expandedDetailIds(), mapIndex));
+    this._pinnedRows.set(this.reconcileIndexMap(this._pinnedRows(), mapIndex));
+
+    const dirty = this.reconcileIndexSet(this.dirtyInlineRows, mapIndex);
+    this.dirtyInlineRows.clear();
+    for (const index of dirty) this.dirtyInlineRows.add(index);
+
+    if (selectedAfter) this.navigationController.revealRow(selectedAfter.rowIndex);
+  }
+
+  private buildRowIndexMapper(
+    provider: AgridProvider<T>,
+    previousRows: readonly T[],
+    rows: readonly T[],
+  ): (index: number) => number | null {
+    if (provider.getRowId) {
+      const nextById = new Map<string | number, number>();
+      rows.forEach((row, index) => nextById.set(provider.getRowId!(row, index), index));
+      return index => {
+        const row = previousRows[index];
+        if (!row) return null;
+        return nextById.get(provider.getRowId!(row, index)) ?? null;
+      };
+    }
+
+    const nextByReference = new Map<T, number>();
+    rows.forEach((row, index) => nextByReference.set(row, index));
+    return index => {
+      const row = previousRows[index];
+      if (!row) return null;
+      return nextByReference.get(row)
+        ?? (index < rows.length ? index : null);
+    };
+  }
+
+  private reconcileIndexSet(
+    indices: ReadonlySet<number>,
+    mapIndex: (index: number) => number | null,
+  ): Set<number> {
+    const next = new Set<number>();
+    for (const index of indices) {
+      const mapped = mapIndex(index);
+      if (mapped !== null) next.add(mapped);
+    }
+    return next;
+  }
+
+  private reconcileIndexMap<V>(
+    map: ReadonlyMap<number, V>,
+    mapIndex: (index: number) => number | null,
+  ): Map<number, V> {
+    const next = new Map<number, V>();
+    for (const [index, value] of map) {
+      const mapped = mapIndex(index);
+      if (mapped !== null) next.set(mapped, value);
+    }
+    return next;
+  }
+
   private emitRowChanged(originalIndex: number): void {
     this.rowChanged.emit({
       row: this.dataSource().getRow(originalIndex),
@@ -1655,6 +1772,16 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       if (this.changedCellsDataSource === datasource) return;
       this.changedCellsDataSource = datasource;
       this.control()?.clearChangedCells();
+    });
+
+    // Preserve row-attached UI state when the host replaces/reorders rows. Most runtime state is
+    // stored as datasource indices for fast rendering; this translates those indices through row
+    // identity after each row-array change.
+    effect(() => {
+      const provider = this.provider();
+      const datasource = this.dataSource();
+      const rows = datasource.rows() as T[];
+      untracked(() => this.reconcileRowState(provider, datasource, rows));
     });
 
     effect(() => {

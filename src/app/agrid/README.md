@@ -135,6 +135,7 @@ readonly provider = new AgridProvider<Row>({
   datasource: this.datasource,
   control: new AgridControl(),
   columns,
+  getRowId: row => row.id,
   readonly: true,
   rowSelection: 'single',
 });
@@ -154,6 +155,11 @@ Update rows by replacing the datasource value:
 this.datasource.setData(rows);
 this.datasource.setData([newRow, ...this.datasource.rows()]);
 ```
+
+Set `getRowId` on the provider when rows can be inserted, removed, reordered, or replaced while
+selection is active. The grid uses it to keep cell selection, row selection, marked rows, and
+expanded detail rows attached to the same logical row; without it, reconciliation falls back to row
+object reference equality.
 
 `AgridDataSource.rows()` is an Angular signal. If you read and write the datasource inside an
 Angular `effect()`, wrap the datasource read/write block in `untracked()` to avoid accidental

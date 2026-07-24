@@ -1040,6 +1040,92 @@ describe('AgridComponent Tab navigation', () => {
     expect(refreshSpy).toHaveBeenCalled();
   });
 
+  it('keeps the selected cell attached to the same row object when rows are prepended', async () => {
+    const alice = { name: 'Alice', department: 'Engineering' };
+    const bob = { name: 'Bob', department: 'Sales' };
+    provider.datasource.setData([alice, bob]);
+    fixture.detectChanges();
+    component.selectedCell.set({ rowIndex: 1, colIndex: 0 });
+
+    provider.datasource.setData([
+      { name: 'Zoe', department: 'Support' },
+      alice,
+      bob,
+    ]);
+    fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+
+    expect(component.selectedCell()).toEqual({ rowIndex: 2, colIndex: 0 });
+    expect(component.getCurrentCell()?.row).toBe(bob);
+  });
+
+  it('uses getRowId to keep selection visible when a prepended row moves it to another page', async () => {
+    const pagedProvider = new AgridProvider({
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'department', header: 'Department' },
+      ],
+      datasource: new AgridDataSource([
+        { id: 1, name: 'Alice', department: 'Engineering' },
+        { id: 2, name: 'Bob', department: 'Sales' },
+      ]),
+      control: new AgridControl({ pageSize: 1, currentPage: 2 }),
+      getRowId: (row: any) => row.id,
+    });
+    const pagedFixture = TestBed.createComponent(AgridComponent);
+    pagedFixture.componentRef.setInput('provider', pagedProvider);
+    pagedFixture.detectChanges();
+    const pagedComponent = pagedFixture.componentInstance;
+    pagedComponent.selectedCell.set({ rowIndex: 1, colIndex: 0 });
+
+    pagedProvider.datasource.setData([
+      { id: 0, name: 'Zoe', department: 'Support' },
+      { id: 1, name: 'Alice', department: 'Engineering' },
+      { id: 2, name: 'Bob', department: 'Sales' },
+    ]);
+    pagedFixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+    pagedFixture.detectChanges();
+
+    expect(pagedComponent.selectedCell()).toEqual({ rowIndex: 2, colIndex: 0 });
+    expect(pagedProvider.control.currentPage()).toBe(3);
+    expect(visibleDataRows(pagedComponent.filteredItems()).map(item => item.row['name']))
+      .toEqual(['Bob']);
+    pagedFixture.destroy();
+  });
+
+  it('updates pagination totals when server totalRows is incremented after a row is added', async () => {
+    const pagedProvider = new AgridProvider({
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'department', header: 'Department' },
+      ],
+      datasource: new AgridDataSource([
+        { name: 'Alice', department: 'Engineering' },
+        { name: 'Bob', department: 'Sales' },
+      ]),
+      control: new AgridControl({ pageSize: 2, totalRows: 2 }),
+    });
+    const pagedFixture = TestBed.createComponent(AgridComponent);
+    pagedFixture.componentRef.setInput('provider', pagedProvider);
+    pagedFixture.detectChanges();
+    const pageInfo = () =>
+      (pagedFixture.nativeElement.querySelector('.ag-page-info') as HTMLElement).textContent?.trim();
+    const pageCount = () =>
+      (pagedFixture.nativeElement.querySelector('.ag-page-count') as HTMLElement).textContent?.trim();
+
+    expect(pageInfo()).toBe('1 / 1');
+    expect(pageCount()).toBe('2 rows');
+
+    pagedProvider.datasource.addRow({ name: 'Carol', department: 'Support' });
+    pagedProvider.control.setTotalRows(pagedProvider.control.totalRows() + 1);
+    pagedFixture.detectChanges();
+
+    expect(pageInfo()).toBe('1 / 2');
+    expect(pageCount()).toBe('3 rows');
+    pagedFixture.destroy();
+  });
+
   it('pastes into the top-left cell of a multi-cell selection', () => {
     provider.datasource.setData([
       { name: 'Alice', department: 'Engineering' },
