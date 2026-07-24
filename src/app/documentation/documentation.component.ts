@@ -185,6 +185,7 @@ const treeConfig: AgridTreeConfig<OrgRow> = {
   getId: row => row.id,
   getParentId: row => row.parentId,   // null / unknown id ⇒ root row
   treeField: 'name',                  // column that shows the twisty
+  defaultExpanded: row => row.parentId === null,
 };
 
 readonly provider = new AgridProvider<OrgRow>({

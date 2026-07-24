@@ -654,8 +654,14 @@ export interface TreeRowItem<T extends object = Record<string, unknown>> {
 interface AgridTreeConfigBase<T extends object> {
   /** Field whose cell shows the indentation and expand/collapse twisty. */
   treeField: AgridField<T>;
-  /** Expand all nodes when the tree first renders. Defaults to `false` (all collapsed). */
-  defaultExpanded?: boolean;
+  /**
+   * Expand nodes when the tree first renders. Defaults to `false` (all collapsed).
+   *
+   * Pass `true` to expand every expandable node, or a row predicate to choose which
+   * datasource-backed nodes start expanded. In path-tree mode, a matching row expands the
+   * generated branch path that contains that row.
+   */
+  defaultExpanded?: boolean | ((row: T) => boolean);
   /**
    * When filtering, keep the ancestors of any matching row visible even if they don't match.
    * Defaults to `true`. (Applied by the projection layer, not by {@link GridItem} flattening.)

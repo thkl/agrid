@@ -23,8 +23,8 @@ import {
 import {
   buildPathTreeItems,
   buildTreeItems,
+  defaultExpandedTreeIds,
   isPathTreeConfig,
-  pathTreeNodeId,
 } from './agrid.utils';
 
 type StandaloneTreeItem<T extends object> = TreeRowItem<T> | PathTreeNodeItem;
@@ -80,12 +80,12 @@ export class AgridTreeComponent<T extends object = any> {
       this.focusedIndex.set(0);
       this.collapseAllNodes();
       if (!provider.serverBacked) {
-        if (provider.treeConfig.defaultExpanded) this.expandAllNodes();
+        this.applyDefaultExpansion(provider);
         return;
       }
       void provider.loadRoot().then(() => {
         if (this.provider() !== provider) return;
-        provider.treeConfig.defaultExpanded ? this.expandAllNodes() : this.collapseAllNodes();
+        this.applyDefaultExpansion(provider);
       });
     });
   }
@@ -93,26 +93,20 @@ export class AgridTreeComponent<T extends object = any> {
   /** Expands every branch currently represented by the datasource. */
   expandAllNodes(): void {
     const provider = this.provider();
-    const config = provider.treeConfig;
-    const rows = provider.datasource.rows();
-    if (isPathTreeConfig(config)) {
-      const ids = new Set<string>();
-      for (const row of rows) {
-        const path = config.getPath(row).map(String).filter(Boolean);
-        for (let length = 1; length < path.length; length++) {
-          ids.add(pathTreeNodeId(path.slice(0, length)));
-        }
-      }
-      this.treeController.expandAll(ids);
-      return;
-    }
-    const ids = new Set<string | number>();
-    for (const row of rows) {
-      const parentId = config.getParentId(row);
-      if (parentId != null) ids.add(parentId);
-      if (provider.hasServerChildren(row)) ids.add(config.getId(row));
-    }
-    this.treeController.expandAll(ids);
+    this.treeController.expandAll(defaultExpandedTreeIds(
+      provider.datasource.rows(),
+      { ...provider.treeConfig, defaultExpanded: true },
+      row => provider.hasServerChildren(row),
+    ));
+  }
+
+  /** Applies the provider's configured initial expansion state. */
+  private applyDefaultExpansion(provider: AgridTreeProvider<T>): void {
+    this.treeController.expandAll(defaultExpandedTreeIds(
+      provider.datasource.rows(),
+      provider.treeConfig,
+      row => provider.hasServerChildren(row),
+    ));
   }
 
   /** Collapses every branch. */

@@ -62,6 +62,7 @@ import {
 } from './editing/agrid-sidebar.component';
 import {
   buildExportGroups,
+  defaultExpandedTreeIds,
   isDataRowItem as isDataRowItemFn,
   isDetailRowItem as isDetailRowItemFn,
   isGroupHeaderItem as isGroupHeaderItemFn,
@@ -77,7 +78,7 @@ import {
   AgridServerQuery, CellContextMenuItem, CellInfoEvent, CellPosition, CellSelectEvent, ColDef, ColumnHeaderActionEvent, ColumnMarkEvent, DetailAction, DetailRowItem, FilterChangeEvent, FirstDataRenderedEvent, GridEditEvent,
   GridItem, GroupAction, NewRecord, PageChangeEvent, PathTreeNodeItem, RecordEditEvent, RowClickEvent,
   RowMarkEvent, RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent, ValueOption,
-  RowDetailActionEvent,
+  RowDetailActionEvent, AgridTreeConfig,
 } from './agrid.types';
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
@@ -135,6 +136,11 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** Grid provider containing columns, data source, control, and options. */
   provider = input<AgridProvider<T>>(new AgridProvider<T>());
   private restoredProvider?: AgridProvider<T>;
+  private initializedTreeExpansionFor: {
+    provider: AgridProvider<T>;
+    datasource: AgridDataSource;
+    treeConfig: AgridTreeConfig<T>;
+  } | null = null;
 
   // All display / behaviour options are read from the provider.
   readonly rowHeight = computed(() => this.provider().rowHeight);
@@ -1582,6 +1588,34 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     effect(() => this.provider().ɵsetVisibleRows(this.ɵvisibleRows()));
     this.destroyRef.onDestroy(() => this.provider().ɵsetVisibleRows(null));
 
+    // Seed tree expansion once per provider/datasource/config identity. After that, user toggles
+    // own the expansion set until one of those identities changes.
+    effect(() => {
+      const provider = this.provider();
+      const datasource = this.dataSource();
+      const treeConfig = this.treeConfig();
+      if (!treeConfig) {
+        if (this.initializedTreeExpansionFor) {
+          this.treeController.collapseAll();
+          this.initializedTreeExpansionFor = null;
+        }
+        return;
+      }
+      const initialized = this.initializedTreeExpansionFor;
+      if (
+        initialized?.provider === provider
+        && initialized.datasource === datasource
+        && initialized.treeConfig === treeConfig
+      ) {
+        return;
+      }
+      this.treeController.collapseAll();
+      const rows = datasource.rows() as T[];
+      if (rows.length === 0) return;
+      this.treeController.expandAll(defaultExpandedTreeIds(rows, treeConfig));
+      this.initializedTreeExpansionFor = { provider, datasource, treeConfig };
+    });
+
     // Publish one complete query object for signal-backed server data stores.
     effect(() => {
       const provider = this.provider();
@@ -2071,23 +2105,10 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   expandAllNodes(): void {
     const config = this.treeConfig();
     if (!config) return;
-    if (isPathTreeConfig(config)) {
-      const ids = new Set<string>();
-      for (const row of this.dataSource().rows() as T[]) {
-        const path = config.getPath(row).map(String).filter(Boolean);
-        for (let length = 1; length < path.length; length++) {
-          ids.add(pathTreeNodeId(path.slice(0, length)));
-        }
-      }
-      this.treeController.expandAll(ids);
-      return;
-    }
-    const expandable = new Set<string | number>();
-    for (const row of this.dataSource().rows()) {
-      const parentId = config.getParentId(row as T);
-      if (parentId != null) expandable.add(parentId);
-    }
-    this.treeController.expandAll(expandable);
+    this.treeController.expandAll(defaultExpandedTreeIds(
+      this.dataSource().rows() as T[],
+      { ...config, defaultExpanded: true },
+    ));
   }
 
   /** Collapse every node in the tree. No-op when not in tree mode. */

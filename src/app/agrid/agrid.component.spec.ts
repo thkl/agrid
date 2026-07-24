@@ -1614,6 +1614,32 @@ describe('AgridComponent tree mode', () => {
     expect(component.showPagination()).toBe(false);
   });
 
+  it('applies a defaultExpanded callback on first render', () => {
+    provider = new AgridProvider({
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'size', header: 'Size', type: 'number' },
+      ],
+      datasource: new AgridDataSource([
+        { id: 1, parentId: null, name: 'Root', size: 0 },
+        { id: 2, parentId: 1, name: 'Child A', size: 5 },
+        { id: 3, parentId: 1, name: 'Child B', size: 7 },
+        { id: 4, parentId: 2, name: 'Grandchild', size: 9 },
+        { id: 5, parentId: null, name: 'Root B', size: 3 },
+      ]),
+      treeConfig: {
+        getId: (r: any) => r.id,
+        getParentId: (r: any) => r.parentId,
+        treeField: 'name',
+        defaultExpanded: (r: any) => r.id === 1,
+      },
+    });
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+
+    expect(visibleNames()).toEqual(['Root', 'Child A', 'Child B', 'Root B']);
+  });
+
   it('marks expandable rows and disables pagination', () => {
     const items = component.displayItems().filter(isTreeRow);
     const root = items.find(i => (i as any).row.name === 'Root')!;

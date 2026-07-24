@@ -735,6 +735,55 @@ export function pathTreeNodeId(path: readonly (string | number)[]): string {
 }
 
 /**
+ * Resolve the initial expansion ids for a tree config.
+ *
+ * Parent/id trees use row ids as expansion keys. Path trees use generated branch ids, so a
+ * row-level predicate expands the branch prefixes containing each matching row.
+ */
+export function defaultExpandedTreeIds<T extends object>(
+  rows: T[],
+  config: AgridTreeConfig<T>,
+  isServerExpandable: (row: T) => boolean = () => false,
+): Set<string | number> {
+  if (!config.defaultExpanded) return new Set();
+
+  if (isPathTreeConfig(config)) {
+    const ids = new Set<string>();
+    const shouldExpand = config.defaultExpanded;
+    for (const row of rows) {
+      if (typeof shouldExpand === 'function' && !shouldExpand(row)) continue;
+      const path = config.getPath(row).map(String).filter(Boolean);
+      for (let length = 1; length < path.length; length++) {
+        ids.add(pathTreeNodeId(path.slice(0, length)));
+      }
+    }
+    return ids;
+  }
+
+  const parentIds = new Set<string | number>();
+  for (const row of rows) {
+    const parentId = config.getParentId(row);
+    if (parentId != null) parentIds.add(parentId);
+  }
+
+  const shouldExpand = config.defaultExpanded;
+  if (shouldExpand === true) {
+    const ids = new Set(parentIds);
+    for (const row of rows) {
+      if (isServerExpandable(row)) ids.add(config.getId(row));
+    }
+    return ids;
+  }
+
+  const ids = new Set<string | number>();
+  for (const row of rows) {
+    const id = config.getId(row);
+    if ((parentIds.has(id) || isServerExpandable(row)) && shouldExpand(row)) ids.add(id);
+  }
+  return ids;
+}
+
+/**
  * Derive a deterministic UUID-shaped identifier for a generated path branch.
  *
  * This is an identity helper, not a cryptographic hash. Four independently mixed 32-bit lanes

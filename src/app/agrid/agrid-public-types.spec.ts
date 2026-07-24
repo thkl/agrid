@@ -75,6 +75,10 @@ class TypedGridHost {
       getId: row => row.id,
       getParentId: () => null,
       treeField: 'name',
+      defaultExpanded: row => {
+        expectTypeOf(row).toEqualTypeOf<PersonRow>();
+        return row.id === 1;
+      },
     },
   });
 

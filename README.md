@@ -64,6 +64,100 @@ export class PageComponent {
 }
 ```
 
+## Minimal Integration
+
+Import the standalone grid and tree APIs from the package barrel:
+
+```ts
+import {
+  AgridComponent,
+  AgridControl,
+  AgridDataSource,
+  AgridProvider,
+  AgridTreeComponent,
+  AgridTreeProvider,
+  type AgridTreeNodeEvent,
+  type ColDef,
+  type RowClickEvent,
+} from '@thkl/agrid';
+```
+
+Minimal standalone grid:
+
+```ts
+const columns: ColDef<Row>[] = [
+  { field: 'name', header: 'Name', filterable: true },
+];
+
+readonly datasource = new AgridDataSource<Row>([]);
+readonly provider = new AgridProvider<Row>({
+  datasource: this.datasource,
+  control: new AgridControl(),
+  columns,
+  readonly: true,
+  rowSelection: 'single',
+});
+```
+
+```html
+<agrid [provider]="provider" (rowClick)="selectRow($event)" />
+```
+
+Update rows by replacing the datasource value:
+
+```ts
+this.datasource.setData(rows);
+this.datasource.setData([newRow, ...this.datasource.rows()]);
+```
+
+`AgridDataSource.rows()` is an Angular signal. If you read and write the datasource inside an
+Angular `effect()`, wrap the datasource read/write block in `untracked()` to avoid accidental
+dependency loops.
+
+Minimal standalone tree:
+
+```ts
+readonly treeDatasource = new AgridDataSource<TreeRow>([]);
+readonly treeProvider = new AgridTreeProvider<TreeRow>({
+  datasource: this.treeDatasource,
+  treeConfig: {
+    getId: row => row.id,
+    getParentId: row => row.parentId,
+    treeField: 'name',
+    defaultExpanded: row => row.id === 'root',
+  },
+  selection: 'single',
+});
+```
+
+```html
+<agrid-tree [provider]="treeProvider" (nodeClick)="selectNode($event)" />
+```
+
+`AgridTreeComponent` expects flat rows linked by parent ids, or rows projected with a path config.
+It does not consume nested `children` arrays directly.
+
+Required full-height CSS:
+
+```css
+agrid {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+```
+
+Parent containers must also have a real height.
+
+Common pitfalls:
+
+- Do not override `agrid` with `display: block` when using full-height layouts.
+- Do not pass huge payload strings into visible or filterable columns; use previews.
+- Do not fetch unbounded rows into client-side mode; use limits or the server-side row model.
+- `AgridTreeComponent` needs flat rows with parent ids or path config, not nested children.
+- `AgridDataSource.rows()` is a signal; reads inside Angular effects are tracked unless wrapped in `untracked()`.
+
 ## Features
 
 See [ROADMAP.md](./ROADMAP.md) for the AG Grid comparison checklist and open parity items.

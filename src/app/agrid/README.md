@@ -100,6 +100,130 @@ Selecting numeric cells displays a live status bar with count, sum, average, min
 Read the same values from `grid.selectionSummary()`. The signal is `null` when the active selection
 contains no finite numeric values.
 
+## Minimal integration
+
+Import the standalone pieces you use from the package barrel:
+
+```ts
+import {
+  AgridComponent,
+  AgridControl,
+  AgridDataSource,
+  AgridProvider,
+  AgridTreeComponent,
+  AgridTreeProvider,
+  type AgridTreeNodeEvent,
+  type ColDef,
+  type RowClickEvent,
+} from '@thkl/agrid';
+```
+
+Minimal standalone grid:
+
+```ts
+interface Row {
+  id: string;
+  name: string;
+}
+
+const columns: ColDef<Row>[] = [
+  { field: 'name', header: 'Name', filterable: true },
+];
+
+readonly datasource = new AgridDataSource<Row>([]);
+readonly provider = new AgridProvider<Row>({
+  datasource: this.datasource,
+  control: new AgridControl(),
+  columns,
+  readonly: true,
+  rowSelection: 'single',
+});
+
+selectRow(event: RowClickEvent<Row>): void {
+  console.log(event.row);
+}
+```
+
+```html
+<agrid [provider]="provider" (rowClick)="selectRow($event)" />
+```
+
+Update rows by replacing the datasource value:
+
+```ts
+this.datasource.setData(rows);
+this.datasource.setData([newRow, ...this.datasource.rows()]);
+```
+
+`AgridDataSource.rows()` is an Angular signal. If you read and write the datasource inside an
+Angular `effect()`, wrap the datasource read/write block in `untracked()` to avoid accidental
+dependency loops:
+
+```ts
+effect(() => {
+  const rows = this.rowsFromStore();
+  untracked(() => this.datasource.setData(rows));
+});
+```
+
+Minimal standalone tree:
+
+```ts
+interface TreeRow {
+  id: string;
+  parentId: string | null;
+  name: string;
+}
+
+readonly treeDatasource = new AgridDataSource<TreeRow>([]);
+readonly treeProvider = new AgridTreeProvider<TreeRow>({
+  datasource: this.treeDatasource,
+  treeConfig: {
+    getId: row => row.id,
+    getParentId: row => row.parentId,
+    treeField: 'name',
+    defaultExpanded: row => row.id === 'root',
+  },
+  selection: 'single',
+});
+
+selectNode(event: AgridTreeNodeEvent<TreeRow>): void {
+  console.log(event);
+}
+```
+
+```html
+<agrid-tree [provider]="treeProvider" (nodeClick)="selectNode($event)" />
+```
+
+The standalone tree expects flat rows linked by parent ids, or rows that can be projected with a
+path config. It does not consume nested `children` arrays directly.
+
+## Required sizing
+
+`agrid` needs a real height from its parent chain. In full-height layouts, make the host a flex
+column and keep flex children shrinkable:
+
+```css
+agrid {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+```
+
+Parent containers must also have a defined height, for example through `height: 100%`, a fixed pixel
+height, or a flex/grid track that resolves to a real height.
+
+## Common pitfalls
+
+- Do not override `agrid` with `display: block` when using full-height layouts.
+- Do not pass huge payload strings into visible or filterable columns; use previews.
+- Do not fetch unbounded rows into client-side mode; use limits or the server-side row model.
+- `AgridTreeComponent` needs flat rows with parent ids or path config, not nested children.
+- `AgridDataSource.rows()` is a signal; reads inside Angular effects are tracked unless wrapped in `untracked()`.
+
 ## Charts / Graphs
 
 Use `AgridChartComponent` with an `AgridChartProvider` to render zero-dependency SVG graphs. The
@@ -419,6 +543,7 @@ const treeConfig: AgridTreeConfig<OrgRow> = {
   getParentId: row => row.parentId, // null / unknown id ⇒ root row
   treeField: 'name',                // column that shows the twisty
   aggregateTreeNodes: true,         // parent cells roll up descendant leaves
+  defaultExpanded: row => row.level < 2,
 };
 
 readonly provider = new AgridProvider<OrgRow>({
@@ -459,6 +584,10 @@ in a flat grid; with `keepAncestorsOnFilter` (default `true`) a match deep in th
 parents visible and force-opens the path to it. Tree mode takes precedence over grouping and
 disables pagination. Call `grid.expandAllNodes()` / `grid.collapseAllNodes()` to toggle the whole
 tree.
+
+Set `defaultExpanded: true` to open every expandable node on first render, or pass
+`defaultExpanded: row => boolean` to choose the datasource-backed nodes that start expanded. In
+path-tree mode, matching a row expands the generated branch path that contains that row.
 
 Tree mode can be combined with `masterDetail: true` and a `detailRenderer`. Detail expanders are
 shown only for leaf rows; parent rows retain their tree expand/collapse control.

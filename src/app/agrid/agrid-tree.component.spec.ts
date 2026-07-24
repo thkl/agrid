@@ -40,6 +40,25 @@ describe('AgridTreeComponent', () => {
     expect(component.items()).toHaveLength(1);
   });
 
+  it('expands parent-linked rows from a defaultExpanded callback', async () => {
+    await create(new AgridTreeProvider({
+      datasource: new AgridDataSource<NodeRow>([
+        { id: 1, parentId: null, name: 'Root' },
+        { id: 2, parentId: 1, name: 'Child' },
+        { id: 3, parentId: 2, name: 'Grandchild' },
+      ]),
+      treeConfig: {
+        getId: row => row.id,
+        getParentId: row => row.parentId,
+        treeField: 'name',
+        defaultExpanded: row => row.id === 1,
+      },
+    }));
+
+    expect(component.items().map(item => component.label(item))).toEqual(['Root', 'Child']);
+    expect(component.expandedIds()).toEqual(new Set([1]));
+  });
+
   it('emits typed click and selection events for data rows', async () => {
     await create(new AgridTreeProvider({
       datasource: new AgridDataSource<NodeRow>([{ id: 1, parentId: null, name: 'Root' }]),
@@ -79,6 +98,22 @@ describe('AgridTreeComponent', () => {
       kind: 'branch', label: '01', uuid: 'uuid-7', expandable: true,
     });
     expect(component.items().map(item => component.label(item))).toEqual(['01', '001']);
+  });
+
+  it('expands path branches from rows matched by a defaultExpanded callback', async () => {
+    await create(new AgridTreeProvider({
+      datasource: new AgridDataSource<NodeRow>([
+        { id: 1, parentId: null, name: '01.01.0001' },
+        { id: 2, parentId: null, name: '01.02.0001' },
+      ]),
+      treeConfig: {
+        getPath: row => row.name.split('.'),
+        treeField: 'name',
+        defaultExpanded: row => row.name === '01.01.0001',
+      },
+    }));
+
+    expect(component.items().map(item => component.label(item))).toEqual(['01', '01', '0001', '02']);
   });
 
   it('supports multi-selection toggling with the modifier key', async () => {
