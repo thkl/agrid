@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  effect,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import {
   AgridMenuBarContext,
   AgridMenuBarItem,
@@ -23,6 +31,23 @@ export class AgridMenuBarComponent<T extends object = any> {
 
   action = output<string>();
   openItemIdChange = output<string | null>();
+
+  private readonly dropdownShifts = signal<Record<string, number>>({});
+
+  constructor(private readonly host: ElementRef<HTMLElement>) {
+    effect(() => {
+      const openId = this.openItemId();
+      if (openId === null) {
+        this.dropdownShifts.set({});
+        return;
+      }
+      setTimeout(() => this.clampOpenDropdown(openId));
+    });
+  }
+
+  dropdownShift(id: string): number {
+    return this.dropdownShifts()[id] ?? 0;
+  }
 
   resolveState(state: AgridMenuBarState<T> | undefined, fallback: boolean): boolean {
     if (typeof state === 'function') return state(this.context());
@@ -97,5 +122,19 @@ export class AgridMenuBarComponent<T extends object = any> {
           ? (current + 1 + items.length) % items.length
           : (current - 1 + items.length) % items.length;
     items[next].focus();
+  }
+
+  private clampOpenDropdown(id: string): void {
+    const root = this.host.nativeElement.querySelector<HTMLElement>('.ag-menu-bar');
+    const group = Array.from(
+      this.host.nativeElement.querySelectorAll<HTMLElement>('.ag-menu-bar-group'),
+    ).find(candidate => candidate.dataset['menuId'] === id);
+    const dropdown = group?.querySelector<HTMLElement>('.ag-menu-bar-dropdown');
+    if (!root || !dropdown) return;
+
+    const rootLeft = root.getBoundingClientRect().left;
+    const dropdownLeft = dropdown.getBoundingClientRect().left;
+    const shift = dropdownLeft < rootLeft ? rootLeft - dropdownLeft : 0;
+    this.dropdownShifts.update(current => ({ ...current, [id]: shift }));
   }
 }

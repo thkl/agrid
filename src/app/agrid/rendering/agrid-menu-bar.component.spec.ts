@@ -141,6 +141,24 @@ describe('AgridMenuBarComponent', () => {
     expect(dropdownItems[0].classList.contains('ag-menu-bar-dropdown-item--active')).toBe(true);
   });
 
+  it('shifts an open dropdown right when it would overflow the menu bar left edge', () => {
+    const item: AgridMenuBarItem = {
+      id: 'export',
+      label: 'Export',
+      items: [{ id: 'csv', label: 'CSV' }],
+    };
+    setup([item], 'export');
+    const root = (fixture.nativeElement as HTMLElement).querySelector('.ag-menu-bar') as HTMLElement;
+    const dropdown = (fixture.nativeElement as HTMLElement)
+      .querySelector('.ag-menu-bar-dropdown') as HTMLElement;
+    root.getBoundingClientRect = () => ({ left: 20 } as DOMRect);
+    dropdown.getBoundingClientRect = () => ({ left: -12 } as DOMRect);
+
+    cmp['clampOpenDropdown']('export');
+
+    expect(cmp.dropdownShift('export')).toBe(32);
+  });
+
   it('onMenuKeydown closes on Escape and wraps focus with Arrow/Home/End', () => {
     const item: AgridMenuBarItem = {
       id: 'm',

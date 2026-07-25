@@ -23,6 +23,7 @@
           (keydown)="onTriggerKeydown($event, item)">&#9662;</button>
         @if (openItemId() === item.id) {
           <div class="ag-menu-bar-dropdown" role="menu" [attr.aria-label]="item.label"
+            [style.--ag-menu-bar-dropdown-shift.px]="dropdownShift(item.id)"
             (click)="$event.stopPropagation()" (keydown)="onMenuKeydown($event)">
             @for (child of children; track child.id) {
               <button type="button" class="ag-menu-bar-dropdown-item" role="menuitem"
