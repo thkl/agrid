@@ -22,7 +22,9 @@ describe('AgridTreeComponent', () => {
     component = fixture.componentInstance;
   }
 
-  afterEach(() => fixture?.destroy());
+  afterEach(() => {
+    fixture?.destroy();
+  });
 
   it('projects parent-linked rows and expands and collapses branches', async () => {
     await create(new AgridTreeProvider({
@@ -74,6 +76,135 @@ describe('AgridTreeComponent', () => {
     expect(clicks[0]).toMatchObject({ kind: 'row', id: 1, label: 'Root', originalIndex: 0 });
     expect(clicks[0].row?.name).toBe('Root');
     expect(selections[0].nodes.map(node => node.id)).toEqual([1]);
+  });
+
+  it('applies provider node classes to data rows', async () => {
+    await create(new AgridTreeProvider({
+      datasource: new AgridDataSource<NodeRow>([
+        { id: 1, parentId: null, name: 'Root' },
+        { id: 2, parentId: null, name: 'Archived' },
+      ]),
+      treeConfig: { getId: row => row.id, getParentId: row => row.parentId, treeField: 'name' },
+      getNodeClass: row => row.name === 'Archived' ? 'node-archived' : '',
+    }));
+    fixture.detectChanges();
+
+    const nodes = fixture.nativeElement.querySelectorAll('.ag-tree-node') as NodeListOf<HTMLElement>;
+
+    expect(nodes[0].classList.contains('node-archived')).toBe(false);
+    expect(nodes[1].classList.contains('node-archived')).toBe(true);
+  });
+
+  it('emits node menu actions for context-menu items', async () => {
+    await create(new AgridTreeProvider({
+      datasource: new AgridDataSource<NodeRow>([{ id: 1, parentId: null, name: 'Root' }]),
+      treeConfig: { getId: row => row.id, getParentId: row => row.parentId, treeField: 'name' },
+      contextMenuItems: node => [
+        { id: 'open', label: `Open ${node.label}` },
+        { id: 'delete', label: 'Delete', danger: true },
+      ],
+    }));
+    const actions: Array<{ id: string; node: AgridTreeNodeEvent<NodeRow> }> = [];
+    component.nodeMenuAction.subscribe(action => actions.push(action));
+
+    component.openContextMenu(
+      new MouseEvent('contextmenu', { clientX: 12, clientY: 24, cancelable: true }),
+      component.items()[0],
+      0,
+    );
+    fixture.detectChanges();
+    const menuItems = fixture.nativeElement.querySelectorAll(
+      '.ag-tree-menu-item',
+    ) as NodeListOf<HTMLButtonElement>;
+    menuItems[0].click();
+
+    expect(actions[0]).toMatchObject({ id: 'open', node: { kind: 'row', id: 1, label: 'Root' } });
+    expect(component.menuState()).toBeNull();
+  });
+
+  it('reserves an activity slot and only shows the menu trigger when items exist', async () => {
+    await create(new AgridTreeProvider({
+      datasource: new AgridDataSource<NodeRow>([
+        { id: 1, parentId: null, name: 'Root' },
+        { id: 2, parentId: null, name: 'Plain' },
+      ]),
+      treeConfig: { getId: row => row.id, getParentId: row => row.parentId, treeField: 'name' },
+      contextMenuItems: node => node.id === 1 ? [{ id: 'open', label: 'Open' }] : [],
+    }));
+    fixture.detectChanges();
+
+    const slots = fixture.nativeElement.querySelectorAll(
+      '.ag-tree-activity-slot',
+    ) as NodeListOf<HTMLElement>;
+
+    expect(slots).toHaveLength(2);
+    expect(slots[0].querySelector('.ag-tree-menu-trigger')).not.toBeNull();
+    expect(slots[0].getAttribute('aria-hidden')).toBeNull();
+    expect(slots[1].querySelector('.ag-tree-menu-trigger')).toBeNull();
+    expect(slots[1].getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('does not emit disabled node menu items', async () => {
+    await create(new AgridTreeProvider({
+      datasource: new AgridDataSource<NodeRow>([{ id: 1, parentId: null, name: 'Root' }]),
+      treeConfig: { getId: row => row.id, getParentId: row => row.parentId, treeField: 'name' },
+      contextMenuItems: () => [{ id: 'disabled', label: 'Disabled', disabled: true }],
+    }));
+    const actions: Array<{ id: string; node: AgridTreeNodeEvent<NodeRow> }> = [];
+    component.nodeMenuAction.subscribe(action => actions.push(action));
+
+    component.openContextMenu(new MouseEvent('contextmenu'), component.items()[0], 0);
+    component.selectMenuItem(component.menuState()!.items[0]);
+
+    expect(actions).toEqual([]);
+    expect(component.menuState()).not.toBeNull();
+  });
+
+  it('requires confirmation before emitting confirmed node menu items', async () => {
+    await create(new AgridTreeProvider({
+      datasource: new AgridDataSource<NodeRow>([{ id: 1, parentId: null, name: 'Root' }]),
+      treeConfig: { getId: row => row.id, getParentId: row => row.parentId, treeField: 'name' },
+      contextMenuItems: () => [{
+        id: 'delete',
+        label: 'Delete',
+        danger: true,
+        confirm: { title: 'Confirm delete', message: 'Delete Root?', confirmLabel: 'Delete' },
+      }],
+    }));
+    const actions: Array<{ id: string; node: AgridTreeNodeEvent<NodeRow> }> = [];
+    component.nodeMenuAction.subscribe(action => actions.push(action));
+
+    component.openContextMenu(
+      new MouseEvent('contextmenu', { clientX: 12, clientY: 24 }),
+      component.items()[0],
+      0,
+    );
+    component.selectMenuItem(component.menuState()!.items[0]);
+    fixture.detectChanges();
+
+    expect(actions).toEqual([]);
+    expect(component.menuState()).toBeNull();
+    expect(component.confirmState()).toMatchObject({
+      x: 12,
+      y: 24,
+      item: { id: 'delete' },
+      node: { id: 1, label: 'Root' },
+    });
+    expect(fixture.nativeElement.querySelector('.ag-tree-confirm-title').textContent.trim())
+      .toBe('Confirm delete');
+    expect(fixture.nativeElement.querySelector('.ag-tree-confirm-message').textContent.trim())
+      .toBe('Delete Root?');
+
+    component.closeConfirmation();
+    expect(component.confirmState()).toBeNull();
+    expect(actions).toEqual([]);
+
+    component.openContextMenu(new MouseEvent('contextmenu'), component.items()[0], 0);
+    component.selectMenuItem(component.menuState()!.items[0]);
+    component.confirmMenuAction();
+
+    expect(actions.map(action => action.id)).toEqual(['delete']);
+    expect(component.confirmState()).toBeNull();
   });
 
   it('reuses generated path branches and includes their configured UUID in events', async () => {

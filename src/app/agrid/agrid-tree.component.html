@@ -15,9 +15,11 @@
       [attr.aria-busy]="isLoading(item) ? 'true' : null"
       [attr.aria-selected]="provider().selection !== 'none' ? isSelected(item) : null"
       [class.ag-tree-node--selected]="isSelected(item)"
+      [ngClass]="nodeClass(item)"
       [style.padding-left.px]="8 + item.level * 20"
       (click)="onNodeClick($event, item, index)"
       (dblclick)="onNodeDoubleClick($event, item)"
+      (contextmenu)="openContextMenu($event, item, index)"
       (keydown)="onKeydown($event, item, index)">
       @if (isLoading(item)) {
         <span class="ag-tree-toggle ag-tree-toggle--busy"
@@ -38,9 +40,51 @@
           <span class="ag-tree-description">{{ detail }}</span>
         }
       </span>
+      <span class="ag-tree-activity-slot" [attr.aria-hidden]="hasContextMenu(item) ? null : 'true'">
+        @if (hasContextMenu(item)) {
+          <button class="ag-tree-menu-trigger" type="button" tabindex="-1"
+            [attr.aria-label]="localeText().openNodeMenu(label(item))"
+            (click)="openContextMenuFromButton($event, item, index)">&#8942;</button>
+        }
+      </span>
     </div>
     } @empty {
       <div class="ag-tree-empty">{{ provider().emptyText }}</div>
     }
   }
 </div>
+@if (menuState(); as menu) {
+  <div class="ag-tree-menu" role="menu"
+    [style.left.px]="menu.x"
+    [style.top.px]="menu.y"
+    (click)="$event.stopPropagation()">
+    @for (item of menu.items; track item.id) {
+      <button class="ag-tree-menu-item" type="button" role="menuitem"
+        [class.ag-tree-menu-item--danger]="item.danger"
+        [disabled]="item.disabled"
+        (click)="selectMenuItem(item)">
+        {{ item.label }}
+      </button>
+    }
+  </div>
+}
+@if (confirmState(); as confirm) {
+  <div class="ag-tree-confirm" role="alertdialog" aria-modal="false"
+    [style.left.px]="confirm.x"
+    [style.top.px]="confirm.y"
+    (click)="$event.stopPropagation()">
+    @if (confirm.item.confirm?.title; as title) {
+      <div class="ag-tree-confirm-title">{{ title }}</div>
+    }
+    <div class="ag-tree-confirm-message">{{ confirm.item.confirm?.message }}</div>
+    <div class="ag-tree-confirm-actions">
+      <button class="ag-tree-confirm-secondary" type="button"
+        (click)="closeConfirmation()">{{ localeText().close }}</button>
+      <button class="ag-tree-confirm-primary" type="button"
+        [class.ag-tree-confirm-primary--danger]="confirm.item.danger"
+        (click)="confirmMenuAction()">
+        {{ confirm.item.confirm?.confirmLabel ?? localeText().confirmYes }}
+      </button>
+    </div>
+  </div>
+}

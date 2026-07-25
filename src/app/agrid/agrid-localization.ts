@@ -62,6 +62,7 @@ export interface AgridLocaleText {
   markRow: string;
   moreInformation: string;
   next: string;
+  openNodeMenu: (label: string) => string;
   noRows: string;
   pagination: string;
   pivot: string;
@@ -160,6 +161,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     markRow: 'Mark row for copying',
     moreInformation: 'More information',
     next: 'Next',
+    openNodeMenu: label => `Open menu for ${label}`,
     noRows: 'No rows to display',
     pagination: 'Pagination',
     pivot: 'Pivot',
@@ -252,6 +254,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     markRow: 'Zeile zum Kopieren markieren',
     moreInformation: 'Weitere Informationen',
     next: 'Weiter',
+    openNodeMenu: label => `Menü für ${label} öffnen`,
     noRows: 'Keine Zeilen vorhanden',
     pagination: 'Seitennavigation',
     pivot: 'Pivot',

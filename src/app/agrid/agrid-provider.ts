@@ -492,6 +492,8 @@ export class AgridProvider<T extends object = any> {
     return this.datasource.rows();
   }
 
+
+
   /**
    * Return a detached, JSON-safe snapshot of persistent grid and pivot settings.
    * Custom pivot aggregate functions cannot be serialized and produce an explicit error.

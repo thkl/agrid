@@ -1059,6 +1059,26 @@ describe('AgridComponent Tab navigation', () => {
     expect(component.getCurrentCell()?.row).toBe(bob);
   });
 
+  it('does not scroll the viewport while preserving selection across prepended rows', async () => {
+    const alice = { name: 'Alice', department: 'Engineering' };
+    const bob = { name: 'Bob', department: 'Sales' };
+    provider.datasource.setData([alice, bob]);
+    fixture.detectChanges();
+    component.selectedCell.set({ rowIndex: 1, colIndex: 0 });
+    const scrollSpy = vi.spyOn(component['viewport'](), 'scrollToOffset');
+
+    provider.datasource.setData([
+      { name: 'Zoe', department: 'Support' },
+      alice,
+      bob,
+    ]);
+    fixture.detectChanges();
+    await new Promise(resolve => setTimeout(resolve));
+
+    expect(component.selectedCell()).toEqual({ rowIndex: 2, colIndex: 0 });
+    expect(scrollSpy).not.toHaveBeenCalled();
+  });
+
   it('uses getRowId to keep selection visible when a prepended row moves it to another page', async () => {
     const pagedProvider = new AgridProvider({
       columns: [

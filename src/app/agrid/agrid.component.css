@@ -1115,3 +1115,7 @@
 .ag-pinned-rows .ag-row {
   background: var(--agrid-color-bg-subtle);
 }
+
+.clickable {
+  cursor: pointer;
+}

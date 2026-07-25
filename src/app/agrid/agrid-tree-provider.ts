@@ -1,6 +1,11 @@
 import { signal } from '@angular/core';
 import { AgridDataSource } from './agrid-datasource';
-import { AgridTreeConfig, AgridTreeNodeEvent, AgridTreeSelectionMode } from './agrid.types';
+import {
+  AgridTreeConfig,
+  AgridTreeContextMenuItem,
+  AgridTreeNodeEvent,
+  AgridTreeSelectionMode,
+} from './agrid.types';
 
 /** Root payload returned by a server-backed standalone tree. */
 export interface AgridServerTreeRoot<T extends object> {
@@ -62,6 +67,10 @@ export interface AgridTreeProviderConfig<T extends object> {
   getLabel?: (row: T) => string;
   /** Optional secondary text shown beneath a row label. */
   getDescription?: (row: T) => string | undefined;
+  /** Optional CSS class names applied to data-row tree nodes. */
+  getNodeClass?: (row: T) => string;
+  /** Optional context menu items for data-row and generated-branch tree nodes. */
+  contextMenuItems?: (node: AgridTreeNodeEvent<T>) => AgridTreeContextMenuItem[];
   /** Selection behavior. Defaults to `single`. */
   selection?: AgridTreeSelectionMode;
   /** Fixed node height in pixels. Defaults to `36`. */
@@ -84,6 +93,10 @@ export class AgridTreeProvider<T extends object = any> {
   readonly getLabel?: (row: T) => string;
   /** Optional host resolver for secondary node text. */
   readonly getDescription?: (row: T) => string | undefined;
+  /** Optional host resolver for data-row node CSS class names. */
+  readonly getNodeClass?: (row: T) => string;
+  /** Optional host resolver for per-node context menu items. */
+  readonly contextMenuItems?: (node: AgridTreeNodeEvent<T>) => AgridTreeContextMenuItem[];
   /** Effective node selection behavior. */
   readonly selection: AgridTreeSelectionMode;
   /** Effective fixed node height in pixels. */
@@ -111,6 +124,8 @@ export class AgridTreeProvider<T extends object = any> {
     this.treeConfig = config.treeConfig;
     this.getLabel = config.getLabel;
     this.getDescription = config.getDescription;
+    this.getNodeClass = config.getNodeClass;
+    this.contextMenuItems = config.contextMenuItems;
     this.selection = config.selection ?? 'single';
     this.rowHeight = config.rowHeight ?? 36;
     this.ariaLabel = config.ariaLabel ?? 'Tree';

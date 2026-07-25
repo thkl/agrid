@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  HostListener,
   computed,
   effect,
   input,
@@ -9,11 +10,14 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { NgClass } from '@angular/common';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from './agrid-localization';
 import { AgridTreeProvider } from './agrid-tree-provider';
 import { AgridTreeController } from './rows/agrid-tree.controller';
 import {
+  AgridTreeContextMenuItem,
+  AgridTreeNodeMenuAction,
   AgridTreeNodeEvent,
   AgridTreeSelectionEvent,
   GridItem,
@@ -29,6 +33,20 @@ import {
 
 type StandaloneTreeItem<T extends object> = TreeRowItem<T> | PathTreeNodeItem;
 
+interface AgridTreeMenuState<T extends object> {
+  node: AgridTreeNodeEvent<T>;
+  items: AgridTreeContextMenuItem[];
+  x: number;
+  y: number;
+}
+
+interface AgridTreeConfirmState<T extends object> {
+  node: AgridTreeNodeEvent<T>;
+  item: AgridTreeContextMenuItem;
+  x: number;
+  y: number;
+}
+
 function isPathNode<T extends object>(item: StandaloneTreeItem<T>): item is PathTreeNodeItem {
   return 'pathNodeId' in item;
 }
@@ -37,6 +55,7 @@ function isPathNode<T extends object>(item: StandaloneTreeItem<T>): item is Path
 @Component({
   selector: 'agrid-tree',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [NgClass],
   templateUrl: './agrid-tree.component.html',
   styleUrl: './agrid-tree.component.css',
   host: { '[style.--agrid-tree-row-height.px]': 'provider().rowHeight' },
@@ -47,6 +66,7 @@ export class AgridTreeComponent<T extends object = any> {
 
   nodeClick = output<AgridTreeNodeEvent<T>>();
   nodeDoubleClicked = output<AgridTreeNodeEvent<T>>();
+  nodeMenuAction = output<AgridTreeNodeMenuAction<T>>();
   selectionChange = output<AgridTreeSelectionEvent<T>>();
 
   private readonly treeController = new AgridTreeController();
@@ -56,6 +76,8 @@ export class AgridTreeComponent<T extends object = any> {
   readonly focusedIndex = signal(0);
   readonly selectedKeys = signal<Set<string>>(new Set());
   readonly expandedIds = this.treeController.expandedIds;
+  readonly menuState = signal<AgridTreeMenuState<T> | null>(null);
+  readonly confirmState = signal<AgridTreeConfirmState<T> | null>(null);
 
   readonly items = computed<StandaloneTreeItem<T>[]>(() => {
     const provider = this.provider();
@@ -138,6 +160,11 @@ export class AgridTreeComponent<T extends object = any> {
   }
 
   /** @internal */
+  nodeClass(item: StandaloneTreeItem<T>): string {
+    return isPathNode(item) ? '' : this.provider().getNodeClass?.(item.row) ?? '';
+  }
+
+  /** @internal */
   isLoading(item: StandaloneTreeItem<T>): boolean {
     return !isPathNode(item) && this.provider().isNodeLoading(this.expansionId(item));
   }
@@ -150,6 +177,7 @@ export class AgridTreeComponent<T extends object = any> {
   /** @internal */
   onNodeClick(event: MouseEvent, item: StandaloneTreeItem<T>, index: number): void {
     event.stopPropagation();
+    this.closeContextMenu();
     this.focusedIndex.set(index);
     this.select(item, event.metaKey || event.ctrlKey);
     this.nodeClick.emit(this.toEvent(item));
@@ -158,6 +186,7 @@ export class AgridTreeComponent<T extends object = any> {
   /** @internal */
   onNodeDoubleClick(event: MouseEvent, item: StandaloneTreeItem<T>): void {
     event.stopPropagation();
+    this.closeContextMenu();
     this.nodeDoubleClicked.emit(this.toEvent(item));
   }
 
@@ -188,6 +217,95 @@ export class AgridTreeComponent<T extends object = any> {
       this.select(item, event.metaKey || event.ctrlKey);
       this.nodeClick.emit(this.toEvent(item));
     }
+  }
+
+  /** @internal */
+  contextMenuItems(item: StandaloneTreeItem<T>): AgridTreeContextMenuItem[] {
+    return this.provider().contextMenuItems?.(this.toEvent(item)) ?? [];
+  }
+
+  /** @internal */
+  hasContextMenu(item: StandaloneTreeItem<T>): boolean {
+    return this.contextMenuItems(item).length > 0;
+  }
+
+  /** @internal */
+  openContextMenu(event: MouseEvent, item: StandaloneTreeItem<T>, index: number): void {
+    const items = this.contextMenuItems(item);
+    if (!items.length) {
+      this.closeContextMenu();
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    this.focusedIndex.set(index);
+    this.confirmState.set(null);
+    this.menuState.set({
+      node: this.toEvent(item),
+      items,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }
+
+  /** @internal */
+  openContextMenuFromButton(event: MouseEvent, item: StandaloneTreeItem<T>, index: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    this.openContextMenu(
+      new MouseEvent('contextmenu', { clientX: rect.left, clientY: rect.bottom }),
+      item,
+      index,
+    );
+  }
+
+  /** @internal */
+  selectMenuItem(item: AgridTreeContextMenuItem): void {
+    const state = this.menuState();
+    if (!state || item.disabled) return;
+    if (item.confirm) {
+      this.confirmState.set({
+        node: state.node,
+        item,
+        x: state.x,
+        y: state.y,
+      });
+      this.closeContextMenu();
+      return;
+    }
+    this.nodeMenuAction.emit({ id: item.id, node: state.node });
+    this.closeContextMenu();
+  }
+
+  /** @internal */
+  closeContextMenu(): void {
+    this.menuState.set(null);
+  }
+
+  /** @internal */
+  confirmMenuAction(): void {
+    const state = this.confirmState();
+    if (!state) return;
+    this.nodeMenuAction.emit({ id: state.item.id, node: state.node });
+    this.confirmState.set(null);
+  }
+
+  /** @internal */
+  closeConfirmation(): void {
+    this.confirmState.set(null);
+  }
+
+  @HostListener('document:click')
+  protected onDocumentClick(): void {
+    this.closeContextMenu();
+    this.closeConfirmation();
+  }
+
+  @HostListener('document:keydown.escape')
+  protected onDocumentEscape(): void {
+    this.closeContextMenu();
+    this.closeConfirmation();
   }
 
   /** @internal */

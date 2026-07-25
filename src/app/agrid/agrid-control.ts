@@ -165,6 +165,7 @@ export class AgridControl {
   private readonly _rowIndications = signal<ReadonlyMap<number, AgridRowIndication>>(new Map());
   private readonly _changedCells = signal<ReadonlySet<string>>(new Set());
   private readonly rowIndicationTimers = new Map<number, ReturnType<typeof setTimeout>[]>();
+  private readonly _customFooterMessage = signal<string|null>(null);
 
   /** @param state Optional initial state, e.g. deserialized from storage. */
   constructor(state?: Partial<AgridControlState>) {
@@ -289,12 +290,18 @@ export class AgridControl {
     this._readonly.set(value);
   }
 
+  readonly customFooterMessage: Signal<string|null> = this._customFooterMessage.asReadonly();
+
   /** Whether navigation beyond the final row automatically inserts a row. Not serialized. */
   readonly autoAddRows: Signal<boolean> = this._autoAddRows.asReadonly();
 
   /** Enable or disable automatic row insertion at runtime. */
   setAutoAddRows(value: boolean): void {
     this._autoAddRows.set(value);
+  }
+
+  setCustomFooterMessage(message:string|null):void {
+    this._customFooterMessage.set(message);
   }
 
   /**

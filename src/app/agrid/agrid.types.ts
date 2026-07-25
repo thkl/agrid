@@ -762,6 +762,25 @@ export interface AgridTreeNodeEvent<T extends object = any> {
   originalIndex?: number;
 }
 
+/** Context-menu item rendered for a standalone tree node. */
+export interface AgridTreeContextMenuItem {
+  id: string;
+  label: string;
+  danger?: boolean;
+  disabled?: boolean;
+  confirm?: {
+    title?: string;
+    message: string;
+    confirmLabel?: string;
+  };
+}
+
+/** Emitted when a standalone tree context-menu item is selected. */
+export interface AgridTreeNodeMenuAction<T extends object = any> {
+  id: string;
+  node: AgridTreeNodeEvent<T>;
+}
+
 /** Current standalone-tree selection after a user interaction. */
 export interface AgridTreeSelectionEvent<T extends object = any> {
   nodes: AgridTreeNodeEvent<T>[];

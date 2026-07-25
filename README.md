@@ -432,11 +432,25 @@ readonly treeProvider = new AgridTreeProvider<Node>({
     defaultExpanded: true,
   },
   getDescription: node => node.type,
+  getNodeClass: node => node.type === 'archived' ? 'tree-node-archived' : '',
+  contextMenuItems: node => [
+    { id: 'open', label: `Open ${node.label}` },
+    {
+      id: 'delete',
+      label: 'Delete',
+      danger: true,
+      disabled: node.kind !== 'row',
+      confirm: { message: `Delete ${node.label}?`, confirmLabel: 'Delete' },
+    },
+  ],
 });
 ```
 
 ```html
-<agrid-tree [provider]="treeProvider" (nodeClick)="openNode($event)" />
+<agrid-tree
+  [provider]="treeProvider"
+  (nodeClick)="openNode($event)"
+  (nodeMenuAction)="handleNodeMenu($event)" />
 ```
 
 For server-backed trees, keep the same parent/id config and add `serverTree`. The component calls

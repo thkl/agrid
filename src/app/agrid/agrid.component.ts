@@ -202,7 +202,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly emptyText = computed(() => this.provider().emptyText);
   readonly useSidebarEditor = computed(() => this.provider().useSidebarEditor);
   readonly hideGridStatusBar = computed(() => this.provider().hideGridStatusBar);
-
+  readonly customFooterMessage = computed(() => this.provider().control.customFooterMessage());
   /** Host callback for per-row CSS classes, or `undefined`. */
   readonly rowClassFn = computed(() => this.provider().getRowClass as
     | ((params: { row: Record<string, unknown>; index: number }) => string)
@@ -419,6 +419,8 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** Emitted if there is a Detail pane Action without text property */
   detailAction = output<RowDetailActionEvent<T>>();
 
+  customFooterMessageClick = output<void>();
+
   // ── Public state ─────────────────────────────────────────────────────────────
 
   /** Currently focused cell, or `null`. */
@@ -590,6 +592,10 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** @internal */ goToLastPage(): void { this.control()?.setPage(this.totalPages()); }
   /** @internal */ goToNextPage(): void { const c = this.control(); if (c) c.setPage(Math.min(c.currentPage() + 1, this.totalPages())); }
   /** @internal */ goToPrevPage(): void { const c = this.control(); if (c) c.setPage(Math.max(c.currentPage() - 1, 1)); }
+
+  clickCustomMessage(): void {
+    this.customFooterMessageClick.emit();
+  }
 
   /** Resize every visible column to fit its header and current row values. */
   autosizeAllColumns(): void {
@@ -1313,7 +1319,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     },
     exportData: (format) => {
       switch (format) {
-        case 'csv':   
+        case 'csv':
           this.provider().exportCsv();
           break;
         case 'xlsx':
@@ -1582,7 +1588,17 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     this.dirtyInlineRows.clear();
     for (const index of dirty) this.dirtyInlineRows.add(index);
 
-    if (selectedAfter) this.navigationController.revealRow(selectedAfter.rowIndex);
+    if (selectedAfter) this.ensureSelectedRowPage(selectedAfter.rowIndex);
+  }
+
+  private ensureSelectedRowPage(rowIndex: number): void {
+    const control = this.control();
+    const pageSize = control?.pageSize() ?? 0;
+    if (!control || pageSize <= 0 || control.totalRows() > 0 || control.groupByField()) return;
+    const filteredIndex = this.projection.filteredSortedIndices().indexOf(rowIndex);
+    if (filteredIndex < 0) return;
+    const page = Math.floor(filteredIndex / pageSize) + 1;
+    if (page !== control.currentPage()) control.setPage(page);
   }
 
   private buildRowIndexMapper(
@@ -1879,6 +1895,8 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     effect(() => {
       const added = this.dataSource().rowAdded();
       if (!added) return;
+      const selected = this.selectedCell();
+      if (selected && selected.rowIndex !== added.index) return;
       this.navigationController.revealRow(added.index);
     });
 

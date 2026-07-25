@@ -18,18 +18,10 @@
     @if (showFormulaBar()) {
     <div class="ag-formula-bar" (click)="$event.stopPropagation()">
       <span class="ag-formula-bar-label">{{ formulaBarLabel() || 'fx' }}</span>
-      <input
-        class="ag-formula-bar-input"
-        type="text"
-        [value]="formulaBarDraft()"
-        [disabled]="!selectedCell() || readonlyGrid()"
-        (focus)="onFormulaBarFocus()"
-        (input)="onFormulaBarInput($event)"
-        (change)="commitFormulaBar()"
-        (blur)="onFormulaBarBlur()"
-        (keydown)="onFormulaBarKeydown($event)"
-        aria-label="Formula bar"
-      />
+      <input class="ag-formula-bar-input" type="text" [value]="formulaBarDraft()"
+        [disabled]="!selectedCell() || readonlyGrid()" (focus)="onFormulaBarFocus()" (input)="onFormulaBarInput($event)"
+        (change)="commitFormulaBar()" (blur)="onFormulaBarBlur()" (keydown)="onFormulaBarKeydown($event)"
+        aria-label="Formula bar" />
     </div>
     }
   </div>
@@ -38,23 +30,13 @@
     <div class="ag-grid-split" [class.ag-has-right-pane]="hasRightPinnedPane()">
       @if (hasPinnedPane()) {
       <div class="ag-pinned-pane" [style.width.px]="pinnedPaneWidth()">
-        <agrid-pane-header
-          variant="left"
-          [headerGroups]="pinnedHeaderGroups()"
-          [columns]="pinnedHeaderColumns()"
-          [gridTemplateColumns]="pinnedGridTemplateColumns()"
-          [paneWidth]="pinnedPaneWidth()"
-          [totalWidth]="pinnedPaneWidth()"
-          [hasHeaderGroups]="hasHeaderGroups()"
-          [hasFilterableColumns]="hasFilterableColumns()"
-          [headerRowCount]="headerRowCount()"
-          [showControlColumn]="showControlColumn()"
-          [localeText]="localeText()"
-          [pivotHeaderLabel]="pivotHeaderLabel()"
-          [pivotRowColumnField]="pivotRowColumnField()"
-          [hasMultiSort]="hasMultiSort()"
-          [filterMenuField]="filterMenu()?.field ?? null"
-          [markedColumnFields]="markedColumnFields()"
+        <agrid-pane-header variant="left" [headerGroups]="pinnedHeaderGroups()" [columns]="pinnedHeaderColumns()"
+          [gridTemplateColumns]="pinnedGridTemplateColumns()" [paneWidth]="pinnedPaneWidth()"
+          [totalWidth]="pinnedPaneWidth()" [hasHeaderGroups]="hasHeaderGroups()"
+          [hasFilterableColumns]="hasFilterableColumns()" [headerRowCount]="headerRowCount()"
+          [showControlColumn]="showControlColumn()" [localeText]="localeText()" [pivotHeaderLabel]="pivotHeaderLabel()"
+          [pivotRowColumnField]="pivotRowColumnField()" [hasMultiSort]="hasMultiSort()"
+          [filterMenuField]="filterMenu()?.field ?? null" [markedColumnFields]="markedColumnFields()"
           (headerGroupPointerDown)="onHeaderGroupPointerDown($event.event, $event.fields, $event.label)"
           (colHeaderPointerDown)="onColHeaderPointerDown($event.event, $event.field)"
           (colHeaderClick)="onColHeaderClick($event.event, $event.field)"
@@ -63,8 +45,7 @@
           (textFilterChange)="onTextFilterChange($event.event, $event.field)"
           (resizeKeyDown)="onResizeKeyDown($event.event, $event.col)"
           (resizeStart)="onResizeStart($event.event, $event.col)"
-          (autosizeColumn)="onAutosizeColumn($event.event, $event.col)"
-        />
+          (autosizeColumn)="onAutosizeColumn($event.event, $event.col)" />
 
         <ng-template #leftRow let-item let-ariaIndex="ariaIndex">
           <div role="row" [attr.aria-rowindex]="ariaIndex" [attr.data-control]="true"
@@ -87,8 +68,7 @@
             @if (isDataRowItem(item)) {
             @if (showControlColumn()) {
             <div class="ag-control-cell" role="rowheader" aria-colindex="1"
-              [class.ag-control-cell--reorder]="allowRowReorder()"
-              [class.ag-control-cell--marking]="enableRowMarking()"
+              [class.ag-control-cell--reorder]="allowRowReorder()" [class.ag-control-cell--marking]="enableRowMarking()"
               [class.ag-control-cell--numbered]="showRowNumbers()"
               (contextmenu)="onControlContextMenu($event, item.originalIndex)"
               (click)="onControlCellClick($event, item.originalIndex)"
@@ -113,7 +93,8 @@
             @for (bc of pinnedBodyColumns(); track bc.field) {
             @let col = bc.col;
             @let ci = bc.visibleColIndex;
-            <agrid-cell [col]="col" [paneColumns]="pinnedColDefs()" [paneHasSpans]="pinnedPaneHasSpans()" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]" [localeText]="localeText()"
+            <agrid-cell [col]="col" [paneColumns]="pinnedColDefs()" [paneHasSpans]="pinnedPaneHasSpans()"
+              [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]" [localeText]="localeText()"
               [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
               [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
               [attr.aria-colindex]="bc.ariaColIndex"
@@ -151,10 +132,9 @@
             <div class="ag-control-cell ag-control-cell--reorder ag-ghost-handle"></div>
             }
             @for (bc of pinnedBodyColumns(); track bc.field) {
-            <div class="ag-ghost-cell ag-cell--pinned"
-              [class.ag-column-reorder-item--dragging]="bc.dragging"
-              [style.transform]="'translateX(' + bc.reorderOffset + 'px)'"
-              [class.ag-cell--pinned-last]="bc.lastPinned">{{
+            <div class="ag-ghost-cell ag-cell--pinned" [class.ag-column-reorder-item--dragging]="bc.dragging"
+              [style.transform]="'translateX(' + bc.reorderOffset + 'px)'" [class.ag-cell--pinned-last]="bc.lastPinned">
+              {{
               getGhostCellDisplay(bc.col) }}</div>
             }
             } @else {
@@ -197,12 +177,11 @@
           }
           @for (bc of pinnedBodyColumns(); track bc.field) {
           @let col = bc.col;
-          <div class="ag-footer-cell" role="gridcell"
-            [class.ag-column--marked]="markedColumnFields().has(col.field)"
+          <div class="ag-footer-cell" role="gridcell" [class.ag-column--marked]="markedColumnFields().has(col.field)"
             [class.ag-column-reorder-item--dragging]="bc.dragging"
-            [style.transform]="'translateX(' + bc.reorderOffset + 'px)'"
-            [attr.aria-colindex]="bc.ariaColIndex"
+            [style.transform]="'translateX(' + bc.reorderOffset + 'px)'" [attr.aria-colindex]="bc.ariaColIndex"
             [class.ag-footer-cell--pinned-last]="bc.lastPinned">
+
             @if (hasAggregate(col)) {
             <span class="ag-footer-label">{{ getAggregateLabel(col) }}</span>
             {{ getFooterDisplay(col, footerValues()[col.field]) }}
@@ -216,22 +195,13 @@
 
       <div class="ag-scroll-pane">
         <div #horizontalScroller class="ag-horizontal-scroll" (scroll)="onHorizontalScroll()">
-          <agrid-pane-header
-            variant="center"
-            [headerGroups]="scrollableHeaderGroups()"
-            [columns]="scrollableHeaderColumns()"
-            [gridTemplateColumns]="scrollableGridTemplateColumns()"
-            [paneWidth]="scrollableTotalWidth()"
-            [totalWidth]="scrollableTotalWidth()"
-            [hasHeaderGroups]="hasHeaderGroups()"
-            [hasFilterableColumns]="hasFilterableColumns()"
-            [headerRowCount]="headerRowCount()"
-            [showControlColumn]="showControlColumn()"
-            [localeText]="localeText()"
-            [pivotHeaderLabel]="pivotHeaderLabel()"
-            [pivotRowColumnField]="pivotRowColumnField()"
-            [hasMultiSort]="hasMultiSort()"
-            [filterMenuField]="filterMenu()?.field ?? null"
+          <agrid-pane-header variant="center" [headerGroups]="scrollableHeaderGroups()"
+            [columns]="scrollableHeaderColumns()" [gridTemplateColumns]="scrollableGridTemplateColumns()"
+            [paneWidth]="scrollableTotalWidth()" [totalWidth]="scrollableTotalWidth()"
+            [hasHeaderGroups]="hasHeaderGroups()" [hasFilterableColumns]="hasFilterableColumns()"
+            [headerRowCount]="headerRowCount()" [showControlColumn]="showControlColumn()" [localeText]="localeText()"
+            [pivotHeaderLabel]="pivotHeaderLabel()" [pivotRowColumnField]="pivotRowColumnField()"
+            [hasMultiSort]="hasMultiSort()" [filterMenuField]="filterMenu()?.field ?? null"
             [markedColumnFields]="markedColumnFields()"
             (headerGroupPointerDown)="onHeaderGroupPointerDown($event.event, $event.fields, $event.label)"
             (colHeaderPointerDown)="onColHeaderPointerDown($event.event, $event.field)"
@@ -241,8 +211,7 @@
             (textFilterChange)="onTextFilterChange($event.event, $event.field)"
             (resizeKeyDown)="onResizeKeyDown($event.event, $event.col)"
             (resizeStart)="onResizeStart($event.event, $event.col)"
-            (autosizeColumn)="onAutosizeColumn($event.event, $event.col)"
-          />
+            (autosizeColumn)="onAutosizeColumn($event.event, $event.col)" />
 
           <ng-template #bodyRow let-item let-ariaIndex="ariaIndex">
             <div role="row" [attr.aria-rowindex]="ariaIndex"
@@ -270,10 +239,11 @@
               @for (bc of virtualScrollableBodyColumns(); track bc.field) {
               @let col = bc.col;
               @let ci = bc.visibleColIndex;
-              <agrid-cell [col]="col" [paneColumns]="scrollableColDefs()" [paneHasSpans]="scrollablePaneHasSpans()" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]" [localeText]="localeText()"
-                [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
-                [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
-                [attr.aria-colindex]="bc.ariaColIndex"
+              <agrid-cell [col]="col" [paneColumns]="scrollableColDefs()" [paneHasSpans]="scrollablePaneHasSpans()"
+                [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]"
+                [localeText]="localeText()" [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row"
+                [locale]="locale()" [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
+                [attr.data-col-field]="col.field" [attr.aria-colindex]="bc.ariaColIndex"
                 [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
                 [selected]="isSelected(item.originalIndex, ci)" [editing]="isEditing(item.originalIndex, ci)"
                 [editable]="isColEditable(col, item.originalIndex) && !isTreeAggregateCell(item, col)"
@@ -323,7 +293,8 @@
                 <div class="ag-detail-column-field">
                   <span class="ag-detail-column-label">{{ detailCol.header }}</span>
                   @if (detailActions().length && isDetailFieldEditable(item)) {
-                  <div class="ag-detail-action-bar" role="toolbar" [attr.aria-label]="detailCol.header + localeText().templates">
+                  <div class="ag-detail-action-bar" role="toolbar"
+                    [attr.aria-label]="detailCol.header + localeText().templates">
                     @for (action of detailActions(); track action.id) {
                     <button type="button" class="ag-detail-action-btn"
                       (click)="applyDetailAction(item, action, $event)">{{ action.label }}</button>
@@ -332,19 +303,18 @@
                   }
                   @if (detailEditingRow() === item.detailFor) {
                   <textarea class="ag-detail-column-textarea" [attr.data-detail-row]="item.detailFor"
-                    [class.ag-detail-column-textarea--invalid]="!!detailValidationError()"
-                    [value]="detailDraft()" (input)="onDetailDraftInput($event)"
-                    (pointerdown)="$event.stopPropagation()"
-                    (keydown)="onDetailEditorKeydown(item, $event)"
-                    (blur)="commitDetailFieldEdit(item)"></textarea>
+                    [class.ag-detail-column-textarea--invalid]="!!detailValidationError()" [value]="detailDraft()"
+                    (input)="onDetailDraftInput($event)" (pointerdown)="$event.stopPropagation()"
+                    (keydown)="onDetailEditorKeydown(item, $event)" (blur)="commitDetailFieldEdit(item)"></textarea>
                   @if (detailValidationError(); as message) {
                   <span class="ag-detail-column-error" role="alert">{{ message }}</span>
                   }
                   } @else {
-                  <div class="ag-detail-column-value" [class.ag-detail-column-value--editable]="isDetailFieldEditable(item)"
+                  <div class="ag-detail-column-value"
+                    [class.ag-detail-column-value--editable]="isDetailFieldEditable(item)"
                     [attr.tabindex]="isDetailFieldEditable(item) ? 0 : null"
-                    (click)="startDetailFieldEdit(item, $event)"
-                    (keydown.enter)="startDetailFieldEdit(item, $event)">{{ detailFieldDisplay(item) }}</div>
+                    (click)="startDetailFieldEdit(item, $event)" (keydown.enter)="startDetailFieldEdit(item, $event)">{{
+                    detailFieldDisplay(item) }}</div>
                   }
                 </div>
                 }
@@ -448,11 +418,9 @@
             [style.min-width.px]="scrollableTotalWidth()">
             @for (bc of scrollableBodyColumns(); track bc.field) {
             @let col = bc.col;
-            <div class="ag-footer-cell" role="gridcell"
-              [class.ag-column--marked]="markedColumnFields().has(col.field)"
+            <div class="ag-footer-cell" role="gridcell" [class.ag-column--marked]="markedColumnFields().has(col.field)"
               [class.ag-column-reorder-item--dragging]="bc.dragging"
-              [style.transform]="'translateX(' + bc.reorderOffset + 'px)'"
-              [attr.aria-colindex]="bc.ariaColIndex">
+              [style.transform]="'translateX(' + bc.reorderOffset + 'px)'" [attr.aria-colindex]="bc.ariaColIndex">
               @if (hasAggregate(col)) {
               <span class="ag-footer-label">{{ getAggregateLabel(col) }}</span>
               {{ getFooterDisplay(col, footerValues()[col.field]) }}
@@ -466,23 +434,13 @@
 
       @if (hasRightPinnedPane()) {
       <div class="ag-pinned-pane ag-pinned-pane--right" [style.width.px]="rightPinnedPaneWidth()">
-        <agrid-pane-header
-          variant="right"
-          [headerGroups]="rightHeaderGroups()"
-          [columns]="rightHeaderColumns()"
-          [gridTemplateColumns]="rightGridTemplateColumns()"
-          [paneWidth]="rightPinnedPaneWidth()"
-          [totalWidth]="rightPinnedPaneWidth()"
-          [hasHeaderGroups]="hasHeaderGroups()"
-          [hasFilterableColumns]="hasFilterableColumns()"
-          [headerRowCount]="headerRowCount()"
-          [showControlColumn]="showControlColumn()"
-          [localeText]="localeText()"
-          [pivotHeaderLabel]="pivotHeaderLabel()"
-          [pivotRowColumnField]="pivotRowColumnField()"
-          [hasMultiSort]="hasMultiSort()"
-          [filterMenuField]="filterMenu()?.field ?? null"
-          [markedColumnFields]="markedColumnFields()"
+        <agrid-pane-header variant="right" [headerGroups]="rightHeaderGroups()" [columns]="rightHeaderColumns()"
+          [gridTemplateColumns]="rightGridTemplateColumns()" [paneWidth]="rightPinnedPaneWidth()"
+          [totalWidth]="rightPinnedPaneWidth()" [hasHeaderGroups]="hasHeaderGroups()"
+          [hasFilterableColumns]="hasFilterableColumns()" [headerRowCount]="headerRowCount()"
+          [showControlColumn]="showControlColumn()" [localeText]="localeText()" [pivotHeaderLabel]="pivotHeaderLabel()"
+          [pivotRowColumnField]="pivotRowColumnField()" [hasMultiSort]="hasMultiSort()"
+          [filterMenuField]="filterMenu()?.field ?? null" [markedColumnFields]="markedColumnFields()"
           (headerGroupPointerDown)="onHeaderGroupPointerDown($event.event, $event.fields, $event.label)"
           (colHeaderPointerDown)="onColHeaderPointerDown($event.event, $event.field)"
           (colHeaderClick)="onColHeaderClick($event.event, $event.field)"
@@ -491,8 +449,7 @@
           (textFilterChange)="onTextFilterChange($event.event, $event.field)"
           (resizeKeyDown)="onResizeKeyDown($event.event, $event.col)"
           (resizeStart)="onResizeStart($event.event, $event.col)"
-          (autosizeColumn)="onAutosizeColumn($event.event, $event.col)"
-        />
+          (autosizeColumn)="onAutosizeColumn($event.event, $event.col)" />
 
         <ng-template #rightRow let-item let-ariaIndex="ariaIndex">
           <div role="row" [attr.aria-rowindex]="ariaIndex"
@@ -514,7 +471,8 @@
             @for (bc of rightBodyColumns(); track bc.field) {
             @let col = bc.col;
             @let ci = bc.visibleColIndex;
-            <agrid-cell [col]="col" [paneColumns]="rightPinnedColDefs()" [paneHasSpans]="rightPaneHasSpans()" [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]" [localeText]="localeText()"
+            <agrid-cell [col]="col" [paneColumns]="rightPinnedColDefs()" [paneHasSpans]="rightPaneHasSpans()"
+              [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="item.row[col.field]" [localeText]="localeText()"
               [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
               [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
               [attr.aria-colindex]="bc.ariaColIndex"
@@ -548,8 +506,7 @@
             <div class="ag-pinned-row-spacer"></div>
             } @else if (item === 'ghost') {
             @for (bc of rightBodyColumns(); track bc.field) {
-            <div class="ag-ghost-cell ag-cell--pinned"
-              [class.ag-column-reorder-item--dragging]="bc.dragging"
+            <div class="ag-ghost-cell ag-cell--pinned" [class.ag-column-reorder-item--dragging]="bc.dragging"
               [style.transform]="'translateX(' + bc.reorderOffset + 'px)'"
               [class.ag-cell--pinned-first]="bc.firstRightPinned">{{ getGhostCellDisplay(bc.col) }}</div>
             }
@@ -593,11 +550,9 @@
           [style.grid-template-columns]="rightGridTemplateColumns()">
           @for (bc of rightBodyColumns(); track bc.field) {
           @let col = bc.col;
-          <div class="ag-footer-cell" role="gridcell"
-            [class.ag-column--marked]="markedColumnFields().has(col.field)"
+          <div class="ag-footer-cell" role="gridcell" [class.ag-column--marked]="markedColumnFields().has(col.field)"
             [class.ag-column-reorder-item--dragging]="bc.dragging"
-            [style.transform]="'translateX(' + bc.reorderOffset + 'px)'"
-            [attr.aria-colindex]="bc.ariaColIndex"
+            [style.transform]="'translateX(' + bc.reorderOffset + 'px)'" [attr.aria-colindex]="bc.ariaColIndex"
             [class.ag-footer-cell--pinned-first]="bc.firstRightPinned">
             @if (hasAggregate(col)) {
             <span class="ag-footer-label">{{ getAggregateLabel(col) }}</span>
@@ -651,6 +606,11 @@
       [attr.aria-label]="localeText().next" (click)="goToNextPage()">›</button>
     <button class="ag-page-btn" [disabled]="control()!.currentPage() >= totalPages()"
       [attr.aria-label]="localeText().lastPage" (click)="goToLastPage()">»</button>
+
+    @if(customFooterMessage()!==null) {
+    <span class="ag-page-info clickable" (click)="clickCustomMessage()">{{customFooterMessage()}}</span>
+    }
+
     <span class="ag-page-count">{{ localeText().rows(paginationRowCount()) }}</span>
   </nav>
   }
@@ -775,8 +735,7 @@
     (toggleValue)="onMenuToggleValue(menu.field, $event)" [aggregate]="getEffectiveAggregate(getColDef(menu.field)!)"
     (filterReplace)="onMenuReplaceFilter(menu.field, $event)" (close)="closeOpenMenus()"
     [customItems]="menu.mode === 'column' ? getColDef(menu.field)?.headerMenuItems ?? [] : []"
-    (customAction)="onColumnHeaderAction(menu.field, $event)"
-    (setAggregate)="onMenuSetAggregate(menu.field, $event)" />
+    (customAction)="onColumnHeaderAction(menu.field, $event)" (setAggregate)="onMenuSetAggregate(menu.field, $event)" />
   }
 
   @if (columnDragPreview(); as preview) {
