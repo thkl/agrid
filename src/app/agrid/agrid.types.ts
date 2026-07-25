@@ -115,6 +115,19 @@ export interface CellContextMenuItem<T extends object = any> {
   danger?: boolean;
 }
 
+/** Cell and row context used to resolve dynamic cell right-click menu items. */
+export interface CellContextMenuParams<T extends object = any> {
+  /** Row object that owns the cell. */
+  row: T;
+  /** Cell identity and current value. */
+  cell: {
+    value: T[AgridField<T>];
+    field: AgridField<T>;
+    colIndex: number;
+    originalIndex: number;
+  };
+}
+
 /** Current grid state supplied to menu-bar visibility, active, and disabled resolvers. */
 export interface AgridMenuBarContext<T extends object = any> {
   /** Current datasource rows. */

@@ -12,6 +12,7 @@ import {
   AgridServerQuery,
   AgridTreeConfig,
   CellContextMenuItem,
+  CellContextMenuParams,
   ColDef,
   DetailAction,
   GroupAction,
@@ -150,6 +151,14 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
    * Pass `null` entries to insert separator lines.
    */
   cellMenuItems?: (CellContextMenuItem<T> | null)[];
+  /**
+   * Runtime resolver for extra cell right-click context menu items.
+   * Return `undefined` to fall back to `cellMenuItems`; return an array, including `[]`, to use
+   * that exact menu for the targeted cell.
+   */
+  getCellMenuItems?: (
+    params: CellContextMenuParams<T>,
+  ) => (CellContextMenuItem<T> | null)[] | undefined;
   /** Shade every other row slightly for easier reading. @default false */
   zebraStripes?: boolean;
   /**
@@ -378,6 +387,10 @@ export class AgridProvider<T extends object = any> {
   groupActions: GroupAction[];
   /** Additional cell context-menu entries. */
   cellMenuItems: (CellContextMenuItem<T> | null)[];
+  /** Optional runtime resolver for additional cell context-menu entries. */
+  getCellMenuItems?: (
+    params: CellContextMenuParams<T>,
+  ) => (CellContextMenuItem<T> | null)[] | undefined;
   /** Whether alternating data rows receive stripe styling. */
   zebraStripes: boolean;
   /** Scrollable-column count above which column virtualization activates. */
@@ -464,6 +477,7 @@ export class AgridProvider<T extends object = any> {
     this.groupDescription = config.groupDescription ?? null;
     this.groupActions     = config.groupActions ?? [];
     this.cellMenuItems    = config.cellMenuItems ?? [];
+    this.getCellMenuItems = config.getCellMenuItems;
     this.zebraStripes     = config.zebraStripes ?? false;
     this.columnVirtualizationThreshold = config.columnVirtualizationThreshold ?? 30;
     this.showChangedCellIndicator = config.showChangedCellIndicator ?? false;

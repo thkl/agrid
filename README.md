@@ -371,6 +371,7 @@ readonly gridProvider = new AgridProvider({
 | `groupDescription` | `((label: string) => string) \| null` | `null` | Optional description text shown next to each group label. |
 | `groupActions` | `GroupAction[]` | `[]` | Actions shown in each group header menu. |
 | `cellMenuItems` | `(CellContextMenuItem \| null)[]` | `[]` | Additional items in the cell right-click context menu. `null` inserts a divider. |
+| `getCellMenuItems` | `({ row, cell }) => (CellContextMenuItem \| null)[] \| undefined` | `undefined` | Resolves cell right-click menu items for the targeted cell. Return `undefined` to use `cellMenuItems`; return an array, including `[]`, to use that dynamic result. |
 | `zebraStripes` | `boolean` | `false` | Shades every other row. Override `--agrid-color-bg-stripe` to change the shade. |
 | `columnVirtualizationThreshold` | `number` | `30` | Renders only the scrollable columns near the horizontal viewport once the scrollable-column count exceeds this value. Lower it to virtualize sooner, or set `Infinity` to disable. Pinned columns always render. |
 | `showChangedCellIndicator` | `boolean` | `false` | Marks committed cell changes until `clearChangedCells()` is called. |

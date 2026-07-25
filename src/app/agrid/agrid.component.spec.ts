@@ -5,6 +5,7 @@ import { AgridControl } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridProvider } from './agrid-provider';
 import { AgridBrowserAdapter } from './infrastructure/agrid-browser.adapter';
+import { AgridCellContextMenu } from './rows/agrid-row.controller';
 import {
   GridEditEvent,
   GridItem,
@@ -105,6 +106,27 @@ describe('AgridComponent grouped control column selection', () => {
         originalIndex: clicked.originalIndex,
       }],
     }]);
+  });
+
+  it('does not start mouse cell-range selection when rowSelection is single', () => {
+    const target = document.createElement('agrid-cell');
+    target.dataset['cellRow'] = '2';
+    target.dataset['cellCol'] = '1';
+    Object.defineProperty(document, 'elementsFromPoint', {
+      configurable: true,
+      value: vi.fn().mockReturnValue([target]),
+    });
+
+    component.onCellPointerDown(new PointerEvent('pointerdown', {
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+    }), 0, 0);
+    document.dispatchEvent(new PointerEvent('pointermove', { clientX: 150, clientY: 80 }));
+    document.dispatchEvent(new PointerEvent('pointerup'));
+
+    expect(component.selectedRange()).toBeNull();
+    expect(component.isRangeSelected(2, 1)).toBe(false);
   });
 
   it('returns the current selected row', () => {
@@ -405,6 +427,72 @@ describe('AgridComponent menu bar', () => {
 
     expect(emitted).toEqual(['refresh', 'export-selected']);
     expect(component.openMenuBarItemId()).toBeNull();
+  });
+});
+
+describe('AgridComponent cell context menu items', () => {
+  interface Row {
+    name: string;
+    status: string;
+  }
+
+  let fixture: ComponentFixture<AgridComponent<Row>>;
+  let component: AgridComponent<Row>;
+
+  function menu(row: Row, field: keyof Row, colIndex = 0): AgridCellContextMenu {
+    return {
+      x: 0,
+      y: 0,
+      rowIndex: 0,
+      colIndex,
+      field,
+      value: row[field],
+      row: row as unknown as Record<string, unknown>,
+    };
+  }
+
+  async function setup(provider: AgridProvider<Row>): Promise<void> {
+    await TestBed.configureTestingModule({ imports: [AgridComponent] }).compileComponents();
+    fixture = TestBed.createComponent<AgridComponent<Row>>(AgridComponent);
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+    component = fixture.componentInstance;
+  }
+
+  afterEach(() => fixture?.destroy());
+
+  it('uses getCellMenuItems for the targeted cell when it returns an array', async () => {
+    const row = { name: 'Alice', status: 'active' };
+    await setup(new AgridProvider<Row>({
+      columns: [{ field: 'name', header: 'Name' }, { field: 'status', header: 'Status' }],
+      datasource: new AgridDataSource([row]),
+      cellMenuItems: [{ label: 'Static', action: () => undefined }],
+      getCellMenuItems: ({ row, cell }) => [
+        {
+          label: `${cell.field}:${row.name}`,
+          action: () => undefined,
+          disabled: cell.value === 'locked',
+        },
+      ],
+    }));
+
+    const items = component.cellMenuItems(menu(row, 'status', 1));
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ label: 'status:Alice', disabled: false });
+  });
+
+  it('falls back to static cellMenuItems only when getCellMenuItems returns undefined', async () => {
+    const row = { name: 'Alice', status: 'active' };
+    await setup(new AgridProvider<Row>({
+      columns: [{ field: 'name', header: 'Name' }],
+      datasource: new AgridDataSource([row]),
+      cellMenuItems: [{ label: 'Static', action: () => undefined }],
+      getCellMenuItems: ({ cell }) => cell.field === 'name' ? undefined : [],
+    }));
+
+    expect(component.cellMenuItems(menu(row, 'name')).map(item => item?.label)).toEqual(['Static']);
+    expect(component.cellMenuItems(menu(row, 'status'))).toEqual([]);
   });
 });
 

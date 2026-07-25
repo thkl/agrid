@@ -185,7 +185,6 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly enterEditAction = computed(() => this.provider().enterEditAction);
   readonly groupDescription = computed(() => this.provider().groupDescription);
   readonly groupActions = computed(() => this.provider().groupActions);
-  readonly cellMenuItems = computed(() => this.provider().cellMenuItems);
   readonly headerGroups = computed(() => this.provider().headerGroups);
   readonly treeConfig = computed(() => this.provider().treeConfig);
   /** Whether the provider is rendering a derived client-side pivot table. */
@@ -2595,6 +2594,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** @internal Starts a fill-handle drag from the bottom-right corner of the selection. */
   onCellPointerDown(event: PointerEvent, originalIndex: number, colIndex: number): void {
     if (this.rangeController.startFill(event, originalIndex, colIndex)) return;
+    if (this.rowSelection() === 'single') return;
     this.rangeController.startSelection(event, originalIndex, colIndex);
   }
 
@@ -2866,6 +2866,21 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       originalIndex: menu.rowIndex,
     });
     this.closeCellContextMenu();
+  }
+
+  /** @internal Resolves dynamic cell context-menu items before falling back to static items. */
+  cellMenuItems(menu: AgridCellContextMenu): (CellContextMenuItem<T> | null)[] {
+    const provider = this.provider();
+    const dynamic = provider.getCellMenuItems?.({
+      row: menu.row as unknown as T,
+      cell: {
+        value: menu.value as T[AgridField<T>],
+        field: menu.field as AgridField<T>,
+        colIndex: menu.colIndex,
+        originalIndex: menu.rowIndex,
+      },
+    });
+    return dynamic ?? provider.cellMenuItems;
   }
 
   /** @internal Copy one field from the target and marked rows. */

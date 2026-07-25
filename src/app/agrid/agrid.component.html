@@ -681,9 +681,10 @@
     <button class="ag-context-item ag-context-item--danger" role="menuitem" (click)="deleteRow(menu.rowIndex)">{{
       localeText().deleteRow }}</button>
     }
-    @if (cellMenuItems().length) {
+    @let providerCellMenuItems = cellMenuItems(menu);
+    @if (providerCellMenuItems.length) {
     <div class="ag-context-separator" role="separator"></div>
-    @for (item of cellMenuItems(); track $index) {
+    @for (item of providerCellMenuItems; track $index) {
     @if (item === null) {
     <div class="ag-context-separator" role="separator"></div>
     } @else {

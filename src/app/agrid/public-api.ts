@@ -91,6 +91,7 @@ export type {
   AgridTreeSelectionEvent,
   AgridTreeSelectionMode,
   CellContextMenuItem,
+  CellContextMenuParams,
   CellFormat,
   CellFormatParams,
   CellInfoEvent,
