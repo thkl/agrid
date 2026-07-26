@@ -113,7 +113,28 @@ export interface CellContextMenuItem<T extends object = any> {
   disabled?: boolean;
   /** Renders the item in red (destructive action). */
   danger?: boolean;
+
+  confirm?: {
+    title?: string;
+    message: string;
+    confirmLabel?: string;
+  };
 }
+
+
+/** Screen position and row targeted by the row context menu. @internal */
+export type AgridRowContextMenu = { x: number; y: number; rowIndex: number };
+
+/** Screen position and cell data targeted by the cell context menu. @internal */
+export type AgridCellContextMenu = {
+  x: number;
+  y: number;
+  rowIndex: number;
+  colIndex: number;
+  field: string;
+  value: unknown;
+  row: Record<string, unknown>;
+};
 
 /** Cell and row context used to resolve dynamic cell right-click menu items. */
 export interface CellContextMenuParams<T extends object = any> {
@@ -127,6 +148,15 @@ export interface CellContextMenuParams<T extends object = any> {
     originalIndex: number;
   };
 }
+
+
+export interface AgridConfirmState<T extends object> {
+  item : CellContextMenuItem;
+  menu: AgridCellContextMenu;
+  x: number;
+  y: number;
+}
+
 
 /** Current grid state supplied to menu-bar visibility, active, and disabled resolvers. */
 export interface AgridMenuBarContext<T extends object = any> {

@@ -2,6 +2,8 @@ import { Signal, WritableSignal, computed, signal } from '@angular/core';
 import { AgridBrowserAdapter } from '../infrastructure/agrid-browser.adapter';
 import { AgridDataSource } from '../agrid-datasource';
 import {
+  AgridCellContextMenu,
+  AgridRowContextMenu,
   CellPosition,
   ColDef,
   GridItem,
@@ -51,19 +53,7 @@ export interface AgridRowControllerOptions {
   measureScroller: () => { left: number; width: number };
 }
 
-/** Screen position and row targeted by the row context menu. @internal */
-export type AgridRowContextMenu = { x: number; y: number; rowIndex: number };
 
-/** Screen position and cell data targeted by the cell context menu. @internal */
-export type AgridCellContextMenu = {
-  x: number;
-  y: number;
-  rowIndex: number;
-  colIndex: number;
-  field: string;
-  value: unknown;
-  row: Record<string, unknown>;
-};
 
 /**
  * Owns row selection, row/cell context menus, and row-level operations.

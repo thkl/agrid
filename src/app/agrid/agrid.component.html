@@ -746,3 +746,24 @@
   </div>
   }
 </div>
+
+@if (confirmState(); as confirm) {
+  <div class="ag-grid-confirm" role="alertdialog" aria-modal="false"
+    [style.left.px]="confirm.x"
+    [style.top.px]="confirm.y"
+    (click)="$event.stopPropagation()">
+    @if (confirm.item.confirm?.title; as title) {
+      <div class="ag-grid-confirm-title">{{ title }}</div>
+    }
+    <div class="ag-grid-confirm-message">{{ confirm.item.confirm?.message }}</div>
+    <div class="ag-grid-confirm-actions">
+      <button class="ag-grid-confirm-secondary" type="button"
+        (click)="closeConfirmation()">{{ localeText().close }}</button>
+      <button class="ag-grid-confirm-primary" type="button"
+        [class.ag-tree-confirm-primary--danger]="confirm.item.danger"
+        (click)="confirmMenuAction()">
+        {{ confirm.item.confirm?.confirmLabel ?? localeText().confirmYes }}
+      </button>
+    </div>
+  </div>
+}

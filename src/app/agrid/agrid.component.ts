@@ -53,7 +53,7 @@ import { AgridProvider, AgridSettings } from './agrid-provider';
 import { buildPivotResult } from './agrid-pivot';
 import { AgridProjectionModel } from './rows/agrid-projection.model';
 import { AgridRangeController } from './selection/agrid-range.controller';
-import { AgridCellContextMenu, AgridRowController } from './rows/agrid-row.controller';
+import { AgridRowController } from './rows/agrid-row.controller';
 import { AgridSidebarController } from './editing/agrid-sidebar.controller';
 import {
   AgridSidebarComponent,
@@ -80,6 +80,8 @@ import {
   GridItem, GroupAction, NewRecord, PageChangeEvent, PathTreeNodeItem, RecordEditEvent, RowClickEvent,
   RowMarkEvent, RowReorderEvent, RowSelectEvent, RowUpdateEvent, SortChangeEvent, TreeNodeClickEvent, ValidationFailedEvent, ValueOption,
   RowDetailActionEvent, AgridTreeConfig,
+  AgridConfirmState,
+  AgridCellContextMenu,
 } from './agrid.types';
 
 // Re-export for backward compatibility with existing imports of GridItem from this file.
@@ -237,6 +239,11 @@ export class AgridComponent<T extends object = any> implements OnChanges {
         return undefined;
     }
   });
+
+
+  readonly confirmState = signal<AgridConfirmState<T> | null>(null);
+
+
   /**
    * Effective pin resolver fed to the projection: a runtime UI override wins (including an explicit
    * `null` unpin), otherwise the provider `pinRow` predicate decides. Returns `undefined` when
@@ -2820,6 +2827,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** @internal */
   onCellContextMenu(event: MouseEvent, rowIndex: number, colIndex: number, col: ColDef, row: Record<string, unknown>): void {
+    this.confirmState.set(null);
     this.rowController.openCellContextMenu(event, rowIndex, colIndex, col, row);
   }
 
@@ -2859,14 +2867,50 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** @internal Runs a typed provider context-menu action against erased controller state. */
   runCellMenuItem(item: CellContextMenuItem<T>, menu: AgridCellContextMenu): void {
+   
+    if (item.confirm) {
+      const cellContextMenu = this.rowController.cellContextMenu();
+      this.confirmState.set({
+        menu,
+        item,
+        x: cellContextMenu?.x ?? 0,
+        y: cellContextMenu?.y ?? 0,
+      });
+      this.closeCellContextMenu();
+      return;
+    } else {
+
     item.action({
       value: menu.value as T[AgridField<T>],
       row: menu.row as unknown as T,
       field: menu.field as AgridField<T>,
       originalIndex: menu.rowIndex,
     });
+  }
     this.closeCellContextMenu();
   }
+
+
+/** @internal */
+  confirmMenuAction(): void {
+    const state = this.confirmState();
+    if (!state) return;
+    state.item.action({
+      value: state.menu.value as T[AgridField<T>],
+      row: state.menu.row as unknown as T,
+      field: state.menu.field,
+      originalIndex: state.menu.rowIndex,
+    });
+    this.closeCellContextMenu();
+    this.confirmState.set(null);
+  }
+
+    /** @internal */
+  closeConfirmation(): void {
+    this.confirmState.set(null);
+  }
+
+
 
   /** @internal Resolves dynamic cell context-menu items before falling back to static items. */
   cellMenuItems(menu: AgridCellContextMenu): (CellContextMenuItem<T> | null)[] {
