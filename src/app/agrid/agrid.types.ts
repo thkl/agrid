@@ -56,6 +56,21 @@ export type CellFormatParams<
   K extends AgridField<T> = AgridField<T>,
 > = CellReadonlyParams<T, K>;
 
+/** Parameters passed to a computed column value getter. */
+export interface AgridValueGetterParams<
+  T extends object = any,
+  K extends AgridField<T> = AgridField<T>,
+> {
+  /** Datasource row containing the cell. */
+  row: T;
+  /** Raw field value when the field exists on the row, otherwise `undefined`. */
+  value: K extends AgridField<T> ? T[K] : unknown;
+  /** Column definition for the cell. */
+  column: ColDef<T>;
+  /** Zero-based index of the row in the datasource. */
+  originalIndex: number;
+}
+
 /** Parameters passed to a custom column sort comparator. */
 export interface AgridSortComparatorParams<
   T extends object = any,
@@ -418,6 +433,12 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
    */
   formatter?: (value: T[K]) => string;
   /**
+   * Derive this column's displayed/read value from the full row. When present, display, filtering,
+   * sorting, export, copy, aggregates, renderers, and selection summaries use the returned value.
+   * Getter-only values are read-only unless a future value-setter hook is configured.
+   */
+  valueGetter?: (params: AgridValueGetterParams<T, K>) => unknown;
+  /**
    * Compare two raw values for this column when client-side sorting is active.
    * Return a negative number when `valueA` should come before `valueB`, positive when after,
    * or `0` to preserve the existing row order for this sort key. The grid applies ascending or
@@ -566,7 +587,19 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
 export type ColDef<
   T extends object = any,
   K extends AgridField<T> = AgridField<T>,
-> = K extends AgridField<T> ? ColDefBase<T, K> : never;
+> = (K extends AgridField<T> ? ColDefBase<T, K> : never) | AgridValueGetterColDef<T>;
+
+/**
+ * Defines a computed column whose field id does not need to exist on the row type.
+ * A value getter is required so accidental misspelled field names are still rejected.
+ */
+export interface AgridValueGetterColDef<T extends object = any>
+  extends Omit<ColDefBase<T, AgridField<T>>, 'field' | 'valueGetter'> {
+  /** Stable column id used for state, sorting, filtering, and generated headers. */
+  field: string;
+  /** Derive the cell value from the full row. */
+  valueGetter: (params: AgridValueGetterParams<T>) => unknown;
+}
 
 /** Parameters passed to a row-aware {@link ColDefBase.inputMask} resolver. */
 export interface InputMaskParams<
@@ -605,6 +638,8 @@ export interface DetailActionParams<T extends object = any> {
 export interface AgridExportGroup {
   label: string;
   rows: Record<string, unknown>[];
+  /** Original datasource indices for {@link rows}, in the same order. */
+  rowIndices: number[];
   /** Per-column aggregate values (field → value), only for columns with a configured aggregate. */
   aggregates: Record<string, unknown>;
 }

@@ -4,7 +4,7 @@ import { AgridColumnMenuValueItem } from './agrid-column-menu.component';
 import { AgridControl, ColumnFilter, FilterOperator } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
 import { ColDef, FilterChangeEvent, SortChangeEvent, ValueOption } from '../agrid.types';
-import { passesConditionFilter } from '../agrid.utils';
+import { getCellValue, getDisplayForField, passesConditionFilter } from '../agrid.utils';
 
 /** Position and target field of the open column menu. @internal */
 export type AgridColumnMenuState = {
@@ -51,10 +51,15 @@ export class AgridColumnMenuController {
     }
 
     const rows = this.opts.dataSource().rows();
-    const rawValues = [...new Set(rows.map(row => String(row[menu.field] ?? '')))];
-    return rawValues
-      .map(rawStr => ({
-        label: col?.formatter ? col.formatter(rawStr) : rawStr,
+    const rawValues = new Map<string, { raw: unknown; row: Record<string, unknown>; index: number }>();
+    rows.forEach((row, index) => {
+      const raw = getCellValue(col, row, index);
+      const rawStr = String(raw ?? '');
+      if (!rawValues.has(rawStr)) rawValues.set(rawStr, { raw, row, index });
+    });
+    return [...rawValues.entries()]
+      .map(([rawStr, entry]) => ({
+        label: getDisplayForField(col, entry.raw, undefined, entry.row),
         rawStr,
       }))
       .sort((a, b) =>
@@ -87,23 +92,30 @@ export class AgridColumnMenuController {
         if (field === menu.field) continue;
         if (filter.text) {
           const search = filter.text.toLowerCase();
+          const filterCol = this.getColDef(field);
           indices = indices.filter(index =>
-            String(rows[index][field] ?? '').toLowerCase().includes(search),
+            getDisplayForField(
+              filterCol,
+              getCellValue(filterCol, rows[index], index),
+              undefined,
+              rows[index],
+            ).toLowerCase().includes(search),
           );
         }
         if (filter.selectedValues !== null) {
+          const filterCol = this.getColDef(field);
           const allowed = new Set(filter.selectedValues);
-          indices = indices.filter(index => allowed.has(String(rows[index][field] ?? '')));
+          indices = indices.filter(index => allowed.has(String(getCellValue(filterCol, rows[index], index) ?? '')));
         }
         if (filter.operator && filter.operand != null && filter.operand !== '') {
           const filterCol = this.getColDef(field);
           indices = indices.filter(index =>
-            passesConditionFilter(filterCol, rows[index][field], filter),
+            passesConditionFilter(filterCol, getCellValue(filterCol, rows[index], index), filter),
           );
         }
       }
     }
-    return new Set(indices.map(index => String(rows[index][menu.field] ?? '')));
+    return new Set(indices.map(index => String(getCellValue(col, rows[index], index) ?? '')));
   });
 
   readonly valueItems = computed<AgridColumnMenuValueItem[]>(() => {

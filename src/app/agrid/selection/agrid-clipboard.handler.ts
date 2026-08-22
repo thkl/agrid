@@ -2,7 +2,7 @@ import { Signal, WritableSignal } from '@angular/core';
 import { AgridControl, HistoryEntry } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
 import { CellPosition, ColDef, GridEditEvent, GridItem } from '../agrid.types';
-import { getDisplayForField, isDataRowItem } from '../agrid.utils';
+import { getCellValue, getDisplayForField, isDataRowItem } from '../agrid.utils';
 
 /** Rectangular selection represented by source row and visible column positions. @internal */
 export type CellRange = { anchor: CellPosition; focus: CellPosition };
@@ -73,7 +73,7 @@ export class AgridClipboardHandler {
       for (let displayIndex = rowStart; displayIndex <= rowEnd; displayIndex++) {
         const item = rows[displayIndex];
         if (!isDataRowItem(item)) continue;
-        lines.push(this.serializeRow(item.row, cols, colStart, colEnd));
+        lines.push(this.serializeRow(item.row, item.originalIndex, cols, colStart, colEnd));
         copiedIndices.add(item.originalIndex);
       }
     }
@@ -82,7 +82,7 @@ export class AgridClipboardHandler {
       if (copiedIndices.has(originalIndex)) continue;
       const row = dataRows[originalIndex];
       if (!row) continue;
-      lines.push(this.serializeRow(row, cols, colStart, colEnd));
+      lines.push(this.serializeRow(row, originalIndex, cols, colStart, colEnd));
     }
 
     return lines.join('\n');
@@ -90,6 +90,7 @@ export class AgridClipboardHandler {
 
   private serializeRow(
     row: Record<string, unknown>,
+    originalIndex: number,
     cols: ColDef[],
     colStart: number,
     colEnd: number,
@@ -99,7 +100,7 @@ export class AgridClipboardHandler {
       const col = cols[colIndex];
       if (!col) continue;
       cells.push(this.escapeTsvValue(
-        getDisplayForField(col, row[col.field], this.opts.locale(), row)
+        getDisplayForField(col, getCellValue(col, row, originalIndex), this.opts.locale(), row)
       ));
     }
     return cells.join('\t');

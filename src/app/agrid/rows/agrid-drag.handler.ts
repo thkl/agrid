@@ -2,7 +2,7 @@ import { DestroyRef, Signal, WritableSignal, signal } from '@angular/core';
 import { AgridBrowserAdapter } from '../infrastructure/agrid-browser.adapter';
 import { AgridDataSource } from '../agrid-datasource';
 import { ColDef, GridItem, RowReorderEvent } from '../agrid.types';
-import { buildSelectionRange, getDisplayForField } from '../agrid.utils';
+import { buildSelectionRange, getCellValue, getDisplayForField } from '../agrid.utils';
 
 /** Dependencies and callbacks required by {@link AgridDragHandler}. @internal */
 export interface AgridDragHandlerOptions {
@@ -78,7 +78,7 @@ export class AgridDragHandler {
     const idx = this.reorderOriginalIndex();
     if (idx === null) return '';
     const row = this.opts.dataSource().rows()[idx];
-    return getDisplayForField(col, row?.[col.field], this.opts.locale(), row);
+    return getDisplayForField(col, getCellValue(col, row, idx), this.opts.locale(), row);
   }
 
   private readonly _reorderMove = (e: PointerEvent): void => {

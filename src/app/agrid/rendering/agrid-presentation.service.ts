@@ -3,7 +3,7 @@ import { AgridBrowserAdapter } from '../infrastructure/agrid-browser.adapter';
 import { XLSX_CONTENT_TYPE, XlsxCell, XlsxRow, XlsxSheet, buildXlsx } from '../infrastructure/agrid-xlsx';
 import { AgridControl } from '../agrid-control';
 import { AgridExportGroup, ColDef } from '../agrid.types';
-import { getDisplayForField } from '../agrid.utils';
+import { getCellValue, getDisplayForField } from '../agrid.utils';
 
 /** Reactive display state required by {@link AgridPresentationService}. @internal */
 export interface AgridPresentationOptions {
@@ -14,6 +14,8 @@ export interface AgridPresentationOptions {
    * grouping, pagination, and collapsed-group state (which only affect what is rendered on screen).
    */
   exportRows: Signal<Record<string, unknown>[]>;
+  /** Original datasource indices matching {@link exportRows}. */
+  exportRowIndices?: Signal<number[]>;
   /** Grouped export structure when the grid is grouped, or `null` for a flat export. */
   exportGroups?: Signal<AgridExportGroup[] | null>;
   locale: Signal<string>;
@@ -74,9 +76,15 @@ export class AgridPresentationService {
       /[,"\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
     const header = cols.map(col => escape(col.header)).join(',');
     const locale = this.opts.locale();
+    const rowIndices = this.opts.exportRowIndices?.() ?? [];
     const body = rows
-      .map(row => cols
-        .map(col => escape(getDisplayForField(col, row[col.field], locale, row)))
+      .map((row, index) => cols
+        .map(col => escape(getDisplayForField(
+          col,
+          getCellValue(col, row, rowIndices[index] ?? index),
+          locale,
+          row,
+        )))
         .join(','))
       .join('\n');
     this.browser.downloadText(
@@ -96,7 +104,13 @@ export class AgridPresentationService {
     const groups = this.opts.exportGroups?.() ?? null;
     const sheet = groups
       ? this.buildGroupedSheet(sheetName, cols, groups, locale)
-      : this.buildFlatSheet(sheetName, cols, this.opts.exportRows(), locale);
+      : this.buildFlatSheet(
+          sheetName,
+          cols,
+          this.opts.exportRows(),
+          this.opts.exportRowIndices?.() ?? [],
+          locale,
+        );
     this.browser.downloadBytes(filename, buildXlsx([sheet]), XLSX_CONTENT_TYPE);
   }
 
@@ -104,12 +118,20 @@ export class AgridPresentationService {
     name: string,
     cols: ColDef[],
     rows: Record<string, unknown>[],
+    rowIndices: number[],
     locale: string,
   ): XlsxSheet {
     return {
       name,
       header: cols.map(col => col.header),
-      rows: rows.map(row => ({ cells: cols.map(col => this.toXlsxCell(col, row[col.field], locale, row)) })),
+      rows: rows.map((row, index) => ({
+        cells: cols.map(col => this.toXlsxCell(
+          col,
+          getCellValue(col, row, rowIndices[index] ?? index),
+          locale,
+          row,
+        )),
+      })),
     };
   }
 
@@ -131,8 +153,18 @@ export class AgridPresentationService {
           : { kind: 'string', value: String(value) };
       });
       rows.push({ cells: summary, level: 0, emphasized: true });
-      for (const row of group.rows) {
-        rows.push({ cells: cols.map(col => this.toXlsxCell(col, row[col.field], locale, row)), level: 1 });
+      for (let index = 0; index < group.rows.length; index++) {
+        const row = group.rows[index];
+        const originalIndex = group.rowIndices?.[index] ?? index;
+        rows.push({
+          cells: cols.map(col => this.toXlsxCell(
+            col,
+            getCellValue(col, row, originalIndex),
+            locale,
+            row,
+          )),
+          level: 1,
+        });
       }
     }
     return { name, header: cols.map(col => col.header), rows, outline: true };

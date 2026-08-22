@@ -296,6 +296,47 @@ readonly provider = new AgridProvider({
 });`,
   },
   {
+    path: '/computed-columns',
+    label: 'Computed columns',
+    title: 'Value getters for derived columns',
+    summary:
+      'Read-only columns can derive their values from the full row while still participating in display, filtering, sorting, aggregates, copy, and export.',
+    points: [
+      'Use a synthetic field id plus valueGetter for values that are not stored on the row.',
+      'Combine type, formatter, aggregate, comparator, and cellFormat with computed values.',
+      'Getter columns are read-only until a value setter is configured.',
+    ],
+    code: `const columns: ColDef<Order>[] = [
+  { field: 'quantity', header: 'Qty', type: 'number' },
+  { field: 'unitPrice', header: 'Unit Price', type: 'number' },
+  {
+    field: 'total',
+    header: 'Total',
+    type: 'number',
+    valueGetter: ({ row }) => row.quantity * row.unitPrice,
+    formatter: value => \`$\${Number(value).toLocaleString()}\`,
+    aggregate: 'sum',
+  },
+  {
+    field: 'margin',
+    header: 'Margin',
+    type: 'number',
+    valueGetter: ({ row }) =>
+      (row.quantity * row.unitPrice - row.cost) /
+      (row.quantity * row.unitPrice),
+    formatter: value => \`\${Math.round(Number(value) * 100)}%\`,
+  },
+];
+
+readonly provider = new AgridProvider<Order>({
+  columns,
+  datasource: new AgridDataSource(rows),
+  control: new AgridControl(),
+  showSidebar: true,
+  enableQuickFilter: true,
+});`,
+  },
+  {
     path: '/selection-summary',
     label: 'Selection summary',
     title: 'Live statistics for selected cells',

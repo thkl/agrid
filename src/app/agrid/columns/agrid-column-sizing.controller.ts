@@ -2,7 +2,7 @@ import { DestroyRef, Signal, signal } from '@angular/core';
 import { AgridBrowserAdapter } from '../infrastructure/agrid-browser.adapter';
 import { AgridControl } from '../agrid-control';
 import { ColDef, GridItem } from '../agrid.types';
-import { getDisplayForField, isDataRowItem } from '../agrid.utils';
+import { getCellValue, getDisplayForField, isDataRowItem } from '../agrid.utils';
 
 /** Dependencies required by {@link AgridColumnSizingController}. @internal */
 export interface AgridColumnSizingOptions {
@@ -160,7 +160,12 @@ export class AgridColumnSizingController {
     const values = [col.header];
     for (const item of this.opts.filteredItems()) {
       if (!isDataRowItem(item)) continue;
-      values.push(getDisplayForField(col, item.row[col.field], this.opts.locale(), item.row));
+      values.push(getDisplayForField(
+        col,
+        getCellValue(col, item.row, item.originalIndex),
+        this.opts.locale(),
+        item.row,
+      ));
     }
     const measured = values.reduce(
       (max, value) => Math.max(max, context.measureText(value).width),

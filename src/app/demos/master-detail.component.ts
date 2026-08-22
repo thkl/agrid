@@ -40,10 +40,10 @@ const COLUMNS: ColDef<OrderRow>[] = [
   { field: 'customer', header: 'Customer', width: 160, filterable: true },
   { field: 'region', header: 'Region', width: 120, filterable: true, groupable: true },
   { field: 'total', header: 'Total', width: 120, type: 'number', filterable: true,
-    formatter: v => `$${Number(v).toLocaleString()}` },
+    formatter: (v: unknown) => `$${Number(v).toLocaleString()}` },
   { field: 'status', header: 'Status', width: 120,
     values: ['paid', 'pending', 'refunded'],
-    cellClass: ({ value }) => (value === 'refunded' ? 'cell-refunded' : '') },
+    cellClass: ({ value }: { value: unknown }) => (value === 'refunded' ? 'cell-refunded' : '') },
   { field: 'notes', header: 'Notes', width: 220 },
 ];
 

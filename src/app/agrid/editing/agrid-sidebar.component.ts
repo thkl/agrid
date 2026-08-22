@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from '../agrid-localization';
-import { getDateInputValue, getDisplayForField, looksLikeDate, matchesInputMask } from '../agrid.utils';
+import { getCellValue, getDateInputValue, getDisplayForField, looksLikeDate, matchesInputMask } from '../agrid.utils';
 import { AgridPivotConfig, ColDef, HeaderGroup } from '../agrid.types';
 
 /** Tabs available from the grid's vertical sidebar strip. @internal */
@@ -205,7 +205,7 @@ export class AgridSidebarComponent {
     const hiddenColumns = this.hiddenColumns();
     const rowIndex = this.rowIndex();
     return this.columns().map(col => {
-      const rawValue = row[col.field];
+      const rawValue = getCellValue(col, row, rowIndex ?? -1);
       let inputValue = String(rawValue ?? '');
       if (col.type === 'date' || looksLikeDate(rawValue)) {
         inputValue = getDateInputValue(rawValue);

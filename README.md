@@ -178,6 +178,7 @@ See [ROADMAP.md](./ROADMAP.md) for the AG Grid comparison checklist and open par
 - Quick filter for searching across all visible columns.
 - Text filters, string/number/date condition filters, value filters, and multi-column sorting.
 - Custom sort comparators for domain-specific column ordering.
+- Computed value-getter columns that behave like normal read-only columns for display, filtering, sorting, export, copy, and aggregates.
 - Server-side filter/sort events for remote data workflows.
 - Column menu with sort, clear sort, autosize, pin/unpin, hide, group, and clear filter actions.
 - Column resizing by drag and autosize by double-click.
@@ -746,6 +747,7 @@ interface ColDef {
   locked?: boolean;
   values?: string[] | ValueOption[];
   formatter?: (value: unknown) => string;
+  valueGetter?: (params: { row: Record<string, unknown>; value: unknown; column: ColDef; originalIndex: number }) => unknown;
   comparator?: (params: { valueA: unknown; valueB: unknown; rowA: Record<string, unknown>; rowB: Record<string, unknown>; indexA: number; indexB: number; column: ColDef; locale?: string }) => number;
   inputMask?: (params: { value: unknown; row: Record<string, unknown>; column: ColDef }) => RegExp | null;
   filterable?: boolean;
@@ -761,7 +763,7 @@ interface ColDef {
 
 | Property | Required | Description |
 | --- | --- | --- |
-| `field` | Yes | Key in each row object. |
+| `field` | Yes | Key in each row object. Getter-only columns may use a synthetic stable field id when `valueGetter` is provided. |
 | `header` | Yes | Header label shown in the grid. |
 | `group` | No | Header-group ID. Adjacent columns with the same ID share a grouped header. |
 | `headerMenuItems` | No | Custom `{ key, label, icon?, disabled?, itemClasses?, iconClasses? }` commands appended to this column's header menu. |
@@ -778,6 +780,7 @@ interface ColDef {
 | `asyncValues` | No | Async option provider for the built-in rich-select editor. |
 | `formula` | No | Evaluates strings beginning with `=` for display, filtering, sorting, copy, and export while keeping the raw value in row data. |
 | `formatter` | No | Custom display formatter. Takes precedence over date auto-formatting. |
+| `valueGetter` | No | Derives a read-only cell value from the full row. Getter values participate in display, filtering, sorting, export, copy, aggregates, renderers, formatting, and selection summaries. |
 | `comparator` | No | Custom client-side sort comparator for domain-specific ordering. The grid applies ascending/descending direction after the comparator returns. |
 | `inputMask` | No | Resolves a regular-expression input constraint for each string cell from its `row`, `value`, and `column`. Invalid proposed values are rejected. |
 | `filterable` | No | Enables text filter and value picker for the column. |
@@ -895,6 +898,29 @@ const columns: ColDef[] = [
 ```
 
 The column sizes itself once on first render and then behaves like a normal resizable column.
+
+### Computed Value Columns
+
+Use `valueGetter` when a column should display a derived value instead of a stored row field:
+
+```ts
+const columns: ColDef<Order>[] = [
+  { field: 'quantity', header: 'Qty', type: 'number' },
+  { field: 'unitPrice', header: 'Unit Price', type: 'number' },
+  {
+    field: 'total',
+    header: 'Total',
+    type: 'number',
+    valueGetter: ({ row }) => row.quantity * row.unitPrice,
+    formatter: value => `$${Number(value).toLocaleString()}`,
+    aggregate: 'sum',
+  },
+];
+```
+
+Getter columns are read-only until a value setter is configured. Their values are used for display,
+custom renderers, filtering, quick filter, sorting, copy, CSV/XLSX export, autosize, aggregates, and
+selection summaries.
 
 ## Built-in Rich Editors and Formulas
 

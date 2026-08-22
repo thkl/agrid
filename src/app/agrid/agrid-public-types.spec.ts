@@ -187,6 +187,18 @@ describe('typed public contracts', () => {
           { value: false, label: 'No' },
         ],
       },
+      {
+        field: 'displayName',
+        header: 'Display name',
+        valueGetter: ({ row, value, column, originalIndex }) => {
+          expectTypeOf(row).toEqualTypeOf<PersonRow>();
+          expectTypeOf(value).toEqualTypeOf<unknown>();
+          expectTypeOf(column).toEqualTypeOf<ColDef<PersonRow>>();
+          expectTypeOf(originalIndex).toEqualTypeOf<number>();
+          return `${row.id}: ${row.name}`;
+        },
+        formatter: value => String(value).toUpperCase(),
+      },
     ];
     const datasource = new AgridDataSource<PersonRow>([
       { id: 1, name: 'Alice', active: true },

@@ -2,7 +2,7 @@ import { Signal, WritableSignal, computed, signal } from '@angular/core';
 import { CellRange } from './agrid-clipboard.handler';
 import { AgridDataSource } from '../agrid-datasource';
 import { CellPosition, ColDef } from '../agrid.types';
-import { getDisplayForField } from '../agrid.utils';
+import { getCellValue, getDisplayForField } from '../agrid.utils';
 
 /** Location of a formatted-value match in source coordinates. @internal */
 export type AgridFindMatch = {
@@ -39,7 +39,12 @@ export class AgridFindController {
       if (!row) return;
       for (let colIndex = 0; colIndex < cols.length; colIndex++) {
         const col = cols[colIndex];
-        const value = getDisplayForField(col, row[col.field], this.opts.locale(), row).toLowerCase();
+        const value = getDisplayForField(
+          col,
+          getCellValue(col, row, rowIndex),
+          this.opts.locale(),
+          row,
+        ).toLowerCase();
         if (value.includes(query)) {
           matches.push({ rowIndex, colIndex });
         }

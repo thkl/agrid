@@ -64,6 +64,7 @@ import {
 import {
   buildExportGroups,
   defaultExpandedTreeIds,
+  getCellValue,
   isDataRowItem as isDataRowItemFn,
   isDetailRowItem as isDetailRowItemFn,
   isGroupHeaderItem as isGroupHeaderItemFn,
@@ -1130,6 +1131,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     // Export the full filtered + sorted set, not the rendered projection: grouping,
     // pagination, and collapsed groups must not drop rows from the file.
     exportRows: this.ɵvisibleRows,
+    exportRowIndices: this.projection.filteredSortedIndices,
     // When grouped, export a fully-expanded grouped structure with subtotals (xlsx outline).
     exportGroups: computed(() => {
       const control = this.control();
@@ -1836,7 +1838,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       }
       const row = this.dataSource().rows()[cell.rowIndex];
       const col = this.visibleColDefs()[cell.colIndex];
-      this.formulaBarDraft.set(row && col ? String(row[col.field] ?? '') : '');
+      this.formulaBarDraft.set(row && col ? String(this.cellValue(col, row, cell.rowIndex) ?? '') : '');
     });
 
     afterNextRender(() => {
@@ -2181,10 +2183,15 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     return isTreeRowItemFn(item) && !!item.aggregates && col.field in item.aggregates;
   }
 
+  /** @internal Resolve a column's read value for a row, including computed value-getter columns. */
+  cellValue(col: ColDef, row: Record<string, unknown>, originalIndex: number): unknown {
+    return getCellValue(col, row, originalIndex);
+  }
+
   /** @internal Whether the configured info action is visible for this cell. */
-  showCellInfoIcon(col: ColDef, row: Record<string, unknown>): boolean {
+  showCellInfoIcon(col: ColDef, row: Record<string, unknown>, originalIndex: number): boolean {
     return typeof col.infoIcon === 'function'
-      ? col.infoIcon({ value: row[col.field], row })
+      ? col.infoIcon({ value: this.cellValue(col, row, originalIndex), row })
       : col.infoIcon === true;
   }
 
@@ -2193,7 +2200,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     this.cellInfo.emit({
       row: row as T,
       field: col.field as AgridField<T>,
-      value: row[col.field],
+      value: this.cellValue(col, row, originalIndex),
       originalIndex,
       column: col,
     } as unknown as CellInfoEvent<T>);
@@ -2551,7 +2558,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     }
     const row = this.dataSource().rows()[cell.rowIndex];
     const col = this.visibleColDefs()[cell.colIndex];
-    this.formulaBarDraft.set(row && col ? String(row[col.field] ?? '') : '');
+    this.formulaBarDraft.set(row && col ? String(this.cellValue(col, row, cell.rowIndex) ?? '') : '');
   }
 
   /** @internal A custom cell editor requested a commit (e.g. picking a value). */
@@ -2761,7 +2768,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       else next.delete(field);
       return next;
     });
-    this.columnMark.emit({ column, field: column.field, marked });
+    this.columnMark.emit({ column, field: column.field as AgridField<T>, marked });
   }
 
   /** Toggle one complete column's mark state. */

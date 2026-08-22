@@ -58,7 +58,7 @@ const COLUMNS: ColDef<ServerOrder>[] = [
     type: 'number',
     editable: false,
     filterable: true,
-    formatter: value => `$${Number(value).toFixed(2)}`,
+    formatter: (value: unknown) => `$${Number(value).toFixed(2)}`,
   },
   { field: 'items', header: 'Items', width: 80, type: 'number', editable: false, filterable: true },
   { field: 'createdAt', header: 'Created', width: 115, type: 'date', editable: false, filterable: true },

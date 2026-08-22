@@ -92,7 +92,7 @@ const COLUMNS: ColDef<FilterLabRow>[] = [
     editable: false,
     type: 'number',
     filterable: true,
-    formatter: value => `$${Number(value).toLocaleString()}`,
+    formatter: (value: unknown) => `$${Number(value).toLocaleString()}`,
   },
   {
     field: 'margin',
@@ -101,7 +101,7 @@ const COLUMNS: ColDef<FilterLabRow>[] = [
     editable: false,
     type: 'number',
     filterable: true,
-    formatter: value => `${Number(value) > 0 ? '+' : ''}${value}%`,
+    formatter: (value: unknown) => `${Number(value) > 0 ? '+' : ''}${value}%`,
   },
   { field: 'createdAt', header: 'Created', width: 116, editable: false, type: 'date', filterable: true },
   { field: 'dueDate', header: 'Due', width: 116, editable: false, type: 'date', filterable: true },

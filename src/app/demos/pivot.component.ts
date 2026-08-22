@@ -48,14 +48,14 @@ const COLUMNS: ColDef<PivotSale>[] = [
     header: 'Revenue',
     width: 150,
     type: 'number',
-    formatter: value => `$${Number(value).toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
+    formatter: (value: unknown) => `$${Number(value).toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
   },
   {
     field: 'units',
     header: 'Units',
     width: 120,
     type: 'number',
-    formatter: value => Number(value).toLocaleString('en-US', { maximumFractionDigits: 1 }),
+    formatter: (value: unknown) => Number(value).toLocaleString('en-US', { maximumFractionDigits: 1 }),
   },
 ];
 

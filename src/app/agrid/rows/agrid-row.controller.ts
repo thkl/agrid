@@ -11,7 +11,7 @@ import {
   RowClickEvent,
   RowSelectEvent,
 } from '../agrid.types';
-import { buildSelectionRange, getDisplayForField, isDataRowItem } from '../agrid.utils';
+import { buildSelectionRange, getCellValue, getDisplayForField, isDataRowItem } from '../agrid.utils';
 
 /**
  * Whether a pointer event originated inside an editable form control. Used to avoid calling
@@ -174,7 +174,7 @@ export class AgridRowController {
       rowIndex,
       colIndex,
       field: col.field,
-      value: row[col.field],
+      value: getCellValue(col, row, rowIndex),
       row,
     });
   }
@@ -188,7 +188,7 @@ export class AgridRowController {
   copyCellToClipboard(originalIndex: number, col: ColDef): void {
     const rows = this.opts.dataSource().rows();
     const text = this.copyIndices(originalIndex)
-      .map(index => getDisplayForField(col, rows[index]?.[col.field], this.opts.locale(), rows[index]))
+      .map(index => getDisplayForField(col, getCellValue(col, rows[index], index), this.opts.locale(), rows[index]))
       .join('\n');
     void this.browser.writeClipboard(text);
     this.closeCellContextMenu();
@@ -200,7 +200,7 @@ export class AgridRowController {
     const cols = this.opts.visibleColDefs();
     const text = this.copyIndices(originalIndex)
       .map(index => cols
-        .map(col => getDisplayForField(col, rows[index]?.[col.field], this.opts.locale(), rows[index]))
+        .map(col => getDisplayForField(col, getCellValue(col, rows[index], index), this.opts.locale(), rows[index]))
         .join('\t'))
       .join('\n');
     void this.browser.writeClipboard(text);

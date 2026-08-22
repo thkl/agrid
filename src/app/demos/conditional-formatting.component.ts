@@ -51,7 +51,7 @@ const COLUMNS: ColDef<PortfolioRow>[] = [
     width: 120,
     filterable: true,
     values: STATUSES,
-    cellFormat: ({ value }) => ({
+    cellFormat: ({ value }: { value: unknown }) => ({
       backgroundColor: `var(--format-${value === 'On track' ? 'success' : value === 'At risk' ? 'warning' : 'danger'}-bg)`,
       borderColor: `var(--format-${value === 'On track' ? 'success' : value === 'At risk' ? 'warning' : 'danger'}-border)`,
       color: `var(--format-${value === 'On track' ? 'success' : value === 'At risk' ? 'warning' : 'danger'}-text)`,
@@ -63,15 +63,15 @@ const COLUMNS: ColDef<PortfolioRow>[] = [
     header: 'Budget',
     width: 125,
     type: 'number',
-    formatter: value => `$${Number(value).toLocaleString()}`,
+    formatter: (value: unknown) => `$${Number(value).toLocaleString()}`,
   },
   {
     field: 'variance',
     header: 'Variance',
     width: 110,
     type: 'number',
-    formatter: value => `${Number(value) > 0 ? '+' : ''}${value}%`,
-    cellFormat: ({ value }) => Number(value) === 0 ? undefined : {
+    formatter: (value: unknown) => `${Number(value) > 0 ? '+' : ''}${value}%`,
+    cellFormat: ({ value }: { value: unknown }) => Number(value) === 0 ? undefined : {
       color: Number(value) > 0 ? 'var(--format-success-text)' : 'var(--format-danger-text)',
       fontWeight: 700,
       textAlign: 'right',
@@ -82,8 +82,8 @@ const COLUMNS: ColDef<PortfolioRow>[] = [
     header: 'Utilization',
     width: 125,
     type: 'number',
-    formatter: value => `${value}%`,
-    cellFormat: ({ value }) => {
+    formatter: (value: unknown) => `${value}%`,
+    cellFormat: ({ value }: { value: unknown }) => {
       const utilization = Number(value);
       if (utilization >= 90) {
         return {

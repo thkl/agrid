@@ -15,6 +15,7 @@ import {
   evaluateFormula,
   formatDateValue,
   getDateInputValue,
+  getCellValue,
   getDisplayForField,
   isDataRowItem,
   isGroupHeaderItem,
@@ -171,6 +172,24 @@ describe('getDisplayForField', () => {
   });
 });
 
+describe('getCellValue', () => {
+  it('returns stored field values for normal columns', () => {
+    expect(getCellValue({ field: 'name', header: 'Name' }, { name: 'Alice' }, 0)).toBe('Alice');
+  });
+
+  it('returns computed values with row, stored value, column, and original index context', () => {
+    const column: ColDef<{ quantity: number; unitPrice: number }> = {
+      field: 'total',
+      header: 'Total',
+      valueGetter: ({ row, value, column, originalIndex }) =>
+        `${row.quantity * row.unitPrice}:${String(value)}:${column.field}:${originalIndex}`,
+    };
+
+    expect(getCellValue(column, { quantity: 2, unitPrice: 5 }, 7))
+      .toBe('10:undefined:total:7');
+  });
+});
+
 describe('evaluateFormula', () => {
   it('supports arithmetic, parentheses, unary operators, and bracket field references', () => {
     expect(evaluateFormula('=([unit price] * quantity) - discount', {
@@ -262,6 +281,46 @@ describe('applyTextAndValueFilters', () => {
   it('null selectedValues passes all values through', () => {
     const filters: Record<string, ColumnFilter> = { role: { text: '', selectedValues: null, sort: null } };
     expect(applyTextAndValueFilters(rows, indices, filters, colMap)).toEqual([0, 1, 2]);
+  });
+
+  it('filters value-getter columns by computed display, value, and conditions', () => {
+    const computedRows = [
+      { first: 'Alice', last: 'Zephyr', amount: 5, multiplier: 2 },
+      { first: 'Bob', last: 'Yellow', amount: 8, multiplier: 4 },
+      { first: 'Carol', last: 'Xavier', amount: 3, multiplier: 3 },
+    ];
+    const computedColMap = new Map<string, ColDef>([
+      ['fullName', {
+        field: 'fullName',
+        header: 'Full name',
+        valueGetter: ({ row }) => `${row['first']} ${row['last']}`,
+      }],
+      ['total', {
+        field: 'total',
+        header: 'Total',
+        type: 'number',
+        valueGetter: ({ row }) => Number(row['amount']) * Number(row['multiplier']),
+      }],
+    ]);
+
+    expect(applyTextAndValueFilters(
+      computedRows,
+      [0, 1, 2],
+      { fullName: { text: 'yellow', selectedValues: null, sort: null } },
+      computedColMap,
+    )).toEqual([1]);
+    expect(applyTextAndValueFilters(
+      computedRows,
+      [0, 1, 2],
+      { fullName: { text: '', selectedValues: ['Carol Xavier'], sort: null } },
+      computedColMap,
+    )).toEqual([2]);
+    expect(applyTextAndValueFilters(
+      computedRows,
+      [0, 1, 2],
+      { total: { text: '', selectedValues: null, sort: null, operator: 'gt', operand: '10' } },
+      computedColMap,
+    )).toEqual([1]);
   });
 });
 
@@ -453,6 +512,25 @@ describe('applySortToIndices', () => {
     expect(result.map(i => numericRows[i].score)).toEqual([9, 20, 100]);
   });
 
+  it('sorts value-getter columns by their computed values', () => {
+    const computedRows = [
+      { quantity: 1, unitPrice: 100 },
+      { quantity: 3, unitPrice: 10 },
+      { quantity: 2, unitPrice: 25 },
+    ];
+    const computedColMap = new Map<string, ColDef>([
+      ['total', {
+        field: 'total',
+        header: 'Total',
+        type: 'number',
+        valueGetter: ({ row }) => Number(row['quantity']) * Number(row['unitPrice']),
+      }],
+    ]);
+
+    const result = applySortToIndices(computedRows, [0, 1, 2], [asc('total')], computedColMap);
+    expect(result).toEqual([1, 2, 0]);
+  });
+
   it('uses a custom comparator before built-in display sorting', () => {
     const issueRows = [
       { severity: 'Low', ticket: 'A-1' },
@@ -616,6 +694,26 @@ describe('computeAggregates', () => {
   it('supports a custom aggregate function', () => {
     const custom: ColDef[] = [{ field: 'score', header: 'Score', aggregate: vals => vals.length }];
     expect(computeAggregates(rows, [0, 2], custom, {})).toEqual({ score: 2 });
+  });
+
+  it('aggregates value-getter column values', () => {
+    const computedRows = [
+      { quantity: 2, unitPrice: 5 },
+      { quantity: 3, unitPrice: 10 },
+    ];
+    const aggregateColumns: ColDef[] = [
+      {
+        field: 'total',
+        header: 'Total',
+        type: 'number',
+        aggregate: 'sum',
+        valueGetter: ({ row }) => Number(row['quantity']) * Number(row['unitPrice']),
+      },
+    ];
+
+    expect(computeAggregates(computedRows, [0, 1], aggregateColumns, {})).toEqual({
+      total: 40,
+    });
   });
 });
 

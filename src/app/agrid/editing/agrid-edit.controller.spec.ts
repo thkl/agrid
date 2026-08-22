@@ -97,6 +97,23 @@ describe('AgridEditController', () => {
     expect(columnController.editingCell()).toBeNull();
   });
 
+  it('does not edit value-getter columns without a setter', () => {
+    const { controller, dataSource, edits } = createController(false, [
+      {
+        field: 'label',
+        header: 'Label',
+        valueGetter: ({ row }) => `${row['name']} / ${row['locked']}`,
+      },
+    ]);
+
+    controller.start(0, 0, '');
+    expect(controller.editingCell()).toBeNull();
+
+    expect(controller.setCellValue(0, 0, 'Changed')).toBe(false);
+    expect(dataSource.getRow(0)).toEqual({ name: 'Alice', locked: 'fixed' });
+    expect(edits).toHaveLength(0);
+  });
+
   it('does not start or directly commit runtime readonly cells', () => {
     const { controller, dataSource, edits } = createController(false, [
       {

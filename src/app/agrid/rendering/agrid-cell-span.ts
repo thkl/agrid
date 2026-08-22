@@ -1,4 +1,5 @@
 import { ColDef } from '../agrid.types';
+import { getCellValue } from '../agrid.utils';
 
 /** Resolved horizontal layout for one cell within one pane. @internal */
 export interface AgridCellSpanLayout {
@@ -20,7 +21,17 @@ export function resolveCellSpan<T extends object>(
   remainingColumns: number,
 ): number {
   const configured = typeof col.colSpan === 'function'
-    ? col.colSpan({ row, value: row[col.field], column: col, originalIndex })
+    ? (col.colSpan as (params: {
+        row: T;
+        value: unknown;
+        column: ColDef<T>;
+        originalIndex: number;
+      }) => number)({
+        row,
+        value: getCellValue(col as ColDef, row as Record<string, unknown>, originalIndex),
+        column: col,
+        originalIndex,
+      })
     : col.colSpan;
   const span = Number.isFinite(configured) ? Math.floor(configured as number) : 1;
   return Math.max(1, Math.min(span, remainingColumns));

@@ -25,4 +25,19 @@ describe('computeSelectionSummary', () => {
       rowStart: 0, rowEnd: 2, colStart: 0, colEnd: 0,
     })).toBeNull();
   });
+
+  it('includes numeric value-getter columns', () => {
+    const computedColumns: ColDef[] = [
+      {
+        field: 'total',
+        header: 'Total',
+        type: 'number',
+        valueGetter: ({ row }) => Number(row['amount']) * 2,
+      },
+    ];
+
+    expect(computeSelectionSummary(items, computedColumns, {
+      rowStart: 0, rowEnd: 2, colStart: 0, colEnd: 0,
+    })).toEqual({ count: 2, sum: 60, average: 30, min: 20, max: 40 });
+  });
 });

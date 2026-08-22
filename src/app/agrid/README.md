@@ -15,6 +15,7 @@ npm install @thkl/agrid @angular/cdk
 - Virtual rows and virtual columns for large and wide datasets.
 - Text, value, quick, and condition filters with local or server-side workflows.
 - Multi-column sorting with optional custom comparators per column.
+- Computed value-getter columns for read-only derived values.
 - Inline editing, validation, undo/redo, paste, fill, custom editors, and custom renderers.
 - Range selection, selection summaries, row selection, row marking, column marking, and row numbers.
 - Grouping, aggregate footers, tree data with descendant rollups, pivot tables, and master/detail rows.

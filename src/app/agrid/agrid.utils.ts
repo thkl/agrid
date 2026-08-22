@@ -107,6 +107,24 @@ export function getDisplayForField(
   return String(raw ?? '');
 }
 
+/** Resolve the raw read value for a column, including computed value-getter columns. */
+export function getCellValue(
+  col: ColDef | undefined,
+  row: Record<string, unknown> | undefined,
+  originalIndex = -1,
+): unknown {
+  if (!col || !row) return undefined;
+  if (col.valueGetter) {
+    return col.valueGetter({
+      row,
+      value: row[col.field],
+      column: col,
+      originalIndex,
+    });
+  }
+  return row[col.field];
+}
+
 /** Result of evaluating a row-local formula. */
 export type AgridFormulaResult =
   | { ok: true; value: number }
@@ -284,15 +302,15 @@ export function applyTextAndValueFilters(
     if (filter.text) {
       const lc = filter.text.toLowerCase();
       result = result.filter(i =>
-        getDisplayForField(col, rows[i][field], locale, rows[i]).toLowerCase().includes(lc),
+        getDisplayForField(col, getCellValue(col, rows[i], i), locale, rows[i]).toLowerCase().includes(lc),
       );
     }
     if (filter.selectedValues !== null) {
       const allowed = new Set(filter.selectedValues);
-      result = result.filter(i => allowed.has(String(rows[i][field] ?? '')));
+      result = result.filter(i => allowed.has(String(getCellValue(col, rows[i], i) ?? '')));
     }
     if (filter.operator && filter.operand != null && filter.operand !== '') {
-      result = result.filter(i => passesConditionFilter(col, rows[i][field], filter, locale, rows[i]));
+      result = result.filter(i => passesConditionFilter(col, getCellValue(col, rows[i], i), filter, locale, rows[i]));
     }
   }
   return result;
@@ -366,7 +384,7 @@ export function applyQuickFilter(
   const q = text.trim().toLowerCase();
   if (!q) return indices;
   return indices.filter(i =>
-    cols.some(col => getDisplayForField(col, rows[i][col.field], locale, rows[i]).toLowerCase().includes(q)),
+    cols.some(col => getDisplayForField(col, getCellValue(col, rows[i], i), locale, rows[i]).toLowerCase().includes(q)),
   );
 }
 
@@ -398,7 +416,7 @@ export function applySortToIndices(
 
     for (let position = 0; position < indices.length; position++) {
       const index = indices[position];
-      const raw = rows[index][field];
+      const raw = getCellValue(col, rows[index], index);
       const isDateLike = col?.type === 'date' || looksLikeDate(raw);
       const dateValue = isDateLike
         ? raw instanceof Date ? raw.getTime() : new Date(raw as string).getTime()
@@ -437,8 +455,8 @@ export function applySortToIndices(
         const indexA = indices[a];
         const indexB = indices[b];
         comparison = field.comparator({
-          valueA: rows[indexA][field.field],
-          valueB: rows[indexB][field.field],
+          valueA: getCellValue(field.col, rows[indexA], indexA),
+          valueB: getCellValue(field.col, rows[indexB], indexB),
           rowA: rows[indexA],
           rowB: rows[indexB],
           indexA,
@@ -503,7 +521,7 @@ export function computeAggregates(
     const aggregate: ColDef['aggregate'] = controlAggregates[col.field] ?? col.aggregate;
     if (!aggregate) continue;
     if (typeof aggregate === 'function') {
-      const values = indices.map(index => rows[index][col.field]);
+      const values = indices.map(index => getCellValue(col, rows[index], index));
       result[col.field] = (aggregate as (values: unknown[]) => unknown)(values);
       continue;
     }
@@ -514,7 +532,7 @@ export function computeAggregates(
     let min = Infinity;
     let max = -Infinity;
     for (const index of indices) {
-      const raw = rows[index][col.field];
+      const raw = getCellValue(col, rows[index], index);
       if (raw != null && raw !== '') count++;
 
       const value = Number(raw);
@@ -565,7 +583,7 @@ export function buildExportGroups(
   for (const index of indices) {
     const row = rows[index];
     if (!row) continue;
-    const label = getDisplayForField(groupCol, row[groupField], locale);
+    const label = getDisplayForField(groupCol, getCellValue(groupCol, row, index), locale, row);
     let bucket = byLabel.get(label);
     if (!bucket) {
       bucket = [];
@@ -579,6 +597,7 @@ export function buildExportGroups(
     return {
       label,
       rows: groupIndices.map(index => rows[index]),
+      rowIndices: groupIndices,
       aggregates: computeAggregates(rows, groupIndices, cols, controlAggregates),
     };
   });
@@ -602,7 +621,7 @@ export function buildGroupedItems(
 
   const groups = new Map<string, number[]>();
   for (const i of indices) {
-    const key = getDisplayForField(groupCol, rows[i][groupField], locale);
+    const key = getDisplayForField(groupCol, getCellValue(groupCol, rows[i], i), locale, rows[i]);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(i);
   }

@@ -38,6 +38,10 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/conditional-formatting.component').then(m => m.ConditionalFormattingDemoComponent),
   },
   {
+    path: 'computed-columns',
+    loadComponent: () => import('./demos/computed-columns.component').then(m => m.ComputedColumnsDemoComponent),
+  },
+  {
     path: 'selection-summary',
     loadComponent: () => import('./demos/selection-summary.component').then(m => m.SelectionSummaryDemoComponent),
   },

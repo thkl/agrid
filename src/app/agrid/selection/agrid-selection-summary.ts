@@ -1,5 +1,5 @@
 import { AgridSelectionSummary, ColDef, GridItem } from '../agrid.types';
-import { isDataRowItem } from '../agrid.utils';
+import { getCellValue, isDataRowItem } from '../agrid.utils';
 
 /** Rectangular selection in projected-row and visible-column coordinates. @internal */
 export interface AgridSelectionSummaryBounds {
@@ -25,7 +25,7 @@ export function computeSelectionSummary(
     for (let colIndex = bounds.colStart; colIndex <= bounds.colEnd; colIndex++) {
       const column = columns[colIndex];
       if (!column) continue;
-      const raw = item.row[column.field];
+      const raw = getCellValue(column, item.row, item.originalIndex);
       const numeric = typeof raw === 'number'
         ? raw
         : column.type === 'number' && raw !== '' && raw != null

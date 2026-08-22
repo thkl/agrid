@@ -81,13 +81,13 @@ interface ProductRow {
 
 const COLUMNS: ColDef<ProductRow>[] = [
   { field: 'name', header: 'Product', width: 150, filterable: true },
-  { field: 'price', header: 'Price', width: 90, type: 'number', formatter: v => `$${Number(v).toFixed(2)}` },
+  { field: 'price', header: 'Price', width: 90, type: 'number', formatter: (v: unknown) => `$${Number(v).toFixed(2)}` },
   { field: 'trend', header: 'Trend (12 mo)', width: 130, editable: false, cellRendererComponent: LineSparklineRenderer },
   { field: 'flow', header: 'Net flow', width: 130, editable: false, cellRendererComponent: BarSparklineRenderer },
   {
     field: 'change', header: 'Δ', width: 80, type: 'number', editable: false,
-    formatter: v => `${Number(v) > 0 ? '+' : ''}${Number(v).toFixed(0)}%`,
-    cellClass: ({ value }) => (Number(value) >= 0 ? 'cell-up' : 'cell-down'),
+    formatter: (v: unknown) => `${Number(v) > 0 ? '+' : ''}${Number(v).toFixed(0)}%`,
+    cellClass: ({ value }: { value: unknown }) => (Number(value) >= 0 ? 'cell-up' : 'cell-down'),
   },
 ];
 

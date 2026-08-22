@@ -146,6 +146,39 @@ describe('AgridPresentationService', () => {
     expect(lines[2]).toBe('"Bob ""B""",x'); // embedded quotes doubled and wrapped
   });
 
+  it('exports value-getter columns to CSV with original row indices', () => {
+    const captured: string[] = [];
+    const browser = {
+      downloadText: (_filename: string, text: string) => {
+        captured.push(text);
+        return true;
+      },
+    } as unknown as AgridBrowserAdapter;
+
+    const service = new AgridPresentationService(
+      {
+        control: signal(null),
+        visibleColDefs: signal([
+          {
+            field: 'total',
+            header: 'Total',
+            formatter: value => `$${value}`,
+            valueGetter: ({ row, originalIndex }) =>
+              Number(row['quantity']) * Number(row['unitPrice']) + originalIndex,
+          },
+        ]),
+        exportRows: signal([{ quantity: 2, unitPrice: 5 }]),
+        exportRowIndices: signal([7]),
+        locale: signal('en-US'),
+      },
+      browser,
+    );
+
+    service.exportCsv('export.csv');
+
+    expect(captured[0].split('\n')).toEqual(['Total', '$17']);
+  });
+
   it('exports typed cells to xlsx and downloads bytes with the xlsx mime type', () => {
     const captured: { filename: string; bytes: Uint8Array; mime: string }[] = [];
     const browser = {

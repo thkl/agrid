@@ -91,6 +91,8 @@ export type {
   AgridTreeNodeEvent,
   AgridTreeSelectionEvent,
   AgridTreeSelectionMode,
+  AgridValueGetterColDef,
+  AgridValueGetterParams,
   CellContextMenuItem,
   CellContextMenuParams,
   CellFormat,

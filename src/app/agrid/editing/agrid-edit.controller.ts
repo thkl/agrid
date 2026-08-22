@@ -46,7 +46,7 @@ export class AgridEditController {
 
   /** Returns whether a cell can be edited in the current grid state. */
   isCellEditable(col: ColDef | undefined, originalIndex?: number): boolean {
-    if (!col || this.opts.readonlyGrid() || col.editable === false) return false;
+    if (!col || this.opts.readonlyGrid() || col.editable === false || col.valueGetter) return false;
     if (originalIndex === undefined || !col.cellReadonly) return true;
     const row = this.opts.dataSource().getRow(originalIndex);
     if (!row) return false;
