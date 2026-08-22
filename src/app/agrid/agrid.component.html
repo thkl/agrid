@@ -760,7 +760,7 @@
       <button class="ag-grid-confirm-secondary" type="button"
         (click)="closeConfirmation()">{{ localeText().close }}</button>
       <button class="ag-grid-confirm-primary" type="button"
-        [class.ag-tree-confirm-primary--danger]="confirm.item.danger"
+        [class.ag-grid-confirm-primary--danger]="confirm.item.danger"
         (click)="confirmMenuAction()">
         {{ confirm.item.confirm?.confirmLabel ?? localeText().confirmYes }}
       </button>
