@@ -36,14 +36,16 @@ describe('AgridProjectionModel', () => {
     externalFilter?: (params: { row: Record<string, unknown>; index: number }) => boolean;
     masterDetail?: boolean;
     expandedDetailIds?: number[];
+    columns?: ColDef[];
   } = {}) {
     const control = options.control ?? new AgridControl();
     const dataSource = new AgridDataSource(options.sourceRows ?? rows);
+    const colDefs = options.columns ?? columns;
     const model = new AgridProjectionModel({
       dataSource: signal(dataSource),
       control: signal(control),
-      colDefs: signal(columns),
-      visibleColDefs: signal(columns),
+      colDefs: signal(colDefs),
+      visibleColDefs: signal(colDefs),
       locale: signal('en-US'),
       serverSideFiltering: signal(options.serverSideFiltering ?? false),
       sortOption: signal<'single' | 'multi' | 'none'>('multi'),
@@ -121,6 +123,36 @@ describe('AgridProjectionModel', () => {
       .toEqual(['Engineering', 'Sales']);
     expect(dataRows(items).map(item => item.row['name'])).toEqual(['Carol', 'Bob']);
     expect(model.showPagination()).toBe(false);
+  });
+
+  it('applies column comparators through the row projection', () => {
+    const control = new AgridControl();
+    control.addSort('status', 'asc');
+    const statusRank: Record<string, number> = {
+      Blocked: 0,
+      Active: 1,
+      Done: 2,
+    };
+    const { model } = createModel({
+      control,
+      sourceRows: [
+        { name: 'Alpha', status: 'Done' },
+        { name: 'Beta', status: 'Blocked' },
+        { name: 'Gamma', status: 'Active' },
+      ],
+      columns: [
+        { field: 'name', header: 'Name' },
+        {
+          field: 'status',
+          header: 'Status',
+          comparator: ({ valueA, valueB }) =>
+            statusRank[String(valueA)] - statusRank[String(valueB)],
+        },
+      ],
+    });
+
+    expect(dataRows(model.filteredItems()).map(item => item.row['name']))
+      .toEqual(['Beta', 'Gamma', 'Alpha']);
   });
 
   it('bypasses local filtering and sorting in server mode', () => {

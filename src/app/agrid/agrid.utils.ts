@@ -389,6 +389,7 @@ export function applySortToIndices(
   const collator = new Intl.Collator(locale, { numeric: true, sensitivity: 'base' });
   const fields = sortEntries.map(([field, filter]) => {
     const col = colMap.get(field);
+    const comparator = col?.comparator;
     const dateLike = new Uint8Array(indices.length);
     const dateValues = new Float64Array(indices.length);
     const numericValues = new Float64Array(indices.length);
@@ -416,6 +417,9 @@ export function applySortToIndices(
     }
 
     return {
+      field,
+      col,
+      comparator,
       direction: filter.sort === 'desc' ? -1 : 1,
       dateLike,
       dateValues,
@@ -429,7 +433,21 @@ export function applySortToIndices(
     for (let fieldIndex = 0; fieldIndex < fields.length; fieldIndex++) {
       const field = fields[fieldIndex];
       let comparison: number;
-      if (field.dateLike[a] || field.dateLike[b]) {
+      if (field.comparator && field.col) {
+        const indexA = indices[a];
+        const indexB = indices[b];
+        comparison = field.comparator({
+          valueA: rows[indexA][field.field],
+          valueB: rows[indexB][field.field],
+          rowA: rows[indexA],
+          rowB: rows[indexB],
+          indexA,
+          indexB,
+          column: field.col,
+          locale,
+        });
+        if (!Number.isFinite(comparison)) comparison = 0;
+      } else if (field.dateLike[a] || field.dateLike[b]) {
         comparison = field.dateValues[a] - field.dateValues[b];
       } else if (
         !Number.isNaN(field.numericValues[a])

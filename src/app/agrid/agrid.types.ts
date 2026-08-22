@@ -56,6 +56,29 @@ export type CellFormatParams<
   K extends AgridField<T> = AgridField<T>,
 > = CellReadonlyParams<T, K>;
 
+/** Parameters passed to a custom column sort comparator. */
+export interface AgridSortComparatorParams<
+  T extends object = any,
+  K extends AgridField<T> = AgridField<T>,
+> {
+  /** Raw value from the first compared row. */
+  valueA: T[K];
+  /** Raw value from the second compared row. */
+  valueB: T[K];
+  /** First row object. */
+  rowA: T;
+  /** Second row object. */
+  rowB: T;
+  /** Original datasource index of the first row. */
+  indexA: number;
+  /** Original datasource index of the second row. */
+  indexB: number;
+  /** Column definition being sorted. */
+  column: ColDef<T, K>;
+  /** Active locale used by the grid. */
+  locale: string | undefined;
+}
+
 /** Parameters passed to a row-aware horizontal cell-span resolver. */
 export type CellSpanParams<
   T extends object = any,
@@ -394,6 +417,13 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
    * ```
    */
   formatter?: (value: T[K]) => string;
+  /**
+   * Compare two raw values for this column when client-side sorting is active.
+   * Return a negative number when `valueA` should come before `valueB`, positive when after,
+   * or `0` to preserve the existing row order for this sort key. The grid applies ascending or
+   * descending direction after this comparator returns.
+   */
+  comparator?: (params: AgridSortComparatorParams<T, K>) => number;
   /**
    * Resolve an input mask for this specific string cell. The callback receives the current
    * row, cell value, and column definition, so different rows in one column can use different

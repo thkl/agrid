@@ -176,7 +176,8 @@ See [ROADMAP.md](./ROADMAP.md) for the AG Grid comparison checklist and open par
 - Fill handle for repeating selected cell/range values down or right.
 - Find panel with Ctrl/Cmd+F, full filtered-dataset matching, and next/previous navigation.
 - Quick filter for searching across all visible columns.
-- Text filters, string/number/date condition filters, value filters, and single-column sorting.
+- Text filters, string/number/date condition filters, value filters, and multi-column sorting.
+- Custom sort comparators for domain-specific column ordering.
 - Server-side filter/sort events for remote data workflows.
 - Column menu with sort, clear sort, autosize, pin/unpin, hide, group, and clear filter actions.
 - Column resizing by drag and autosize by double-click.
@@ -745,6 +746,7 @@ interface ColDef {
   locked?: boolean;
   values?: string[] | ValueOption[];
   formatter?: (value: unknown) => string;
+  comparator?: (params: { valueA: unknown; valueB: unknown; rowA: Record<string, unknown>; rowB: Record<string, unknown>; indexA: number; indexB: number; column: ColDef; locale?: string }) => number;
   inputMask?: (params: { value: unknown; row: Record<string, unknown>; column: ColDef }) => RegExp | null;
   filterable?: boolean;
   groupable?: boolean;
@@ -776,6 +778,7 @@ interface ColDef {
 | `asyncValues` | No | Async option provider for the built-in rich-select editor. |
 | `formula` | No | Evaluates strings beginning with `=` for display, filtering, sorting, copy, and export while keeping the raw value in row data. |
 | `formatter` | No | Custom display formatter. Takes precedence over date auto-formatting. |
+| `comparator` | No | Custom client-side sort comparator for domain-specific ordering. The grid applies ascending/descending direction after the comparator returns. |
 | `inputMask` | No | Resolves a regular-expression input constraint for each string cell from its `row`, `value`, and `column`. Invalid proposed values are rejected. |
 | `filterable` | No | Enables text filter and value picker for the column. |
 | `filterComponent` | No | Standalone Angular component rendered in this column's filter menu. It injects `AGRID_FILTER_CONTEXT` and writes normal `ColumnFilter` state. |
@@ -1755,11 +1758,33 @@ collapsed descendants; navigating to one expands its ancestor path before scroll
 
 - A filter row appears when at least one visible column has `filterable: true`.
 - Text filter and value picker are combined.
-- Sort is single-column. Setting sort on one field clears sort on other fields.
+- Sorting supports single-column, multi-column, or disabled modes through `sortOption`.
 - Date columns sort chronologically by raw value, not alphabetically by display string.
+- `ColDef.comparator` can override client-side sorting for domain-specific values.
 - Grouping is enabled per column with `groupable: true`.
 - Group state is controlled through `AgridControl.setGroupBy(field | null)`.
 - `expandGroups()` and `collapseGroups()` can be called on the component.
+
+```ts
+const severityRank: Record<string, number> = {
+  Critical: 0,
+  High: 1,
+  Medium: 2,
+  Low: 3,
+};
+
+const columns: ColDef<Issue>[] = [
+  {
+    field: 'severity',
+    header: 'Severity',
+    comparator: ({ valueA, valueB }) =>
+      severityRank[String(valueA)] - severityRank[String(valueB)],
+  },
+];
+```
+
+The comparator always describes ascending order. The grid applies descending direction afterward,
+and a `0` result preserves the existing row order for that sort key.
 
 ## Clipboard, Range Selection, And Fill
 

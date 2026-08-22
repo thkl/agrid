@@ -453,6 +453,71 @@ describe('applySortToIndices', () => {
     expect(result.map(i => numericRows[i].score)).toEqual([9, 20, 100]);
   });
 
+  it('uses a custom comparator before built-in display sorting', () => {
+    const issueRows = [
+      { severity: 'Low', ticket: 'A-1' },
+      { severity: 'Critical', ticket: 'A-2' },
+      { severity: 'Medium', ticket: 'A-3' },
+      { severity: 'Low', ticket: 'A-4' },
+    ];
+    const rank: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+    const issueColMap = new Map<string, ColDef>([
+      ['severity', {
+        field: 'severity',
+        header: 'Severity',
+        comparator: ({ valueA, valueB }) =>
+          (rank[String(valueA)] ?? 99) - (rank[String(valueB)] ?? 99),
+      }],
+    ]);
+
+    const ascending = applySortToIndices(issueRows, [0, 1, 2, 3], [asc('severity')], issueColMap);
+    const descending = applySortToIndices(issueRows, [0, 1, 2, 3], [desc('severity')], issueColMap);
+
+    expect(ascending.map(i => issueRows[i].severity)).toEqual(['Critical', 'Medium', 'Low', 'Low']);
+    expect(descending.map(i => issueRows[i].severity)).toEqual(['Low', 'Low', 'Medium', 'Critical']);
+    expect(ascending.map(i => issueRows[i].ticket)).toEqual(['A-2', 'A-3', 'A-1', 'A-4']);
+  });
+
+  it('passes rows, source indices, column, and locale to custom comparators', () => {
+    const compared: unknown[] = [];
+    const comparatorRows = [
+      { code: 'b', priority: 2 },
+      { code: 'a', priority: 1 },
+    ];
+    const comparatorColMap = new Map<string, ColDef>([
+      ['code', {
+        field: 'code',
+        header: 'Code',
+        comparator: params => {
+          compared.push({
+            valueA: params.valueA,
+            valueB: params.valueB,
+            rowA: params.rowA,
+            rowB: params.rowB,
+            indexA: params.indexA,
+            indexB: params.indexB,
+            column: params.column.field,
+            locale: params.locale,
+          });
+          return Number(params.rowA['priority']) - Number(params.rowB['priority']);
+        },
+      }],
+    ]);
+
+    expect(applySortToIndices(comparatorRows, [0, 1], [asc('code')], comparatorColMap, 'de-DE'))
+      .toEqual([1, 0]);
+    expect(compared).toEqual([{
+      valueA: 'a',
+      valueB: 'b',
+      rowA: comparatorRows[1],
+      rowB: comparatorRows[0],
+      indexA: 1,
+      indexB: 0,
+      column: 'code',
+      locale: 'de-DE',
+    }]);
+  });
+
   it('resolves formatter values once per row and sort field', () => {
     let formatterCalls = 0;
     const formattedRows = [{ status: 2 }, { status: 1 }, { status: 3 }];
