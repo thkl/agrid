@@ -350,7 +350,10 @@ readonly gridProvider = new AgridProvider({
 | `getRowId` | `(row, index) => string \| number` | Object reference | Stable row identity used to keep selection and row-attached state on the same logical row when rows are inserted, removed, reordered, or replaced. |
 | `locale` | `string` | `'auto'` | BCP-47 locale tag for grid text and date formatting. `'auto'` reads `navigator.language` and falls back to `'en-US'`. |
 | `localization` | `AgridLocaleTextOverrides` | `undefined` | Overrides individual labels. See [Localization](#localization). |
-| `rowHeight` | `number` | `32` | Fixed row height in pixels. Required by CDK virtual scroll. |
+| `rowHeight` | `number` | `48` | Fixed row height used by the `custom` row-density preset. |
+| `rowDensity` | `'compact' \| 'normal' \| 'relaxed' \| 'custom'` | `'normal'` | Initial row-height preset stored on `control`. |
+| `rowDensityHeights` | `Partial<Record<AgridRowDensity, number>>` | `{ compact: 40, normal: 48, relaxed: 52 }` | Optional pixel overrides for named row-density presets. |
+| `showRowHeightMenu` | `boolean` | `false` | Shows a built-in toolbar dropdown for Compact, Normal, and Relaxed row height. |
 | `minHeight` | `string` | `undefined` | CSS min-height for the virtual body. Example: `'200px'`. |
 | `maxHeight` | `string` | `undefined` | CSS max-height for the virtual body. Example: `'500px'`. |
 | `allowAddRows` | `boolean` | `false` | Shows a `+ Add row` placeholder at the bottom when `autoAddRows` is `false`. |
@@ -518,9 +521,9 @@ provider.loadSettings(await backend.load());
 ```
 
 The snapshot includes `pivotConfig` plus `AgridControlState` (visibility, widths, order, pinning,
-filters, sorting, pagination, and aggregates). Sidebar pivot and visibility changes also emit the
-full object through `(settingsChange)`. Custom aggregate functions are intentionally rejected
-because functions cannot be serialized safely.
+filters, sorting, pagination, aggregates, and row density). Sidebar pivot and visibility changes
+also emit the full object through `(settingsChange)`. Custom aggregate functions are intentionally
+rejected because functions cannot be serialized safely.
 
 ### Page selector
 
@@ -581,6 +584,28 @@ onMenuBarAction(id: string): void {
 
 ```html
 <agrid [provider]="provider" (menuBarAction)="onMenuBarAction($event)" />
+```
+
+### Row height density
+
+Use `control.setRowDensity()` to switch the fixed virtual-scroll row height at runtime. The built-in
+presets default to Compact `40px`, Normal `48px`, and Relaxed `52px`; set `rowDensityHeights` to
+override them. `rowHeight` remains available as the `custom` preset height.
+When `showRowHeightMenu` and `gridId` are set, menu selections are saved immediately to
+`localStorage` with the grid's normal settings key.
+
+```ts
+const control = new AgridControl({ rowDensity: 'normal' });
+
+const provider = new AgridProvider({
+  control,
+  columns,
+  datasource,
+  showRowHeightMenu: true,
+  rowDensityHeights: { compact: 38, normal: 46, relaxed: 54 },
+});
+
+control.setRowDensity('compact');
 ```
 
 ### Dynamic Provider Options

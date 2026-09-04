@@ -428,6 +428,36 @@ describe('AgridComponent menu bar', () => {
     expect(emitted).toEqual(['refresh', 'export-selected']);
     expect(component.openMenuBarItemId()).toBeNull();
   });
+
+  it('renders the built-in row-height menu and applies density presets', async () => {
+    localStorage.removeItem('agrid_settings_density-grid');
+    const densityProvider = new AgridProvider({
+      columns: [{ field: 'name', header: 'Name' }],
+      datasource: new AgridDataSource([{ name: 'Alice' }]),
+      gridId: 'density-grid',
+      showRowHeightMenu: true,
+    });
+    const densityFixture = TestBed.createComponent(AgridComponent);
+    densityFixture.componentRef.setInput('provider', densityProvider);
+    densityFixture.detectChanges();
+    const densityComponent = densityFixture.componentInstance;
+
+    expect(densityComponent.rowHeight()).toBe(48);
+    expect(densityFixture.nativeElement.querySelector('[data-menu-id="_internal_row_height"]'))
+      .not.toBeNull();
+
+    densityComponent.onMenuBarAction('_internal_row_height_compact');
+    densityFixture.detectChanges();
+
+    expect(densityProvider.control.rowDensity()).toBe('compact');
+    expect(densityComponent.rowHeight()).toBe(40);
+    expect(densityComponent.itemSizes()).toEqual([40]);
+    expect(JSON.parse(localStorage.getItem('agrid_settings_density-grid')!)
+      .control.rowDensity).toBe('compact');
+
+    localStorage.removeItem('agrid_settings_density-grid');
+    densityFixture.destroy();
+  });
 });
 
 describe('AgridComponent cell context menu items', () => {

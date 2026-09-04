@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { AgridComponent } from './agrid.component';
 import { AgridDataSource } from './agrid-datasource';
+import type { AgridRowDensity } from './agrid-control';
 import { AgridProvider } from './agrid-provider';
 import { AgridPageItem, AgridPageSelectorComponent } from './agrid-page-selector.component';
 import { AgridTreeComponent } from './agrid-tree.component';
@@ -56,6 +57,9 @@ class TypedGridHost {
   readonly provider = new AgridProvider<PersonRow>({
     columns: [{ field: 'name', header: 'Name' }],
     datasource: new AgridDataSource<PersonRow>([]),
+    rowDensity: 'normal' satisfies AgridRowDensity,
+    rowDensityHeights: { compact: 40, normal: 48, relaxed: 52 },
+    showRowHeightMenu: true,
     getRowId: (row, index) => {
       expectTypeOf(row).toEqualTypeOf<PersonRow>();
       expectTypeOf(index).toEqualTypeOf<number>();

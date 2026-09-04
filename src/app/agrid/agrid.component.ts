@@ -33,7 +33,7 @@ import { AgridColumnMenuController } from './columns/agrid-column-menu.controlle
 import { AgridColumnReorderController } from './columns/agrid-column-reorder.controller';
 import { AgridColumnSizingController } from './columns/agrid-column-sizing.controller';
 import { AgridColumnStateService } from './columns/agrid-column-state.service';
-import { AgridControl, ColumnFilter, FilterOperator } from './agrid-control';
+import { AgridControl, AgridRowDensity, ColumnFilter, FilterOperator } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridDragHandler } from './rows/agrid-drag.handler';
 import { AgridDetailController } from './editing/agrid-detail.controller';
@@ -154,7 +154,12 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   private rowStateSnapshot: RowStateSnapshot<T> | null = null;
 
   // All display / behaviour options are read from the provider.
-  readonly rowHeight = computed(() => this.provider().rowHeight);
+  readonly rowDensity = computed(() => this.control()?.rowDensity() ?? 'normal');
+  readonly rowHeight = computed(() => {
+    const provider = this.provider();
+    const density = this.rowDensity();
+    return provider.rowDensityHeights[density] ?? provider.rowHeight;
+  });
   readonly minHeight = computed(() => this.provider().minHeight);
   readonly maxHeight = computed(() => this.provider().maxHeight);
   readonly allowAddRows = computed(() => this.provider().allowAddRows && !this.provider().pivotConfig);
@@ -182,6 +187,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly enableQuickFilter = computed(() => this.provider().enableQuickFilter);
   readonly showFormulaBar = computed(() => this.provider().showFormulaBar);
   readonly menuBarItems = computed(() => this.provider().menuBarItems);
+  readonly showRowHeightMenu = computed(() => this.provider().showRowHeightMenu);
   readonly quickFilterValue = computed(() => this.control()?.quickFilter() ?? '');
   readonly sortOption = computed(() => this.provider().sortOption);
   readonly rowSelection = computed(() => this.provider().rowSelection);
@@ -551,6 +557,13 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     } catch (error) {
       if (!(error instanceof Error) || !error.message.includes('cannot be saved')) throw error;
     }
+  }
+
+  private persistSettingsToLocalStorage(): void {
+    const gridId = this.gridId();
+    if (!gridId) return;
+    const gridConfig = this.provider().saveSettings();
+    localStorage.setItem(`agrid_settings_${gridId}`, JSON.stringify(gridConfig));
   }
 
 
@@ -1310,10 +1323,16 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     menuBarItems: this.menuBarItems,
     gridId: this.gridId,
     enableExportButtons: this.enableExportButtons,
+    showRowHeightMenu: this.showRowHeightMenu,
+    rowDensity: this.rowDensity,
     saveConfigLabel: computed(() => this.localeText().saveConfig),
     exportLabel: computed(() => this.localeText().export),
     exportCsvLabel: computed(() => this.localeText().exportCsv),
     exportXlsxLabel: computed(() => this.localeText().exportXlsx),
+    rowHeightLabel: computed(() => this.localeText().rowHeight),
+    rowHeightCompactLabel: computed(() => this.localeText().rowHeightCompact),
+    rowHeightNormalLabel: computed(() => this.localeText().rowHeightNormal),
+    rowHeightRelaxedLabel: computed(() => this.localeText().rowHeightRelaxed),
     emitAction: id => this.menuBarAction.emit(id),
     closeOtherMenus: () => {
       this.rowController.closeContextMenu();
@@ -1321,10 +1340,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       this.groupController.closeActionsMenu();
       this.columnMenuController.close();
     },
-    persistSettings: () => {
-      const gridConfig = this.provider().saveSettings();
-      localStorage.setItem(`agrid_settings_${this.gridId()}`, JSON.stringify(gridConfig));
-    },
+    persistSettings: () => this.persistSettingsToLocalStorage(),
     exportData: (format) => {
       switch (format) {
         case 'csv':
@@ -1334,6 +1350,14 @@ export class AgridComponent<T extends object = any> implements OnChanges {
           this.provider().exportXlsx();
           break;
       }
+    },
+    setRowDensity: (density: AgridRowDensity) => {
+      this.control()?.setRowDensity(density);
+      this.persistSettingsToLocalStorage();
+      this.emitSettingsChange();
+      this.viewport().checkViewportSize();
+      this.pinnedViewport()?.checkViewportSize();
+      this.rightPinnedViewport()?.checkViewportSize();
     },
   });
 

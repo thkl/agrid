@@ -32,6 +32,7 @@ export { AgridBrowserAdapter } from './infrastructure/agrid-browser.adapter'
 
 export type {
   AgridControlState,
+  AgridRowDensity,
   AgridRowIndication,
   ColumnFilter,
   FilterOperator,
@@ -46,8 +47,10 @@ export type {
 export type {
   AgridPivotSettings,
   AgridProviderConfig,
+  AgridRowDensityHeights,
   AgridSettings,
 } from './agrid-provider';
+export { AGRID_DEFAULT_ROW_DENSITY_HEIGHTS } from './agrid-provider';
 export type {
   AgridServerSideDatasource,
   AgridServerSideRequest,

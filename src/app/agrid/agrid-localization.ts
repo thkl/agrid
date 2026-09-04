@@ -93,6 +93,10 @@ export interface AgridLocaleText {
   export:string;
   exportCsv:string;
   exportXlsx:string;
+  rowHeight: string;
+  rowHeightCompact: string;
+  rowHeightNormal: string;
+  rowHeightRelaxed: string;
   templates:string;
 }
 
@@ -192,6 +196,10 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     export: 'Export',
     exportCsv:'Export to csv',
     exportXlsx:'Export to xlsx',
+    rowHeight: 'Row height',
+    rowHeightCompact: 'Compact',
+    rowHeightNormal: 'Normal',
+    rowHeightRelaxed: 'Relaxed',
     templates:' templates',
   },
   de: {
@@ -285,6 +293,10 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     export:'Export',
     exportCsv:'Export nach csv',
     exportXlsx:'Export nach xlsx',
+    rowHeight: 'Zeilenhöhe',
+    rowHeightCompact: 'Kompakt',
+    rowHeightNormal: 'Normal',
+    rowHeightRelaxed: 'Entspannt',
     templates:' Vorlagen'
   },
 };

@@ -130,6 +130,7 @@ describe('AgridControl', () => {
         currentPage: 2,
         sortOrder: ['name'],
         aggregates: { salary: 'sum' },
+        rowDensity: 'relaxed',
       });
       const restored = AgridControl.fromJSON(ctrl.toJSON());
       expect(restored.columnWidths()['name']).toBe(200);
@@ -140,12 +141,14 @@ describe('AgridControl', () => {
       expect(restored.pinnedRightColumns().has('actions')).toBe(true);
       expect(restored.pageSize()).toBe(25);
       expect(restored.aggregates()['salary']).toBe('sum');
+      expect(restored.rowDensity()).toBe('relaxed');
     });
 
     it('fromJSON with empty object uses defaults', () => {
       const ctrl = AgridControl.fromJSON({});
       expect(ctrl.pageSize()).toBe(0);
       expect(ctrl.groupByField()).toBeNull();
+      expect(ctrl.rowDensity()).toBe('normal');
     });
   });
 

@@ -4,7 +4,7 @@
   [attr.aria-readonly]="readonlyGrid() ? 'true' : null" [attr.aria-busy]="loading() ? 'true' : null"
   (copy)="onCopy($event)" (paste)="onPaste($event)" (focusin)="onGridFocusIn($event)"
   (click)="closeContextMenu(); closeCellContextMenu(); closeFilterMenu(); closeGroupActionsMenu(); closeMenuBarMenu()">
-  @if (visibleMenuBarItems().length > 0 || enableQuickFilter() || showFormulaBar()) {
+  @if (visibleMenuBarItems().length > 0 || enableQuickFilter() || showFormulaBar() || showRowHeightMenu()) {
   <div class="ag-toolbar">
     @if (visibleMenuBarItems().length > 0) {
     <agrid-menu-bar [items]="visibleMenuBarItems()" [context]="menuBarContext()" [label]="localeText().actions"

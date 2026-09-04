@@ -1,12 +1,13 @@
 :host {
   position: relative;
-  display: block;
+  display: flex;
+  align-items: center;
   border-right: 1px solid var(--agrid-color-border);
   border-bottom: 1px solid var(--agrid-color-border);
   overflow: hidden;
   white-space: nowrap;
   padding: 0 6px;
-  line-height: 32px;
+  line-height: 1.2;
   cursor: default;
   user-select: none;
   outline: none;
@@ -44,6 +45,8 @@
 
 .ag-cell-value {
   display: block;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }

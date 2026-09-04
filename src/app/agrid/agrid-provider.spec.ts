@@ -37,6 +37,27 @@ describe('AgridProvider runtime state ownership', () => {
     expect(provider.autoAddRows()).toBe(false);
   });
 
+  it('configures row-density defaults and initial controller state', () => {
+    const control = new AgridControl();
+    const provider = new AgridProvider({
+      control,
+      rowHeight: 44,
+      rowDensity: 'compact',
+      rowDensityHeights: { compact: 36, relaxed: 56 },
+      showRowHeightMenu: true,
+    });
+
+    expect(control.rowDensity()).toBe('compact');
+    expect(provider.rowHeight).toBe(44);
+    expect(provider.rowDensityHeights).toMatchObject({
+      compact: 36,
+      normal: 48,
+      relaxed: 56,
+      custom: 44,
+    });
+    expect(provider.showRowHeightMenu).toBe(true);
+  });
+
   it('retains pivot configuration and rejects incompatible row models', () => {
     const pivotConfig = {
       rowField: 'region',
@@ -72,6 +93,7 @@ describe('AgridProvider runtime state ownership', () => {
         columnWidths: { region: 180 },
         filters: {},
         hiddenColumns: ['__agrid_pivot_1'],
+        rowDensity: 'compact',
       }),
       pivotConfig: {
         rowField: 'region', columnField: 'quarter', valueField: 'amount', aggregate: 'avg',
@@ -85,6 +107,7 @@ describe('AgridProvider runtime state ownership', () => {
     expect(target.pivotConfig).toEqual(source.pivotConfig);
     expect(target.control.columnWidths()).toEqual({ region: 180 });
     expect(target.control.hiddenColumns().has('__agrid_pivot_1')).toBe(true);
+    expect(target.control.rowDensity()).toBe('compact');
     expect(target.saveSettings()).toEqual(serialized);
   });
 

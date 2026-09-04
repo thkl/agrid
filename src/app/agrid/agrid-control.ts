@@ -69,6 +69,9 @@ export interface ColumnFilter {
   operand2?: string | null;
 }
 
+/** Named row-height presets supported by the grid density controls. */
+export type AgridRowDensity = 'compact' | 'normal' | 'relaxed' | 'custom';
+
 /** Transient row indication state produced by {@link AgridControl.indicate}. */
 export interface AgridRowIndication {
   /** CSS color shown while the row flash is active. */
@@ -113,6 +116,8 @@ export interface AgridControlState {
   totalRows?: number;
   /** Per-field aggregate function set via the column menu. Only built-in string values are serializable. */
   aggregates?: Record<string, 'sum' | 'avg' | 'min' | 'max' | 'count'>;
+  /** Active named row-height preset. `custom` uses the provider's `rowHeight`. */
+  rowDensity?: AgridRowDensity;
 }
 
 /** Detached, JSON-safe filter/search/sort state for {@link AgridControl}. */
@@ -156,6 +161,7 @@ export class AgridControl {
   private readonly _currentPage = signal<number>(1);
   private readonly _totalRows = signal<number>(0);
   private readonly _aggregates = signal<Record<string, 'sum' | 'avg' | 'min' | 'max' | 'count'>>({});
+  private readonly _rowDensity = signal<AgridRowDensity>('normal');
   private readonly _sortOrder = signal<string[]>([]);
   private readonly _loading = signal(false);
   private readonly _readonly = signal(false);
@@ -302,6 +308,14 @@ export class AgridControl {
 
   setCustomFooterMessage(message:string|null):void {
     this._customFooterMessage.set(message);
+  }
+
+  /** Active named row-height preset. */
+  readonly rowDensity: Signal<AgridRowDensity> = this._rowDensity.asReadonly();
+
+  /** Set the active row-height preset. Use `custom` to fall back to provider `rowHeight`. */
+  setRowDensity(density: AgridRowDensity): void {
+    this._rowDensity.set(density);
   }
 
   /**
@@ -832,6 +846,7 @@ export class AgridControl {
     this._currentPage.set(state.currentPage ?? 1);
     this._totalRows.set(state.totalRows ?? 0);
     this._aggregates.set({ ...(state.aggregates ?? {}) });
+    this._rowDensity.set(state.rowDensity ?? 'normal');
     this._sortOrder.set([...(state.sortOrder ?? [])]);
   }
 
@@ -851,6 +866,7 @@ export class AgridControl {
       currentPage: this._currentPage(),
       totalRows: this._totalRows(),
       aggregates: { ...this._aggregates() },
+      rowDensity: this._rowDensity(),
       sortOrder: [...this._sortOrder()],
     };
   }

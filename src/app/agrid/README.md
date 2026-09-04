@@ -359,6 +359,28 @@ readonly provider = new AgridProvider<Person>({
 `visible`, `active`, and `disabled` may be booleans or callbacks. Callback context includes
 `rows`, `selectedRows`, `selectedCell`, `provider`, and `datasource`.
 
+## Row height density
+
+Use `control.setRowDensity()` to switch the fixed virtual-scroll row height at runtime. The built-in
+presets default to Compact `40px`, Normal `48px`, and Relaxed `52px`; set `rowDensityHeights` to
+override them. `rowHeight` remains available as the `custom` preset height.
+When `showRowHeightMenu` and `gridId` are set, menu selections are saved immediately to
+`localStorage` with the grid's normal settings key.
+
+```ts
+const control = new AgridControl({ rowDensity: 'normal' });
+
+const provider = new AgridProvider({
+  control,
+  columns,
+  datasource,
+  showRowHeightMenu: true,
+  rowDensityHeights: { compact: 38, normal: 46, relaxed: 54 },
+});
+
+control.setRowDensity('compact');
+```
+
 For imperative selection reads, call `grid.getCurrentRow()` or `grid.getCurrentCell()`. The
 `(cellSelect)` output emits the same selected-cell shape and `null` when cell selection clears.
 
@@ -682,9 +704,9 @@ provider. Assigning `provider.pivotConfig` programmatically uses the same reacti
 ### Saving and restoring settings
 
 `saveSettings()` returns a detached, versioned object containing the pivot configuration and the
-existing control state (column visibility, width, order, pinning, filters, sorts, pagination, and
-aggregates). It is safe to JSON-encode and send to a backend. `loadSettings()` applies it to an
-already-rendered grid immediately.
+existing control state (column visibility, width, order, pinning, filters, sorts, pagination,
+aggregates, and row density). It is safe to JSON-encode and send to a backend. `loadSettings()`
+applies it to an already-rendered grid immediately.
 
 ```ts
 const settings = provider.saveSettings();

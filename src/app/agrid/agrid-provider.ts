@@ -1,5 +1,10 @@
 import { Signal, computed, signal, WritableSignal } from '@angular/core';
-import { AgridControl, AgridControlState, ɵgetAgridControlRuntimeState } from './agrid-control';
+import {
+  AgridControl,
+  AgridControlState,
+  AgridRowDensity,
+  ɵgetAgridControlRuntimeState,
+} from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridServerSideRowModel } from './agrid-server-side-row-model';
 import { AgridLocaleTextOverrides } from './agrid-localization';
@@ -26,6 +31,16 @@ export interface AgridPivotSettings {
   valueField: string;
   aggregate: 'sum' | 'avg' | 'min' | 'max' | 'count';
 }
+
+/** Pixel heights used by the built-in row-density presets. */
+export type AgridRowDensityHeights = Partial<Record<AgridRowDensity, number>>;
+
+export const AGRID_DEFAULT_ROW_DENSITY_HEIGHTS: Record<AgridRowDensity, number> = {
+  compact: 40,
+  normal: 48,
+  relaxed: 52,
+  custom: 48,
+};
 
 /**
  * Versioned, JSON-safe snapshot that can be stored in local storage or a backend.
@@ -75,8 +90,20 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
    * and pagination.
    */
   treeConfig?: AgridTreeConfig<T>;
-  /** Row height in pixels. Must be fixed for CDK virtual scroll. @default 32 */
+  /**
+   * Row height in pixels used by the `custom` row-density preset.
+   * @default 48
+   */
   rowHeight?: number;
+  /**
+   * Initial row-density preset stored on the control. Defaults to `'normal'` unless restored from
+   * settings. Use `control.setRowDensity()` to change it at runtime.
+   */
+  rowDensity?: AgridRowDensity;
+  /** Override pixel heights for the built-in row-density presets. */
+  rowDensityHeights?: AgridRowDensityHeights;
+  /** Show a built-in toolbar dropdown for choosing row height density. @default false */
+  showRowHeightMenu?: boolean;
   /** Minimum height of the grid host element (e.g. `'200px'`). */
   minHeight?: string;
   /** Maximum height of the grid host element (e.g. `'500px'`). */
@@ -345,6 +372,10 @@ export class AgridProvider<T extends object = any> {
 
   /** Fixed virtual-scroll row height in pixels. */
   rowHeight: number;
+  /** Pixel heights used for named row-density presets. */
+  rowDensityHeights: Record<AgridRowDensity, number>;
+  /** Whether the built-in toolbar row-height selector is rendered. */
+  showRowHeightMenu: boolean;
   /** Minimum CSS height of the grid host. */
   minHeight?: string;
   /** Maximum CSS height of the grid host. */
@@ -454,7 +485,14 @@ export class AgridProvider<T extends object = any> {
     this.headerGroups = config.headerGroups ?? [];
     this.treeConfig   = config.treeConfig ?? null;
 
-    this.rowHeight        = config.rowHeight ?? 32;
+    if (config.rowDensity !== undefined) this.control.setRowDensity(config.rowDensity);
+    this.rowHeight        = config.rowHeight ?? AGRID_DEFAULT_ROW_DENSITY_HEIGHTS.custom;
+    this.rowDensityHeights = {
+      ...AGRID_DEFAULT_ROW_DENSITY_HEIGHTS,
+      custom: this.rowHeight,
+      ...(config.rowDensityHeights ?? {}),
+    };
+    this.showRowHeightMenu = config.showRowHeightMenu ?? false;
     this.minHeight        = config.minHeight;
     this.maxHeight        = config.maxHeight;
     this.allowAddRows     = config.allowAddRows ?? false;

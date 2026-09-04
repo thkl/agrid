@@ -214,6 +214,7 @@ export class AgridDemoComponent {
     enableQuickFilter: true,
     gridId:'demo_grid',
     enableExportButtons:true,
+    showRowHeightMenu:true,
     showRowNumbers:true,
     menuBarItems: [
       { id: 'refresh', label: 'Refresh', icon: '\u21bb' },

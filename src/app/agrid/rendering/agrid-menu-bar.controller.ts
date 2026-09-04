@@ -1,5 +1,6 @@
 import { Signal, computed, signal } from '@angular/core';
 import { AgridDataSource } from '../agrid-datasource';
+import { AgridRowDensity } from '../agrid-control';
 import { AgridProvider } from '../agrid-provider';
 import {
   AgridMenuBarContext,
@@ -14,6 +15,10 @@ export const AGRID_SAVE_CONFIG_ACTION = '_internal_save_config';
 export const AGRID_EXPORT_ACTION = '_internal_export';
 export const AGRID_EXPORT_CSV_ACTION = '_internal_export_csv';
 export const AGRID_EXPORT_XLSX_ACTION = '_internal_export_xlsx';
+export const AGRID_ROW_HEIGHT_ACTION = '_internal_row_height';
+export const AGRID_ROW_HEIGHT_COMPACT_ACTION = '_internal_row_height_compact';
+export const AGRID_ROW_HEIGHT_NORMAL_ACTION = '_internal_row_height_normal';
+export const AGRID_ROW_HEIGHT_RELAXED_ACTION = '_internal_row_height_relaxed';
 
 
 /** Dependencies and callbacks required by {@link AgridMenuBarController}. @internal */
@@ -29,10 +34,18 @@ export interface AgridMenuBarControllerOptions<T extends object = any> {
   saveConfigLabel: Signal<string>;
   /** Enable Export Menu */
   enableExportButtons: Signal<boolean | undefined>;
+  /** Enable built-in row-height menu. */
+  showRowHeightMenu: Signal<boolean>;
+  /** Active row-height density preset. */
+  rowDensity: Signal<AgridRowDensity>;
   /** Localized labels for the built-in export entry. */
   exportLabel: Signal<string>;
   exportCsvLabel: Signal<string>;
   exportXlsxLabel: Signal<string>;
+  rowHeightLabel: Signal<string>;
+  rowHeightCompactLabel: Signal<string>;
+  rowHeightNormalLabel: Signal<string>;
+  rowHeightRelaxedLabel: Signal<string>;
 
   /** Emits a user-defined menu-bar action id. */
   emitAction: (id: string) => void;
@@ -42,6 +55,8 @@ export interface AgridMenuBarControllerOptions<T extends object = any> {
   persistSettings: () => void;
   /** the Export Action */
   exportData:(format:string)=>void;
+  /** Applies a row-density preset. */
+  setRowDensity: (density: AgridRowDensity) => void;
 }
 
 /**
@@ -88,6 +103,30 @@ export class AgridMenuBarController<T extends object = any> {
           ]
         });
     }
+    if (this.opts.showRowHeightMenu()) {
+      buildInActions.push({
+        id: AGRID_ROW_HEIGHT_ACTION,
+        label: this.opts.rowHeightLabel(),
+        icon: '↕',
+        items: [
+          {
+            id: AGRID_ROW_HEIGHT_COMPACT_ACTION,
+            label: this.opts.rowHeightCompactLabel(),
+            active: () => this.opts.rowDensity() === 'compact',
+          },
+          {
+            id: AGRID_ROW_HEIGHT_NORMAL_ACTION,
+            label: this.opts.rowHeightNormalLabel(),
+            active: () => this.opts.rowDensity() === 'normal',
+          },
+          {
+            id: AGRID_ROW_HEIGHT_RELAXED_ACTION,
+            label: this.opts.rowHeightRelaxedLabel(),
+            active: () => this.opts.rowDensity() === 'relaxed',
+          },
+        ],
+      });
+    }
     return [...buildInActions, ...userEntries];
   });
 
@@ -124,6 +163,21 @@ export class AgridMenuBarController<T extends object = any> {
 
     if (id === AGRID_EXPORT_XLSX_ACTION && this.opts.enableExportButtons()) {
       this.opts.exportData('xlsx');
+      return;
+    }
+
+    if (id === AGRID_ROW_HEIGHT_COMPACT_ACTION && this.opts.showRowHeightMenu()) {
+      this.opts.setRowDensity('compact');
+      return;
+    }
+
+    if (id === AGRID_ROW_HEIGHT_NORMAL_ACTION && this.opts.showRowHeightMenu()) {
+      this.opts.setRowDensity('normal');
+      return;
+    }
+
+    if (id === AGRID_ROW_HEIGHT_RELAXED_ACTION && this.opts.showRowHeightMenu()) {
+      this.opts.setRowDensity('relaxed');
       return;
     }
 
