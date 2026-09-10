@@ -19,6 +19,12 @@ export interface AgridLocaleText {
   clearSort: string;
   close: string;
   columnMenu: string;
+  columnChooserSearchPlaceholder: string;
+  columnChooserShowAll: string;
+  columnChooserHideAll: string;
+  columnChooserLocked: string;
+  columnChooserMoveUp: string;
+  columnChooserMoveDown: string;
   columns: string;
   collapse: string;
   detail: string;
@@ -122,6 +128,12 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     clearSort: 'Clear sort',
     close: 'Close',
     columnMenu: 'Column menu',
+    columnChooserSearchPlaceholder: 'Search columns...',
+    columnChooserShowAll: 'Show all',
+    columnChooserHideAll: 'Hide all',
+    columnChooserLocked: 'Locked',
+    columnChooserMoveUp: 'Move column up',
+    columnChooserMoveDown: 'Move column down',
     columns: 'Columns',
     collapse: 'Collapse',
     detail: 'Detail',
@@ -219,6 +231,12 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     clearSort: 'Sortierung löschen',
     close: 'Schließen',
     columnMenu: 'Spaltenmenü',
+    columnChooserSearchPlaceholder: 'Spalten suchen...',
+    columnChooserShowAll: 'Alle anzeigen',
+    columnChooserHideAll: 'Alle ausblenden',
+    columnChooserLocked: 'Gesperrt',
+    columnChooserMoveUp: 'Spalte nach oben',
+    columnChooserMoveDown: 'Spalte nach unten',
     columns: 'Spalten',
     collapse: 'Einklappen',
     detail: 'Details',

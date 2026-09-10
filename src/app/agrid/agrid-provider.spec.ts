@@ -95,6 +95,7 @@ describe('AgridProvider runtime state ownership', () => {
         hiddenColumns: ['__agrid_pivot_1'],
         rowDensity: 'compact',
       }),
+      sidebarWidth: 280,
       pivotConfig: {
         rowField: 'region', columnField: 'quarter', valueField: 'amount', aggregate: 'avg',
       },
@@ -108,7 +109,25 @@ describe('AgridProvider runtime state ownership', () => {
     expect(target.control.columnWidths()).toEqual({ region: 180 });
     expect(target.control.hiddenColumns().has('__agrid_pivot_1')).toBe(true);
     expect(target.control.rowDensity()).toBe('compact');
+    expect(target.sidebarWidth()).toBe(280);
     expect(target.saveSettings()).toEqual(serialized);
+  });
+
+  it('clamps configured and restored sidebar widths', () => {
+    const small = new AgridProvider({ sidebarWidth: 20 });
+    const large = new AgridProvider({ sidebarWidth: 900 });
+    const restored = new AgridProvider();
+
+    restored.loadSettings({
+      version: 1,
+      control: { columnWidths: {}, filters: {} },
+      pivotConfig: null,
+      sidebarWidth: 321.4,
+    });
+
+    expect(small.sidebarWidth()).toBe(160);
+    expect(large.sidebarWidth()).toBe(520);
+    expect(restored.sidebarWidth()).toBe(321);
   });
 
   it('rejects settings that cannot be safely restored', () => {

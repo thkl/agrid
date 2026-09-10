@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from '../agrid-localization';
 import { getCellValue, getDateInputValue, getDisplayForField, looksLikeDate, matchesInputMask } from '../agrid.utils';
 import { AgridPivotConfig, ColDef, HeaderGroup } from '../agrid.types';
@@ -42,6 +42,14 @@ export interface AgridSidebarGroupToggle {
   visible: boolean;
 }
 
+/** Column reorder request emitted from the sidebar chooser. @internal */
+export interface AgridSidebarColumnMove {
+  /** Field to move within the full column order. */
+  field: string;
+  /** Direction requested by the chooser button. */
+  direction: 'up' | 'down';
+}
+
 /** Grouped or standalone entry rendered in the sidebar column tree. @internal */
 export type AgridSidebarColumnEntry =
   | { kind: 'column'; col: ColDef }
@@ -66,6 +74,8 @@ export class AgridSidebarComponent {
   row = input<Record<string, unknown> | null>(null);
   rowIndex = input<number | null>(null);
   hiddenColumns = input<ReadonlySet<string>>(new Set());
+  sidebarWidth = input(200);
+  resizable = input(false);
   locale = input<string | undefined>(undefined);
   localeText = input<AgridLocaleText>(AGRID_LOCALE_TEXT.en);
   readonlyGrid = input<boolean>(false);
@@ -80,6 +90,10 @@ export class AgridSidebarComponent {
   tabChange = output<AgridSidebarTab>();
   toggleColumn = output<string>();
   toggleColumnGroup = output<AgridSidebarGroupToggle>();
+  setColumnsVisible = output<boolean>();
+  moveColumn = output<AgridSidebarColumnMove>();
+  sidebarWidthChange = output<number>();
+  sidebarResizeEnd = output<number>();
   detailEdit = output<AgridSidebarEdit>();
   save = output<AgridSidebarDetailField[]>();
   /** Emits a complete replacement configuration after one pivot control changes. */
@@ -89,6 +103,17 @@ export class AgridSidebarComponent {
   readonly pivotAggregate = computed(() => {
     const aggregate = this.pivotConfig()?.aggregate ?? 'sum';
     return typeof aggregate === 'function' ? 'custom' : aggregate;
+  });
+
+  readonly columnSearch = signal('');
+  readonly visibleChooserColumns = computed(() => {
+    const query = this.normalizedSearch();
+    if (!query) return this.columns();
+    const groupLabels = new Map(this.headerGroups().map(group => [group.id, group.label]));
+    return this.columns().filter(col => {
+      const groupLabel = col.group ? groupLabels.get(col.group) ?? '' : '';
+      return this.matchesColumnSearch(col, groupLabel, query);
+    });
   });
 
   /** Localized title for the currently active sidebar tab. */
@@ -128,7 +153,10 @@ export class AgridSidebarComponent {
     const entries: AgridSidebarColumnEntry[] = [];
     const groupedEntries = new Map<string, Extract<AgridSidebarColumnEntry, { kind: 'group' }>>();
 
-    for (const col of this.columns()) {
+    const sourceColumns = this.activeTab() === 'columns'
+      ? this.visibleChooserColumns()
+      : this.columns();
+    for (const col of sourceColumns) {
       const groupId = col.group;
       const groupLabel = groupId ? groupLabels.get(groupId) : undefined;
       if (!groupId || !groupLabel) {
@@ -148,6 +176,11 @@ export class AgridSidebarComponent {
     return entries;
   });
 
+  /** Persist the current column search text. */
+  onColumnSearch(event: Event): void {
+    this.columnSearch.set((event.target as HTMLInputElement).value);
+  }
+
   /** Whether every column in a group is currently visible. */
   isGroupVisible(columns: ColDef[]): boolean {
     const hidden = this.hiddenColumns();
@@ -161,17 +194,41 @@ export class AgridSidebarComponent {
     return visibleCount > 0 && visibleCount < columns.length;
   }
 
+  /** Whether every column in a group is locked against chooser actions. */
+  isGroupLocked(columns: ColDef[]): boolean {
+    return columns.every(col => col.locked);
+  }
+
   /** Emits a visibility request for all columns belonging to a group. */
   onGroupToggle(columns: ColDef[], event: Event): void {
     this.toggleColumnGroup.emit({
-      fields: columns.map(col => col.field),
+      fields: columns.filter(col => !col.locked).map(col => col.field),
       visible: (event.target as HTMLInputElement).checked,
     });
   }
 
+  /** Whether a column can move in the requested direction without crossing a locked column. */
+  canMoveColumn(field: string, direction: 'up' | 'down'): boolean {
+    const cols = this.columns();
+    const index = cols.findIndex(col => col.field === field);
+    if (index < 0 || cols[index].locked) return false;
+    const nextIndex = direction === 'up' ? index - 1 : index + 1;
+    return !!cols[nextIndex] && !cols[nextIndex].locked;
+  }
+
+  private normalizedSearch(): string {
+    return this.columnSearch().trim().toLowerCase();
+  }
+
+  private matchesColumnSearch(col: ColDef, groupLabel: string, query: string): boolean {
+    return col.header.toLowerCase().includes(query)
+      || col.field.toLowerCase().includes(query)
+      || groupLabel.toLowerCase().includes(query);
+  }
+
   /** Apply the row-aware input mask while preserving the sidebar's change-to-commit behavior. */
   onDetailMaskInput(field: AgridSidebarDetailField, event: Event): void {
-    const input = event.target as HTMLInputElement;
+    const input = event.target as HTMLInputElement | HTMLTextAreaElement;
     const row = this.row();
     if (row && field.col.inputMask && field.col.type !== 'number' && field.col.type !== 'date') {
       const mask = field.col.inputMask({
@@ -221,4 +278,43 @@ export class AgridSidebarComponent {
       };
     });
   });
+
+  /** Whether this field should render as a sidebar textarea. */
+  isTextareaField(field: AgridSidebarDetailField): boolean {
+    const col = field.col;
+    return col.sidebarControl?.type === 'textarea'
+      && !col.values?.length
+      && col.type !== 'number'
+      && col.type !== 'date'
+      && col.type !== 'boolean';
+  }
+
+  /** Textarea rows configured by `ColDef.sidebarControl.height`. */
+  textareaRows(field: AgridSidebarDetailField): number {
+    return Math.max(1, Math.round(field.col.sidebarControl?.height ?? 3));
+  }
+
+  /** Start mouse resizing from the sidebar's left edge. */
+  startResize(event: PointerEvent): void {
+    if (!this.resizable() || event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX;
+    const startWidth = this.sidebarWidth();
+    const doc = (event.target as Element).ownerDocument;
+    const onMove = (moveEvent: PointerEvent) => {
+      const width = Math.max(160, Math.min(520, Math.round(startWidth - (moveEvent.clientX - startX))));
+      this.sidebarWidthChange.emit(width);
+    };
+    const onDone = (doneEvent: PointerEvent) => {
+      doc.removeEventListener('pointermove', onMove);
+      doc.removeEventListener('pointerup', onDone);
+      doc.removeEventListener('pointercancel', onDone);
+      const width = Math.max(160, Math.min(520, Math.round(startWidth - (doneEvent.clientX - startX))));
+      this.sidebarResizeEnd.emit(width);
+    };
+    doc.addEventListener('pointermove', onMove);
+    doc.addEventListener('pointerup', onDone);
+    doc.addEventListener('pointercancel', onDone);
+  }
 }

@@ -50,6 +50,7 @@ export interface AgridSettings {
   version: 1;
   control: AgridControlState;
   pivotConfig: AgridPivotSettings | null;
+  sidebarWidth?: number;
 }
 
 /** Configuration used to create an {@link AgridProvider}. */
@@ -122,6 +123,10 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   enableColumnMarking?: boolean;
   /** Show the sidebar panel. */
   showSidebar?: boolean;
+  /** Allow users to resize the sidebar horizontally with the mouse. @default false */
+  resizableSidebar?: boolean;
+  /** Initial sidebar panel width in pixels. Persisted settings override this value. @default 200 */
+  sidebarWidth?: number;
   /** Automatically open the detail panel when a row is selected. */
   autoOpenDetail?: boolean;
   /**
@@ -392,6 +397,10 @@ export class AgridProvider<T extends object = any> {
   enableColumnMarking: boolean;
   /** Whether the sidebar is available. */
   showSidebar: boolean;
+  /** Whether users can resize the sidebar panel with the mouse. */
+  resizableSidebar: boolean;
+  /** Current sidebar width in pixels. */
+  readonly sidebarWidth: WritableSignal<number>;
   /** Whether selecting a row automatically opens its detail panel. */
   autoOpenDetail: boolean;
   /** Whether filter and sort operations are delegated to the host. */
@@ -503,6 +512,8 @@ export class AgridProvider<T extends object = any> {
     this.enableRowMarking = config.enableRowMarking ?? false;
     this.enableColumnMarking = config.enableColumnMarking ?? false;
     this.showSidebar      = config.showSidebar ?? false;
+    this.resizableSidebar = config.resizableSidebar ?? false;
+    this.sidebarWidth = signal(clampSidebarWidth(config.sidebarWidth));
     this.autoOpenDetail   = config.autoOpenDetail ?? false;
     this.serverSideFiltering = this.serverSideRowModel ? true : config.serverSideFiltering ?? false;
     this.filterDebounceMs = Math.max(0, config.filterDebounceMs ?? 300);
@@ -567,6 +578,7 @@ export class AgridProvider<T extends object = any> {
           aggregate: aggregate ?? 'sum',
         }
         : null,
+      sidebarWidth: this.sidebarWidth(),
     };
   }
 
@@ -595,6 +607,9 @@ export class AgridProvider<T extends object = any> {
     }
     this.control.loadState(settings.control);
     this.pivotConfig = settings.pivotConfig as AgridPivotConfig<T> | null;
+    if (typeof settings.sidebarWidth === 'number') {
+      this.sidebarWidth.set(clampSidebarWidth(settings.sidebarWidth));
+    }
   }
 
   /**
@@ -630,4 +645,10 @@ export class AgridProvider<T extends object = any> {
   ɵattachExport(bridge: AgridExportBridge | null): void {
     this.exportBridge = bridge;
   }
+}
+
+export function clampSidebarWidth(width: unknown): number {
+  const numeric = Number(width);
+  if (!Number.isFinite(numeric)) return 200;
+  return Math.max(160, Math.min(520, Math.round(numeric)));
 }

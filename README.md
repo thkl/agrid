@@ -191,7 +191,7 @@ See [ROADMAP.md](./ROADMAP.md) for the AG Grid comparison checklist and open par
 - Column marking for complete-column highlighting and clipboard workflows.
 - Row selection: none, single, or multi.
 - Grouping with expand/collapse and custom group actions.
-- Sidebar column visibility picker.
+- Sidebar column chooser with search, bulk visibility, locked-column handling, and ordering controls.
 - Add-row placeholder and automatic row insertion.
 - CSV and zero-dependency Excel (`.xlsx`) export of visible, filtered data rows.
 - Server-side row model with lazy block loading and virtual placeholders.
@@ -362,7 +362,9 @@ readonly gridProvider = new AgridProvider({
 | `showRowNumbers` | `boolean` | `false` | Shows 1-based filtered/sorted row numbers in the control column, replacing the drag-handle glyph. |
 | `enableRowMarking` | `boolean` | `false` | Makes row headers clickable, shows checkboxes in a 48 px control column, and includes marked rows in every copy operation. |
 | `enableColumnMarking` | `boolean` | `false` | Makes column-header surfaces clickable and exposes marked fields through `markedColumnFields`. |
-| `showSidebar` | `boolean` | `false` | Shows a collapsible column visibility sidebar. Requires `control`. |
+| `showSidebar` | `boolean` | `false` | Shows a collapsible column chooser and detail sidebar. Requires `control`. |
+| `resizableSidebar` | `boolean` | `false` | Lets users drag the sidebar's left edge to change its width. |
+| `sidebarWidth` | `number` | `200` | Initial sidebar width in pixels. Persisted `gridId` settings override it. |
 | `autoOpenDetail` | `boolean` | `false` | Opens the detail row automatically when a row is selected. |
 | `serverSideFiltering` | `boolean` | `false` | Emits filter/sort events instead of applying them locally and hides the value checklist. |
 | `filterDebounceMs` | `number` | `300` | Debounce delay for server-side `filterChange` events. Set to `0` to disable. |
@@ -524,6 +526,16 @@ The snapshot includes `pivotConfig` plus `AgridControlState` (visibility, widths
 filters, sorting, pagination, aggregates, and row density). Sidebar pivot and visibility changes
 also emit the full object through `(settingsChange)`. Custom aggregate functions are intentionally
 rejected because functions cannot be serialized safely.
+
+### Column chooser
+
+Set `showSidebar: true` to expose a **Columns** tab. It can search by header, field, or header-group
+label; show or hide all unlocked columns; toggle grouped columns together; and move unlocked columns
+up or down in the persisted `AgridControl.columnOrder()`. Columns with `locked: true` remain visible
+in the chooser but cannot be hidden or reordered from the sidebar.
+
+Set `resizableSidebar: true` to let users drag the sidebar's left edge. When `gridId` is configured,
+the chosen width is saved with the normal `agrid_settings_<gridId>` settings object.
 
 ### Page selector
 
@@ -775,6 +787,7 @@ interface ColDef {
   valueGetter?: (params: { row: Record<string, unknown>; value: unknown; column: ColDef; originalIndex: number }) => unknown;
   valueParser?: (params: { row: Record<string, unknown>; value: unknown; oldValue: unknown; column: ColDef; originalIndex: number; source: AgridValueWriteSource }) => unknown;
   valueSetter?: (params: { row: Record<string, unknown>; value: unknown; oldValue: unknown; column: ColDef; originalIndex: number; source: AgridValueWriteSource }) => Partial<Record<string, unknown>> | false | null | undefined;
+  sidebarControl?: { type: 'textarea'; height?: number };
   comparator?: (params: { valueA: unknown; valueB: unknown; rowA: Record<string, unknown>; rowB: Record<string, unknown>; indexA: number; indexB: number; column: ColDef; locale?: string }) => number;
   inputMask?: (params: { value: unknown; row: Record<string, unknown>; column: ColDef }) => RegExp | null;
   filterable?: boolean;
@@ -810,6 +823,7 @@ interface ColDef {
 | `valueGetter` | No | Derives a read-only cell value from the full row. Getter values participate in display, filtering, sorting, export, copy, aggregates, renderers, formatting, and selection summaries. |
 | `valueParser` | No | Normalizes committed editor, paste, fill, sidebar, and detail values before validation and writeback. |
 | `valueSetter` | No | Customizes writeback for nested row data or editable `valueGetter` columns. Return a row patch, `false` to cancel, or `null`/`undefined` for default field writeback. |
+| `sidebarControl` | No | Overrides the sidebar detail editor. `{ type: 'textarea', height: 5 }` renders a 5-row textarea for string-like fields without `values`. |
 | `comparator` | No | Custom client-side sort comparator for domain-specific ordering. The grid applies ascending/descending direction after the comparator returns. |
 | `inputMask` | No | Resolves a regular-expression input constraint for each string cell from its `row`, `value`, and `column`. Invalid proposed values are rejected. |
 | `filterable` | No | Enables text filter and value picker for the column. |

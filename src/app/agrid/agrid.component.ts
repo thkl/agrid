@@ -181,6 +181,8 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     return this.enableRowMarking() ? numberWidth + 20 : numberWidth;
   });
   readonly showSidebar = computed(() => this.provider().showSidebar);
+  readonly resizableSidebar = computed(() => this.provider().resizableSidebar);
+  readonly sidebarWidth = computed(() => this.provider().sidebarWidth());
   readonly autoOpenDetail = computed(() => this.provider().autoOpenDetail);
   readonly serverSideFiltering = computed(() => this.provider().serverSideFiltering);
   readonly filterDebounceMs = computed(() => this.provider().filterDebounceMs);
@@ -1388,6 +1390,15 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly sidebarTab = this.sidebarController.tab;
   readonly sidebarRow = this.sidebarController.row;
   readonly sidebarHiddenColumns = this.sidebarController.hiddenColumns;
+  readonly sidebarColumns = computed<ColDef[]>(() => {
+    const columns = this.colDefs();
+    const order = this.control()?.columnOrder() ?? [];
+    if (order.length === 0) return columns;
+    const orderMap = new Map(order.map((field, index) => [field, index]));
+    return [...columns].sort((a, b) =>
+      (orderMap.get(a.field) ?? Infinity) - (orderMap.get(b.field) ?? Infinity)
+    );
+  });
   /** Original provider columns used as pivot field choices. */
   readonly sidebarPivotColumns = computed<ColDef[]>(
     () => this.provider().columns() as unknown as ColDef[],
@@ -3090,14 +3101,53 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** @internal */
   onSidebarToggleColumn(field: string): void {
+    if (this.getColDef(field)?.locked) return;
     this.columnMenuController.toggleColumnVisibility(field);
     this.emitSettingsChange();
   }
 
   /** @internal Sets every column in a sidebar header group to the requested visibility. */
   onSidebarToggleColumnGroup(fields: string[], visible: boolean): void {
+    const unlockedFields = fields.filter(field => !this.getColDef(field)?.locked);
+    this.columnMenuController.setColumnsVisibility(unlockedFields, visible);
+    this.emitSettingsChange();
+  }
+
+  /** @internal Sets all unlocked columns currently shown in the sidebar chooser to visible/hidden. */
+  onSidebarSetColumnsVisible(visible: boolean): void {
+    const fields = this.sidebarColumns()
+      .filter(col => !col.locked)
+      .map(col => col.field);
     this.columnMenuController.setColumnsVisibility(fields, visible);
     this.emitSettingsChange();
+  }
+
+  /** @internal Moves an unlocked column one slot up/down in the full sidebar order. */
+  onSidebarMoveColumn(field: string, direction: 'up' | 'down'): void {
+    const columns = this.sidebarColumns();
+    const fromIndex = columns.findIndex(col => col.field === field);
+    if (fromIndex < 0 || columns[fromIndex].locked) return;
+    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
+    if (!columns[toIndex] || columns[toIndex].locked) return;
+    const fields = columns.map(col => col.field);
+    const [moved] = fields.splice(fromIndex, 1);
+    fields.splice(toIndex, 0, moved);
+    this.control()?.setColumnOrder(fields);
+    this.emitSettingsChange();
+  }
+
+  /** @internal Updates sidebar width during pointer resize. */
+  onSidebarWidthChange(width: number): void {
+    this.provider().sidebarWidth.set(width);
+    this.syncColumnViewportMetrics();
+  }
+
+  /** @internal Persists the resized sidebar width after pointer resize completes. */
+  onSidebarResizeEnd(width: number): void {
+    this.provider().sidebarWidth.set(width);
+    this.persistSettingsToLocalStorage();
+    this.emitSettingsChange();
+    this.syncColumnViewportMetrics();
   }
 
   /** @internal Mirrors vertical scrolling from the main viewport into both pinned panes. */

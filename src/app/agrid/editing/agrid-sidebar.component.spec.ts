@@ -57,7 +57,7 @@ describe('AgridSidebarComponent', () => {
       '.ag-sidebar-group-label input',
     ) as HTMLInputElement;
     const childLabels = Array.from(
-      fixture.nativeElement.querySelectorAll('.ag-sidebar-group-child'),
+      fixture.nativeElement.querySelectorAll('.ag-sidebar-group-child .ag-column-label'),
       (element: Element) => element.textContent?.trim(),
     );
 
@@ -81,6 +81,74 @@ describe('AgridSidebarComponent', () => {
     expect(fixture.nativeElement.querySelectorAll('.ag-sidebar-item')).toHaveLength(2);
   });
 
+  it('filters the column chooser by header, field, or group label', () => {
+    fixture.componentRef.setInput('columns', [
+      { field: 'firstName', header: 'First name', group: 'employee' },
+      { field: 'lastName', header: 'Last name', group: 'employee' },
+      { field: 'department', header: 'Department' },
+    ]);
+    fixture.componentRef.setInput('headerGroups', [
+      { id: 'employee', label: 'Employee' },
+    ]);
+    fixture.detectChanges();
+
+    component.columnSearch.set('dep');
+    fixture.detectChanges();
+
+    expect(Array.from(
+      fixture.nativeElement.querySelectorAll('.ag-column-label'),
+      (element: Element) => element.textContent?.trim(),
+    )).toEqual(['Department']);
+
+    component.columnSearch.set('employee');
+    fixture.detectChanges();
+
+    expect(Array.from(
+      fixture.nativeElement.querySelectorAll('.ag-column-label'),
+      (element: Element) => element.textContent?.trim(),
+    )).toEqual(['First name', 'Last name']);
+  });
+
+  it('emits bulk visibility and column move requests from chooser controls', () => {
+    const bulk: boolean[] = [];
+    const moves: object[] = [];
+    component.setColumnsVisible.subscribe(visible => bulk.push(visible));
+    component.moveColumn.subscribe(event => moves.push(event));
+    fixture.detectChanges();
+
+    const bulkButtons = fixture.nativeElement.querySelectorAll('.ag-column-bulk-btn') as NodeListOf<HTMLButtonElement>;
+    bulkButtons[0].click();
+    bulkButtons[1].click();
+
+    const moveButtons = fixture.nativeElement.querySelectorAll('.ag-column-move-btn') as NodeListOf<HTMLButtonElement>;
+    moveButtons[2].click();
+
+    expect(bulk).toEqual([true, false]);
+    expect(moves).toEqual([{ field: 'department', direction: 'up' }]);
+  });
+
+  it('disables chooser visibility and movement for locked columns', () => {
+    fixture.componentRef.setInput('columns', [
+      { field: 'id', header: 'ID', locked: true },
+      { field: 'name', header: 'Name' },
+      { field: 'department', header: 'Department' },
+    ]);
+    fixture.detectChanges();
+
+    const lockedItem = fixture.nativeElement.querySelector('.ag-sidebar-item--locked') as HTMLElement;
+    const lockedCheckbox = lockedItem.querySelector('input') as HTMLInputElement;
+    const lockedButtons = lockedItem.querySelectorAll('.ag-column-move-btn') as NodeListOf<HTMLButtonElement>;
+    const nameButtons = fixture.nativeElement.querySelectorAll('.ag-sidebar-item')[1]
+      .querySelectorAll('.ag-column-move-btn') as NodeListOf<HTMLButtonElement>;
+
+    expect(lockedCheckbox.disabled).toBe(true);
+    expect(lockedItem.textContent).toContain('Locked');
+    expect(lockedButtons[0].disabled).toBe(true);
+    expect(lockedButtons[1].disabled).toBe(true);
+    expect(nameButtons[0].disabled).toBe(true);
+    expect(nameButtons[1].disabled).toBe(false);
+  });
+
   it('renders detail fields and emits edits', () => {
     const emitted: AgridSidebarEdit[] = [];
     component.detailEdit.subscribe(event => emitted.push(event));
@@ -96,6 +164,59 @@ describe('AgridSidebarComponent', () => {
       col: { field: 'name', header: 'Name' },
       value: 'Bob',
     }]);
+  });
+
+  it('renders configured string sidebar controls as textareas', () => {
+    const emitted: AgridSidebarEdit[] = [];
+    component.detailEdit.subscribe(event => emitted.push(event));
+    fixture.componentRef.setInput('activeTab', 'detail');
+    fixture.componentRef.setInput('columns', [
+      {
+        field: 'notes',
+        header: 'Notes',
+        sidebarControl: { type: 'textarea', height: 5 },
+      },
+      {
+        field: 'status',
+        header: 'Status',
+        values: ['Open', 'Closed'],
+        sidebarControl: { type: 'textarea', height: 5 },
+      },
+    ]);
+    fixture.componentRef.setInput('row', {
+      notes: 'Long note',
+      status: 'Open',
+    });
+    fixture.detectChanges();
+
+    const textarea = fixture.nativeElement.querySelector('.ag-detail-textarea') as HTMLTextAreaElement;
+    const select = fixture.nativeElement.querySelector('select.ag-detail-input') as HTMLSelectElement;
+
+    expect(textarea.value).toBe('Long note');
+    expect(textarea.rows).toBe(5);
+    expect(select).not.toBeNull();
+
+    textarea.value = 'Changed note';
+    textarea.dispatchEvent(new Event('change'));
+    expect(emitted[0]).toMatchObject({ field: 'notes', value: 'Changed note' });
+  });
+
+  it('emits live and final sidebar widths while resizing', () => {
+    const live: number[] = [];
+    const final: number[] = [];
+    component.sidebarWidthChange.subscribe(width => live.push(width));
+    component.sidebarResizeEnd.subscribe(width => final.push(width));
+    fixture.componentRef.setInput('resizable', true);
+    fixture.componentRef.setInput('sidebarWidth', 240);
+    fixture.detectChanges();
+
+    const handle = fixture.nativeElement.querySelector('.ag-sidebar-resize-handle') as HTMLElement;
+    handle.dispatchEvent(new PointerEvent('pointerdown', { button: 0, clientX: 100, bubbles: true }));
+    document.dispatchEvent(new PointerEvent('pointermove', { clientX: 70 }));
+    document.dispatchEvent(new PointerEvent('pointerup', { clientX: 60 }));
+
+    expect(live).toEqual([270]);
+    expect(final).toEqual([280]);
   });
 
   it('applies a row-aware mask to detail editor input', () => {

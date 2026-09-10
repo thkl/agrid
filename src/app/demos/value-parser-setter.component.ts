@@ -113,7 +113,7 @@ const columns: ColDef<AccountRow>[] = [
     valueSetter: ({ value }) => ({ tags: Array.isArray(value) ? value : [] }),
     formatter: value => Array.isArray(value) ? value.join(', ') : String(value ?? ''),
   },
-  { field: 'notes', header: 'Notes', width: 260, editor: 'largeText', filterable: true },
+  { field: 'notes', header: 'Notes', width: 260, editor: 'largeText', filterable: true , sidebarControl:{ type: 'textarea', height: 5 } },
 ];
 
 @Component({
@@ -212,6 +212,7 @@ export class ValueParserSetterDemoComponent {
     enableQuickFilter: true,
     rowSelection: 'single',
     zebraStripes: true,
+    resizableSidebar:true
   });
 
   readonly selectedState = computed(() => {

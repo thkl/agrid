@@ -1,6 +1,13 @@
 @if (open()) {
   <div class="ag-sidebar" role="region"
+    [style.width.px]="sidebarWidth()"
     [attr.aria-label]="activeTabLabel()">
+    @if (resizable()) {
+      <div class="ag-sidebar-resize-handle"
+        role="separator"
+        aria-orientation="vertical"
+        (pointerdown)="startResize($event)"></div>
+    }
     <div class="ag-sidebar-header">
       <span>{{ activeTabLabel() }}</span>
       <button class="ag-sidebar-close" (click)="close.emit()" [title]="localeText().close"
@@ -8,6 +15,24 @@
     </div>
 
     @if (activeTab() === 'columns') {
+      <div class="ag-column-chooser-tools">
+        <input
+          class="ag-column-search"
+          type="search"
+          [value]="columnSearch()"
+          (input)="onColumnSearch($event)"
+          [placeholder]="localeText().columnChooserSearchPlaceholder"
+          [attr.aria-label]="localeText().columnChooserSearchPlaceholder"
+        />
+        <div class="ag-column-bulk-actions">
+          <button type="button" class="ag-column-bulk-btn" (click)="setColumnsVisible.emit(true)">
+            {{ localeText().columnChooserShowAll }}
+          </button>
+          <button type="button" class="ag-column-bulk-btn" (click)="setColumnsVisible.emit(false)">
+            {{ localeText().columnChooserHideAll }}
+          </button>
+        </div>
+      </div>
       @for (entry of columnEntries(); track entry.kind === 'group' ? 'group-' + entry.id : 'column-' + entry.col.field) {
         @if (entry.kind === 'group') {
           <div class="ag-sidebar-group">
@@ -16,32 +41,65 @@
                 type="checkbox"
                 [checked]="isGroupVisible(entry.columns)"
                 [indeterminate]="isGroupPartiallyVisible(entry.columns)"
+                [disabled]="isGroupLocked(entry.columns)"
                 (change)="onGroupToggle(entry.columns, $event)"
               />
               {{ entry.label }}
             </label>
             <div class="ag-sidebar-group-children">
               @for (col of entry.columns; track col.field) {
-                <label class="ag-sidebar-item ag-sidebar-group-child" (click)="$event.stopPropagation()">
-                  <input
-                    type="checkbox"
-                    [checked]="!hiddenColumns().has(col.field)"
-                    (change)="toggleColumn.emit(col.field)"
-                  />
-                  {{ col.header }}
-                </label>
+                <div class="ag-sidebar-item ag-sidebar-group-child" [class.ag-sidebar-item--locked]="col.locked">
+                  <button type="button" class="ag-column-move-btn"
+                    [disabled]="!canMoveColumn(col.field, 'up')"
+                    [title]="localeText().columnChooserMoveUp"
+                    [attr.aria-label]="localeText().columnChooserMoveUp"
+                    (click)="moveColumn.emit({ field: col.field, direction: 'up' })">↑</button>
+                  <button type="button" class="ag-column-move-btn"
+                    [disabled]="!canMoveColumn(col.field, 'down')"
+                    [title]="localeText().columnChooserMoveDown"
+                    [attr.aria-label]="localeText().columnChooserMoveDown"
+                    (click)="moveColumn.emit({ field: col.field, direction: 'down' })">↓</button>
+                  <label class="ag-column-visible-toggle" (click)="$event.stopPropagation()">
+                    <input
+                      type="checkbox"
+                      [checked]="!hiddenColumns().has(col.field)"
+                      [disabled]="col.locked"
+                      (change)="toggleColumn.emit(col.field)"
+                    />
+                    <span class="ag-column-label">{{ col.header }}</span>
+                  </label>
+                  @if (col.locked) {
+                    <span class="ag-column-lock">{{ localeText().columnChooserLocked }}</span>
+                  }
+                </div>
               }
             </div>
           </div>
         } @else {
-          <label class="ag-sidebar-item" (click)="$event.stopPropagation()">
-            <input
-              type="checkbox"
-              [checked]="!hiddenColumns().has(entry.col.field)"
-              (change)="toggleColumn.emit(entry.col.field)"
-            />
-            {{ entry.col.header }}
-          </label>
+          <div class="ag-sidebar-item" [class.ag-sidebar-item--locked]="entry.col.locked">
+            <button type="button" class="ag-column-move-btn"
+              [disabled]="!canMoveColumn(entry.col.field, 'up')"
+              [title]="localeText().columnChooserMoveUp"
+              [attr.aria-label]="localeText().columnChooserMoveUp"
+              (click)="moveColumn.emit({ field: entry.col.field, direction: 'up' })">↑</button>
+            <button type="button" class="ag-column-move-btn"
+              [disabled]="!canMoveColumn(entry.col.field, 'down')"
+              [title]="localeText().columnChooserMoveDown"
+              [attr.aria-label]="localeText().columnChooserMoveDown"
+              (click)="moveColumn.emit({ field: entry.col.field, direction: 'down' })">↓</button>
+            <label class="ag-column-visible-toggle" (click)="$event.stopPropagation()">
+              <input
+                type="checkbox"
+                [checked]="!hiddenColumns().has(entry.col.field)"
+                [disabled]="entry.col.locked"
+                (change)="toggleColumn.emit(entry.col.field)"
+              />
+              <span class="ag-column-label">{{ entry.col.header }}</span>
+            </label>
+            @if (entry.col.locked) {
+              <span class="ag-column-lock">{{ localeText().columnChooserLocked }}</span>
+            }
+          </div>
         }
       }
     } @else if (activeTab() === 'pivot' && pivotConfig(); as pivot) {
@@ -156,6 +214,15 @@
                   }
                 }
               </select>
+            } @else if (field.editable && isTextareaField(field)) {
+              <textarea
+                class="ag-detail-input ag-detail-textarea"
+                [class.ag-detail-input--invalid]="!!errors()[field.col.field]"
+                [rows]="textareaRows(field)"
+                [value]="field.inputValue"
+                (input)="onDetailMaskInput(field, $event)"
+                (change)="onDetailChange(field, $event)"
+              ></textarea>
             } @else if (field.editable) {
               <input
                 class="ag-detail-input"

@@ -573,13 +573,18 @@
     }
 
     @if (showSidebar()) {
-    <agrid-sidebar [open]="sidebarOpen()" [activeTab]="sidebarTab()" [columns]="colDefs()"
+    <agrid-sidebar [open]="sidebarOpen()" [activeTab]="sidebarTab()" [columns]="sidebarColumns()"
       [pivotColumns]="sidebarPivotColumns()" [pivotConfig]="provider().pivotConfig" [headerGroups]="headerGroups()"
       [row]="sidebarRow()" [rowIndex]="selectedRowIndex()" [hiddenColumns]="sidebarHiddenColumns()" [locale]="locale()"
       [localeText]="localeText()" [readonlyGrid]="readonlyGrid()" [useSidebarEditor]="useSidebarEditor()"
+      [sidebarWidth]="sidebarWidth()" [resizable]="resizableSidebar()"
       [isCellEditable]="isCellEditableForRow" [errors]="sidebarValidationErrors()" (close)="toggleSidebar()"
       (tabChange)="onSidebarStripClick($event)" (toggleColumn)="onSidebarToggleColumn($event)"
       (toggleColumnGroup)="onSidebarToggleColumnGroup($event.fields, $event.visible)"
+      (setColumnsVisible)="onSidebarSetColumnsVisible($event)"
+      (moveColumn)="onSidebarMoveColumn($event.field, $event.direction)"
+      (sidebarWidthChange)="onSidebarWidthChange($event)"
+      (sidebarResizeEnd)="onSidebarResizeEnd($event)"
       (pivotChange)="onSidebarPivotChange($event)" (detailEdit)="onSidebarDetailEdit($event)"
       (save)="onSidebarDetailSave($event)" />
     }

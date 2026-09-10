@@ -458,6 +458,44 @@ describe('AgridComponent menu bar', () => {
     localStorage.removeItem('agrid_settings_density-grid');
     densityFixture.destroy();
   });
+
+  it('persists resized sidebar width to localStorage and restores it by gridId', () => {
+    localStorage.removeItem('agrid_settings_sidebar-grid');
+    const sidebarProvider = new AgridProvider({
+      columns: [{ field: 'name', header: 'Name' }],
+      datasource: new AgridDataSource([{ name: 'Alice' }]),
+      gridId: 'sidebar-grid',
+      showSidebar: true,
+      resizableSidebar: true,
+    });
+    const sidebarFixture = TestBed.createComponent(AgridComponent);
+    sidebarFixture.componentRef.setInput('provider', sidebarProvider);
+    sidebarFixture.detectChanges();
+    const sidebarComponent = sidebarFixture.componentInstance;
+
+    sidebarComponent.onSidebarResizeEnd(312);
+
+    expect(sidebarProvider.sidebarWidth()).toBe(312);
+    expect(JSON.parse(localStorage.getItem('agrid_settings_sidebar-grid')!)
+      .sidebarWidth).toBe(312);
+
+    const restoredProvider = new AgridProvider({
+      columns: [{ field: 'name', header: 'Name' }],
+      datasource: new AgridDataSource([{ name: 'Bob' }]),
+      gridId: 'sidebar-grid',
+      showSidebar: true,
+      resizableSidebar: true,
+    });
+    const restoredFixture = TestBed.createComponent(AgridComponent);
+    restoredFixture.componentRef.setInput('provider', restoredProvider);
+    restoredFixture.detectChanges();
+
+    expect(restoredProvider.sidebarWidth()).toBe(312);
+
+    localStorage.removeItem('agrid_settings_sidebar-grid');
+    sidebarFixture.destroy();
+    restoredFixture.destroy();
+  });
 });
 
 describe('AgridComponent cell context menu items', () => {

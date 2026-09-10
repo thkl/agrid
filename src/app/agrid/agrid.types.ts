@@ -112,6 +112,14 @@ export interface AgridValueSetterParams<
 /** Return `false` to cancel writeback, or a partial row patch to customize the row update. */
 export type AgridValueSetterResult<T extends object = any> = Partial<T> | false | null | undefined;
 
+/** Sidebar detail editor override for a string-like column. */
+export interface AgridSidebarControl {
+  /** Render a multiline textarea instead of the normal text input. */
+  type: 'textarea';
+  /** Textarea rows. Defaults to `3`; values below `1` are clamped. */
+  height?: number;
+}
+
 /** Parameters passed to a custom column sort comparator. */
 export interface AgridSortComparatorParams<
   T extends object = any,
@@ -587,6 +595,17 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
    * ```
    */
   validate?: (value: T[K], row: T) => string | null | undefined;
+  /**
+   * Override the field control used in the sidebar detail tab. Textarea controls are only used for
+   * string-like columns without a `values` selector; number, date, boolean, and value-list columns
+   * keep their built-in sidebar controls.
+   *
+   * @example
+   * ```ts
+   * { field: 'notes', header: 'Notes', sidebarControl: { type: 'textarea', height: 5 } }
+   * ```
+   */
+  sidebarControl?: AgridSidebarControl;
   /**
    * Custom component rendered for the cell's display (read) state, instead of the plain text value.
    * The component injects {@link AGRID_RENDERER_CONTEXT} to read the value, row, and column. Unlike

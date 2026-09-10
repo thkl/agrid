@@ -85,6 +85,7 @@ export type {
   AgridSelectionSummary,
   AgridServerQuery,
   AgridServerSort,
+  AgridSidebarControl,
   AgridSortComparatorParams,
   AsyncValueOptionsParams,
   AgridColumnHeaderMenuItem,

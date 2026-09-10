@@ -19,7 +19,7 @@ npm install @thkl/agrid @angular/cdk
 - Inline editing, validation, undo/redo, paste, fill, custom editors, and custom renderers.
 - Range selection, selection summaries, row selection, row marking, column marking, and row numbers.
 - Grouping, aggregate footers, tree data with descendant rollups, pivot tables, and master/detail rows.
-- Pinned columns, pinned rows, column reordering, column autosize, and persistable settings.
+- Pinned columns, pinned rows, column chooser, column reordering, column autosize, and persistable settings.
 - CSV, zero-dependency `.xlsx` export, sparklines, and linked SVG charts/graphs.
 
 ## Usage
@@ -419,6 +419,15 @@ const columns: ColDef<Person>[] = [
 ];
 ```
 
+## Column chooser
+
+Enable `showSidebar` with a control to show the **Columns** tab. Users can search by header, field,
+or header-group label, show or hide all unlocked matches, toggle grouped columns together, and move
+unlocked columns up or down. Locked columns stay listed but cannot be hidden or reordered.
+
+Set `resizableSidebar: true` to let users drag the sidebar width. With `gridId`, the selected width
+is saved to the normal `agrid_settings_<gridId>` settings object.
+
 ## Runtime readonly cells
 
 Use `cellReadonly` when editability depends on the current row. Returning `true` blocks inline
@@ -432,6 +441,14 @@ const columns: ColDef<Order>[] = [
     header: 'Approved by',
     cellReadonly: ({ row }) => row.status !== 'Draft',
   },
+];
+```
+
+Use `sidebarControl` to render a multiline editor in the sidebar detail tab for string-like fields:
+
+```ts
+const columns: ColDef<Task>[] = [
+  { field: 'notes', header: 'Notes', sidebarControl: { type: 'textarea', height: 5 } },
 ];
 ```
 
