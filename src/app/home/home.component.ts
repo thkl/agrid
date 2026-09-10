@@ -230,6 +230,11 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
               <div class="demo-card-desc">Data-driven colors, borders, typography, and alignment for individual cells.</div>
               <span class="demo-card-link">Open →</span>
             </a>
+            <a class="demo-card" routerLink="/value-parser-setter">
+              <div class="demo-card-title">Value parser/setter</div>
+              <div class="demo-card-desc">Normalize edits and write computed columns back into nested row data.</div>
+              <span class="demo-card-link">Open →</span>
+            </a>
             <a class="demo-card" routerLink="/pagination">
               <div class="demo-card-title">Pagination</div>
               <div class="demo-card-desc">Client-side pagination with configurable page size.</div>

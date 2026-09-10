@@ -337,6 +337,42 @@ readonly provider = new AgridProvider<Order>({
 });`,
   },
   {
+    path: '/value-parser-setter',
+    label: 'Value parser/setter',
+    title: 'Custom edit parsing and writeback',
+    summary:
+      'Parse committed editor values and write them into nested or derived row fields without giving up grid validation, history, paste, fill, or sidebar workflows.',
+    points: [
+      'Use valueParser to normalize typed, pasted, or filled values before validation.',
+      'Use valueSetter to return a row patch for nested data or computed display columns.',
+      'Pair valueGetter with valueSetter to make a derived column editable.',
+    ],
+    code: `const columns: ColDef<Account>[] = [
+  {
+    field: 'fullName',
+    header: 'Full name',
+    valueGetter: ({ row }) => \`\${row.firstName} \${row.lastName}\`,
+    valueParser: ({ value }) => String(value).trim().replace(/\\s+/g, ' '),
+    valueSetter: ({ value }) => {
+      const [firstName, ...rest] = String(value).split(' ');
+      return firstName && rest.length
+        ? { firstName, lastName: rest.join(' ') }
+        : false;
+    },
+  },
+  {
+    field: 'monthlyRevenue',
+    header: 'Monthly',
+    type: 'number',
+    valueGetter: ({ row }) => row.account.monthlyCents / 100,
+    valueParser: ({ value }) => Number(String(value).replace(/[$,\\s]/g, '')),
+    valueSetter: ({ row, value }) => ({
+      account: { ...row.account, monthlyCents: Number(value) * 100 },
+    }),
+  },
+];`,
+  },
+  {
     path: '/selection-summary',
     label: 'Selection summary',
     title: 'Live statistics for selected cells',

@@ -4,7 +4,8 @@ import { CellRange } from './agrid-clipboard.handler';
 import { AgridControl, HistoryEntry } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
 import { CellPosition, ColDef, GridEditEvent, GridItem } from '../agrid.types';
-import { isDataRowItem } from '../agrid.utils';
+import { applyPreparedCellValue, cellEditEvent, prepareCellValue } from '../editing/agrid-value-write';
+import { getCellValue, isDataRowItem } from '../agrid.utils';
 
 /** Rectangular bounds in projected row and visible column coordinates. @internal */
 export type VisibleCellBounds = {
@@ -177,7 +178,7 @@ export class AgridRangeController {
     const sourceValues = sourceRows.map(displayIndex => {
       const item = items[displayIndex];
       return isDataRowItem(item)
-        ? cols.slice(source.colStart, source.colEnd + 1).map(col => item.row[col.field])
+        ? cols.slice(source.colStart, source.colEnd + 1).map(col => getCellValue(col, item.row, item.originalIndex))
         : [];
     });
 
@@ -197,23 +198,25 @@ export class AgridRangeController {
         const sourceRowValues = sourceValues[sourceRowIndex];
         if (sourceRowValues.length === 0) continue;
         const sourceColIndex = (colIndex - source.colStart) % sourceRowValues.length;
-        const oldValue = this.opts.dataSource().getRow(item.originalIndex)[col.field];
-        const newValue = sourceRowValues[sourceColIndex];
+        const row = this.opts.dataSource().getRow(item.originalIndex);
+        const { oldValue, newValue } = prepareCellValue(
+          col,
+          row,
+          item.originalIndex,
+          sourceRowValues[sourceColIndex],
+          'fill',
+        );
         if (oldValue === newValue) continue;
 
-        this.opts.dataSource().patchRow(item.originalIndex, { [col.field]: newValue });
+        const write = applyPreparedCellValue(this.opts.dataSource(), item.originalIndex, col, oldValue, newValue, 'fill');
+        if (!write.changed) continue;
         historyEntries.push({
           rowIndex: item.originalIndex,
           field: col.field,
           oldValue,
           newValue,
         });
-        this.opts.onCellEdit({
-          position: { rowIndex: item.originalIndex, colIndex },
-          field: col.field,
-          oldValue,
-          newValue,
-        });
+        this.opts.onCellEdit(cellEditEvent(item.originalIndex, colIndex, col.field, oldValue, newValue));
         lastPosition = { rowIndex: item.originalIndex, colIndex };
       }
     }

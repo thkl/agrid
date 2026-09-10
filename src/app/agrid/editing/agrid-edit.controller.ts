@@ -3,7 +3,7 @@ import { CellRange } from '../selection/agrid-clipboard.handler';
 import { AgridControl, HistoryEntry, HistoryItem } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
 import { CellPosition, ColDef, GridEditEvent } from '../agrid.types';
-import { coerceNumberInputValue } from '../agrid.utils';
+import { applyPreparedCellValue, cellEditEvent, prepareCellValue } from './agrid-value-write';
 
 /** Dependencies and callbacks required by {@link AgridEditController}. @internal */
 export interface AgridEditControllerOptions {
@@ -46,7 +46,7 @@ export class AgridEditController {
 
   /** Returns whether a cell can be edited in the current grid state. */
   isCellEditable(col: ColDef | undefined, originalIndex?: number): boolean {
-    if (!col || this.opts.readonlyGrid() || col.editable === false || col.valueGetter) return false;
+    if (!col || this.opts.readonlyGrid() || col.editable === false || (col.valueGetter && !col.valueSetter)) return false;
     if (originalIndex === undefined || !col.cellReadonly) return true;
     const row = this.opts.dataSource().getRow(originalIndex);
     if (!row) return false;
@@ -106,10 +106,7 @@ export class AgridEditController {
       this.cancel();
       return true;
     }
-    const oldValue = row[col.field];
-    const newValue = col.type === 'number'
-      ? coerceNumberInputValue(this.currentDraft())
-      : this.currentDraft();
+    const { oldValue, newValue } = prepareCellValue(col, row, position.rowIndex, this.currentDraft(), 'inline');
     if (oldValue !== newValue) {
       const message = col.validate?.(newValue as never, row as never) ?? null;
       if (message) {
@@ -117,14 +114,20 @@ export class AgridEditController {
         this.opts.onValidationFailed({ rowIndex: position.rowIndex, field: col.field, value: newValue, message });
         return false;
       }
-      this.opts.dataSource().patchRow(position.rowIndex, { [col.field]: newValue });
+      const write = applyPreparedCellValue(this.opts.dataSource(), position.rowIndex, col, oldValue, newValue, 'inline');
+      if (!write.changed) {
+        this.validationError.set(null);
+        this.clearEditState();
+        this.opts.focusGrid();
+        return true;
+      }
       this.opts.control()?.pushEdit({
         rowIndex: position.rowIndex,
         field: col.field,
         oldValue,
         newValue,
       });
-      this.opts.onCellEdit({ position, field: col.field, oldValue, newValue });
+      this.opts.onCellEdit(cellEditEvent(position.rowIndex, position.colIndex, col.field, oldValue, newValue));
     }
     this.validationError.set(null);
     this.clearEditState();
@@ -140,10 +143,7 @@ export class AgridEditController {
     const col = this.opts.visibleColDefs()[colIndex];
     if (!this.isCellEditable(col, rowIndex)) return false;
     const row = this.opts.dataSource().getRow(rowIndex);
-    const oldValue = row[col.field];
-    const storedValue = col.type === 'number'
-      ? coerceNumberInputValue(newValue)
-      : newValue;
+    const { oldValue, newValue: storedValue } = prepareCellValue(col, row, rowIndex, newValue, 'direct');
     if (oldValue === storedValue) return true;
     const message = col.validate?.(storedValue as never, row as never) ?? null;
     if (message) {
@@ -151,14 +151,10 @@ export class AgridEditController {
       this.opts.onValidationFailed({ rowIndex, field: col.field, value: storedValue, message });
       return false;
     }
-    this.opts.dataSource().patchRow(rowIndex, { [col.field]: storedValue });
+    const write = applyPreparedCellValue(this.opts.dataSource(), rowIndex, col, oldValue, storedValue, 'direct');
+    if (!write.changed) return true;
     this.opts.control()?.pushEdit({ rowIndex, field: col.field, oldValue, newValue: storedValue });
-    this.opts.onCellEdit({
-      position: { rowIndex, colIndex },
-      field: col.field,
-      oldValue,
-      newValue: storedValue,
-    });
+    this.opts.onCellEdit(cellEditEvent(rowIndex, colIndex, col.field, oldValue, storedValue));
     this.validationError.set(null);
     return true;
   }
@@ -198,15 +194,19 @@ export class AgridEditController {
   }
 
   private applyHistoryEntry(entry: HistoryEntry, value: unknown): void {
-    const oldValue = this.opts.dataSource().getRow(entry.rowIndex)[entry.field];
-    this.opts.dataSource().patchRow(entry.rowIndex, { [entry.field]: value });
     const colIndex = this.opts.visibleColDefs().findIndex(col => col.field === entry.field);
-    this.opts.onCellEdit({
-      position: { rowIndex: entry.rowIndex, colIndex },
-      field: entry.field,
-      oldValue,
-      newValue: value,
-    });
+    const col = this.opts.visibleColDefs()[colIndex];
+    if (!col) return;
+    const oldValue = prepareCellValue(
+      col,
+      this.opts.dataSource().getRow(entry.rowIndex),
+      entry.rowIndex,
+      value,
+      'history',
+    ).oldValue;
+    const write = applyPreparedCellValue(this.opts.dataSource(), entry.rowIndex, col, oldValue, value, 'history');
+    if (!write.changed) return;
+    this.opts.onCellEdit(cellEditEvent(entry.rowIndex, colIndex, entry.field, oldValue, value));
   }
 
   private clearEditState(): void {

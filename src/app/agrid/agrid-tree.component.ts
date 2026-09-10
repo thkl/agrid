@@ -112,6 +112,10 @@ export class AgridTreeComponent<T extends object = any> {
     });
   }
 
+  getTreeController() {
+    return this.treeController;
+  }
+
   /** Expands every branch currently represented by the datasource. */
   expandAllNodes(): void {
     const provider = this.provider();

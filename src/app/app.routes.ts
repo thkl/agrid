@@ -42,6 +42,10 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/computed-columns.component').then(m => m.ComputedColumnsDemoComponent),
   },
   {
+    path: 'value-parser-setter',
+    loadComponent: () => import('./demos/value-parser-setter.component').then(m => m.ValueParserSetterDemoComponent),
+  },
+  {
     path: 'selection-summary',
     loadComponent: () => import('./demos/selection-summary.component').then(m => m.SelectionSummaryDemoComponent),
   },

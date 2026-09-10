@@ -35,6 +35,16 @@ export interface AgridPivotConfig<T extends object = any> {
 /** Behavior after pressing Enter while an inline cell editor is active. */
 export type AgridEnterEditAction = 'nothing' | 'nextColumn' | 'nextRow';
 
+/** Editing surface that produced a parsed or written cell value. */
+export type AgridValueWriteSource =
+  | 'inline'
+  | 'direct'
+  | 'sidebar'
+  | 'detail'
+  | 'paste'
+  | 'fill'
+  | 'history';
+
 /** Parameters passed to a row-aware cell readonly resolver. */
 export interface CellReadonlyParams<
   T extends object = any,
@@ -70,6 +80,37 @@ export interface AgridValueGetterParams<
   /** Zero-based index of the row in the datasource. */
   originalIndex: number;
 }
+
+/** Parameters passed to a column value parser before validation and writeback. */
+export interface AgridValueParserParams<
+  T extends object = any,
+  K extends AgridField<T> = AgridField<T>,
+> {
+  /** Datasource row containing the cell before the edit is applied. */
+  row: T;
+  /** Proposed value after the grid's built-in type/value-list coercion. */
+  value: unknown;
+  /** Previous readable value for this column. */
+  oldValue: unknown;
+  /** Column definition for the cell. */
+  column: ColDef<T>;
+  /** Zero-based index of the row in the datasource. */
+  originalIndex: number;
+  /** Editing surface that produced the value. */
+  source: AgridValueWriteSource;
+}
+
+/** Parameters passed to a column value setter when a committed value should update row data. */
+export interface AgridValueSetterParams<
+  T extends object = any,
+  K extends AgridField<T> = AgridField<T>,
+> extends AgridValueParserParams<T, K> {
+  /** Proposed value after `valueParser`, validation, and built-in coercion have run. */
+  value: unknown;
+}
+
+/** Return `false` to cancel writeback, or a partial row patch to customize the row update. */
+export type AgridValueSetterResult<T extends object = any> = Partial<T> | false | null | undefined;
 
 /** Parameters passed to a custom column sort comparator. */
 export interface AgridSortComparatorParams<
@@ -435,9 +476,21 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
   /**
    * Derive this column's displayed/read value from the full row. When present, display, filtering,
    * sorting, export, copy, aggregates, renderers, and selection summaries use the returned value.
-   * Getter-only values are read-only unless a future value-setter hook is configured.
+   * Getter-only values are read-only unless `valueSetter` is configured.
    */
   valueGetter?: (params: AgridValueGetterParams<T, K>) => unknown;
+  /**
+   * Normalize a committed edit before validation and writeback. The parser receives the proposed
+   * value after built-in number/date/value-list coercion and can return the stored value shape the
+   * application expects.
+   */
+  valueParser?: (params: AgridValueParserParams<T, K>) => unknown;
+  /**
+   * Customize how a committed value is written back to the row. Return a partial row patch to update
+   * nested or derived data, `false` to cancel writeback, or `null`/`undefined` to use the default
+   * `{ [field]: value }` patch. `valueGetter` columns become editable when this hook is present.
+   */
+  valueSetter?: (params: AgridValueSetterParams<T, K>) => AgridValueSetterResult<T>;
   /**
    * Compare two raw values for this column when client-side sorting is active.
    * Return a negative number when `valueA` should come before `valueB`, positive when after,

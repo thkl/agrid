@@ -19,7 +19,10 @@ describe('AgridClipboardHandler', () => {
     { field: 'locked', header: 'Locked', editable: false },
   ];
 
-  function createHandler(markedRowIndices = signal<ReadonlySet<number>>(new Set())) {
+  function createHandler(
+    markedRowIndices = signal<ReadonlySet<number>>(new Set()),
+    cols: ColDef[] = columns,
+  ) {
     const dataSource = new AgridDataSource([
       { name: 'Alice', amount: 10, status: 1, locked: 'keep' },
       { name: 'Bob', amount: 20, status: 2, locked: 'keep' },
@@ -40,7 +43,7 @@ describe('AgridClipboardHandler', () => {
       control: signal(control),
       dataSource: signal(dataSource),
       filteredItems,
-      visibleColDefs: signal(columns),
+      visibleColDefs: signal(cols),
       locale: signal('en-US'),
       selectedCell,
       selectedRange,
@@ -129,5 +132,34 @@ describe('AgridClipboardHandler', () => {
     expect(edits).toHaveLength(0);
 
     delete columns[0].cellReadonly;
+  });
+
+  it('uses valueParser and valueSetter during paste', () => {
+    const { dataSource, edits, handler } = createHandler(signal<ReadonlySet<number>>(new Set()), [
+      {
+        field: 'nameLabel',
+        header: 'Name label',
+        valueGetter: ({ row }) => `${row['name']} (${row['status']})`,
+        valueParser: ({ value }) => String(value).replace(/\s+/g, ' ').trim(),
+        valueSetter: ({ value }) => {
+          const match = /^(.+) \((\d+)\)$/.exec(String(value));
+          return match ? { name: match[1], status: Number(match[2]) } : false;
+        },
+      },
+    ]);
+
+    handler.pasteTextAtSelection('Carol Smith (3)');
+
+    expect(dataSource.getRow(0)).toEqual({
+      name: 'Carol Smith',
+      amount: 10,
+      status: 3,
+      locked: 'keep',
+    });
+    expect(edits[0]).toMatchObject({
+      field: 'nameLabel',
+      oldValue: 'Alice (1)',
+      newValue: 'Carol Smith (3)',
+    });
   });
 });

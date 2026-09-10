@@ -87,6 +87,49 @@ describe('AgridEditController', () => {
     expect(edits[0].newValue).toBe(12.34);
   });
 
+  it('parses committed values before validation and writeback', () => {
+    const { controller, dataSource, edits } = createController(false, [
+      {
+        field: 'name',
+        header: 'Name',
+        valueParser: ({ value, source }) => `${String(value).trim().toUpperCase()}-${source}`,
+        validate: value => String(value).startsWith('ALICE') ? null : 'Expected Alice',
+      },
+    ]);
+
+    controller.start(0, 0, '');
+    controller.setDraft(' alice ');
+    expect(controller.commit()).toBe(true);
+
+    expect(dataSource.getRow(0).name).toBe('ALICE-inline');
+    expect(edits[0]).toMatchObject({ oldValue: 'Alice', newValue: 'ALICE-inline' });
+  });
+
+  it('edits value-getter columns when a valueSetter writes the backing fields', () => {
+    const { control, controller, dataSource, edits } = createController(false, [
+      {
+        field: 'fullName',
+        header: 'Full name',
+        valueGetter: ({ row }) => `${row['name']} ${row['locked']}`,
+        valueSetter: ({ value }) => {
+          const [name, locked] = String(value).split(' ');
+          return { name, locked };
+        },
+      },
+    ]);
+
+    controller.start(0, 0, '');
+    controller.setDraft('Carol open');
+    expect(controller.commit()).toBe(true);
+
+    expect(dataSource.getRow(0)).toEqual({ name: 'Carol', locked: 'open' });
+    expect(edits[0]).toMatchObject({ field: 'fullName', oldValue: 'Alice fixed', newValue: 'Carol open' });
+
+    controller.undo();
+    expect(dataSource.getRow(0)).toEqual({ name: 'Alice', locked: 'fixed' });
+    expect(control.canRedo()).toBe(true);
+  });
+
   it('does not start edits for readonly grids or columns', () => {
     const readonlyController = createController(true).controller;
     readonlyController.start(0, 0, '');

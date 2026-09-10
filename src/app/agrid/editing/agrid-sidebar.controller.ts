@@ -2,8 +2,8 @@ import { Signal, computed, signal } from '@angular/core';
 import { AgridControl } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
 import { AgridSidebarEdit, AgridSidebarTab } from './agrid-sidebar.component';
-import { ColDef, GridEditEvent, ValueOption } from '../agrid.types';
-import { coerceDateInputValue, coerceNumberInputValue } from '../agrid.utils';
+import { ColDef, GridEditEvent } from '../agrid.types';
+import { applyPreparedCellValue, cellEditEvent, prepareCellValue } from './agrid-value-write';
 
 /** Dependencies and callbacks required by {@link AgridSidebarController}. @internal */
 export interface AgridSidebarControllerOptions {
@@ -95,27 +95,8 @@ export class AgridSidebarController {
     const index = this.opts.selectedRowIndex();
     if (index === null) return;
     if (!this.opts.isCellEditable(col, index)) return;
-    let newValue: unknown = stringValue;
-    if (col.type === 'number') {
-      newValue = coerceNumberInputValue(stringValue);
-    } else if (col.type === 'date') {
-      newValue = coerceDateInputValue(
-        stringValue,
-        this.opts.dataSource().getRow(index)[field],
-      );
-    } else if (col.values?.length) {
-      const option = col.values.find(value =>
-        typeof value === 'string'
-          ? value === stringValue
-          : String((value as ValueOption).value) === stringValue,
-      );
-      newValue = option === undefined
-        ? stringValue
-        : typeof option === 'string' ? option : (option as ValueOption).value;
-    }
-
     const row = this.opts.dataSource().getRow(index);
-    const oldValue = row[field];
+    const { oldValue, newValue } = prepareCellValue(col, row, index, stringValue, 'sidebar');
     if (oldValue === newValue) return;
     const message = col.validate?.(newValue as never, row as never) ?? null;
     if (message) {
@@ -124,15 +105,11 @@ export class AgridSidebarController {
       return;
     }
     this.clearFieldError(field);
-    this.opts.dataSource().patchRow(index, { [field]: newValue });
+    const write = applyPreparedCellValue(this.opts.dataSource(), index, col, oldValue, newValue, 'sidebar');
+    if (!write.changed) return;
     const colIndex = this.opts.visibleColDefs().findIndex(column => column.field === field);
     this.opts.control()?.pushEdit({ rowIndex: index, field, oldValue, newValue });
-    const event = {
-      position: { rowIndex: index, colIndex },
-      field,
-      oldValue,
-      newValue,
-    };
+    const event = cellEditEvent(index, colIndex, field, oldValue, newValue);
     this.opts.onFieldChange(event);
     if (!this.opts.useSidebarEditor()) {
       this.opts.onCellEdit(event);

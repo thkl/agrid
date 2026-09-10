@@ -2,6 +2,7 @@ import { Signal, WritableSignal } from '@angular/core';
 import { AgridControl, HistoryEntry } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
 import { CellPosition, ColDef, GridEditEvent, GridItem } from '../agrid.types';
+import { applyPreparedCellValue, cellEditEvent, prepareCellValue } from '../editing/agrid-value-write';
 import { getCellValue, getDisplayForField, isDataRowItem } from '../agrid.utils';
 
 /** Rectangular selection represented by source row and visible column positions. @internal */
@@ -127,11 +128,18 @@ export class AgridClipboardHandler {
         const colIndex = start.colIndex + colOffset;
         const col = cols[colIndex];
         if (!col || !this.opts.isCellEditable(col, item.originalIndex)) continue;
-        const oldValue = dataSource.getRow(item.originalIndex)[col.field];
-        const newValue = this.coercePastedValue(rows[rowOffset][colOffset], col);
+        const row = dataSource.getRow(item.originalIndex);
+        const { oldValue, newValue } = prepareCellValue(
+          col,
+          row,
+          item.originalIndex,
+          rows[rowOffset][colOffset],
+          'paste',
+        );
         if (oldValue === newValue) continue;
 
-        dataSource.patchRow(item.originalIndex, { [col.field]: newValue });
+        const write = applyPreparedCellValue(dataSource, item.originalIndex, col, oldValue, newValue, 'paste');
+        if (!write.changed) continue;
         const edit = {
           rowIndex: item.originalIndex,
           field: col.field,
@@ -139,12 +147,7 @@ export class AgridClipboardHandler {
           newValue,
         };
         historyEntries.push(edit);
-        this.opts.onCellEdit({
-          position: { rowIndex: item.originalIndex, colIndex },
-          field: col.field,
-          oldValue,
-          newValue,
-        });
+        this.opts.onCellEdit(cellEditEvent(item.originalIndex, colIndex, col.field, oldValue, newValue));
         lastPosition = { rowIndex: item.originalIndex, colIndex };
       }
     }
@@ -237,21 +240,5 @@ export class AgridClipboardHandler {
     row.push(cell);
     rows.push(row);
     return rows.filter(values => values.length > 1 || values[0] !== '');
-  }
-
-  private coercePastedValue(value: string, col: ColDef): unknown {
-    if (col.values?.length) {
-      const match = col.values.find(option =>
-        typeof option === 'string'
-          ? option === value
-          : option.label === value || String(option.value) === value
-      );
-      if (match !== undefined) return typeof match === 'string' ? match : match.value;
-    }
-    if (col.type === 'number') {
-      const numberValue = Number(value);
-      return value.trim() === '' || Number.isNaN(numberValue) ? value : numberValue;
-    }
-    return value;
   }
 }

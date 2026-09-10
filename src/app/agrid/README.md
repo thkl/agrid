@@ -15,7 +15,7 @@ npm install @thkl/agrid @angular/cdk
 - Virtual rows and virtual columns for large and wide datasets.
 - Text, value, quick, and condition filters with local or server-side workflows.
 - Multi-column sorting with optional custom comparators per column.
-- Computed value-getter columns for read-only derived values.
+- Computed value-getter columns for derived values, with parser/setter hooks for editable writeback.
 - Inline editing, validation, undo/redo, paste, fill, custom editors, and custom renderers.
 - Range selection, selection summaries, row selection, row marking, column marking, and row numbers.
 - Grouping, aggregate footers, tree data with descendant rollups, pivot tables, and master/detail rows.
@@ -434,6 +434,31 @@ const columns: ColDef<Order>[] = [
   },
 ];
 ```
+
+## Value parsers and setters
+
+Use `valueParser` to normalize committed values before validation, and `valueSetter` to write values
+into nested fields or editable `valueGetter` columns.
+
+```ts
+const columns: ColDef<Account>[] = [
+  {
+    field: 'fullName',
+    header: 'Full name',
+    valueGetter: ({ row }) => `${row.firstName} ${row.lastName}`,
+    valueParser: ({ value }) => String(value).trim().replace(/\s+/g, ' '),
+    valueSetter: ({ value }) => {
+      const [firstName, ...last] = String(value).split(' ');
+      return firstName && last.length
+        ? { firstName, lastName: last.join(' ') }
+        : false;
+    },
+  },
+];
+```
+
+The same hooks run for inline edits, formula-bar edits, paste, fill, sidebar/detail edits, and
+undo/redo history.
 
 ## Condition filters
 

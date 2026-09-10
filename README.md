@@ -773,6 +773,8 @@ interface ColDef {
   values?: string[] | ValueOption[];
   formatter?: (value: unknown) => string;
   valueGetter?: (params: { row: Record<string, unknown>; value: unknown; column: ColDef; originalIndex: number }) => unknown;
+  valueParser?: (params: { row: Record<string, unknown>; value: unknown; oldValue: unknown; column: ColDef; originalIndex: number; source: AgridValueWriteSource }) => unknown;
+  valueSetter?: (params: { row: Record<string, unknown>; value: unknown; oldValue: unknown; column: ColDef; originalIndex: number; source: AgridValueWriteSource }) => Partial<Record<string, unknown>> | false | null | undefined;
   comparator?: (params: { valueA: unknown; valueB: unknown; rowA: Record<string, unknown>; rowB: Record<string, unknown>; indexA: number; indexB: number; column: ColDef; locale?: string }) => number;
   inputMask?: (params: { value: unknown; row: Record<string, unknown>; column: ColDef }) => RegExp | null;
   filterable?: boolean;
@@ -806,6 +808,8 @@ interface ColDef {
 | `formula` | No | Evaluates strings beginning with `=` for display, filtering, sorting, copy, and export while keeping the raw value in row data. |
 | `formatter` | No | Custom display formatter. Takes precedence over date auto-formatting. |
 | `valueGetter` | No | Derives a read-only cell value from the full row. Getter values participate in display, filtering, sorting, export, copy, aggregates, renderers, formatting, and selection summaries. |
+| `valueParser` | No | Normalizes committed editor, paste, fill, sidebar, and detail values before validation and writeback. |
+| `valueSetter` | No | Customizes writeback for nested row data or editable `valueGetter` columns. Return a row patch, `false` to cancel, or `null`/`undefined` for default field writeback. |
 | `comparator` | No | Custom client-side sort comparator for domain-specific ordering. The grid applies ascending/descending direction after the comparator returns. |
 | `inputMask` | No | Resolves a regular-expression input constraint for each string cell from its `row`, `value`, and `column`. Invalid proposed values are rejected. |
 | `filterable` | No | Enables text filter and value picker for the column. |
@@ -946,6 +950,40 @@ const columns: ColDef<Order>[] = [
 Getter columns are read-only until a value setter is configured. Their values are used for display,
 custom renderers, filtering, quick filter, sorting, copy, CSV/XLSX export, autosize, aggregates, and
 selection summaries.
+
+### Value Parsers and Setters
+
+Use `valueParser` to normalize a committed value before validation and writeback. Use `valueSetter`
+when the column should update nested fields or when a `valueGetter` column should be editable.
+The hooks run for inline edits, formula-bar edits, boolean toggles, paste, fill, sidebar edits,
+detail edits, and undo/redo history.
+
+```ts
+const columns: ColDef<Account>[] = [
+  {
+    field: 'fullName',
+    header: 'Full name',
+    valueGetter: ({ row }) => `${row.firstName} ${row.lastName}`,
+    valueParser: ({ value }) => String(value).trim().replace(/\s+/g, ' '),
+    valueSetter: ({ value }) => {
+      const [firstName, ...rest] = String(value).split(' ');
+      return firstName && rest.length
+        ? { firstName, lastName: rest.join(' ') }
+        : false;
+    },
+    validate: value => String(value).includes(' ') ? null : 'Enter first and last name',
+  },
+  {
+    field: 'monthlyRevenue',
+    header: 'Monthly',
+    type: 'number',
+    valueGetter: ({ row }) => row.account.monthlyCents / 100,
+    valueSetter: ({ row, value }) => ({
+      account: { ...row.account, monthlyCents: Math.round(Number(value) * 100) },
+    }),
+  },
+];
+```
 
 ## Built-in Rich Editors and Formulas
 

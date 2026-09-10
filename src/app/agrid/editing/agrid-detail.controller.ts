@@ -11,16 +11,14 @@ import {
   GridItem,
   RowDetailActionEvent,
   ValidationFailedEvent,
-  ValueOption,
 } from '../agrid.types';
 import {
-  coerceDateInputValue,
-  coerceNumberInputValue,
   getCellValue,
   getDisplayForField,
   isDataRowItem,
   isDetailRowItem,
 } from '../agrid.utils';
+import { applyPreparedCellValue, prepareCellValue } from './agrid-value-write';
 
 /** Dependencies and callbacks required by {@link AgridDetailController}. @internal */
 export interface AgridDetailControllerOptions<T extends object = any> {
@@ -221,22 +219,7 @@ export class AgridDetailController<T extends object = any> {
       return;
     }
     const row = this.opts.dataSource().getRow(item.detailFor);
-    const oldValue = row[col.field];
-    let newValue: unknown = this.draft();
-    if (col.type === 'number') {
-      newValue = coerceNumberInputValue(newValue);
-    } else if (col.type === 'date') {
-      newValue = coerceDateInputValue(String(newValue), oldValue);
-    } else if (col.values?.length) {
-      const option = col.values.find(value =>
-        typeof value === 'string'
-          ? value === newValue
-          : String((value as ValueOption).value) === newValue,
-      );
-      if (option !== undefined) {
-        newValue = typeof option === 'string' ? option : (option as ValueOption).value;
-      }
-    }
+    const { oldValue, newValue } = prepareCellValue(col, row, item.detailFor, this.draft(), 'detail');
     if (oldValue !== newValue) {
       const message = col.validate?.(newValue as never, row as never) ?? null;
       if (message) {
@@ -251,7 +234,11 @@ export class AgridDetailController<T extends object = any> {
         this.opts.schedule(() => this.focusTextarea(item.detailFor));
         return;
       }
-      this.opts.dataSource().patchRow(item.detailFor, { [col.field]: newValue });
+      const write = applyPreparedCellValue(this.opts.dataSource(), item.detailFor, col, oldValue, newValue, 'detail');
+      if (!write.changed) {
+        this.cancelDetailFieldEdit();
+        return;
+      }
       this.opts.control()?.pushEdit({ rowIndex: item.detailFor, field: col.field, oldValue, newValue });
       this.opts.emitEditEvents({
         position: {
