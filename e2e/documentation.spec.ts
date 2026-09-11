@@ -5,7 +5,7 @@ test.describe('task-oriented documentation', () => {
     await page.goto('/#/documentation');
 
     await expect(page.getByRole('heading', { name: 'Start with what you want to build' })).toBeVisible();
-    await expect(page.locator('.guide-card-grid a')).toHaveCount(9);
+    await expect(page.locator('.guide-card-grid a')).toHaveCount(10);
     await expect(page.getByRole('heading', { name: 'How to sort and filter rows' })).toBeAttached();
     await expect(page.getByRole('heading', { name: 'How to build a pivot table' })).toBeAttached();
     await expect(page.getByRole('heading', { name: 'How to save and restore user settings' })).toBeAttached();

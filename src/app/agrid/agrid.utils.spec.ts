@@ -54,6 +54,9 @@ describe('date input conversion', () => {
     expect(
       coerceDateInputValue('2025-04-20', '2024-03-15T14:30:00.000Z'),
     ).toBe('2025-04-20T14:30:00.000Z');
+    expect(
+      coerceDateInputValue('2025-04-20T14:30:00.000Z', '2024-03-15T14:30:00.000Z'),
+    ).toBe('2025-04-20T14:30:00.000Z');
 
     const result = coerceDateInputValue(
       '2025-04-20',

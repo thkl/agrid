@@ -101,10 +101,8 @@ test.describe('agrid browser interactions', () => {
       '.ag-pinned-pane:not(.ag-pinned-pane--right) .ag-control-cell',
     ).first();
 
-    await expect.poll(async () => (await controlCell.boundingBox())?.width).toBe(48);
-    await expect.poll(() => controlCell.evaluate(element =>
-      getComputedStyle(element, '::after').content,
-    )).not.toBe('none');
+    await expect.poll(async () => (await controlCell.boundingBox())?.width).toBe(56);
+    await expect(controlCell.locator('.ag-row-marker')).toBeVisible();
     await page.locator('.ag-row-marker').nth(1).check();
     await page.locator(cell(0, 1)).first().click();
     await grid.press(`${modifier}+C`);

@@ -58,14 +58,16 @@ export function getDateInputValue(raw: unknown): string {
  */
 export function coerceDateInputValue(value: string, originalValue: unknown): unknown {
   if (value === '') return '';
-  if (originalValue instanceof Date) return new Date(`${value}T00:00:00.000Z`);
+  const datePart = getDateInputValue(value);
+  if (!datePart) return value;
+  if (originalValue instanceof Date) return new Date(`${datePart}T00:00:00.000Z`);
   if (
     typeof originalValue === 'string'
     && /^\d{4}-\d{2}-\d{2}T/.test(originalValue)
   ) {
-    return `${value}${originalValue.slice(10)}`;
+    return `${datePart}${originalValue.slice(10)}`;
   }
-  return value;
+  return datePart;
 }
 
 /**
