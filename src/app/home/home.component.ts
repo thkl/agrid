@@ -77,6 +77,7 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
   { color: '#2563eb', bg: '#eff6ff', label: '◐', title: 'Charts / graphs', desc: 'Zero-dependency SVG column, bar, line, area, pie, and donut diagrams. Link to the grid to follow filters and sorting live.', isNew: true },
   { color: '#0d9488', bg: '#f0fdfa', label: '∿', title: 'Sparklines', desc: 'Tiny inline line and bar charts drawn per row from a number[] field, using a custom cell renderer.', isNew: true },
   { color: '#1d4ed8', bg: '#eff6ff', label: '↻', title: 'Transaction API', desc: 'Batch add, update, and remove rows with complete-record results for REST PATCH workflows.', isNew: true },
+  { color: '#be123c', bg: '#fff1f2', label: '✎', title: 'Full-row editing', desc: 'Stage several field edits in one row and save them as one complete record.', isNew: true },
 ];
 
 @Component({
@@ -286,6 +287,11 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
             <a class="demo-card" routerLink="/transactions">
               <div class="demo-card-title">Transactions</div>
               <div class="demo-card-desc">Batch add, update, and remove rows with full updated-record payloads.</div>
+              <span class="demo-card-link">Open →</span>
+            </a>
+            <a class="demo-card" routerLink="/row-editing">
+              <div class="demo-card-title">Row editing</div>
+              <div class="demo-card-desc">Edit several fields in one row and emit one complete saved record.</div>
               <span class="demo-card-link">Open →</span>
             </a>
             <a class="demo-card" routerLink="/master-detail">

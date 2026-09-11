@@ -181,6 +181,21 @@ test.describe('agrid browser interactions', () => {
     await expect(page.getByLabel('Selection summary signal')).toContainText('12 numeric cells');
   });
 
+  test('commits full-row editing as one complete record', async ({ page }) => {
+    await page.goto('/#/row-editing');
+
+    await page.getByTitle('Edit row').first().click();
+    await page.locator('.ag-row-edit-cell[data-col-field="customer"] input').fill('Northstar Labs GmbH');
+    await page.locator('.ag-row-edit-cell[data-col-field="amount"] input').fill('5100');
+    await page.locator('.ag-row-edit-cell[data-col-field="status"] select').selectOption({ label: 'Sent' });
+    await page.getByTitle('Save row').click();
+
+    await expect(page.locator('.demo-state')).toContainText('PATCH /api/invoices');
+    await expect(page.locator('.demo-state')).toContainText('Northstar Labs GmbH');
+    await expect(page.locator('.demo-state')).toContainText('"amount":5100');
+    await expect(page.locator('.demo-state')).toContainText('"status":"Sent"');
+  });
+
   test('navigates client-side pages with labelled controls', async ({ page }) => {
     await page.goto('/#/pagination');
     const pageInfo = page.locator('.ag-page-info');

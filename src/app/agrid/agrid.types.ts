@@ -35,10 +35,14 @@ export interface AgridPivotConfig<T extends object = any> {
 /** Behavior after pressing Enter while an inline cell editor is active. */
 export type AgridEnterEditAction = 'nothing' | 'nextColumn' | 'nextRow';
 
+/** Primary editing workflow used by the grid body. */
+export type AgridEditMode = 'cell' | 'row';
+
 /** Editing surface that produced a parsed or written cell value. */
 export type AgridValueWriteSource =
   | 'inline'
   | 'direct'
+  | 'row'
   | 'sidebar'
   | 'detail'
   | 'paste'
@@ -988,7 +992,7 @@ export interface ValidationFailedEvent<T extends object = any> {
   /** Message returned by the `validate` hook. */
   message: string;
   /** Which editing surface produced the rejected edit. */
-  source: 'inline' | 'sidebar' | 'detail';
+  source: 'inline' | 'row' | 'sidebar' | 'detail';
 }
 
 /** Emitted by `(cellEdit)` after the user commits a cell change. */

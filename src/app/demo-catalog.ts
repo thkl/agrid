@@ -401,6 +401,29 @@ const result = this.datasource.applyTransaction({
 api.patch('/api/deals', result.updated);`,
   },
   {
+    path: '/row-editing',
+    label: 'Row editing',
+    title: 'Commit several fields as one row update',
+    summary:
+      'Switch the grid to full-row editing so users can stage multiple field changes and save one complete updated record.',
+    points: [
+      'Set editMode to row on the provider.',
+      'The control column shows row edit, save, and cancel actions.',
+      'A successful save emits one rowChanged event with the complete row.',
+    ],
+    code: `readonly provider = new AgridProvider<Invoice>({
+  columns,
+  datasource: this.datasource,
+  getRowId: row => row.id,
+  editMode: 'row',
+  showControlColumn: true,
+});
+
+onRowChanged(event: RowUpdateEvent<Invoice>) {
+  api.patch('/api/invoices', [event.row]);
+}`,
+  },
+  {
     path: '/selection-summary',
     label: 'Selection summary',
     title: 'Live statistics for selected cells',

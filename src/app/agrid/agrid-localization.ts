@@ -55,6 +55,7 @@ export interface AgridLocaleText {
   confirmNo: string;
   confirmYes: string;
   deleteRow: string;
+  editRow: string;
   filterPlaceholder: string;
   findPlaceholder: string;
   firstPage: string;
@@ -95,6 +96,8 @@ export interface AgridLocaleText {
   ungroup: string;
   unpinColumn: string;
   save: string;
+  saveRow: string;
+  cancelRow: string;
   saveConfig:string;
   export:string;
   exportCsv:string;
@@ -164,6 +167,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     confirmNo: 'No',
     confirmYes: 'Yes',
     deleteRow: 'Delete row',
+    editRow: 'Edit row',
     filterPlaceholder: 'Filter...',
     findPlaceholder: 'Find',
     firstPage: 'First page',
@@ -204,6 +208,8 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     ungroup: 'Ungroup',
     unpinColumn: 'Unpin column',
     save: 'Save',
+    saveRow: 'Save row',
+    cancelRow: 'Cancel row edit',
     saveConfig:'Save Config',
     export: 'Export',
     exportCsv:'Export to csv',
@@ -267,6 +273,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     confirmNo: 'Nein',
     confirmYes: 'Ja',
     deleteRow: 'Zeile löschen',
+    editRow: 'Zeile bearbeiten',
     filterPlaceholder: 'Filtern...',
     findPlaceholder: 'Suchen',
     firstPage: 'Erste Seite',
@@ -307,6 +314,8 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     ungroup: 'Gruppierung aufheben',
     unpinColumn: 'Fixierung lösen',
     save: 'Speichern',
+    saveRow: 'Zeile speichern',
+    cancelRow: 'Zeilenbearbeitung abbrechen',
     saveConfig: 'Konfig.speichern',
     export:'Export',
     exportCsv:'Export nach csv',

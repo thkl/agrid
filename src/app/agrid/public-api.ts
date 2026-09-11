@@ -77,6 +77,7 @@ export type {
 } from './agrid-tree-provider';
 export type {
   AgridEnterEditAction,
+  AgridEditMode,
   AgridCurrentCell,
   AgridCurrentRow,
   AgridField,

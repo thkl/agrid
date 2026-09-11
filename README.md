@@ -1525,6 +1525,28 @@ await api.patch('/api/orders', result.updated);
 records. Transactions can match rows by `{ index, changes }`, `{ id, changes }`, full row object
 when `getRowId` is configured, or object reference for removals without row ids.
 
+### Full-row editing
+
+Set `editMode: 'row'` when users should stage several field edits and save the row once:
+
+```ts
+readonly provider = new AgridProvider<Invoice>({
+  columns,
+  datasource: this.datasource,
+  getRowId: row => row.id,
+  editMode: 'row',
+  showControlColumn: true,
+});
+
+onRowChanged(event: RowUpdateEvent<Invoice>) {
+  api.patch('/api/invoices', [event.row]);
+}
+```
+
+Row mode shows edit/save/cancel actions in the control column. A successful save validates every
+changed editable field, records the changes as one undo step, updates the datasource once, and
+emits `rowChanged` with the complete updated record.
+
 The `(cellEdit)` output is not required to keep the writable signal synchronized. Use it only for
 side effects such as saving changes to an API:
 

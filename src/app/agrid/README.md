@@ -174,6 +174,22 @@ api.patch('/api/orders', result.updated);
 Set `getRowId` on the provider for id-based matching. The transaction result returns complete row
 records in `added`, `updated`, and `removed`; `updated` is not just the patch object.
 
+Use full-row editing when the user should save several field edits as one row update:
+
+```ts
+readonly provider = new AgridProvider<Invoice>({
+  columns,
+  datasource: this.datasource,
+  getRowId: row => row.id,
+  editMode: 'row',
+  showControlColumn: true,
+});
+
+onRowChanged(event: RowUpdateEvent<Invoice>) {
+  api.patch('/api/invoices', [event.row]);
+}
+```
+
 Set `getRowId` on the provider when rows can be inserted, removed, reordered, or replaced while
 selection is active. The grid uses it to keep cell selection, row selection, marked rows, and
 expanded detail rows attached to the same logical row; without it, reconciliation falls back to row

@@ -65,6 +65,7 @@ import {
   buildExportGroups,
   defaultExpandedTreeIds,
   getCellValue,
+  getDateInputValue,
   isDataRowItem as isDataRowItemFn,
   isDetailRowItem as isDetailRowItemFn,
   isGroupHeaderItem as isGroupHeaderItemFn,
@@ -73,6 +74,7 @@ import {
   isTreeRowItem as isTreeRowItemFn,
   pathTreeNodeId,
 } from './agrid.utils';
+import { cellEditEvent, prepareCellValue } from './editing/agrid-value-write';
 import { AgridVariableRowSizeDirective } from './infrastructure/agrid-variable-row-size.strategy';
 import {
   AgridAggregate, AgridSelectionSummary,
@@ -169,13 +171,19 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly enableRowMarking = computed(() => this.provider().enableRowMarking);
   readonly enableColumnMarking = computed(() => this.provider().enableColumnMarking);
   readonly showRowNumbers = computed(() => this.provider().showRowNumbers);
+  readonly editMode = computed(() => this.provider().editMode);
+  readonly fullRowEditing = computed(() =>
+    this.editMode() === 'row' && !this.provider().pivotConfig && !this.treeConfig()
+  );
   readonly showControlColumn = computed(() =>
     this.provider().showControlColumn
     || this.showRowNumbers()
     || this.enableRowMarking()
     || this.masterDetail()
+    || this.fullRowEditing()
   );
   readonly controlColumnWidth = computed(() => {
+    if (this.fullRowEditing()) return Math.max(this.enableRowMarking() ? 88 : 72, this.showRowNumbers() ? this.rowNumberColumnWidth() + 56 : 0);
     if (!this.showRowNumbers()) return this.enableRowMarking() ? 48 : 24;
     const numberWidth = this.rowNumberColumnWidth();
     return this.enableRowMarking() ? numberWidth + 20 : numberWidth;
@@ -469,6 +477,9 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** Rectangular cell range selected by Shift+arrow or Shift+click. */
   readonly selectedRange = signal<CellRange | null>(null);
+  readonly rowEditingIndex = signal<number | null>(null);
+  readonly rowEditDraft = signal<Record<string, unknown>>({});
+  readonly rowEditValidationErrors = signal<ReadonlyMap<string, string>>(new Map());
 
   /** @internal Stable callback passed to child components for row-aware editability checks. */
   readonly isCellEditableForRow = (col: ColDef, originalIndex: number): boolean =>
@@ -1578,6 +1589,11 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     this.dirtyInlineRows.clear();
     for (const index of shifted) this.dirtyInlineRows.add(index);
     this.control()?.reconcileChangedCellsAfterRemoval(removedIndex);
+    const rowEditIndex = this.rowEditingIndex();
+    if (rowEditIndex === removedIndex) this.cancelRowEdit();
+    else if (rowEditIndex !== null && rowEditIndex > removedIndex) {
+      this.rowEditingIndex.set(rowEditIndex - 1);
+    }
   }
 
   private reconcileRowState(
@@ -1611,6 +1627,13 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
     const formulaAfter = mapCell(this.formulaBarEditCell);
     this.formulaBarEditCell = formulaAfter;
+
+    const rowEditIndex = this.rowEditingIndex();
+    if (rowEditIndex !== null) {
+      const mappedRowEditIndex = mapIndex(rowEditIndex);
+      if (mappedRowEditIndex === null) this.cancelRowEdit();
+      else if (mappedRowEditIndex !== rowEditIndex) this.rowEditingIndex.set(mappedRowEditIndex);
+    }
 
     const range = this.selectedRange();
     if (range) {
@@ -2522,6 +2545,10 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     const row = this.dataSource().rows()[originalIndex];
     this.rowDoubleClicked.emit({ row, originalIndex });
     if (this.isEditing(originalIndex, ci)) return;
+    if (this.fullRowEditing()) {
+      this.startRowEdit(new Event('row-edit'), originalIndex);
+      return;
+    }
     this.enterEdit(originalIndex, ci, '');
   }
 
@@ -2629,6 +2656,214 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     return this.editController.isCellEditable(col, originalIndex);
   }
 
+  /** @internal */
+  isRowEditing(originalIndex: number): boolean {
+    return this.rowEditingIndex() === originalIndex;
+  }
+
+  /** @internal */
+  isRowEditingCell(originalIndex: number, col: ColDef): boolean {
+    return this.isRowEditing(originalIndex) && this.isColEditable(col, originalIndex);
+  }
+
+  /** @internal */
+  rowEditValue(col: ColDef): unknown {
+    return this.rowEditDraft()[col.field];
+  }
+
+  /** @internal */
+  rowEditInputValue(col: ColDef): string {
+    const value = this.rowEditValue(col);
+    return col.type === 'date' ? getDateInputValue(value) : String(value ?? '');
+  }
+
+  /** @internal */
+  rowEditOptionIndex(col: ColDef): number {
+    const value = this.rowEditValue(col);
+    return (col.values ?? []).findIndex(option =>
+      typeof option === 'string'
+        ? option === value
+        : (option as ValueOption).value === value
+    );
+  }
+
+  /** @internal */
+  optionLabel(option: string | ValueOption): string {
+    return typeof option === 'string' ? option : option.label;
+  }
+
+  /** @internal */
+  rowEditError(field: string): string | null {
+    return this.rowEditValidationErrors().get(field) ?? null;
+  }
+
+  /** @internal */
+  startRowEdit(event: Event, originalIndex: number): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!this.fullRowEditing() || this.readonlyGrid()) return;
+    this.editController.cancel();
+    const row = this.dataSource().getRow(originalIndex);
+    if (!row) return;
+    const draft: Record<string, unknown> = {};
+    for (const col of this.visibleColDefs()) {
+      if (this.isColEditable(col, originalIndex)) {
+        draft[col.field] = this.cellValue(col, row, originalIndex);
+      }
+    }
+    this.rowEditDraft.set(draft);
+    this.rowEditValidationErrors.set(new Map());
+    this.rowEditingIndex.set(originalIndex);
+    this.selectedRange.set(null);
+    this.selectedCell.set({ rowIndex: originalIndex, colIndex: 0 });
+  }
+
+  /** @internal */
+  cancelRowEdit(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.rowEditingIndex.set(null);
+    this.rowEditDraft.set({});
+    this.rowEditValidationErrors.set(new Map());
+    this.wrapperEl().nativeElement.focus();
+  }
+
+  /** @internal */
+  onRowEditInput(event: Event, col: ColDef): void {
+    const input = event.target as HTMLInputElement;
+    const value = col.type === 'boolean' ? input.checked : input.value;
+    this.setRowDraftValue(col.field, value);
+  }
+
+  /** @internal */
+  onRowEditSelect(event: Event, col: ColDef): void {
+    const index = Number((event.target as HTMLSelectElement).value);
+    const option = col.values?.[index];
+    const value = typeof option === 'string' ? option : (option as ValueOption | undefined)?.value;
+    this.setRowDraftValue(col.field, value ?? '');
+  }
+
+  /** @internal */
+  onRowEditKeydown(event: KeyboardEvent): void {
+    event.stopPropagation();
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.commitRowEdit(event);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      this.cancelRowEdit(event);
+    }
+  }
+
+  /** @internal */
+  commitRowEdit(event?: Event): boolean {
+    event?.preventDefault();
+    event?.stopPropagation();
+    const originalIndex = this.rowEditingIndex();
+    if (originalIndex === null) return true;
+    const sourceRow = this.dataSource().getRow(originalIndex);
+    if (!sourceRow) {
+      this.cancelRowEdit();
+      return true;
+    }
+
+    const draft = this.rowEditDraft();
+    const nextRow = { ...sourceRow };
+    const errors = new Map<string, string>();
+    const entries: { rowIndex: number; field: string; oldValue: unknown; newValue: unknown }[] = [];
+    const editEvents: GridEditEvent[] = [];
+
+    for (const col of this.visibleColDefs()) {
+      if (!this.isColEditable(col, originalIndex) || !(col.field in draft)) continue;
+      const colIndex = this.getVisibleColIndex(col.field);
+      const prepared = prepareCellValue(col, nextRow, originalIndex, draft[col.field], 'row');
+      if (prepared.oldValue === prepared.newValue) continue;
+      const message = col.validate?.(prepared.newValue as never, nextRow as never) ?? null;
+      if (message) {
+        errors.set(col.field, message);
+        this.validationFailed.emit({
+          rowIndex: originalIndex,
+          field: col.field as AgridField<T>,
+          value: prepared.newValue,
+          message,
+          source: 'row',
+        });
+        continue;
+      }
+      if (!this.applyPreparedValueToRow(nextRow, originalIndex, col, prepared.newValue)) continue;
+      entries.push({
+        rowIndex: originalIndex,
+        field: col.field,
+        oldValue: prepared.oldValue,
+        newValue: prepared.newValue,
+      });
+      editEvents.push(cellEditEvent(
+        originalIndex,
+        colIndex,
+        col.field,
+        prepared.oldValue,
+        prepared.newValue,
+      ));
+    }
+
+    if (errors.size) {
+      this.rowEditValidationErrors.set(errors);
+      return false;
+    }
+
+    if (entries.length) {
+      this.control()?.pushEditBatch(entries);
+      this.dataSource().updateRow(originalIndex, nextRow);
+      for (const editEvent of editEvents) {
+        this.cellEdit.emit(editEvent as GridEditEvent<T>);
+        this.markCellChanged(editEvent);
+      }
+      this.emitRecordEdit(originalIndex);
+      this.emitRowChanged(originalIndex);
+    }
+    this.cancelRowEdit();
+    return true;
+  }
+
+  private setRowDraftValue(field: string, value: unknown): void {
+    this.rowEditDraft.update(draft => ({ ...draft, [field]: value }));
+    if (this.rowEditValidationErrors().has(field)) {
+      this.rowEditValidationErrors.update(errors => {
+        const next = new Map(errors);
+        next.delete(field);
+        return next;
+      });
+    }
+  }
+
+  private applyPreparedValueToRow(
+    row: Record<string, unknown>,
+    originalIndex: number,
+    col: ColDef,
+    newValue: unknown,
+  ): boolean {
+    const oldValue = this.cellValue(col, row, originalIndex);
+    if (oldValue === newValue) return false;
+    if (col.valueSetter) {
+      const patch = col.valueSetter({
+        row,
+        value: newValue,
+        oldValue,
+        column: col,
+        originalIndex,
+        source: 'row',
+      });
+      if (patch === false) return false;
+      if (patch && typeof patch === 'object') {
+        Object.assign(row, patch);
+        return true;
+      }
+      if (col.valueGetter) return false;
+    }
+    row[col.field] = newValue;
+    return true;
+  }
+
   /** @internal Inline validation message for a cell, or `null` when the cell has no active error. */
   cellValidationError(originalIndex: number, ci: number): string | null {
     const error = this.editController.validationError();
@@ -2659,6 +2894,10 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       event.preventDefault();
       event.stopPropagation();
       this.cancelRowDelete();
+      return;
+    }
+    if (event.key === 'Escape' && this.rowEditingIndex() !== null) {
+      this.cancelRowEdit(event);
       return;
     }
     if (this.focusDetailEditorFromKeyboard(event)) return;
@@ -3262,10 +3501,18 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   }
 
   private enterEdit(originalIndex: number, ci: number, seedChar: string, selectText = true): void {
+    if (this.fullRowEditing()) {
+      this.startRowEdit(new Event('row-edit'), originalIndex);
+      return;
+    }
     this.editController.start(originalIndex, ci, seedChar, selectText);
   }
 
   private cancelCurrent(): void {
+    if (this.rowEditingIndex() !== null) {
+      this.cancelRowEdit();
+      return;
+    }
     this.editController.cancel();
   }
 

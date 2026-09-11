@@ -50,6 +50,10 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/transactions.component').then(m => m.TransactionsDemoComponent),
   },
   {
+    path: 'row-editing',
+    loadComponent: () => import('./demos/row-editing.component').then(m => m.RowEditingDemoComponent),
+  },
+  {
     path: 'selection-summary',
     loadComponent: () => import('./demos/selection-summary.component').then(m => m.SelectionSummaryDemoComponent),
   },

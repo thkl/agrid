@@ -504,6 +504,108 @@
   cursor: pointer;
 }
 
+.ag-row-edit-action {
+  position: relative;
+  z-index: 1;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 4px;
+  background: var(--agrid-color-bg);
+  color: var(--agrid-color-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ag-row-edit-action:hover {
+  border-color: var(--agrid-color-accent);
+  color: var(--agrid-color-accent);
+}
+
+.ag-row-edit-action::before {
+  line-height: 1;
+}
+
+.ag-row-edit-action--save {
+  background: var(--agrid-color-accent);
+  border-color: var(--agrid-color-accent);
+  color: #fff;
+}
+
+.ag-row-edit-action--save:hover {
+  color: #fff;
+  filter: brightness(0.95);
+}
+
+.ag-row-edit-action--edit::before {
+  content: '✎';
+}
+
+.ag-row-edit-action--save::before {
+  content: '✓';
+}
+
+.ag-row-edit-action--cancel::before {
+  content: '×';
+}
+
+.ag-row-edit-cell {
+  position: relative;
+  min-width: 0;
+  border-right: 1px solid var(--agrid-color-border);
+  border-bottom: 1px solid var(--agrid-color-border);
+  background: var(--agrid-color-bg);
+  display: flex;
+  align-items: center;
+  padding: 3px 6px;
+  box-sizing: border-box;
+}
+
+.ag-row-edit-input {
+  width: 100%;
+  min-width: 0;
+  height: 26px;
+  border: 1px solid var(--agrid-color-accent);
+  border-radius: 4px;
+  background: var(--agrid-color-bg);
+  color: var(--agrid-color-text);
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 6px;
+}
+
+.ag-row-edit-checkbox {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--agrid-color-accent);
+}
+
+.ag-row-edit-cell--invalid .ag-row-edit-input {
+  border-color: var(--agrid-color-danger, #dc2626);
+}
+
+.ag-row-edit-error {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 1px;
+  overflow: hidden;
+  color: var(--agrid-color-danger, #dc2626);
+  font-size: 9px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .ag-ghost-row {
   background: var(--agrid-color-accent-subtle);
   box-shadow: inset 0 0 0 1.5px var(--agrid-color-accent);

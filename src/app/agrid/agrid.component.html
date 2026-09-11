@@ -88,11 +88,49 @@
                 [attr.aria-label]="localeText().markRow" (pointerdown)="$event.stopPropagation()"
                 (click)="$event.stopPropagation()" (change)="toggleRowMarked(item.originalIndex)" />
               }
+              @if (fullRowEditing()) {
+              @if (isRowEditing(item.originalIndex)) {
+              <button type="button" class="ag-row-edit-action ag-row-edit-action--save"
+                [attr.aria-label]="localeText().saveRow" [title]="localeText().saveRow"
+                (pointerdown)="$event.stopPropagation()" (click)="commitRowEdit($event)"></button>
+              <button type="button" class="ag-row-edit-action ag-row-edit-action--cancel"
+                [attr.aria-label]="localeText().cancelRow" [title]="localeText().cancelRow"
+                (pointerdown)="$event.stopPropagation()" (click)="cancelRowEdit($event)"></button>
+              } @else {
+              <button type="button" class="ag-row-edit-action ag-row-edit-action--edit"
+                [attr.aria-label]="localeText().editRow" [title]="localeText().editRow"
+                (pointerdown)="$event.stopPropagation()" (click)="startRowEdit($event, item.originalIndex)"></button>
+              }
+              }
             </div>
             }
             @for (bc of pinnedBodyColumns(); track bc.field) {
             @let col = bc.col;
             @let ci = bc.visibleColIndex;
+            @if (isRowEditingCell(item.originalIndex, col)) {
+            <div class="ag-cell ag-row-edit-cell ag-cell--pinned" [class.ag-cell--pinned-last]="bc.lastPinned"
+              [class.ag-row-edit-cell--invalid]="!!rowEditError(col.field)"
+              [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
+              [attr.aria-colindex]="bc.ariaColIndex" [style.transform]="'translateX(' + bc.reorderOffset + 'px)'"
+              (pointerdown)="$event.stopPropagation()" (keydown)="onRowEditKeydown($event)">
+              @if (col.values?.length) {
+              <select class="ag-row-edit-input" [value]="rowEditOptionIndex(col)" (change)="onRowEditSelect($event, col)">
+                @for (option of col.values; track $index) {
+                <option [value]="$index">{{ optionLabel(option) }}</option>
+                }
+              </select>
+              } @else if (col.type === 'boolean') {
+              <input class="ag-row-edit-checkbox" type="checkbox" [checked]="rowEditValue(col) === true"
+                (change)="onRowEditInput($event, col)" />
+              } @else {
+              <input class="ag-row-edit-input" [type]="col.type === 'date' ? 'date' : col.type === 'number' ? 'number' : 'text'"
+                [value]="rowEditInputValue(col)" (input)="onRowEditInput($event, col)" />
+              }
+              @if (rowEditError(col.field); as error) {
+              <span class="ag-row-edit-error" role="alert">{{ error }}</span>
+              }
+            </div>
+            } @else {
             <agrid-cell [col]="col" [paneColumns]="pinnedColDefs()" [paneHasSpans]="pinnedPaneHasSpans()"
               [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="cellValue(col, item.row, item.originalIndex)" [localeText]="localeText()"
               [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
@@ -122,6 +160,7 @@
               (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)"
               (infoClick)="onCellInfo(item.originalIndex, col, item.row)" (treeToggle)="onTreeToggle(item)"
               (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
+            }
             }
             } @else if (isLoadingRow(item)) {
             <div class="ag-loading-row" aria-hidden="true"><span></span></div>
@@ -239,6 +278,31 @@
               @for (bc of virtualScrollableBodyColumns(); track bc.field) {
               @let col = bc.col;
               @let ci = bc.visibleColIndex;
+              @if (isRowEditingCell(item.originalIndex, col)) {
+              <div class="ag-cell ag-row-edit-cell"
+                [class.ag-row-edit-cell--invalid]="!!rowEditError(col.field)"
+                [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
+                [attr.data-col-field]="col.field" [attr.aria-colindex]="bc.ariaColIndex"
+                [style.transform]="'translateX(' + bc.reorderOffset + 'px)'"
+                (pointerdown)="$event.stopPropagation()" (keydown)="onRowEditKeydown($event)">
+                @if (col.values?.length) {
+                <select class="ag-row-edit-input" [value]="rowEditOptionIndex(col)" (change)="onRowEditSelect($event, col)">
+                  @for (option of col.values; track $index) {
+                  <option [value]="$index">{{ optionLabel(option) }}</option>
+                  }
+                </select>
+                } @else if (col.type === 'boolean') {
+                <input class="ag-row-edit-checkbox" type="checkbox" [checked]="rowEditValue(col) === true"
+                  (change)="onRowEditInput($event, col)" />
+                } @else {
+                <input class="ag-row-edit-input" [type]="col.type === 'date' ? 'date' : col.type === 'number' ? 'number' : 'text'"
+                  [value]="rowEditInputValue(col)" (input)="onRowEditInput($event, col)" />
+                }
+                @if (rowEditError(col.field); as error) {
+                <span class="ag-row-edit-error" role="alert">{{ error }}</span>
+                }
+              </div>
+              } @else {
               <agrid-cell [col]="col" [paneColumns]="scrollableColDefs()" [paneHasSpans]="scrollablePaneHasSpans()"
                 [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="cellValue(col, item.row, item.originalIndex)"
                 [localeText]="localeText()" [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row"
@@ -268,6 +332,7 @@
                 (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)" (treeToggle)="onTreeToggle(item)"
                 (infoClick)="onCellInfo(item.originalIndex, col, item.row)"
                 (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
+              }
               }
               @if (columnWindowRightSpan() > 0) {
               <div class="ag-virtual-col-spacer" aria-hidden="true"
@@ -471,6 +536,30 @@
             @for (bc of rightBodyColumns(); track bc.field) {
             @let col = bc.col;
             @let ci = bc.visibleColIndex;
+            @if (isRowEditingCell(item.originalIndex, col)) {
+            <div class="ag-cell ag-row-edit-cell ag-cell--pinned" [class.ag-cell--pinned-first]="bc.firstRightPinned"
+              [class.ag-row-edit-cell--invalid]="!!rowEditError(col.field)"
+              [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
+              [attr.aria-colindex]="bc.ariaColIndex" [style.transform]="'translateX(' + bc.reorderOffset + 'px)'"
+              (pointerdown)="$event.stopPropagation()" (keydown)="onRowEditKeydown($event)">
+              @if (col.values?.length) {
+              <select class="ag-row-edit-input" [value]="rowEditOptionIndex(col)" (change)="onRowEditSelect($event, col)">
+                @for (option of col.values; track $index) {
+                <option [value]="$index">{{ optionLabel(option) }}</option>
+                }
+              </select>
+              } @else if (col.type === 'boolean') {
+              <input class="ag-row-edit-checkbox" type="checkbox" [checked]="rowEditValue(col) === true"
+                (change)="onRowEditInput($event, col)" />
+              } @else {
+              <input class="ag-row-edit-input" [type]="col.type === 'date' ? 'date' : col.type === 'number' ? 'number' : 'text'"
+                [value]="rowEditInputValue(col)" (input)="onRowEditInput($event, col)" />
+              }
+              @if (rowEditError(col.field); as error) {
+              <span class="ag-row-edit-error" role="alert">{{ error }}</span>
+              }
+            </div>
+            } @else {
             <agrid-cell [col]="col" [paneColumns]="rightPinnedColDefs()" [paneHasSpans]="rightPaneHasSpans()"
               [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="cellValue(col, item.row, item.originalIndex)" [localeText]="localeText()"
               [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
@@ -499,6 +588,7 @@
               (booleanToggle)="onBooleanToggle(item.originalIndex, ci, $event)"
               (infoClick)="onCellInfo(item.originalIndex, col, item.row)" (treeToggle)="onTreeToggle(item)"
               (contextmenu)="onCellContextMenu($event, item.originalIndex, ci, col, item.row)" />
+            }
             }
             } @else if (isLoadingRow(item)) {
             <div class="ag-loading-row" aria-hidden="true"><span></span></div>

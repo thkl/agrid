@@ -10,6 +10,7 @@ import { AgridServerSideRowModel } from './agrid-server-side-row-model';
 import { AgridLocaleTextOverrides } from './agrid-localization';
 import {
   AGridOptions,
+  AgridEditMode,
   AgridEnterEditAction,
   AgridField,
   AgridMenuBarItem,
@@ -174,6 +175,13 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
    * @default 'nextRow'
    */
   enterEditAction?: AgridEnterEditAction;
+  /**
+   * Primary editing workflow.
+   * - `'cell'` edits one cell at a time.
+   * - `'row'` opens editable controls across one row and commits them as one row update.
+   * @default 'cell'
+   */
+  editMode?: AgridEditMode;
   /** Returns a short description string shown next to the group label. */
   groupDescription?: ((label: string) => string) | null;
   /** Actions shown in the group header's `⋮` menu. */
@@ -421,6 +429,8 @@ export class AgridProvider<T extends object = any> {
   rowSelection: 'single' | 'multi' | 'none';
   /** Behavior after pressing Enter while an inline cell editor is active. */
   enterEditAction: AgridEnterEditAction;
+  /** Primary editing workflow used by the body cells. */
+  editMode: AgridEditMode;
   /** Optional description shown beside each group heading. */
   groupDescription: ((label: string) => string) | null;
   /** Actions available from group headers. */
@@ -524,6 +534,7 @@ export class AgridProvider<T extends object = any> {
     this.sortOption = config.sortOption ?? 'multi';
     this.rowSelection     = config.rowSelection ?? 'none';
     this.enterEditAction  = config.enterEditAction ?? 'nextRow';
+    this.editMode         = config.editMode ?? 'cell';
     this.groupDescription = config.groupDescription ?? null;
     this.groupActions     = config.groupActions ?? [];
     this.cellMenuItems    = config.cellMenuItems ?? [];
