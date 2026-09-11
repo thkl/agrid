@@ -46,6 +46,10 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/value-parser-setter.component').then(m => m.ValueParserSetterDemoComponent),
   },
   {
+    path: 'transactions',
+    loadComponent: () => import('./demos/transactions.component').then(m => m.TransactionsDemoComponent),
+  },
+  {
     path: 'selection-summary',
     loadComponent: () => import('./demos/selection-summary.component').then(m => m.SelectionSummaryDemoComponent),
   },

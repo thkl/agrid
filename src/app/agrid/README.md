@@ -158,6 +158,22 @@ this.datasource.setData(rows);
 this.datasource.setData([newRow, ...this.datasource.rows()]);
 ```
 
+Batch row changes with `applyTransaction()` when you need one datasource write for add, update,
+and remove operations:
+
+```ts
+const result = this.datasource.applyTransaction({
+  update: [{ id: 42, changes: { status: 'confirmed' } }],
+  remove: [{ id: 17 }],
+  add: [newRow],
+});
+
+api.patch('/api/orders', result.updated);
+```
+
+Set `getRowId` on the provider for id-based matching. The transaction result returns complete row
+records in `added`, `updated`, and `removed`; `updated` is not just the patch object.
+
 Set `getRowId` on the provider when rows can be inserted, removed, reordered, or replaced while
 selection is active. The grid uses it to keep cell selection, row selection, marked rows, and
 expanded detail rows attached to the same logical row; without it, reconciliation falls back to row

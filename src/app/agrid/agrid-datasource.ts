@@ -1,5 +1,51 @@
 import { Signal, WritableSignal, isWritableSignal, linkedSignal, signal } from '@angular/core';
 
+export type AgridRowId = string | number;
+export type AgridRowIdGetter<T extends object> = (row: T, index: number) => AgridRowId;
+
+export type AgridTransactionUpdate<T extends object> =
+  | T
+  | Partial<T>
+  | { id: AgridRowId; changes: Partial<T> }
+  | { index: number; changes: Partial<T> };
+
+export type AgridTransactionRemove<T extends object> =
+  | T
+  | AgridRowId
+  | { id: AgridRowId }
+  | { index: number };
+
+export interface AgridTransaction<T extends object> {
+  /** Rows inserted into the datasource. Defaults to appending at the end. */
+  add?: readonly T[];
+  /** Optional insertion index for all added rows. Values outside the row range are clamped. */
+  addIndex?: number;
+  /** Existing rows to patch or replace, matched by index, id, or `getRowId`. */
+  update?: readonly AgridTransactionUpdate<T>[];
+  /** Existing rows to remove, matched by index, id, `getRowId`, or object reference. */
+  remove?: readonly AgridTransactionRemove<T>[];
+}
+
+export interface AgridTransactionOptions<T extends object> {
+  /** Per-call id resolver. Falls back to the datasource/provider resolver when omitted. */
+  getRowId?: AgridRowIdGetter<T>;
+}
+
+export interface AgridTransactionResult<T extends object> {
+  /** Complete row records inserted by this transaction. */
+  added: T[];
+  /** Complete row records after their update patches were applied. */
+  updated: T[];
+  /** Complete row records removed by this transaction. */
+  removed: T[];
+  /** Final indexes where added rows were inserted. */
+  addIndexes: number[];
+  /** Datasource indexes updated before removals/additions were applied. */
+  updateIndexes: number[];
+  /** Datasource indexes removed before row shifting. */
+  removeIndexes: number[];
+}
+
 /**
  * Signal-based data container shared between the grid and the host component.
  *
@@ -23,13 +69,15 @@ export class AgridDataSource<T extends object = any> {
   private readonly _rowAdded = signal<{ index: number; sequence: number } | null>(null);
   private readonly _unfilteredAddedRows = signal<ReadonlySet<number>>(new Set());
   private _changeSequence = 0;
+  private _getRowId: AgridRowIdGetter<T> | null = null;
 
   /**
    * @param initialData Rows to seed the data source with.
    *   The array is shallow-copied so external mutations do not affect the source.
    */
-  constructor(initialData: T[] = []) {
+  constructor(initialData: T[] = [], getRowId?: AgridRowIdGetter<T>) {
     this._rows.set([...initialData]);
+    this._getRowId = getRowId ?? null;
   }
 
   /**
@@ -49,6 +97,11 @@ export class AgridDataSource<T extends object = any> {
    */
   readonly ɵunfilteredAddedRows: Signal<ReadonlySet<number>> =
     this._unfilteredAddedRows.asReadonly();
+
+  /** Install or clear the row id resolver used by transaction updates and removals. */
+  setRowIdGetter(getRowId?: AgridRowIdGetter<T>): void {
+    this._getRowId = getRowId ?? null;
+  }
 
   /**
    * Link an external row signal to this data source.
@@ -144,6 +197,72 @@ export class AgridDataSource<T extends object = any> {
   }
 
   /**
+   * Apply add/update/remove operations in one datasource write.
+   *
+   * Updates are resolved before removals, then additions are inserted last. The returned
+   * `updated` rows are the complete post-update records, so callers can send them directly to
+   * APIs that support PATCHing arrays of full records.
+   */
+  applyTransaction(
+    transaction: AgridTransaction<T>,
+    options: AgridTransactionOptions<T> = {},
+  ): AgridTransactionResult<T> {
+    const currentRows = this._rows();
+    const nextRows = [...currentRows];
+    const getRowId = options.getRowId ?? this._getRowId ?? undefined;
+    const idToIndex = getRowId ? this.buildRowIdIndex(currentRows, getRowId) : null;
+    const updated: T[] = [];
+    const updateIndexes: number[] = [];
+
+    for (const update of transaction.update ?? []) {
+      const resolved = this.resolveUpdate(update, currentRows, idToIndex, getRowId);
+      if (!resolved || resolved.index < 0 || resolved.index >= nextRows.length) continue;
+      const merged = { ...nextRows[resolved.index], ...resolved.changes } as T;
+      nextRows[resolved.index] = merged;
+      updated.push(merged);
+      updateIndexes.push(resolved.index);
+    }
+
+    const removeIndexes = this.resolveRemoveIndexes(
+      transaction.remove ?? [],
+      currentRows,
+      idToIndex,
+      getRowId,
+    );
+    const removed = removeIndexes
+      .map(index => nextRows[index])
+      .filter((row): row is T => row !== undefined);
+    for (const index of [...removeIndexes].sort((a, b) => b - a)) {
+      nextRows.splice(index, 1);
+    }
+
+    const addRows = [...(transaction.add ?? [])];
+    const insertAt = this.clampInsertIndex(transaction.addIndex, nextRows.length);
+    nextRows.splice(insertAt, 0, ...addRows);
+    const addIndexes = addRows.map((_, offset) => insertAt + offset);
+
+    if (updated.length || removed.length || addRows.length) {
+      this.setRows(nextRows);
+      this.reconcileUnfilteredAddedRows(removeIndexes, insertAt, addRows.length, addIndexes);
+      if (addIndexes.length) {
+        this._rowAdded.set({
+          index: addIndexes[addIndexes.length - 1],
+          sequence: ++this._changeSequence,
+        });
+      }
+    }
+
+    return {
+      added: addRows,
+      updated,
+      removed,
+      addIndexes,
+      updateIndexes,
+      removeIndexes,
+    };
+  }
+
+  /**
    * Move the row at `from` to position `to` (insert-before semantics).
    * Designed to be called directly from a `(rowReorder)` handler:
    * ```ts
@@ -188,6 +307,104 @@ export class AgridDataSource<T extends object = any> {
 
   private updateRows(update: (rows: T[]) => T[]): void {
     this.setRows(update(this._rows()));
+  }
+
+  private buildRowIdIndex(rows: readonly T[], getRowId: AgridRowIdGetter<T>): Map<AgridRowId, number> {
+    const idToIndex = new Map<AgridRowId, number>();
+    rows.forEach((row, index) => idToIndex.set(getRowId(row, index), index));
+    return idToIndex;
+  }
+
+  private resolveUpdate(
+    update: AgridTransactionUpdate<T>,
+    rows: readonly T[],
+    idToIndex: Map<AgridRowId, number> | null,
+    getRowId?: AgridRowIdGetter<T>,
+  ): { index: number; changes: Partial<T> } | null {
+    if (this.isObject(update) && 'changes' in update) {
+      const changes = (update as { changes: Partial<T> }).changes;
+      if (typeof (update as { index?: unknown }).index === 'number') {
+        return { index: (update as { index: number }).index, changes };
+      }
+      if ('id' in update && idToIndex) {
+        const index = idToIndex.get((update as { id: AgridRowId }).id);
+        return index === undefined ? null : { index, changes };
+      }
+    }
+
+    if (!this.isObject(update) || !getRowId || !idToIndex) return null;
+    const id = getRowId(update as T, -1);
+    const index = idToIndex.get(id);
+    return index === undefined ? null : { index, changes: update as Partial<T> };
+  }
+
+  private resolveRemoveIndexes(
+    removals: readonly AgridTransactionRemove<T>[],
+    rows: readonly T[],
+    idToIndex: Map<AgridRowId, number> | null,
+    getRowId?: AgridRowIdGetter<T>,
+  ): number[] {
+    const indexes = new Set<number>();
+    for (const removal of removals) {
+      const index = this.resolveRemoveIndex(removal, rows, idToIndex, getRowId);
+      if (index !== null && index >= 0 && index < rows.length) indexes.add(index);
+    }
+    return [...indexes].sort((a, b) => a - b);
+  }
+
+  private resolveRemoveIndex(
+    removal: AgridTransactionRemove<T>,
+    rows: readonly T[],
+    idToIndex: Map<AgridRowId, number> | null,
+    getRowId?: AgridRowIdGetter<T>,
+  ): number | null {
+    if (this.isObject(removal) && typeof (removal as { index?: unknown }).index === 'number') {
+      return (removal as { index: number }).index;
+    }
+    if (this.isObject(removal) && 'id' in removal && idToIndex) {
+      return idToIndex.get((removal as { id: AgridRowId }).id) ?? null;
+    }
+    if ((typeof removal === 'string' || typeof removal === 'number') && idToIndex) {
+      return idToIndex.get(removal) ?? null;
+    }
+    if (this.isObject(removal)) {
+      if (getRowId && idToIndex) {
+        return idToIndex.get(getRowId(removal as T, -1)) ?? null;
+      }
+      const index = rows.indexOf(removal as T);
+      return index === -1 ? null : index;
+    }
+    return null;
+  }
+
+  private clampInsertIndex(index: number | undefined, length: number): number {
+    if (index === undefined || Number.isNaN(index)) return length;
+    return Math.max(0, Math.min(Math.trunc(index), length));
+  }
+
+  private reconcileUnfilteredAddedRows(
+    removeIndexes: readonly number[],
+    insertAt: number,
+    addCount: number,
+    addIndexes: readonly number[],
+  ): void {
+    if (!removeIndexes.length && !addCount) return;
+    this._unfilteredAddedRows.update(current => {
+      const next = new Set<number>();
+      for (const originalIndex of current) {
+        if (removeIndexes.includes(originalIndex)) continue;
+        const removedBefore = removeIndexes.filter(index => index < originalIndex).length;
+        let moved = originalIndex - removedBefore;
+        if (addCount && moved >= insertAt) moved += addCount;
+        next.add(moved);
+      }
+      for (const index of addIndexes) next.add(index);
+      return next;
+    });
+  }
+
+  private isObject(value: unknown): value is object {
+    return typeof value === 'object' && value !== null;
   }
 
   /** Replace the backing row array without copying. Intended for specialized datasource models. */

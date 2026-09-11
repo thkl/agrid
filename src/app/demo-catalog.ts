@@ -373,6 +373,34 @@ readonly provider = new AgridProvider<Order>({
 ];`,
   },
   {
+    path: '/transactions',
+    label: 'Transactions',
+    title: 'Batch row updates with complete record results',
+    summary:
+      'Apply add, update, and remove operations through one datasource call. Update results contain full merged records, so they can be sent directly to PATCH endpoints that accept record arrays.',
+    points: [
+      'Configure getRowId once on the provider for id-based matching.',
+      'Call datasource.applyTransaction({ add, update, remove }) for one signal write.',
+      'Use result.updated as complete records for api.patch("/endpoint", result.updated).',
+    ],
+    code: `readonly datasource = new AgridDataSource<Deal>(rows);
+readonly provider = new AgridProvider<Deal>({
+  columns,
+  datasource: this.datasource,
+  getRowId: row => row.id,
+});
+
+const result = this.datasource.applyTransaction({
+  update: [
+    { id: 42, changes: { status: 'Won', value: 118000 } },
+  ],
+  remove: [{ id: 17 }],
+  add: [{ id: 99, customer: 'Vector Works', status: 'New', value: 67000 }],
+});
+
+api.patch('/api/deals', result.updated);`,
+  },
+  {
     path: '/selection-summary',
     label: 'Selection summary',
     title: 'Live statistics for selected cells',

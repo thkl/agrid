@@ -1493,9 +1493,37 @@ constructor() {
 No synchronization `effect()` is needed. Updates work in both directions:
 
 - Calling `rows.set(...)` or `rows.update(...)` refreshes the grid.
-- Cell edits, paste, `setData`, `updateRow`, `patchRow`, `addRow`, `removeRow`, and `moveRow`
+- Cell edits, paste, `setData`, `updateRow`, `patchRow`, `addRow`, `removeRow`, `moveRow`, and `applyTransaction`
   update `rows` automatically.
 - Undo and redo also update `rows` because they use datasource mutations.
+
+### Transactions
+
+Use `applyTransaction()` when an API response or user action changes several rows at once:
+
+```ts
+readonly datasource = new AgridDataSource<Order>(orders);
+readonly provider = new AgridProvider<Order>({
+  columns,
+  datasource: this.datasource,
+  getRowId: row => row.id,
+});
+
+const result = this.datasource.applyTransaction({
+  update: [
+    { id: 42, changes: { status: 'confirmed', total: 1290 } },
+  ],
+  remove: [{ id: 17 }],
+  add: [{ id: 91, status: 'draft', total: 0 }],
+});
+
+await api.patch('/api/orders', result.updated);
+```
+
+`result.added`, `result.updated`, and `result.removed` contain complete row records. That makes
+`result.updated` suitable for REST APIs that accept `PATCH /api/entity` with an array of full
+records. Transactions can match rows by `{ index, changes }`, `{ id, changes }`, full row object
+when `getRowId` is configured, or object reference for removals without row ids.
 
 The `(cellEdit)` output is not required to keep the writable signal synchronized. Use it only for
 side effects such as saving changes to an API:

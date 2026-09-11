@@ -76,6 +76,7 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
   { color: '#a16207', bg: '#fefce8', label: '⇥', title: 'Extended keyboard navigation', desc: 'Move by viewport with Page Up and Page Down, or jump to row and grid edges with Home and End.', isNew: true },
   { color: '#2563eb', bg: '#eff6ff', label: '◐', title: 'Charts / graphs', desc: 'Zero-dependency SVG column, bar, line, area, pie, and donut diagrams. Link to the grid to follow filters and sorting live.', isNew: true },
   { color: '#0d9488', bg: '#f0fdfa', label: '∿', title: 'Sparklines', desc: 'Tiny inline line and bar charts drawn per row from a number[] field, using a custom cell renderer.', isNew: true },
+  { color: '#1d4ed8', bg: '#eff6ff', label: '↻', title: 'Transaction API', desc: 'Batch add, update, and remove rows with complete-record results for REST PATCH workflows.', isNew: true },
 ];
 
 @Component({
@@ -280,6 +281,11 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
             <a class="demo-card" routerLink="/readonly">
               <div class="demo-card-title">Readonly mode</div>
               <div class="demo-card-desc">Toggle a production-style dataset between viewing and editing.</div>
+              <span class="demo-card-link">Open →</span>
+            </a>
+            <a class="demo-card" routerLink="/transactions">
+              <div class="demo-card-title">Transactions</div>
+              <div class="demo-card-desc">Batch add, update, and remove rows with full updated-record payloads.</div>
               <span class="demo-card-link">Open →</span>
             </a>
             <a class="demo-card" routerLink="/master-detail">

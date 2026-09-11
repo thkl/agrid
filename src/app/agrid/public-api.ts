@@ -5,6 +5,15 @@ export { AgridTreeComponent } from './agrid-tree.component';
 export { AgridTreeProvider } from './agrid-tree-provider';
 export { AgridControl } from './agrid-control';
 export { AgridDataSource } from './agrid-datasource';
+export type {
+  AgridRowId,
+  AgridRowIdGetter,
+  AgridTransaction,
+  AgridTransactionOptions,
+  AgridTransactionRemove,
+  AgridTransactionResult,
+  AgridTransactionUpdate,
+} from './agrid-datasource';
 export { AgridServerSideRowModel } from './agrid-server-side-row-model';
 export { AGRID_LOCALE_TEXT } from './agrid-localization';
 export { AgridProvider } from './agrid-provider';

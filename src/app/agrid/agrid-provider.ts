@@ -5,7 +5,7 @@ import {
   AgridRowDensity,
   ɵgetAgridControlRuntimeState,
 } from './agrid-control';
-import { AgridDataSource } from './agrid-datasource';
+import { AgridDataSource, AgridRowIdGetter } from './agrid-datasource';
 import { AgridServerSideRowModel } from './agrid-server-side-row-model';
 import { AgridLocaleTextOverrides } from './agrid-localization';
 import {
@@ -73,7 +73,7 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
    * keep cell selection, row selection, marked rows, and expanded detail rows attached to the same
    * logical row. If omitted, reconciliation falls back to object reference equality.
    */
-  getRowId?: (row: T, index: number) => string | number;
+  getRowId?: AgridRowIdGetter<T>;
   /**
    * Derive a read-only client-side pivot table from the datasource.
    * The first release supports one row field, one column field, and one value field.
@@ -303,7 +303,7 @@ export class AgridProvider<T extends object = any> {
   /** Reactive column definitions in display order. */
   readonly columns: WritableSignal<ColDef<T>[]>;
   /** Optional stable row-id resolver used to preserve row state across datasource replacement. */
-  readonly getRowId?: (row: T, index: number) => string | number;
+  readonly getRowId?: AgridRowIdGetter<T>;
   private readonly _pivotConfig = signal<AgridPivotConfig<T> | null>(null);
   /**
    * Client-side pivot configuration, or `null` for the normal row view.
@@ -490,6 +490,7 @@ export class AgridProvider<T extends object = any> {
     const runtimeState = ɵgetAgridControlRuntimeState(this.control);
     this.columns      = signal(config.columns ?? []);
     this.getRowId     = config.getRowId;
+    this.datasource.setRowIdGetter(this.getRowId);
     this.pivotConfig  = config.pivotConfig ?? null;
     this.headerGroups = config.headerGroups ?? [];
     this.treeConfig   = config.treeConfig ?? null;
