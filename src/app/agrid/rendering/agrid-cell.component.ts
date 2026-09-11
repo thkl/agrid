@@ -92,11 +92,11 @@ const EMPTY_CELL_FORMAT: CellFormat = {};
             class="ag-cell-input ag-rich-select-input"
             [value]="richSelectSearch()"
             (input)="onRichSelectSearch($event)"
-            [attr.placeholder]="asyncValueLoading() ? 'Loading...' : ''"
+            [attr.placeholder]="asyncValueLoading() ? localeText().loadingValues : ''"
           />
           <div class="ag-rich-select-panel" role="listbox">
             @if (asyncValueLoading()) {
-              <div class="ag-rich-select-empty">Loading...</div>
+              <div class="ag-rich-select-empty">{{ localeText().loadingValues }}</div>
             } @else {
               @for (opt of filteredValueOptions(); track opt.label; let idx = $index) {
                 <button
@@ -106,7 +106,7 @@ const EMPTY_CELL_FORMAT: CellFormat = {};
                   (click)="pickRichSelectOption(opt.rawValue)"
                 >{{ opt.label }}</button>
               } @empty {
-                <div class="ag-rich-select-empty">No matches</div>
+                <div class="ag-rich-select-empty">{{ localeText().noMatches }}</div>
               }
             }
           </div>

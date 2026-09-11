@@ -59,6 +59,7 @@ export interface AgridLocaleText {
   filterPlaceholder: string;
   findPlaceholder: string;
   firstPage: string;
+  formulaBar: string;
   grid: string;
   groupBy: (header: string) => string;
   hideColumn: string;
@@ -66,9 +67,11 @@ export interface AgridLocaleText {
   insertRowBelow: string;
   lastPage: string;
   loading: string;
+  loadingValues: string;
   markRow: string;
   moreInformation: string;
   next: string;
+  noMatches: string;
   openNodeMenu: (label: string) => string;
   noRows: string;
   pagination: string;
@@ -85,6 +88,7 @@ export interface AgridLocaleText {
   unpinRow: string;
   previous: string;
   resizeColumn: string;
+  resizeSidebar: string;
   expand: string;
   rows: (count: number) => string;
   quickFilterPlaceholder: string;
@@ -171,6 +175,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     filterPlaceholder: 'Filter...',
     findPlaceholder: 'Find',
     firstPage: 'First page',
+    formulaBar: 'Formula bar',
     grid: 'Data grid',
     groupBy: header => `Group by ${header}`,
     hideColumn: 'Hide column',
@@ -178,9 +183,11 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     insertRowBelow: 'Insert row below',
     lastPage: 'Last page',
     loading: 'Loading...',
+    loadingValues: 'Loading...',
     markRow: 'Mark row for copying',
     moreInformation: 'More information',
     next: 'Next',
+    noMatches: 'No matches',
     openNodeMenu: label => `Open menu for ${label}`,
     noRows: 'No rows to display',
     pagination: 'Pagination',
@@ -197,6 +204,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     unpinRow: 'Unpin row',
     previous: 'Previous',
     resizeColumn: 'Resize column',
+    resizeSidebar: 'Resize sidebar',
     expand: 'Expand',
     rows: count => `${count} ${count === 1 ? 'row' : 'rows'}`,
     quickFilterPlaceholder: 'Search all columns...',
@@ -277,6 +285,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     filterPlaceholder: 'Filtern...',
     findPlaceholder: 'Suchen',
     firstPage: 'Erste Seite',
+    formulaBar: 'Formelleiste',
     grid: 'Datentabelle',
     groupBy: header => `Nach ${header} gruppieren`,
     hideColumn: 'Spalte ausblenden',
@@ -284,9 +293,11 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     insertRowBelow: 'Zeile darunter einfügen',
     lastPage: 'Letzte Seite',
     loading: 'Wird geladen...',
+    loadingValues: 'Wird geladen...',
     markRow: 'Zeile zum Kopieren markieren',
     moreInformation: 'Weitere Informationen',
     next: 'Weiter',
+    noMatches: 'Keine Treffer',
     openNodeMenu: label => `Menü für ${label} öffnen`,
     noRows: 'Keine Zeilen vorhanden',
     pagination: 'Seitennavigation',
@@ -303,6 +314,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     unpinRow: 'Zeilenfixierung lösen',
     previous: 'Zurück',
     resizeColumn: 'Spaltenbreite ändern',
+    resizeSidebar: 'Seitenleiste ändern',
     expand: 'Ausklappen',
     rows: count => `${count} ${count === 1 ? 'Zeile' : 'Zeilen'}`,
     quickFilterPlaceholder: 'Alle Spalten durchsuchen...',

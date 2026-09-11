@@ -6,6 +6,8 @@
       <div class="ag-sidebar-resize-handle"
         role="separator"
         aria-orientation="vertical"
+        [attr.aria-label]="localeText().resizeSidebar"
+        [title]="localeText().resizeSidebar"
         (pointerdown)="startResize($event)"></div>
     }
     <div class="ag-sidebar-header">

@@ -96,6 +96,7 @@
 .ag-cell-info:focus-visible {
   color: var(--agrid-color-accent);
   border-color: var(--agrid-color-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--agrid-color-accent) 16%, transparent);
   outline: none;
 }
 
@@ -179,6 +180,10 @@
   -webkit-user-select: text;
 }
 
+.ag-cell-large-text:focus {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--agrid-color-accent) 18%, transparent), 0 8px 24px var(--agrid-color-shadow);
+}
+
 .ag-cell-input--formula {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   color: var(--agrid-color-accent-fg);
@@ -195,6 +200,8 @@
   background: var(--agrid-color-bg);
   border: 1px solid var(--agrid-color-accent);
   box-shadow: 0 8px 24px var(--agrid-color-shadow);
+  border-radius: 4px;
+  overflow: hidden;
 }
 
 .ag-rich-select-input {
@@ -225,9 +232,15 @@
 }
 
 .ag-rich-select-option:hover,
+.ag-rich-select-option:focus-visible,
 .ag-rich-select-option--active {
   background: var(--agrid-color-accent-subtle);
   color: var(--agrid-color-accent-fg);
+}
+
+.ag-rich-select-option:focus-visible {
+  outline: 1px solid var(--agrid-color-accent);
+  outline-offset: -1px;
 }
 
 .ag-rich-select-empty {

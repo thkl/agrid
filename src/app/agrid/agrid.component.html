@@ -21,7 +21,7 @@
       <input class="ag-formula-bar-input" type="text" [value]="formulaBarDraft()"
         [disabled]="!selectedCell() || readonlyGrid()" (focus)="onFormulaBarFocus()" (input)="onFormulaBarInput($event)"
         (change)="commitFormulaBar()" (blur)="onFormulaBarBlur()" (keydown)="onFormulaBarKeydown($event)"
-        aria-label="Formula bar" />
+        [attr.aria-label]="localeText().formulaBar" />
     </div>
     }
   </div>
