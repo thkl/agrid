@@ -58,6 +58,30 @@ describe('AgridProvider runtime state ownership', () => {
     expect(provider.showRowHeightMenu).toBe(true);
   });
 
+  it('stores and updates the active theme preset', () => {
+    const provider = new AgridProvider({ theme: 'dusk' });
+
+    expect(provider.theme()).toBe('dusk');
+    expect(provider.themeConfigured()).toBe(true);
+
+    provider.setTheme('space');
+
+    expect(provider.theme()).toBe('space');
+    expect(provider.themeConfigured()).toBe(true);
+  });
+
+  it('treats an omitted theme as automatic until setTheme is called', () => {
+    const provider = new AgridProvider();
+
+    expect(provider.theme()).toBe('morning');
+    expect(provider.themeConfigured()).toBe(false);
+
+    provider.setTheme('morning');
+
+    expect(provider.theme()).toBe('morning');
+    expect(provider.themeConfigured()).toBe(true);
+  });
+
   it('retains pivot configuration and rejects incompatible row models', () => {
     const pivotConfig = {
       rowField: 'region',

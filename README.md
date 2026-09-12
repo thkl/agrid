@@ -353,6 +353,7 @@ readonly gridProvider = new AgridProvider({
 | `rowHeight` | `number` | `48` | Fixed row height used by the `custom` row-density preset. |
 | `rowDensity` | `'compact' \| 'normal' \| 'relaxed' \| 'custom'` | `'normal'` | Initial row-height preset stored on `control`. |
 | `rowDensityHeights` | `Partial<Record<AgridRowDensity, number>>` | `{ compact: 40, normal: 48, relaxed: 52 }` | Optional pixel overrides for named row-density presets. |
+| `theme` | `'morning' \| 'dusk' \| 'space'` | `'morning'` | Built-in visual theme preset. Call `provider.setTheme(theme)` to switch at runtime. |
 | `showRowHeightMenu` | `boolean` | `false` | Shows a built-in toolbar dropdown for Compact, Normal, and Relaxed row height. |
 | `minHeight` | `string` | `undefined` | CSS min-height for the virtual body. Example: `'200px'`. |
 | `maxHeight` | `string` | `undefined` | CSS max-height for the virtual body. Example: `'500px'`. |
@@ -2095,6 +2096,18 @@ agrid {
 ```
 
 ## CSS Custom Properties
+
+Use the provider's `theme` option for the built-in presets:
+
+```ts
+readonly provider = new AgridProvider({
+  columns,
+  datasource,
+  theme: 'dusk',
+});
+
+provider.setTheme('space');
+```
 
 Override these on the `agrid` host element to theme the grid.
 

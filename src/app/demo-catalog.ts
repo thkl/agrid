@@ -424,6 +424,31 @@ onRowChanged(event: RowUpdateEvent<Invoice>) {
 }`,
   },
   {
+    path: '/themes',
+    label: 'Themes',
+    title: 'Built-in theme presets',
+    summary:
+      'Apply Morning, Dusk, or Space grid presets through the provider while the surrounding page keeps its own app theme.',
+    points: [
+      'Set theme on the provider for the initial preset.',
+      'Call provider.setTheme() to switch presets at runtime.',
+      'Override individual --agrid-color-* variables on the agrid host for custom palettes.',
+    ],
+    code: `readonly provider = new AgridProvider({
+  columns,
+  datasource,
+  theme: 'dusk',
+});
+
+setTheme(theme: AgridTheme): void {
+  this.provider.setTheme(theme);
+}
+
+agrid {
+  --agrid-color-accent: #0f766e;
+}`,
+  },
+  {
     path: '/selection-summary',
     label: 'Selection summary',
     title: 'Live statistics for selected cells',

@@ -19,6 +19,73 @@
     --agrid-color-column-marked:  #e8f0fe;
     --agrid-color-menu-bg:        #ffffff;
   }
+
+}
+
+:host(.ag-theme-morning.ag-theme-morning.ag-theme-morning.ag-theme-morning) {
+  color-scheme: light;
+  --agrid-color-text:           #24292f;
+  --agrid-color-text-muted:     #57606a;
+  --agrid-color-accent:         #1a73e8;
+  --agrid-color-accent-subtle:  #e8f0fe;
+  --agrid-color-accent-fg:      #1558b0;
+  --agrid-color-accent-border:  #c8d8f8;
+  --agrid-color-danger:         #d1242f;
+  --agrid-color-danger-subtle:  #fff1f0;
+  --agrid-color-border:         #d0d7de;
+  --agrid-color-bg:             #ffffff;
+  --agrid-color-bg-subtle:      #fafbfc;
+  --agrid-color-bg-muted:       #f6f8fa;
+  --agrid-color-shadow:         rgba(140, 149, 159, 0.2);
+  --agrid-color-bg-stripe:      #f0f2f5;
+  --agrid-color-cell-changed:   #f59e0b;
+  --agrid-color-row-marked:     #fff8c5;
+  --agrid-color-column-marked:  #e8f0fe;
+  --agrid-color-menu-bg:        #ffffff;
+}
+
+:host(.ag-theme-dusk.ag-theme-dusk.ag-theme-dusk.ag-theme-dusk) {
+  color-scheme: dark;
+  --agrid-color-text:           #e4ddd2;
+  --agrid-color-text-muted:     #a79b8e;
+  --agrid-color-accent:         #d99657;
+  --agrid-color-accent-subtle:  #3b291d;
+  --agrid-color-accent-fg:      #f2c38b;
+  --agrid-color-accent-border:  #765033;
+  --agrid-color-danger:         #ff7b72;
+  --agrid-color-danger-subtle:  #3e1c1c;
+  --agrid-color-border:         #3b342e;
+  --agrid-color-bg:             #17130f;
+  --agrid-color-bg-subtle:      #1f1a14;
+  --agrid-color-bg-muted:       #2a221a;
+  --agrid-color-shadow:         rgba(0, 0, 0, 0.44);
+  --agrid-color-bg-stripe:      #1d1812;
+  --agrid-color-cell-changed:   #e5aa48;
+  --agrid-color-row-marked:     #342916;
+  --agrid-color-column-marked:  #302317;
+  --agrid-color-menu-bg:        #1f1a14;
+}
+
+:host(.ag-theme-space.ag-theme-space.ag-theme-space.ag-theme-space) {
+  color-scheme: dark;
+  --agrid-color-text:           #dce7f7;
+  --agrid-color-text-muted:     #8fa2bd;
+  --agrid-color-accent:         #78a8ff;
+  --agrid-color-accent-subtle:  #172a4a;
+  --agrid-color-accent-fg:      #adc9ff;
+  --agrid-color-accent-border:  #355a96;
+  --agrid-color-danger:         #ff708b;
+  --agrid-color-danger-subtle:  #351927;
+  --agrid-color-border:         #26354c;
+  --agrid-color-bg:             #0c1220;
+  --agrid-color-bg-subtle:      #111a2c;
+  --agrid-color-bg-muted:       #18243a;
+  --agrid-color-shadow:         rgba(0, 0, 0, 0.5);
+  --agrid-color-bg-stripe:      #10192b;
+  --agrid-color-cell-changed:   #f4b740;
+  --agrid-color-row-marked:     #2e2a17;
+  --agrid-color-column-marked:  #162b4d;
+  --agrid-color-menu-bg:        #111a2c;
 }
 
 :host {
@@ -40,6 +107,7 @@
   min-width: 0;
   min-height: 0;
   border: 1px solid var(--agrid-color-border);
+  background: var(--agrid-color-bg);
   overflow: hidden;
   outline: none;
   border-radius: 4px;
@@ -157,6 +225,7 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  background: var(--agrid-color-bg);
 }
 
 .ag-grid-split {
@@ -165,6 +234,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  background: var(--agrid-color-bg);
 }
 
 .ag-pinned-pane {
@@ -182,6 +252,7 @@
   min-width: 0;
   min-height: 0;
   display: flex;
+  background: var(--agrid-color-bg);
 }
 
 .ag-horizontal-scroll {
@@ -192,6 +263,7 @@
   overflow-y: hidden;
   display: flex;
   flex-direction: column;
+  background: var(--agrid-color-bg);
 }
 
 .ag-body {
@@ -200,6 +272,7 @@
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+  background: var(--agrid-color-bg);
 }
 
 .ag-horizontal-scroll {

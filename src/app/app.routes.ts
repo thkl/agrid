@@ -54,6 +54,10 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/row-editing.component').then(m => m.RowEditingDemoComponent),
   },
   {
+    path: 'themes',
+    loadComponent: () => import('./demos/themes.component').then(m => m.ThemesDemoComponent),
+  },
+  {
     path: 'selection-summary',
     loadComponent: () => import('./demos/selection-summary.component').then(m => m.SelectionSummaryDemoComponent),
   },

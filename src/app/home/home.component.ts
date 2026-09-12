@@ -294,6 +294,11 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
               <div class="demo-card-desc">Edit several fields in one row and emit one complete saved record.</div>
               <span class="demo-card-link">Open →</span>
             </a>
+            <a class="demo-card" routerLink="/themes">
+              <div class="demo-card-title">Themes</div>
+              <div class="demo-card-desc">Switch built-in light, dark, and contrast presets at runtime.</div>
+              <span class="demo-card-link">Open →</span>
+            </a>
             <a class="demo-card" routerLink="/master-detail">
               <div class="demo-card-title">Master-detail</div>
               <div class="demo-card-desc">Expandable detail panels and rows pinned above or below the dataset.</div>

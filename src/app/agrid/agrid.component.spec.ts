@@ -459,6 +459,58 @@ describe('AgridComponent menu bar', () => {
     densityFixture.destroy();
   });
 
+  it('applies provider theme presets to the grid host at runtime', () => {
+    const themedProvider = new AgridProvider({
+      columns: [{ field: 'name', header: 'Name' }],
+      datasource: new AgridDataSource([{ name: 'Alice' }]),
+      theme: 'dusk',
+    });
+    const themedFixture = TestBed.createComponent(AgridComponent);
+    themedFixture.componentRef.setInput('provider', themedProvider);
+    themedFixture.detectChanges();
+
+    const host = themedFixture.nativeElement as HTMLElement;
+    expect(host.getAttribute('data-ag-theme')).toBe('dusk');
+    expect(host.getAttribute('data-ag-theme-mode')).toBe('explicit');
+    expect(host.classList.contains('ag-theme-auto')).toBe(false);
+    expect(host.classList.contains('ag-theme-dusk')).toBe(true);
+    expect(host.classList.contains('ag-theme-morning')).toBe(false);
+
+    themedProvider.setTheme('space');
+    themedFixture.detectChanges();
+
+    expect(host.getAttribute('data-ag-theme')).toBe('space');
+    expect(host.classList.contains('ag-theme-dusk')).toBe(false);
+    expect(host.classList.contains('ag-theme-space')).toBe(true);
+
+    themedFixture.destroy();
+  });
+
+  it('marks omitted provider themes as automatic until setTheme is called', () => {
+    const autoProvider = new AgridProvider({
+      columns: [{ field: 'name', header: 'Name' }],
+      datasource: new AgridDataSource([{ name: 'Alice' }]),
+    });
+    const autoFixture = TestBed.createComponent(AgridComponent);
+    autoFixture.componentRef.setInput('provider', autoProvider);
+    autoFixture.detectChanges();
+
+    const host = autoFixture.nativeElement as HTMLElement;
+    expect(host.getAttribute('data-ag-theme')).toBe('morning');
+    expect(host.getAttribute('data-ag-theme-mode')).toBe('auto');
+    expect(host.classList.contains('ag-theme-auto')).toBe(true);
+    expect(host.classList.contains('ag-theme-morning')).toBe(false);
+
+    autoProvider.setTheme('morning');
+    autoFixture.detectChanges();
+
+    expect(host.getAttribute('data-ag-theme-mode')).toBe('explicit');
+    expect(host.classList.contains('ag-theme-auto')).toBe(false);
+    expect(host.classList.contains('ag-theme-morning')).toBe(true);
+
+    autoFixture.destroy();
+  });
+
   it('persists resized sidebar width to localStorage and restores it by gridId', () => {
     localStorage.removeItem('agrid_settings_sidebar-grid');
     const sidebarProvider = new AgridProvider({

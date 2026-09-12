@@ -58,6 +58,7 @@ export type {
   AgridProviderConfig,
   AgridRowDensityHeights,
   AgridSettings,
+  AgridTheme,
 } from './agrid-provider';
 export { AGRID_DEFAULT_ROW_DENSITY_HEIGHTS } from './agrid-provider';
 export type {

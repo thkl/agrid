@@ -137,6 +137,12 @@ type RowStateSnapshot<T extends object> = {
   styleUrl: './agrid.component.css',
   host: {
     '[class.ag-zebra]': 'zebraStripes()',
+    '[class.ag-theme-auto]': '!themeConfigured()',
+    '[class.ag-theme-morning]': 'themeConfigured() && theme() === "morning"',
+    '[class.ag-theme-dusk]': 'themeConfigured() && theme() === "dusk"',
+    '[class.ag-theme-space]': 'themeConfigured() && theme() === "space"',
+    '[attr.data-ag-theme]': 'theme()',
+    '[attr.data-ag-theme-mode]': 'themeConfigured() ? "explicit" : "auto"',
     '[style.min-height]': 'minHeight()',
     '[style.max-height]': 'maxHeight()',
   },
@@ -157,6 +163,8 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   // All display / behaviour options are read from the provider.
   readonly rowDensity = computed(() => this.control()?.rowDensity() ?? 'normal');
+  readonly theme = computed(() => this.provider().theme());
+  readonly themeConfigured = computed(() => this.provider().themeConfigured());
   readonly rowHeight = computed(() => {
     const provider = this.provider();
     const density = this.rowDensity();

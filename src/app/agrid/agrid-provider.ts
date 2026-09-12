@@ -43,6 +43,9 @@ export const AGRID_DEFAULT_ROW_DENSITY_HEIGHTS: Record<AgridRowDensity, number> 
   custom: 48,
 };
 
+/** Built-in visual theme presets applied through grid CSS custom properties. */
+export type AgridTheme = 'morning' | 'dusk' | 'space';
+
 /**
  * Versioned, JSON-safe snapshot that can be stored in local storage or a backend.
  * Functions, datasource rows, selection, loading state, and edit history are intentionally absent.
@@ -104,6 +107,12 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   rowDensity?: AgridRowDensity;
   /** Override pixel heights for the built-in row-density presets. */
   rowDensityHeights?: AgridRowDensityHeights;
+  /**
+   * Built-in color theme preset. CSS custom properties can still override individual colors.
+   * Use `provider.setTheme()` to change it at runtime.
+   * @default 'morning'
+   */
+  theme?: AgridTheme;
   /** Show a built-in toolbar dropdown for choosing row height density. @default false */
   showRowHeightMenu?: boolean;
   /** Minimum height of the grid host element (e.g. `'200px'`). */
@@ -383,10 +392,23 @@ export class AgridProvider<T extends object = any> {
     return this;
   }
 
+  /** Switch to a built-in theme preset at runtime. */
+  setTheme(theme: AgridTheme): void {
+    this.themeConfigured.set(true);
+    this.theme.set(theme);
+  }
+
   /** Fixed virtual-scroll row height in pixels. */
   rowHeight: number;
   /** Pixel heights used for named row-density presets. */
   rowDensityHeights: Record<AgridRowDensity, number>;
+  /** Active built-in visual theme preset. */
+  readonly theme: WritableSignal<AgridTheme>;
+  /**
+   * Whether the grid theme was explicitly configured through the provider API.
+   * Unconfigured grids can inherit the host application's light/dark surface colors.
+   */
+  readonly themeConfigured: WritableSignal<boolean>;
   /** Whether the built-in toolbar row-height selector is rendered. */
   showRowHeightMenu: boolean;
   /** Minimum CSS height of the grid host. */
@@ -512,6 +534,8 @@ export class AgridProvider<T extends object = any> {
       custom: this.rowHeight,
       ...(config.rowDensityHeights ?? {}),
     };
+    this.theme = signal(config.theme ?? 'morning');
+    this.themeConfigured = signal(config.theme !== undefined);
     this.showRowHeightMenu = config.showRowHeightMenu ?? false;
     this.minHeight        = config.minHeight;
     this.maxHeight        = config.maxHeight;

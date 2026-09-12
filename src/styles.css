@@ -16,7 +16,27 @@ body {
   height: 100% !important;
 }
 
-.app-shell--dark agrid,
+.app-shell--dark agrid.ag-theme-auto {
+  --agrid-color-text: #dce8df;
+  --agrid-color-text-muted: #91a399;
+  --agrid-color-accent: #4ade80;
+  --agrid-color-accent-subtle: #193c26;
+  --agrid-color-accent-fg: #86efac;
+  --agrid-color-accent-border: #2f6842;
+  --agrid-color-danger: #fb7185;
+  --agrid-color-danger-subtle: #3b171d;
+  --agrid-color-border: #34443a;
+  --agrid-color-bg: #111a14;
+  --agrid-color-bg-subtle: #151f18;
+  --agrid-color-bg-muted: #1b2820;
+  --agrid-color-shadow: #00000073;
+  --agrid-color-bg-stripe: #17231b;
+  --agrid-color-cell-changed: #fbbf24;
+  --agrid-color-row-marked: #3b3518;
+  --agrid-color-column-marked: #193c26;
+  --agrid-color-menu-bg: #151f18;
+}
+
 .app-shell--dark agrid-tree,
 .app-shell--dark agrid-page-selector {
   --agrid-color-text: #dce8df !important;

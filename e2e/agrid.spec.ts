@@ -330,4 +330,55 @@ test.describe('agrid browser interactions', () => {
     ]);
     await expect(groupHeader).toHaveCount(1);
   });
+
+  test('uses dark table backgrounds for automatic theme grids in app dark mode', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('agrid-theme', 'dark'));
+    await page.goto('/');
+
+    const grid = page.locator('agrid.preview-grid');
+    const evenCell = grid.locator(cell(0, 1)).first();
+    const oddCell = grid.locator(cell(1, 1)).first();
+
+    await expect(grid).toHaveClass(/ag-theme-auto/);
+    await expect(grid).toHaveAttribute('data-ag-theme-mode', 'auto');
+    await expect.poll(async () => grid.evaluate(element =>
+      getComputedStyle(element).getPropertyValue('--agrid-color-bg').trim(),
+    )).toBe('#111a14');
+    await expect(evenCell).toHaveCSS('background-color', 'rgb(17, 26, 20)');
+    await expect(oddCell).toHaveCSS('background-color', 'rgb(23, 35, 27)');
+  });
+
+  test('switches built-in grid themes at runtime', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('agrid-theme', 'dark'));
+    await page.goto('/#/themes');
+
+    const grid = page.locator('agrid.demo-grid');
+    const evenCell = page.locator(cell(0, 1)).first();
+    const oddCell = page.locator(cell(1, 1)).first();
+    await expect(grid).toHaveAttribute('data-ag-theme', 'morning');
+    await expect.poll(async () => grid.evaluate(element =>
+      getComputedStyle(element).getPropertyValue('--agrid-color-bg').trim(),
+    )).toBe('#ffffff');
+    await expect(evenCell).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    await expect(oddCell).toHaveCSS('background-color', 'rgb(240, 242, 245)');
+
+    await page.getByRole('button', { name: 'Dusk' }).click();
+    await expect(grid).toHaveAttribute('data-ag-theme', 'dusk');
+    await expect(grid).toHaveClass(/ag-theme-dusk/);
+    await expect.poll(async () => grid.evaluate(element =>
+      getComputedStyle(element).getPropertyValue('--agrid-color-bg').trim(),
+    )).toBe('#17130f');
+    await expect(evenCell).toHaveCSS('background-color', 'rgb(23, 19, 15)');
+    await expect(oddCell).toHaveCSS('background-color', 'rgb(29, 24, 18)');
+
+    await page.getByRole('button', { name: 'Space' }).click();
+    await expect(grid).toHaveAttribute('data-ag-theme', 'space');
+    await expect(grid).toHaveClass(/ag-theme-space/);
+    await expect(grid).not.toHaveClass(/ag-theme-dusk/);
+    await expect.poll(async () => grid.evaluate(element =>
+      getComputedStyle(element).getPropertyValue('--agrid-color-bg').trim(),
+    )).toBe('#0c1220');
+    await expect(evenCell).toHaveCSS('background-color', 'rgb(12, 18, 32)');
+    await expect(oddCell).toHaveCSS('background-color', 'rgb(16, 25, 43)');
+  });
 });

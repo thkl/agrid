@@ -12,6 +12,8 @@
   user-select: none;
   outline: none;
   box-sizing: border-box;
+  color: var(--agrid-color-text);
+  background: var(--agrid-color-bg);
 }
 
 :host(.ag-cell--changed)::after {
