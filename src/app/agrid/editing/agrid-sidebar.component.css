@@ -407,6 +407,127 @@
   color: var(--agrid-color-danger);
 }
 
+.ag-filter-panel {
+  display: grid;
+  gap: 0;
+}
+
+.ag-filter-panel-tools {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--agrid-color-border);
+  background: var(--agrid-color-bg-subtle);
+}
+
+.ag-filter-panel-field {
+  display: grid;
+  gap: 4px;
+}
+
+.ag-filter-panel-field > span {
+  color: var(--agrid-color-text-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.ag-filter-panel-active,
+.ag-filter-panel-empty {
+  font-size: 12px;
+  color: var(--agrid-color-text-muted);
+}
+
+.ag-filter-panel-active {
+  color: var(--agrid-color-accent-fg);
+  font-weight: 650;
+}
+
+.ag-filter-panel-column {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--agrid-color-border);
+}
+
+.ag-filter-panel-column--active {
+  box-shadow: inset 3px 0 0 var(--agrid-color-accent);
+  background: color-mix(in srgb, var(--agrid-color-accent-subtle) 34%, var(--agrid-color-bg));
+}
+
+.ag-filter-panel-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--agrid-color-text);
+}
+
+.ag-filter-panel-column-header > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ag-filter-clear-btn {
+  flex: 0 0 auto;
+  min-width: 0;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 4px;
+  background: var(--agrid-color-bg);
+  color: var(--agrid-color-text-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ag-filter-clear-btn:hover:not(:disabled) {
+  border-color: var(--agrid-color-accent-border);
+  color: var(--agrid-color-text);
+}
+
+.ag-filter-clear-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.ag-filter-panel-condition {
+  display: grid;
+  gap: 7px;
+}
+
+.ag-filter-panel-values {
+  display: grid;
+  gap: 5px;
+  max-height: 132px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--agrid-color-border);
+  border-radius: 4px;
+  background: var(--agrid-color-bg);
+}
+
+.ag-filter-panel-value {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 22px;
+  color: var(--agrid-color-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ag-filter-panel-value input {
+  margin: 0;
+}
+
 .ag-pivot-config {
   display: grid;
   gap: 12px;

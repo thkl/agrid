@@ -348,6 +348,24 @@ test.describe('agrid browser interactions', () => {
     await expect(oddCell).toHaveCSS('background-color', 'rgb(23, 35, 27)');
   });
 
+  test('edits filters from the sidebar filter panel', async ({ page }) => {
+    await page.goto('/#/filter-panel');
+
+    await expect(page.locator('.demo-stats')).toContainText('5 visible');
+    await page.getByRole('button', { name: 'Filters' }).click();
+    await expect(page.locator('.ag-sidebar')).toBeVisible();
+    await expect(page.locator('.ag-filter-panel-column--active')).toHaveCount(2);
+
+    await page.getByRole('button', { name: 'Clear all filters' }).click();
+    await expect(page.locator('.demo-stats')).toContainText('8 visible');
+    await expect(page.locator('.ag-filter-panel-column--active')).toHaveCount(0);
+
+    await page.locator('.ag-filter-panel-column').filter({ hasText: 'Customer' })
+      .locator('input[type="text"]').fill('Kite');
+    await expect(page.locator('.demo-stats')).toContainText('1 visible');
+    await expect(page.locator(cell(2, 1)).first().locator('.ag-cell-value')).toHaveText('Kite Analytics');
+  });
+
   test('switches built-in grid themes at runtime', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('agrid-theme', 'dark'));
     await page.goto('/#/themes');

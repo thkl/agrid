@@ -22,6 +22,10 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/filters.component').then(m => m.FiltersDemoComponent),
   },
   {
+    path: 'filter-panel',
+    loadComponent: () => import('./demos/filter-panel.component').then(m => m.FilterPanelDemoComponent),
+  },
+  {
     path: 'custom-editors',
     loadComponent: () => import('./demos/custom-editors.component').then(m => m.CustomEditorsDemoComponent),
   },

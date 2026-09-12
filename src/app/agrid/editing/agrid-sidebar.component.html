@@ -104,6 +104,96 @@
           </div>
         }
       }
+    } @else if (activeTab() === 'filters') {
+      <div class="ag-filter-panel">
+        <div class="ag-filter-panel-tools">
+          <label class="ag-filter-panel-field">
+            <span>{{ localeText().quickFilterPlaceholder }}</span>
+            <input
+              class="ag-column-search"
+              type="search"
+              [value]="quickFilter()"
+              (input)="quickFilterChange.emit($any($event.target).value)"
+              [placeholder]="localeText().quickFilterPlaceholder"
+            />
+          </label>
+          <button type="button" class="ag-column-bulk-btn" [disabled]="!hasActiveFilters()"
+            (click)="clearAllFilters.emit()">
+            {{ localeText().clearAllFilters }}
+          </button>
+          @if (hasActiveFilters()) {
+            <span class="ag-filter-panel-active">{{ localeText().filterPanelActive }}</span>
+          } @else {
+            <span class="ag-filter-panel-empty">{{ localeText().filterPanelNoFilters }}</span>
+          }
+        </div>
+
+        @for (col of filterableColumns(); track col.field) {
+          @let filter = getFilter(col.field);
+          <section class="ag-filter-panel-column" [class.ag-filter-panel-column--active]="isFilterActive(filter)">
+            <div class="ag-filter-panel-column-header">
+              <span>{{ col.header }}</span>
+              <button type="button" class="ag-filter-clear-btn" [disabled]="!isFilterActive(filter)"
+                (click)="clearFilter.emit(col.field)">
+                {{ localeText().clearFilter }}
+              </button>
+            </div>
+
+            <label class="ag-filter-panel-field">
+              <span>{{ localeText().filterPlaceholder }}</span>
+              <input class="ag-detail-input" type="text" [value]="filter.text"
+                (input)="filterTextChange.emit({ field: col.field, value: $any($event.target).value })" />
+            </label>
+
+            @if (col.type !== 'boolean') {
+              <div class="ag-filter-panel-condition">
+                <label class="ag-filter-panel-field">
+                  <span>{{ localeText().filterCondition }}</span>
+                  <select class="ag-detail-input" [value]="filter.operator ?? ''"
+                    (change)="filterOperatorChange.emit({ field: col.field, operator: $any($event.target).value || null })">
+                    <option value="">{{ localeText().filterNoCondition }}</option>
+                    @for (operator of filterOperators(col); track operator.value) {
+                      <option [value]="operator.value">{{ operator.label }}</option>
+                    }
+                  </select>
+                </label>
+                @if (filter.operator) {
+                  <label class="ag-filter-panel-field">
+                    <span>{{ localeText().filterValue }}</span>
+                    <input class="ag-detail-input" [type]="filterInputType(col)" [value]="filter.operand ?? ''"
+                      (input)="filterOperandChange.emit({ field: col.field, value: $any($event.target).value })" />
+                  </label>
+                  @if (filter.operator === 'between') {
+                    <label class="ag-filter-panel-field">
+                      <span>{{ localeText().filterOpLessEqual }}</span>
+                      <input class="ag-detail-input" [type]="filterInputType(col)" [value]="filter.operand2 ?? ''"
+                        (input)="filterOperand2Change.emit({ field: col.field, value: $any($event.target).value })" />
+                    </label>
+                  }
+                }
+              </div>
+            }
+
+            @if (col.values?.length) {
+              <div class="ag-filter-panel-values">
+                <label class="ag-filter-panel-value" (click)="$event.stopPropagation()">
+                  <input type="checkbox" [checked]="filter.selectedValues === null"
+                    (change)="onFilterSelectAllValues(col.field, $any($event.target).checked)" />
+                  {{ localeText().selectAll }}
+                </label>
+                @for (option of col.values; track optionRawValue(option)) {
+                  @let raw = optionRawValue(option);
+                  <label class="ag-filter-panel-value" (click)="$event.stopPropagation()">
+                    <input type="checkbox" [checked]="isFilterValueSelected(col.field, raw)"
+                      (change)="onFilterValueToggle(col.field, raw, $any($event.target).checked)" />
+                    {{ optionLabel(option) }}
+                  </label>
+                }
+              </div>
+            }
+          </section>
+        }
+      </div>
     } @else if (activeTab() === 'pivot' && pivotConfig(); as pivot) {
       <div class="ag-pivot-config">
         <p class="ag-pivot-description">{{ localeText().pivotDescription }}</p>
@@ -268,6 +358,14 @@
     [attr.aria-pressed]="open() && activeTab() === 'detail'"
     (click)="tabChange.emit('detail')"
   >{{ localeText().detail }}</button>
+  @if (showFilterPanel()) {
+    <button
+      class="ag-sidebar-strip-btn"
+      [class.active]="open() && activeTab() === 'filters'"
+      [attr.aria-pressed]="open() && activeTab() === 'filters'"
+      (click)="tabChange.emit('filters')"
+    >{{ localeText().filters }}</button>
+  }
   @if (pivotConfig()) {
     <button
       class="ag-sidebar-strip-btn"

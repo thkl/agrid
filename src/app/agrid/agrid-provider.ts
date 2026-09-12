@@ -133,6 +133,8 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   enableColumnMarking?: boolean;
   /** Show the sidebar panel. */
   showSidebar?: boolean;
+  /** Show the Filters tab in the sidebar. Requires `showSidebar`. @default false */
+  showFilterPanel?: boolean;
   /** Allow users to resize the sidebar horizontally with the mouse. @default false */
   resizableSidebar?: boolean;
   /** Initial sidebar panel width in pixels. Persisted settings override this value. @default 200 */
@@ -427,6 +429,8 @@ export class AgridProvider<T extends object = any> {
   enableColumnMarking: boolean;
   /** Whether the sidebar is available. */
   showSidebar: boolean;
+  /** Whether the sidebar exposes a Filters tab. */
+  showFilterPanel: boolean;
   /** Whether users can resize the sidebar panel with the mouse. */
   resizableSidebar: boolean;
   /** Current sidebar width in pixels. */
@@ -547,6 +551,7 @@ export class AgridProvider<T extends object = any> {
     this.enableRowMarking = config.enableRowMarking ?? false;
     this.enableColumnMarking = config.enableColumnMarking ?? false;
     this.showSidebar      = config.showSidebar ?? false;
+    this.showFilterPanel  = config.showFilterPanel ?? false;
     this.resizableSidebar = config.resizableSidebar ?? false;
     this.sidebarWidth = signal(clampSidebarWidth(config.sidebarWidth));
     this.autoOpenDetail   = config.autoOpenDetail ?? false;

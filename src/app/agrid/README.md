@@ -460,6 +460,10 @@ unlocked columns up or down. Locked columns stay listed but cannot be hidden or 
 Set `resizableSidebar: true` to let users drag the sidebar width. With `gridId`, the selected width
 is saved to the normal `agrid_settings_<gridId>` settings object.
 
+Set `showFilterPanel: true` alongside `showSidebar` to add a **Filters** tab. It exposes the quick
+filter plus each filterable column's text, value-list, and condition filter state, and stays
+synchronized with the header filter row and column menu.
+
 ## Runtime readonly cells
 
 Use `cellReadonly` when editability depends on the current row. Returning `true` blocks inline

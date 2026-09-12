@@ -364,6 +364,7 @@ readonly gridProvider = new AgridProvider({
 | `enableRowMarking` | `boolean` | `false` | Makes row headers clickable, shows checkboxes in a 48 px control column, and includes marked rows in every copy operation. |
 | `enableColumnMarking` | `boolean` | `false` | Makes column-header surfaces clickable and exposes marked fields through `markedColumnFields`. |
 | `showSidebar` | `boolean` | `false` | Shows a collapsible column chooser and detail sidebar. Requires `control`. |
+| `showFilterPanel` | `boolean` | `false` | Adds a Filters tab to the sidebar for quick, text, value, and condition filters. Requires `showSidebar`. |
 | `resizableSidebar` | `boolean` | `false` | Lets users drag the sidebar's left edge to change its width. |
 | `sidebarWidth` | `number` | `200` | Initial sidebar width in pixels. Persisted `gridId` settings override it. |
 | `autoOpenDetail` | `boolean` | `false` | Opens the detail row automatically when a row is selected. |

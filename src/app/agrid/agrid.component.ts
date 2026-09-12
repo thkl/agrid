@@ -197,6 +197,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     return this.enableRowMarking() ? numberWidth + 20 : numberWidth;
   });
   readonly showSidebar = computed(() => this.provider().showSidebar);
+  readonly showFilterPanel = computed(() => this.provider().showFilterPanel);
   readonly resizableSidebar = computed(() => this.provider().resizableSidebar);
   readonly sidebarWidth = computed(() => this.provider().sidebarWidth());
   readonly autoOpenDetail = computed(() => this.provider().autoOpenDetail);
@@ -207,6 +208,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly menuBarItems = computed(() => this.provider().menuBarItems);
   readonly showRowHeightMenu = computed(() => this.provider().showRowHeightMenu);
   readonly quickFilterValue = computed(() => this.control()?.quickFilter() ?? '');
+  readonly sidebarFilters = computed(() => this.control()?.filters() ?? {});
   readonly sortOption = computed(() => this.provider().sortOption);
   readonly rowSelection = computed(() => this.provider().rowSelection);
   readonly enterEditAction = computed(() => this.provider().enterEditAction);
@@ -3344,6 +3346,39 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** @internal */
   onMenuReplaceFilter(field: string, filter: ColumnFilter): void {
     this.columnMenuController.replaceFilter(field, filter);
+  }
+
+  /** @internal */
+  onSidebarQuickFilterChange(value: string): void {
+    this.control()?.setQuickFilter(value);
+    if (this.serverSideFiltering()) this.quickFilterChange.emit(value);
+  }
+
+  /** @internal */
+  onSidebarFilterTextChange(field: string, value: string): void {
+    const current = this.getColumnFilter(field);
+    this.columnMenuController.replaceFilter(field, { ...current, text: value });
+  }
+
+  /** @internal */
+  onSidebarFilterOperatorChange(field: string, operator: FilterOperator | null): void {
+    this.columnMenuController.setFilterOperator(field, operator);
+  }
+
+  /** @internal */
+  onSidebarFilterOperandChange(field: string, value: string): void {
+    this.columnMenuController.setFilterOperand(field, value);
+  }
+
+  /** @internal */
+  onSidebarFilterOperand2Change(field: string, value: string): void {
+    this.columnMenuController.setFilterOperand2(field, value);
+  }
+
+  /** @internal */
+  onSidebarFilterValuesChange(field: string, values: string[] | null): void {
+    const current = this.getColumnFilter(field);
+    this.columnMenuController.replaceFilter(field, { ...current, selectedValues: values });
   }
 
   /** @internal */

@@ -34,6 +34,9 @@ export interface AgridLocaleText {
   filterConditionMenu: string;
   filterValue: string;
   filterNoCondition: string;
+  filters: string;
+  filterPanelNoFilters: string;
+  filterPanelActive: string;
   filterOpEquals: string;
   filterOpNotEquals: string;
   filterOpGreater: string;
@@ -150,6 +153,9 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     filterConditionMenu: 'Filter condition',
     filterValue: 'Value',
     filterNoCondition: 'No condition',
+    filters: 'Filters',
+    filterPanelNoFilters: 'No active filters',
+    filterPanelActive: 'Active',
     filterOpEquals: 'Equals',
     filterOpNotEquals: 'Not equal',
     filterOpGreater: 'Greater than',
@@ -260,6 +266,9 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     filterConditionMenu: 'Filterbedingung',
     filterValue: 'Wert',
     filterNoCondition: 'Keine Bedingung',
+    filters: 'Filter',
+    filterPanelNoFilters: 'Keine aktiven Filter',
+    filterPanelActive: 'Aktiv',
     filterOpEquals: 'Gleich',
     filterOpNotEquals: 'Ungleich',
     filterOpGreater: 'Größer als',

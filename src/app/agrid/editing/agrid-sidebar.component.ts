@@ -2,9 +2,10 @@ import { ChangeDetectionStrategy, Component, computed, input, output, signal } f
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from '../agrid-localization';
 import { getCellValue, getDateInputValue, getDisplayForField, looksLikeDate, matchesInputMask } from '../agrid.utils';
 import { AgridPivotConfig, ColDef, HeaderGroup } from '../agrid.types';
+import { ColumnFilter, FilterOperator } from '../agrid-control';
 
 /** Tabs available from the grid's vertical sidebar strip. @internal */
-export type AgridSidebarTab = 'columns' | 'detail' | 'pivot';
+export type AgridSidebarTab = 'columns' | 'detail' | 'filters' | 'pivot';
 
 /** Field edit emitted by the sidebar detail form. @internal */
 export interface AgridSidebarEdit {
@@ -50,6 +51,14 @@ export interface AgridSidebarColumnMove {
   direction: 'up' | 'down';
 }
 
+/** Value-list selection emitted by the sidebar filter panel. @internal */
+export interface AgridSidebarFilterValuesChange {
+  /** Field whose value filter changed. */
+  field: string;
+  /** Selected raw string values, or `null` to clear the value filter. */
+  values: string[] | null;
+}
+
 /** Grouped or standalone entry rendered in the sidebar column tree. @internal */
 export type AgridSidebarColumnEntry =
   | { kind: 'column'; col: ColDef }
@@ -66,6 +75,9 @@ export class AgridSidebarComponent {
   open = input<boolean>(false);
   activeTab = input<AgridSidebarTab>('columns');
   columns = input<ColDef[]>([]);
+  showFilterPanel = input(false);
+  filters = input<Record<string, ColumnFilter>>({});
+  quickFilter = input('');
   /** Original datasource columns available as pivot dimensions and values. */
   pivotColumns = input<ColDef[]>([]);
   /** Active pivot configuration; `null` hides the pivot tab. */
@@ -92,6 +104,14 @@ export class AgridSidebarComponent {
   toggleColumnGroup = output<AgridSidebarGroupToggle>();
   setColumnsVisible = output<boolean>();
   moveColumn = output<AgridSidebarColumnMove>();
+  quickFilterChange = output<string>();
+  filterTextChange = output<{ field: string; value: string }>();
+  filterOperatorChange = output<{ field: string; operator: FilterOperator | null }>();
+  filterOperandChange = output<{ field: string; value: string }>();
+  filterOperand2Change = output<{ field: string; value: string }>();
+  filterValuesChange = output<AgridSidebarFilterValuesChange>();
+  clearFilter = output<string>();
+  clearAllFilters = output<void>();
   sidebarWidthChange = output<number>();
   sidebarResizeEnd = output<number>();
   detailEdit = output<AgridSidebarEdit>();
@@ -120,7 +140,100 @@ export class AgridSidebarComponent {
   activeTabLabel(): string {
     const locale = this.localeText();
     if (this.activeTab() === 'pivot') return locale.pivot;
+    if (this.activeTab() === 'filters') return locale.filters;
     return this.activeTab() === 'columns' ? locale.columns : locale.detail;
+  }
+
+  readonly filterableColumns = computed(() => this.columns().filter(col => col.filterable));
+
+  readonly hasActiveFilters = computed(() => {
+    const hasColumnFilter = Object.values(this.filters()).some(filter => this.isFilterActive(filter));
+    return !!this.quickFilter().trim() || hasColumnFilter;
+  });
+
+  getFilter(field: string): ColumnFilter {
+    return this.filters()[field] ?? { text: '', selectedValues: null, sort: null };
+  }
+
+  isFilterActive(filter: ColumnFilter): boolean {
+    return !!filter.text
+      || filter.selectedValues !== null
+      || !!filter.sort
+      || (!!filter.operator && filter.operand != null && filter.operand !== '');
+  }
+
+  filterInputType(col: ColDef): 'text' | 'number' | 'date' {
+    return col.type === 'number' || col.type === 'date' ? col.type : 'text';
+  }
+
+  filterOperators(col: ColDef): { value: FilterOperator; label: string }[] {
+    const locale = this.localeText();
+    if (col.type === 'date') {
+      return [
+        { value: 'eq', label: locale.filterOpOn },
+        { value: 'gt', label: locale.filterOpAfter },
+        { value: 'lt', label: locale.filterOpBefore },
+        { value: 'between', label: locale.filterOpBetween },
+      ];
+    }
+    if (col.type === 'number') {
+      return [
+        { value: 'eq', label: locale.filterOpEquals },
+        { value: 'neq', label: locale.filterOpNotEquals },
+        { value: 'gt', label: locale.filterOpGreater },
+        { value: 'gte', label: locale.filterOpGreaterEqual },
+        { value: 'lt', label: locale.filterOpLess },
+        { value: 'lte', label: locale.filterOpLessEqual },
+        { value: 'between', label: locale.filterOpBetween },
+      ];
+    }
+    return [
+      { value: 'includes', label: locale.filterOpIncludes },
+      { value: 'notIncludes', label: locale.filterOpNotIncludes },
+      { value: 'startsWith', label: locale.filterOpStartsWith },
+      { value: 'endsWith', label: locale.filterOpEndsWith },
+      { value: 'eq', label: locale.filterOpEquals },
+      { value: 'neq', label: locale.filterOpNotEquals },
+      { value: 'like', label: locale.filterOpLike },
+    ];
+  }
+
+  optionRawValue(option: unknown): string {
+    return typeof option === 'object' && option !== null && 'value' in option
+      ? String((option as { value: unknown }).value)
+      : String(option ?? '');
+  }
+
+  optionLabel(option: unknown): string {
+    return typeof option === 'object' && option !== null && 'label' in option
+      ? String((option as { label: unknown }).label)
+      : String(option ?? this.localeText().blank);
+  }
+
+  isFilterValueSelected(field: string, rawValue: string): boolean {
+    const selected = this.getFilter(field).selectedValues;
+    return selected === null || selected.includes(rawValue);
+  }
+
+  onFilterValueToggle(field: string, rawValue: string, checked: boolean): void {
+    const col = this.columns().find(column => column.field === field);
+    const allValues = (col?.values ?? []).map(option => this.optionRawValue(option));
+    const current = this.getFilter(field).selectedValues ?? allValues;
+    const next = checked
+      ? [...new Set([...current, rawValue])]
+      : current.filter(value => value !== rawValue);
+    this.filterValuesChange.emit({
+      field,
+      values: next.length === allValues.length ? null : next,
+    });
+  }
+
+  onFilterSelectAllValues(field: string, checked: boolean): void {
+    const col = this.columns().find(column => column.field === field);
+    this.filterValuesChange.emit({
+      field,
+      values: checked ? null : (col?.values ?? []).map(option => this.optionRawValue(option)),
+    });
   }
 
   /** Replace one pivot dimension/value field while preserving the other settings. */

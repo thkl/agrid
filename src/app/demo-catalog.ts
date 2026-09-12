@@ -109,6 +109,34 @@ constructor() {
 }`,
   },
   {
+    path: '/filter-panel',
+    label: 'Filter panel',
+    title: 'Sidebar filter tool panel',
+    summary:
+      'Expose active quick, text, value, and condition filters in the sidebar so users can inspect, edit, and clear the grid state without opening each column menu.',
+    points: [
+      'Enable the sidebar and opt into the filter panel tab.',
+      'Seed filters through AgridControl, or let users create them from headers and the panel.',
+      'Value-list, text, and condition edits stay synchronized with the existing filter row and menu.',
+    ],
+    code: `readonly control = new AgridControl({
+  filters: {
+    priority: { text: '', selectedValues: ['High', 'Medium'], sort: null },
+    value: { text: '', selectedValues: null, sort: null, operator: 'gte', operand: '30000' },
+  },
+  quickFilter: 'o',
+});
+
+readonly provider = new AgridProvider({
+  columns,
+  datasource,
+  control: this.control,
+  showSidebar: true,
+  showFilterPanel: true,
+  enableQuickFilter: true,
+});`,
+  },
+  {
     path: '/custom-cells',
     label: 'Custom cells',
     title: 'Component renderers and cell classes',
