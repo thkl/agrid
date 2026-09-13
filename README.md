@@ -176,6 +176,7 @@ See [ROADMAP.md](./ROADMAP.md) for the AG Grid comparison checklist and open par
 - Fill handle for repeating selected cell/range values down or right.
 - Find panel with Ctrl/Cmd+F, full filtered-dataset matching, and next/previous navigation.
 - Quick filter for searching across all visible columns.
+- Advanced filter builder with nested AND/OR groups and serializable filter state.
 - Text filters, string/number/date condition filters, value filters, and multi-column sorting.
 - Custom sort comparators for domain-specific column ordering.
 - Computed value-getter columns that behave like normal read-only columns for display, filtering, sorting, export, copy, and aggregates.
@@ -1192,7 +1193,7 @@ In server-side mode:
 - Filter and sort state remains visible in the grid headers.
 - The grid does not filter or sort loaded rows locally.
 - The distinct-value checklist is hidden unless `ColDef.values` supplies the complete server-side value set.
-- `AgridServerQuery` contains column filters, value selections, menu conditions, ordered sorts, quick-filter text, and page range.
+- `AgridServerQuery` contains column filters, value selections, menu conditions, advanced filter groups, ordered sorts, quick-filter text, and page range.
 - Clearing emits an empty filter value, `selectedValues: null`, or a `null` sort direction on the compatibility outputs.
 - Multi-column sorting emits one event for each changed column.
 - Text filter events are debounced by `filterDebounceMs` (300 ms by default).

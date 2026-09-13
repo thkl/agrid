@@ -353,6 +353,22 @@ describe('AgridControl', () => {
       expect(restored.getFilterConditions('score')).toEqual([{ operator: 'lte', operand: '18' }]);
     });
 
+    it('round-trips a nested advanced filter expression', () => {
+      ctrl.setAdvancedFilter({
+        operator: 'and',
+        children: [
+          { field: 'status', operator: 'eq', operand: 'Open' },
+          { operator: 'or', children: [
+            { field: 'priority', operator: 'eq', operand: 'High' },
+            { field: 'score', operator: 'gte', operand: '90' },
+          ] },
+        ],
+      });
+      const restored = AgridControl.fromJSON(JSON.parse(JSON.stringify(ctrl.toJSON())));
+      expect(restored.advancedFilter()).toEqual(ctrl.advancedFilter());
+      expect(restored.getFilterModel().advancedFilter).toEqual(ctrl.advancedFilter());
+    });
+
     it('setRangeFilter with null operator clears the range condition', () => {
       ctrl.setRangeFilter('score', 'gt', '10');
       ctrl.setRangeFilter('score', null, null, null);

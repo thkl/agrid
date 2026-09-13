@@ -1,6 +1,6 @@
 import type { AgridDataSource } from './agrid-datasource';
 import type { AgridProvider } from './agrid-provider';
-import type { ColumnFilter, FilterCondition, FilterOperator } from './agrid-control';
+import type { AdvancedFilterGroup, ColumnFilter, FilterCondition, FilterOperator } from './agrid-control';
 import type { Signal, Type } from '@angular/core';
 
 /** String-valued property names available on a row type. */
@@ -1228,6 +1228,8 @@ export interface AgridServerSort {
 export interface AgridServerQuery {
   /** Active column filters keyed by field. */
   filters: Readonly<Record<string, ColumnFilter>>;
+  /** Optional nested advanced filter expression. */
+  advancedFilter?: AdvancedFilterGroup | null;
   /** Ordered sort stack after the grid's `sortOption` is applied. */
   sort: readonly AgridServerSort[];
   /** Global quick-filter text. Empty string when inactive. */

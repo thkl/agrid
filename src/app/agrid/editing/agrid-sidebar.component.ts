@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output, signal } f
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from '../agrid-localization';
 import { getCellValue, getDateInputValue, getDisplayForField, looksLikeDate, matchesInputMask } from '../agrid.utils';
 import { AgridPivotConfig, ColDef, HeaderGroup } from '../agrid.types';
-import { ColumnFilter, FilterCondition, FilterOperator } from '../agrid-control';
+import { AdvancedFilterCondition, AdvancedFilterGroup, AdvancedFilterNode, ColumnFilter, FilterCondition, FilterOperator } from '../agrid-control';
 
 /** Tabs available from the grid's vertical sidebar strip. @internal */
 export type AgridSidebarTab = 'columns' | 'detail' | 'filters' | 'pivot';
@@ -77,6 +77,7 @@ export class AgridSidebarComponent {
   columns = input<ColDef[]>([]);
   showFilterPanel = input(false);
   filters = input<Record<string, ColumnFilter>>({});
+  advancedFilter = input<AdvancedFilterGroup | null>(null);
   quickFilter = input('');
   /** Original datasource columns available as pivot dimensions and values. */
   pivotColumns = input<ColDef[]>([]);
@@ -113,6 +114,7 @@ export class AgridSidebarComponent {
   addFilterCondition = output<string>();
   removeFilterCondition = output<{ field: string; index: number }>();
   filterValuesChange = output<AgridSidebarFilterValuesChange>();
+  advancedFilterChange = output<AdvancedFilterGroup | null>();
   clearFilter = output<string>();
   clearAllFilters = output<void>();
   sidebarWidthChange = output<number>();
@@ -212,6 +214,93 @@ export class AgridSidebarComponent {
 
   filterCondition(field: string, index: number): FilterCondition {
     return this.filterConditions(field)[index] ?? { operator: 'includes', operand: '' };
+  }
+
+  isAdvancedGroup(node: AdvancedFilterNode): node is AdvancedFilterGroup {
+    return 'children' in node;
+  }
+
+  advancedCondition(node: AdvancedFilterNode): AdvancedFilterCondition {
+    return node as AdvancedFilterCondition;
+  }
+
+  advancedColumns(): ColDef[] {
+    return this.filterableColumns();
+  }
+
+  defaultAdvancedCondition(): AdvancedFilterCondition {
+    const col = this.advancedColumns()[0];
+    return { field: col?.field ?? '', operator: 'includes', operand: '' };
+  }
+
+  addAdvancedCondition(): void {
+    const current = this.advancedFilter() ?? { operator: 'and' as const, children: [] };
+    this.advancedFilterChange.emit({ ...current, children: [...current.children, this.defaultAdvancedCondition()] });
+  }
+
+  addAdvancedGroup(): void {
+    const current = this.advancedFilter() ?? { operator: 'and' as const, children: [] };
+    this.advancedFilterChange.emit({
+      ...current,
+      children: [...current.children, { operator: 'or', children: [this.defaultAdvancedCondition()] }],
+    });
+  }
+
+  updateAdvancedRootOperator(operator: 'and' | 'or'): void {
+    const current = this.advancedFilter() ?? { operator: 'and' as const, children: [] };
+    this.advancedFilterChange.emit({ ...current, operator });
+  }
+
+  updateAdvancedCondition(index: number, patch: Partial<AdvancedFilterCondition>): void {
+    const current = this.advancedFilter();
+    if (!current || !current.children[index] || this.isAdvancedGroup(current.children[index])) return;
+    const children = [...current.children];
+    children[index] = { ...(children[index] as AdvancedFilterCondition), ...patch };
+    this.advancedFilterChange.emit({ ...current, children });
+  }
+
+  updateAdvancedGroup(index: number, patch: Partial<AdvancedFilterGroup>): void {
+    const current = this.advancedFilter();
+    const node = current?.children[index];
+    if (!current || !node || !this.isAdvancedGroup(node)) return;
+    const children = [...current.children];
+    children[index] = { ...node, ...patch };
+    this.advancedFilterChange.emit({ ...current, children });
+  }
+
+  addNestedAdvancedCondition(groupIndex: number): void {
+    const current = this.advancedFilter();
+    const node = current?.children[groupIndex];
+    if (!current || !node || !this.isAdvancedGroup(node)) return;
+    const children = [...current.children];
+    children[groupIndex] = { ...node, children: [...node.children, this.defaultAdvancedCondition()] };
+    this.advancedFilterChange.emit({ ...current, children });
+  }
+
+  updateNestedAdvancedCondition(groupIndex: number, conditionIndex: number, patch: Partial<AdvancedFilterCondition>): void {
+    const current = this.advancedFilter();
+    const node = current?.children[groupIndex];
+    if (!current || !node || !this.isAdvancedGroup(node) || !node.children[conditionIndex]) return;
+    const children = [...current.children];
+    const nestedChildren = [...node.children];
+    nestedChildren[conditionIndex] = { ...(nestedChildren[conditionIndex] as AdvancedFilterCondition), ...patch };
+    children[groupIndex] = { ...node, children: nestedChildren };
+    this.advancedFilterChange.emit({ ...current, children });
+  }
+
+  removeAdvancedNode(index: number): void {
+    const current = this.advancedFilter();
+    if (!current) return;
+    this.advancedFilterChange.emit({ ...current, children: current.children.filter((_, itemIndex) => itemIndex !== index) });
+  }
+
+  removeNestedAdvancedCondition(groupIndex: number, conditionIndex: number): void {
+    const current = this.advancedFilter();
+    const node = current?.children[groupIndex];
+    if (!current || !node || !this.isAdvancedGroup(node)) return;
+    const children = [...current.children];
+    children[groupIndex] = { ...node, children: node.children.filter((_, childIndex) => childIndex !== conditionIndex) };
+    this.advancedFilterChange.emit({ ...current, children });
   }
 
   optionRawValue(option: unknown): string {

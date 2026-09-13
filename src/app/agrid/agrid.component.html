@@ -665,6 +665,7 @@
     @if (showSidebar()) {
     <agrid-sidebar [open]="sidebarOpen()" [activeTab]="sidebarTab()" [columns]="sidebarColumns()"
       [showFilterPanel]="showFilterPanel()" [filters]="sidebarFilters()" [quickFilter]="quickFilterValue()"
+      [advancedFilter]="sidebarAdvancedFilter()"
       [pivotColumns]="sidebarPivotColumns()" [pivotConfig]="provider().pivotConfig" [headerGroups]="headerGroups()"
       [row]="sidebarRow()" [rowIndex]="selectedRowIndex()" [hiddenColumns]="sidebarHiddenColumns()" [locale]="locale()"
       [localeText]="localeText()" [readonlyGrid]="readonlyGrid()" [useSidebarEditor]="useSidebarEditor()"
@@ -682,6 +683,7 @@
       (addFilterCondition)="onSidebarAddFilterCondition($event)"
       (removeFilterCondition)="onSidebarRemoveFilterCondition($event.field, $event.index)"
       (filterValuesChange)="onSidebarFilterValuesChange($event.field, $event.values)"
+      (advancedFilterChange)="onSidebarAdvancedFilterChange($event)"
       (clearFilter)="onMenuClearFilter($event)"
       (clearAllFilters)="onMenuClearAll()"
       (sidebarWidthChange)="onSidebarWidthChange($event)"

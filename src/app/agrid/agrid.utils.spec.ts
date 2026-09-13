@@ -4,6 +4,7 @@ import { ColumnFilter } from './agrid-control';
 import {
   applyQuickFilter,
   applyTextAndValueFilters,
+  passesAdvancedFilter,
   applySortToIndices,
   buildExportGroups,
   buildGroupedItems,
@@ -38,6 +39,32 @@ describe('input masks', () => {
   it('automatically anchors expressions and ignores stateful regex flags', () => {
     expect(matchesInputMask('abc 12', /[a-z]{0,3}(?: \d{0,2})?/gi)).toBe(true);
     expect(matchesInputMask('abc 123', /[a-z]{0,3}(?: \d{0,2})?/gi)).toBe(false);
+  });
+});
+
+describe('passesAdvancedFilter', () => {
+  it('evaluates nested AND and OR groups', () => {
+    const rows = [
+      { status: 'Open', priority: 'High', score: 40 },
+      { status: 'Open', priority: 'Low', score: 95 },
+      { status: 'Closed', priority: 'High', score: 99 },
+    ];
+    const columns = new Map<string, ColDef>([
+      ['status', { field: 'status', header: 'Status' }],
+      ['priority', { field: 'priority', header: 'Priority' }],
+      ['score', { field: 'score', header: 'Score', type: 'number' }],
+    ]);
+    const filter = {
+      operator: 'and' as const,
+      children: [
+        { field: 'status', operator: 'eq' as const, operand: 'Open' },
+        { operator: 'or' as const, children: [
+          { field: 'priority', operator: 'eq' as const, operand: 'High' },
+          { field: 'score', operator: 'gte' as const, operand: '90' },
+        ] },
+      ],
+    };
+    expect(rows.map((row, index) => passesAdvancedFilter(filter, row, index, columns))).toEqual([true, true, false]);
   });
 });
 

@@ -576,6 +576,23 @@ cleared by `control.clearAllFilters()`.
 Use `control.getFilterModel()` and `control.setFilterModel(model)` to persist or restore just the
 filter, quick-filter, and sort state without the rest of the grid settings.
 
+The Filters sidebar also exposes an advanced builder. It stores a nested `AdvancedFilterGroup` in
+`control.advancedFilter()`, supports AND/OR groups, and is included in `getFilterModel()`, `toJSON()`,
+and server query snapshots. Set it directly when constructing application-owned filter layouts:
+
+```ts
+control.setAdvancedFilter({
+  operator: 'and',
+  children: [
+    { field: 'status', operator: 'eq', operand: 'Open' },
+    { operator: 'or', children: [
+      { field: 'priority', operator: 'eq', operand: 'High' },
+      { field: 'value', operator: 'gte', operand: '50000' },
+    ] },
+  ],
+});
+```
+
 Rows inserted while filters or sorts are active stay visible in insertion order even if their values
 do not currently match. Wire `control.reapplyFilters()` to a button or save action when those
 inserted rows should be filtered and sorted like the rest of the datasource again. Use
@@ -598,8 +615,8 @@ effect(() => {
 });
 ```
 
-`AgridServerQuery` contains column filters, value selections, menu conditions, ordered sorts,
-quick-filter text, and page range (`startRow..endRow`, inclusive). The older granular outputs remain
+`AgridServerQuery` contains column filters, value selections, menu conditions, advanced filter groups,
+ordered sorts, quick-filter text, and page range (`startRow..endRow`, inclusive). The older granular outputs remain
 available for compatibility:
 
 - `(filterChange)` — header text filters emit `{ field, value }`; value filters emit

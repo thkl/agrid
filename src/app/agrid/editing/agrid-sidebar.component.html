@@ -128,6 +128,79 @@
           }
         </div>
 
+        <section class="ag-advanced-filter" [attr.aria-label]="localeText().advancedFilterBuilder">
+          <div class="ag-advanced-filter-header">
+            <strong>{{ localeText().advancedFilter }}</strong>
+            @if (advancedFilter()) {
+              <button type="button" class="ag-filter-clear-btn" (click)="advancedFilterChange.emit(null)">{{ localeText().clear }}</button>
+            }
+          </div>
+          @if (advancedFilter(); as advanced) {
+            <div class="ag-advanced-filter-group">
+              <label class="ag-filter-panel-field">
+                <span>{{ localeText().match }}</span>
+                <select class="ag-detail-input" [value]="advanced.operator"
+                  (change)="updateAdvancedRootOperator($any($event.target).value)">
+                  <option value="and">{{ localeText().allConditions }}</option>
+                  <option value="or">{{ localeText().anyCondition }}</option>
+                </select>
+              </label>
+              @for (node of advanced.children; track $index; let nodeIndex = $index) {
+                @if (isAdvancedGroup(node)) {
+                  <div class="ag-advanced-filter-nested-group">
+                    <div class="ag-advanced-filter-row-header">
+                      <select class="ag-detail-input" [value]="node.operator"
+                        (change)="updateAdvancedGroup(nodeIndex, { operator: $any($event.target).value })">
+                        <option value="and">{{ localeText().allNestedConditions }}</option>
+                        <option value="or">{{ localeText().anyNestedCondition }}</option>
+                      </select>
+                      <button type="button" class="ag-filter-clear-btn" (click)="removeAdvancedNode(nodeIndex)">{{ localeText().removeGroup }}</button>
+                    </div>
+                    @for (child of node.children; track $index; let childIndex = $index) {
+                      @if (!isAdvancedGroup(child)) {
+                        <div class="ag-advanced-filter-condition">
+                          <select class="ag-detail-input" [value]="advancedCondition(child).field"
+                            (change)="updateNestedAdvancedCondition(nodeIndex, childIndex, { field: $any($event.target).value })">
+                            @for (column of advancedColumns(); track column.field) { <option [value]="column.field">{{ column.header }}</option> }
+                          </select>
+                          <select class="ag-detail-input" [value]="advancedCondition(child).operator"
+                            (change)="updateNestedAdvancedCondition(nodeIndex, childIndex, { operator: $any($event.target).value })">
+                            @for (operator of filterOperators(advancedColumns().find(column => column.field === advancedCondition(child).field) ?? advancedColumns()[0]); track operator.value) { <option [value]="operator.value">{{ operator.label }}</option> }
+                          </select>
+                          <input class="ag-detail-input" [value]="advancedCondition(child).operand"
+                            (input)="updateNestedAdvancedCondition(nodeIndex, childIndex, { operand: $any($event.target).value })" />
+                          <button type="button" class="ag-filter-clear-btn" (click)="removeNestedAdvancedCondition(nodeIndex, childIndex)">{{ localeText().remove }}</button>
+                        </div>
+                      }
+                    }
+                    <button type="button" class="ag-column-bulk-btn" (click)="addNestedAdvancedCondition(nodeIndex)">{{ localeText().addCondition }}</button>
+                  </div>
+                } @else {
+                  <div class="ag-advanced-filter-condition">
+                    <select class="ag-detail-input" [value]="advancedCondition(node).field"
+                      (change)="updateAdvancedCondition($index, { field: $any($event.target).value })">
+                      @for (column of advancedColumns(); track column.field) { <option [value]="column.field">{{ column.header }}</option> }
+                    </select>
+                    <select class="ag-detail-input" [value]="advancedCondition(node).operator"
+                      (change)="updateAdvancedCondition($index, { operator: $any($event.target).value })">
+                      @for (operator of filterOperators(advancedColumns().find(column => column.field === advancedCondition(node).field) ?? advancedColumns()[0]); track operator.value) { <option [value]="operator.value">{{ operator.label }}</option> }
+                    </select>
+                    <input class="ag-detail-input" [value]="advancedCondition(node).operand"
+                      (input)="updateAdvancedCondition($index, { operand: $any($event.target).value })" />
+                    <button type="button" class="ag-filter-clear-btn" (click)="removeAdvancedNode($index)">{{ localeText().remove }}</button>
+                  </div>
+                }
+              }
+              <div class="ag-advanced-filter-actions">
+                <button type="button" class="ag-column-bulk-btn" (click)="addAdvancedCondition()">{{ localeText().addCondition }}</button>
+                <button type="button" class="ag-column-bulk-btn" (click)="addAdvancedGroup()">{{ localeText().addGroup }}</button>
+              </div>
+            </div>
+          } @else {
+            <button type="button" class="ag-column-bulk-btn" (click)="addAdvancedCondition()">{{ localeText().addAdvancedFilter }}</button>
+          }
+        </section>
+
         @for (col of filterableColumns(); track col.field) {
           @let filter = getFilter(col.field);
           <section class="ag-filter-panel-column" [class.ag-filter-panel-column--active]="isFilterActive(filter)">

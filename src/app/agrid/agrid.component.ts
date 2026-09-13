@@ -209,6 +209,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly showRowHeightMenu = computed(() => this.provider().showRowHeightMenu);
   readonly quickFilterValue = computed(() => this.control()?.quickFilter() ?? '');
   readonly sidebarFilters = computed(() => this.control()?.filters() ?? {});
+  readonly sidebarAdvancedFilter = computed(() => this.control()?.advancedFilter() ?? null);
   readonly sortOption = computed(() => this.provider().sortOption);
   readonly rowSelection = computed(() => this.provider().rowSelection);
   readonly enterEditAction = computed(() => this.provider().enterEditAction);
@@ -1768,6 +1769,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
     return {
       filters,
+      advancedFilter: control.advancedFilter(),
       sort,
       quickFilter: control.quickFilter(),
       page,
@@ -3410,6 +3412,10 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   onSidebarFilterValuesChange(field: string, values: string[] | null): void {
     const current = this.getColumnFilter(field);
     this.columnMenuController.replaceFilter(field, { ...current, selectedValues: values });
+  }
+
+  onSidebarAdvancedFilterChange(filter: import('./agrid-control').AdvancedFilterGroup | null): void {
+    this.control()?.setAdvancedFilter(filter);
   }
 
   /** @internal */

@@ -37,6 +37,19 @@ export interface AgridLocaleText {
   filters: string;
   filterPanelNoFilters: string;
   filterPanelActive: string;
+  advancedFilter: string;
+  advancedFilterBuilder: string;
+  clear: string;
+  match: string;
+  allConditions: string;
+  anyCondition: string;
+  allNestedConditions: string;
+  anyNestedCondition: string;
+  removeGroup: string;
+  remove: string;
+  addCondition: string;
+  addGroup: string;
+  addAdvancedFilter: string;
   filterOpEquals: string;
   filterOpNotEquals: string;
   filterOpGreater: string;
@@ -156,6 +169,19 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     filters: 'Filters',
     filterPanelNoFilters: 'No active filters',
     filterPanelActive: 'Active',
+    advancedFilter: 'Advanced filter',
+    advancedFilterBuilder: 'Advanced filter builder',
+    clear: 'Clear',
+    match: 'Match',
+    allConditions: 'All conditions',
+    anyCondition: 'Any condition',
+    allNestedConditions: 'All nested conditions',
+    anyNestedCondition: 'Any nested condition',
+    removeGroup: 'Remove group',
+    remove: 'Remove',
+    addCondition: '+ Condition',
+    addGroup: '+ Group',
+    addAdvancedFilter: 'Add advanced filter',
     filterOpEquals: 'Equals',
     filterOpNotEquals: 'Not equal',
     filterOpGreater: 'Greater than',
@@ -269,6 +295,19 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     filters: 'Filter',
     filterPanelNoFilters: 'Keine aktiven Filter',
     filterPanelActive: 'Aktiv',
+    advancedFilter: 'Erweiterter Filter',
+    advancedFilterBuilder: 'Erweiterter Filter-Editor',
+    clear: 'Leeren',
+    match: 'Abgleich',
+    allConditions: 'Alle Bedingungen',
+    anyCondition: 'Eine Bedingung',
+    allNestedConditions: 'Alle verschachtelten Bedingungen',
+    anyNestedCondition: 'Eine verschachtelte Bedingung',
+    removeGroup: 'Gruppe entfernen',
+    remove: 'Entfernen',
+    addCondition: '+ Bedingung',
+    addGroup: '+ Gruppe',
+    addAdvancedFilter: 'Erweiterten Filter hinzufügen',
     filterOpEquals: 'Gleich',
     filterOpNotEquals: 'Ungleich',
     filterOpGreater: 'Größer als',

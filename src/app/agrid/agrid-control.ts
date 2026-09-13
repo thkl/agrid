@@ -54,6 +54,19 @@ export interface FilterCondition {
   operand2?: string | null;
 }
 
+/** A serializable leaf in the advanced filter expression tree. */
+export interface AdvancedFilterCondition extends FilterCondition {
+  field: string;
+}
+
+/** A nested AND/OR group in the advanced filter expression tree. */
+export interface AdvancedFilterGroup {
+  operator: 'and' | 'or';
+  children: AdvancedFilterNode[];
+}
+
+export type AdvancedFilterNode = AdvancedFilterCondition | AdvancedFilterGroup;
+
 export interface ColumnFilter {
   /** Free-text substring filter (case-insensitive). Empty string = no text filter. */
   text: string;
@@ -127,6 +140,8 @@ export interface AgridControlState {
   aggregates?: Record<string, 'sum' | 'avg' | 'min' | 'max' | 'count'>;
   /** Active named row-height preset. `custom` uses the provider's `rowHeight`. */
   rowDensity?: AgridRowDensity;
+  /** Optional nested advanced filter expression. */
+  advancedFilter?: AdvancedFilterGroup | null;
 }
 
 /** Detached, JSON-safe filter/search/sort state for {@link AgridControl}. */
@@ -137,6 +152,8 @@ export interface AgridFilterModel {
   quickFilter?: string;
   /** Ordered sorted fields, from highest to lowest priority. */
   sortOrder?: string[];
+  /** Optional nested advanced filter expression. */
+  advancedFilter?: AdvancedFilterGroup | null;
 }
 
 /**
@@ -172,6 +189,7 @@ export class AgridControl {
   private readonly _aggregates = signal<Record<string, 'sum' | 'avg' | 'min' | 'max' | 'count'>>({});
   private readonly _rowDensity = signal<AgridRowDensity>('normal');
   private readonly _sortOrder = signal<string[]>([]);
+  private readonly _advancedFilter = signal<AdvancedFilterGroup | null>(null);
   private readonly _loading = signal(false);
   private readonly _readonly = signal(false);
   private readonly _autoAddRows = signal(false);
@@ -694,6 +712,7 @@ export class AgridControl {
       filters: this.cloneFilters(this._filters()),
       quickFilter: this._quickFilter() || undefined,
       sortOrder: [...this._sortOrder()],
+      advancedFilter: this._advancedFilter() ? this.cloneAdvancedFilter(this._advancedFilter()!) : undefined,
     };
   }
 
@@ -709,11 +728,26 @@ export class AgridControl {
     const filters = this.cloneFilters(model.filters ?? {});
     this._filters.set(filters);
     this._quickFilter.set(model.quickFilter ?? '');
+    this._advancedFilter.set(model.advancedFilter ? this.cloneAdvancedFilter(model.advancedFilter) : null);
     const ordered = (model.sortOrder ?? []).filter(field => !!filters[field]?.sort);
     const missingSortedFields = Object.entries(filters)
       .filter(([field, filter]) => !!filter.sort && !ordered.includes(field))
       .map(([field]) => field);
     this._sortOrder.set([...ordered, ...missingSortedFields]);
+  }
+
+  /** Reactive nested advanced filter expression, or `null` when disabled. */
+  readonly advancedFilter: Signal<AdvancedFilterGroup | null> = this._advancedFilter.asReadonly();
+
+  /** Replace the advanced filter expression. Pass `null` to disable it. */
+  setAdvancedFilter(filter: AdvancedFilterGroup | null): void {
+    this._advancedFilter.set(filter ? this.cloneAdvancedFilter(filter) : null);
+  }
+
+  /** Add a condition to the root advanced filter group. */
+  addAdvancedFilterCondition(condition: AdvancedFilterCondition): void {
+    const current = this._advancedFilter() ?? { operator: 'and' as const, children: [] };
+    this.setAdvancedFilter({ ...current, children: [...current.children, { ...condition }] });
   }
 
   /**
@@ -853,6 +887,7 @@ export class AgridControl {
     this._filters.set({});
     this._sortOrder.set([]);
     this._quickFilter.set('');
+    this._advancedFilter.set(null);
   }
 
   /**
@@ -867,7 +902,7 @@ export class AgridControl {
 
   /** Return `true` when the quick filter or ANY column has an active filter or sort. */
   hasAnyActiveFilter(): boolean {
-    return !!this._quickFilter() || Object.values(this._filters()).some(
+    return !!this._quickFilter() || !!this._advancedFilter() || Object.values(this._filters()).some(
       f => f.text || f.selectedValues !== null || f.sort
         || this.filterConditions(f).some(condition => condition.operand !== '')
     );
@@ -895,6 +930,7 @@ export class AgridControl {
     this._totalRows.set(state.totalRows ?? 0);
     this._aggregates.set({ ...(state.aggregates ?? {}) });
     this._rowDensity.set(state.rowDensity ?? 'normal');
+    this._advancedFilter.set(state.advancedFilter ? this.cloneAdvancedFilter(state.advancedFilter) : null);
     this._sortOrder.set([...(state.sortOrder ?? [])]);
   }
 
@@ -916,6 +952,7 @@ export class AgridControl {
       aggregates: { ...this._aggregates() },
       rowDensity: this._rowDensity(),
       sortOrder: [...this._sortOrder()],
+      advancedFilter: this._advancedFilter() ? this.cloneAdvancedFilter(this._advancedFilter()!) : undefined,
     };
   }
 
@@ -935,6 +972,15 @@ export class AgridControl {
         },
       ]),
     );
+  }
+
+  private cloneAdvancedFilter(group: AdvancedFilterGroup): AdvancedFilterGroup {
+    return {
+      operator: group.operator,
+      children: group.children.map(child => 'children' in child
+        ? this.cloneAdvancedFilter(child)
+        : { ...child }),
+    };
   }
 
   private filterConditions(filter: ColumnFilter): FilterCondition[] {

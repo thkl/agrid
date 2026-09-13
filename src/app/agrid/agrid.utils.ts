@@ -1,4 +1,4 @@
-import { ColumnFilter, FilterCondition } from './agrid-control';
+import { AdvancedFilterGroup, AdvancedFilterNode, ColumnFilter, FilterCondition } from './agrid-control';
 import {
   AgridExportGroup,
   AgridPathTreeConfig,
@@ -377,6 +377,31 @@ export function passesConditionFilter(
     }
     default: return true;
   }
+}
+
+/** Evaluate a nested advanced filter expression against one row. */
+export function passesAdvancedFilter(
+  group: AdvancedFilterGroup,
+  row: Record<string, unknown>,
+  index: number,
+  colMap: Map<string, ColDef>,
+  locale?: string,
+): boolean {
+  const results = group.children.map(child => 'children' in child
+    ? passesAdvancedFilter(child, row, index, colMap, locale)
+    : passesAdvancedFilterCondition(child, row, index, colMap, locale));
+  return group.operator === 'or' ? results.some(Boolean) : results.every(Boolean);
+}
+
+function passesAdvancedFilterCondition(
+  condition: Extract<AdvancedFilterNode, { field: string }>,
+  row: Record<string, unknown>,
+  index: number,
+  colMap: Map<string, ColDef>,
+  locale?: string,
+): boolean {
+  const col = colMap.get(condition.field);
+  return passesConditionFilter(col, getCellValue(col, row, index), condition, locale, row);
 }
 
 /**

@@ -7,6 +7,7 @@ import {
   applyQuickFilter,
   applySortToIndices,
   applyTextAndValueFilters,
+  passesAdvancedFilter,
   buildGroupedItems,
   buildPathTreeItems,
   buildTreeItems,
@@ -73,6 +74,16 @@ export class AgridProjectionModel {
       colMap,
       this.opts.locale(),
     );
+    const advancedFilter = control.advancedFilter();
+    if (advancedFilter) {
+      indices = indices.filter(index => passesAdvancedFilter(
+        advancedFilter,
+        rows[index],
+        index,
+        colMap,
+        this.opts.locale(),
+      ));
+    }
     const quick = control.quickFilter();
     if (quick) {
       indices = applyQuickFilter(rows, indices, quick, this.opts.visibleColDefs(), this.opts.locale());
