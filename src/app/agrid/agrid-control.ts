@@ -67,6 +67,15 @@ export interface AdvancedFilterGroup {
 
 export type AdvancedFilterNode = AdvancedFilterCondition | AdvancedFilterGroup;
 
+export type AgridRowId = string | number;
+
+/** Selection state that remains valid when server-side blocks are unloaded. */
+export interface AgridServerSelectionState {
+  selectAll: boolean;
+  selectedIds: AgridRowId[];
+  deselectedIds: AgridRowId[];
+}
+
 export interface ColumnFilter {
   /** Free-text substring filter (case-insensitive). Empty string = no text filter. */
   text: string;
@@ -142,6 +151,7 @@ export interface AgridControlState {
   rowDensity?: AgridRowDensity;
   /** Optional nested advanced filter expression. */
   advancedFilter?: AdvancedFilterGroup | null;
+  serverSelection?: AgridServerSelectionState;
 }
 
 /** Detached, JSON-safe filter/search/sort state for {@link AgridControl}. */
@@ -154,6 +164,7 @@ export interface AgridFilterModel {
   sortOrder?: string[];
   /** Optional nested advanced filter expression. */
   advancedFilter?: AdvancedFilterGroup | null;
+  serverSelection?: AgridServerSelectionState;
 }
 
 /**
@@ -190,6 +201,9 @@ export class AgridControl {
   private readonly _rowDensity = signal<AgridRowDensity>('normal');
   private readonly _sortOrder = signal<string[]>([]);
   private readonly _advancedFilter = signal<AdvancedFilterGroup | null>(null);
+  private readonly _serverSelectedIds = signal<Set<AgridRowId>>(new Set());
+  private readonly _serverDeselectedIds = signal<Set<AgridRowId>>(new Set());
+  private readonly _serverSelectAll = signal(false);
   private readonly _loading = signal(false);
   private readonly _readonly = signal(false);
   private readonly _autoAddRows = signal(false);
@@ -729,6 +743,9 @@ export class AgridControl {
     this._filters.set(filters);
     this._quickFilter.set(model.quickFilter ?? '');
     this._advancedFilter.set(model.advancedFilter ? this.cloneAdvancedFilter(model.advancedFilter) : null);
+    this._serverSelectAll.set(model.serverSelection?.selectAll ?? false);
+    this._serverSelectedIds.set(new Set(model.serverSelection?.selectedIds ?? []));
+    this._serverDeselectedIds.set(new Set(model.serverSelection?.deselectedIds ?? []));
     const ordered = (model.sortOrder ?? []).filter(field => !!filters[field]?.sort);
     const missingSortedFields = Object.entries(filters)
       .filter(([field, filter]) => !!filter.sort && !ordered.includes(field))
@@ -742,6 +759,49 @@ export class AgridControl {
   /** Replace the advanced filter expression. Pass `null` to disable it. */
   setAdvancedFilter(filter: AdvancedFilterGroup | null): void {
     this._advancedFilter.set(filter ? this.cloneAdvancedFilter(filter) : null);
+  }
+
+  /** Selection state for server-backed rows, independent of loaded datasource indices. */
+  readonly serverSelection: Signal<AgridServerSelectionState> = computed(() => ({
+    selectAll: this._serverSelectAll(),
+    selectedIds: [...this._serverSelectedIds()],
+    deselectedIds: [...this._serverDeselectedIds()],
+  }));
+
+  /** Select or deselect one server row by its stable provider `getRowId()` value. */
+  setServerRowSelected(id: AgridRowId, selected: boolean): void {
+    if (this._serverSelectAll()) {
+      this._serverDeselectedIds.update(ids => {
+        const next = new Set(ids);
+        if (selected) next.delete(id); else next.add(id);
+        return next;
+      });
+      return;
+    }
+    this._serverSelectedIds.update(ids => {
+      const next = new Set(ids);
+      if (selected) next.add(id); else next.delete(id);
+      return next;
+    });
+  }
+
+  /** Select every row matching the current server query. */
+  selectAllServerRows(): void {
+    this._serverSelectAll.set(true);
+    this._serverSelectedIds.set(new Set());
+    this._serverDeselectedIds.set(new Set());
+  }
+
+  /** Clear server-side selection, including select-all and exceptions. */
+  clearServerSelection(): void {
+    this._serverSelectAll.set(false);
+    this._serverSelectedIds.set(new Set());
+    this._serverDeselectedIds.set(new Set());
+  }
+
+  /** Returns whether an identified server row is selected. */
+  isServerRowSelected(id: AgridRowId): boolean {
+    return this._serverSelectAll() ? !this._serverDeselectedIds().has(id) : this._serverSelectedIds().has(id);
   }
 
   /** Add a condition to the root advanced filter group. */
@@ -931,6 +991,9 @@ export class AgridControl {
     this._aggregates.set({ ...(state.aggregates ?? {}) });
     this._rowDensity.set(state.rowDensity ?? 'normal');
     this._advancedFilter.set(state.advancedFilter ? this.cloneAdvancedFilter(state.advancedFilter) : null);
+    this._serverSelectAll.set(state.serverSelection?.selectAll ?? false);
+    this._serverSelectedIds.set(new Set(state.serverSelection?.selectedIds ?? []));
+    this._serverDeselectedIds.set(new Set(state.serverSelection?.deselectedIds ?? []));
     this._sortOrder.set([...(state.sortOrder ?? [])]);
   }
 
@@ -953,6 +1016,7 @@ export class AgridControl {
       rowDensity: this._rowDensity(),
       sortOrder: [...this._sortOrder()],
       advancedFilter: this._advancedFilter() ? this.cloneAdvancedFilter(this._advancedFilter()!) : undefined,
+      serverSelection: this.serverSelection(),
     };
   }
 

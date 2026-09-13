@@ -33,8 +33,9 @@ import { AgridColumnMenuController } from './columns/agrid-column-menu.controlle
 import { AgridColumnReorderController } from './columns/agrid-column-reorder.controller';
 import { AgridColumnSizingController } from './columns/agrid-column-sizing.controller';
 import { AgridColumnStateService } from './columns/agrid-column-state.service';
-import { AgridControl, AgridRowDensity, ColumnFilter, FilterCondition, FilterOperator } from './agrid-control';
+import { AgridControl, AgridRowDensity, AgridServerSelectionState, ColumnFilter, FilterCondition, FilterOperator } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
+import { AgridServerSideRowModel } from './agrid-server-side-row-model';
 import { AgridDragHandler } from './rows/agrid-drag.handler';
 import { AgridDetailController } from './editing/agrid-detail.controller';
 import { AgridEditController } from './editing/agrid-edit.controller';
@@ -212,6 +213,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly sidebarAdvancedFilter = computed(() => this.control()?.advancedFilter() ?? null);
   readonly sortOption = computed(() => this.provider().sortOption);
   readonly rowSelection = computed(() => this.provider().rowSelection);
+  readonly serverSideSelection = computed(() => this.provider().serverSideSelection);
   readonly enterEditAction = computed(() => this.provider().enterEditAction);
   readonly groupDescription = computed(() => this.provider().groupDescription);
   readonly groupActions = computed(() => this.provider().groupActions);
@@ -383,6 +385,8 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** Emitted when the row selection changes. `null` = selection cleared. */
   rowSelect = output<RowSelectEvent<T> | null>();
+  /** Emitted when server-side ID selection changes, including select-all state. */
+  serverSelectionChange = output<AgridServerSelectionState>();
 
   /** Emitted when a row is marked or unmarked from its row header. */
   rowMark = output<RowMarkEvent<T>>();
@@ -1308,7 +1312,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       this.navigationController.insertRowAt(index);
     },
     startDragSelect: originalIndex => this.dragHandler.startDragSelect(originalIndex),
-    onRowSelect: event => this.rowSelect.emit(event),
+    onRowSelect: event => this.onInternalRowSelect(event),
     onRowClick: event => this.rowClick.emit(event),
     onRowRemoved: event => {
       this.reconcileDirtyInlineRowsAfterRemoval(event.index);
@@ -1769,7 +1773,8 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
     return {
       filters,
-      advancedFilter: control.advancedFilter(),
+      ...(control.advancedFilter() ? { advancedFilter: control.advancedFilter() } : {}),
+      ...(this.serverSideSelection() ? { serverSelection: control.serverSelection() } : {}),
       sort,
       quickFilter: control.quickFilter(),
       page,
@@ -2382,6 +2387,14 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** @internal */
   isRowSelected(originalIndex: number): boolean {
+    const rowId = this.provider().getRowId;
+    const datasource = this.dataSource();
+    if (this.serverSideSelection() && rowId) {
+      const row = datasource.getRow(originalIndex);
+      if (row && !(datasource instanceof AgridServerSideRowModel && datasource.isPlaceholder(originalIndex))) {
+        return this.control()?.isServerRowSelected(rowId(row as T, originalIndex)) ?? false;
+      }
+    }
     return this.rowController.isRowSelected(originalIndex);
   }
 
@@ -2528,6 +2541,42 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   }
 
   // ── Row selection ─────────────────────────────────────────────────────────────
+
+  /** Select every row matching the current server query. Requires `serverSideSelection` and `getRowId`. */
+  selectAllServerRows(): void {
+    if (!this.serverSideSelection()) return;
+    this.control()?.selectAllServerRows();
+    this.serverSelectionChange.emit(this.control()!.serverSelection());
+  }
+
+  /** Clear server-side selection without changing the loaded block cache. */
+  clearServerSelection(): void {
+    if (!this.serverSideSelection()) return;
+    this.control()?.clearServerSelection();
+    this.rowController.selectedIndices.set(new Set());
+    this.serverSelectionChange.emit(this.control()!.serverSelection());
+  }
+
+  /** Read the current ID-based selection state. */
+  getServerSelection(): AgridServerSelectionState {
+    return this.control()?.serverSelection() ?? { selectAll: false, selectedIds: [], deselectedIds: [] };
+  }
+
+  private onInternalRowSelect(event: RowSelectEvent<T> | null): void {
+    if (this.serverSideSelection() && this.provider().getRowId) {
+      const rowId = this.provider().getRowId!;
+      const selected = new Set((event?.rows ?? []).map(item => rowId(item.row, item.originalIndex)));
+      const datasource = this.dataSource();
+      const rows = datasource.rows() as T[];
+      rows.forEach((row, index) => {
+        if (datasource instanceof AgridServerSideRowModel && datasource.isPlaceholder(index)) return;
+        const id = rowId(row, index);
+        this.control()?.setServerRowSelected(id, selected.has(id));
+      });
+      this.serverSelectionChange.emit(this.control()!.serverSelection());
+    }
+    this.rowSelect.emit(event);
+  }
 
   /** @internal */
   onRowPointerDown(event: PointerEvent, originalIndex: number): void {

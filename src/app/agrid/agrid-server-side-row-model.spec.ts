@@ -110,6 +110,22 @@ describe('AgridServerSideRowModel', () => {
     expect(model.setQuery(control, [])).toBe(true);
   });
 
+  it('forwards ID-based server selection state with the query', async () => {
+    let request: AgridServerSideRequest | undefined;
+    const model = new AgridServerSideRowModel<Row>({
+      initialRowCount: 10,
+      blockSize: 10,
+      datasource: { async getRows(next) { request = next; return { rows: [], rowCount: 0 }; } },
+    });
+    const control = new AgridControl();
+    control.selectAllServerRows();
+    control.setServerRowSelected(4, false);
+    model.setQuery(control, []);
+    model.ensureRange(0, 10);
+    await settle();
+    expect(request?.serverSelection).toEqual({ selectAll: true, selectedIds: [], deselectedIds: [4] });
+  });
+
   it('tracks failed blocks and retries them on demand', async () => {
     let calls = 0;
     const model = new AgridServerSideRowModel<Row>({

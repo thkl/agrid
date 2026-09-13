@@ -178,6 +178,8 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
    * - `'multi'` — Ctrl+click toggles, Shift+click extends range, click+drag sweeps
    */
   rowSelection?: 'single' | 'multi' | 'none';
+  /** Track selection by `getRowId` across unloaded server-side blocks. @default false */
+  serverSideSelection?: boolean;
   /**
    * Behavior after pressing Enter while an inline cell editor is active.
    * - `'nothing'` — commit and keep the current cell selected
@@ -453,6 +455,8 @@ export class AgridProvider<T extends object = any> {
   readonly autoAddRows: WritableSignal<boolean>;
   /** Enabled row-selection mode. */
   rowSelection: 'single' | 'multi' | 'none';
+  /** Whether selection is tracked by stable row IDs across unloaded blocks. */
+  serverSideSelection: boolean;
   /** Behavior after pressing Enter while an inline cell editor is active. */
   enterEditAction: AgridEnterEditAction;
   /** Primary editing workflow used by the body cells. */
@@ -526,6 +530,9 @@ export class AgridProvider<T extends object = any> {
     const runtimeState = ɵgetAgridControlRuntimeState(this.control);
     this.columns      = signal(config.columns ?? []);
     this.getRowId     = config.getRowId;
+    if (config.serverSideSelection && !this.getRowId) {
+      throw new Error('serverSideSelection requires getRowId.');
+    }
     this.datasource.setRowIdGetter(this.getRowId);
     this.pivotConfig  = config.pivotConfig ?? null;
     this.headerGroups = config.headerGroups ?? [];
@@ -562,6 +569,7 @@ export class AgridProvider<T extends object = any> {
     this.menuBarItems = config.menuBarItems ?? [];
     this.sortOption = config.sortOption ?? 'multi';
     this.rowSelection     = config.rowSelection ?? 'none';
+    this.serverSideSelection = config.serverSideSelection ?? false;
     this.enterEditAction  = config.enterEditAction ?? 'nextRow';
     this.editMode         = config.editMode ?? 'cell';
     this.groupDescription = config.groupDescription ?? null;

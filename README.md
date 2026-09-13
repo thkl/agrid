@@ -196,6 +196,7 @@ See [ROADMAP.md](./ROADMAP.md) for the AG Grid comparison checklist and open par
 - Add-row placeholder and automatic row insertion.
 - CSV and zero-dependency Excel (`.xlsx`) export of visible, filtered data rows.
 - Server-side row model with lazy block loading and virtual placeholders.
+- Server-side selection by stable row ID across unloaded blocks, including select-all exceptions.
 - **Date auto-formatting** — ISO strings and `Date` objects are detected and displayed as locale-formatted dates automatically.
 - **Zebra stripes** — alternating row shading for easier reading.
 - **Readonly mode** — disable all editing with a single input.
@@ -377,6 +378,7 @@ readonly gridProvider = new AgridProvider({
 | `menuBarItems` | `AgridMenuBarItem<T>[]` | `[]` | Optional buttons above the headers. Buttons may expose additional dropdown commands. |
 | `sortOption` | `'single' \| 'multi' \| 'none'` | `'multi'` | Allows one sort, multiple sorts, or disables sorting. |
 | `rowSelection` | `'single' \| 'multi' \| 'none'` | `'none'` | Row selection behavior. |
+| `serverSideSelection` | `boolean` | `false` | Track selected rows by `getRowId` across unloaded server-side blocks. |
 | `enterEditAction` | `'nothing' \| 'nextColumn' \| 'nextRow'` | `'nextRow'` | Behavior after pressing Enter while editing a cell. |
 | `groupDescription` | `((label: string) => string) \| null` | `null` | Optional description text shown next to each group label. |
 | `groupActions` | `GroupAction[]` | `[]` | Actions shown in each group header menu. |
@@ -1234,8 +1236,39 @@ const provider = new AgridProvider<Order>({
 ```
 
 Requests contain the half-open `startRow`/`endRow` range, complete column filter state, ordered sort
-entries, and the quick-filter string. Returning `rowCount` sets the exact scrollbar extent. Without
+entries, quick-filter text, advanced filters, and server selection state. Returning `rowCount` sets the exact scrollbar extent. Without
 it, a short block marks the end and a full block extends the unknown extent by one block.
+
+### Server-side selection across unloaded rows
+
+Enable ID-based selection when blocks may be evicted or the result set is too large to load in the
+browser. Stable IDs are mandatory because datasource indices are only viewport positions here:
+
+```ts
+const rowModel = new AgridServerSideRowModel<Order>({
+  initialRowCount: 1_000_000,
+  datasource: { getRows: request => api.searchOrders(request) },
+});
+
+const provider = new AgridProvider<Order>({
+  columns, control, serverSideRowModel: rowModel,
+  getRowId: row => row.id,
+  rowSelection: 'multi', serverSideSelection: true,
+});
+```
+
+Selection is represented by `{ selectAll, selectedIds, deselectedIds }` and remains valid while
+blocks load and unload. Use `grid.selectAllServerRows()` and `grid.clearServerSelection()` for bulk
+actions, or subscribe to `(serverSelectionChange)` to send the complete state to your backend.
+The state is also present in `AgridServerQuery` and `AgridServerSideRequest`.
+
+When `selectAll` is false, authorize and process `selectedIds`. When it is true, process the current
+filtered result set and exclude `deselectedIds`. Always re-check tenant ownership and permissions on
+the server. After a bulk mutation, refresh the model with `grid.refreshServerSideRows()`.
+
+For large exception lists, use a short-lived server-side selection token rather than sending every
+ID in a URL. Clear or replace selection when query semantics change unless selection is explicitly
+defined to span queries.
 
 The initial row model is flat: client-side grouping, tree data, pinned rows, master/detail,
 pagination, and local aggregate footers are not applied. Editing updates the loaded cache; persist

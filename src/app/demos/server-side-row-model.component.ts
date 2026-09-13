@@ -82,6 +82,8 @@ const COLUMNS: ColDef<ServerOrder>[] = [
       </header>
 
       <section class="controls" aria-label="Server-side row model controls">
+        <button type="button" (click)="selectAllRows()">Select all matching rows</button>
+        <button type="button" (click)="clearSelectedRows()">Clear selection</button>
         <button type="button" (click)="purgeCache()">Purge cache</button>
         <button type="button" (click)="refreshPreserveScroll()">Refresh, preserve scroll</button>
         <button type="button" (click)="refreshResetScroll()">Refresh, reset scroll</button>
@@ -212,6 +214,9 @@ export class ServerSideRowModelDemoComponent {
     columns: COLUMNS,
     control: this.control,
     serverSideRowModel: this.rowModel,
+    getRowId: row => row.orderId,
+    rowSelection: 'multi',
+    serverSideSelection: true,
     enableQuickFilter: true,
     filterDebounceMs: 180,
     sortOption: 'multi',
@@ -257,6 +262,14 @@ export class ServerSideRowModelDemoComponent {
 
   purgeCache(): void {
     this.grid()?.refreshServerSideRows({ purge: true });
+  }
+
+  selectAllRows(): void {
+    this.grid()?.selectAllServerRows();
+  }
+
+  clearSelectedRows(): void {
+    this.grid()?.clearServerSelection();
   }
 
   refreshPreserveScroll(): void {

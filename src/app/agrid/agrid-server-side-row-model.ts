@@ -1,5 +1,5 @@
 import { Signal, signal } from '@angular/core';
-import { AgridControl, AdvancedFilterGroup, ColumnFilter } from './agrid-control';
+import { AgridControl, AgridServerSelectionState, AdvancedFilterGroup, ColumnFilter } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 
 const SERVER_ROW_PLACEHOLDER = Symbol('agrid-server-row-placeholder');
@@ -19,6 +19,7 @@ export interface AgridServerSideRequest {
   endRow: number;
   filters: Readonly<Record<string, ColumnFilter>>;
   advancedFilter?: AdvancedFilterGroup | null;
+  serverSelection?: AgridServerSelectionState;
   sort: readonly AgridServerSideSort[];
   quickFilter: string;
 }
@@ -48,6 +49,7 @@ export interface AgridServerSideRowModelConfig<T extends object> {
 interface ServerQuery {
   filters: Record<string, ColumnFilter>;
   advancedFilter: AdvancedFilterGroup | null;
+  serverSelection: AgridServerSelectionState;
   sort: AgridServerSideSort[];
   quickFilter: string;
 }
@@ -71,7 +73,7 @@ export class AgridServerSideRowModel<T extends object = any> extends AgridDataSo
   private readonly loadedBlocks = new Map<number, number>();
   private readonly loadingBlocks = new Set<number>();
   private readonly failedBlocks = new Set<number>();
-  private query: ServerQuery = { filters: {}, advancedFilter: null, sort: [], quickFilter: '' };
+  private query: ServerQuery = { filters: {}, advancedFilter: null, serverSelection: { selectAll: false, selectedIds: [], deselectedIds: [] }, sort: [], quickFilter: '' };
   private queryKey = '';
   private generation = 0;
   private accessSequence = 0;
@@ -101,15 +103,16 @@ export class AgridServerSideRowModel<T extends object = any> extends AgridDataSo
   setQuery(control: AgridControl | null, sortFields: readonly string[]): boolean {
     const filters = cloneFilters(control?.filters() ?? {});
     const advancedFilter = control?.advancedFilter() ?? null;
+    const serverSelection = control?.serverSelection() ?? { selectAll: false, selectedIds: [], deselectedIds: [] };
     const sort = sortFields.flatMap(field => {
       const direction = filters[field]?.sort;
       return direction ? [{ field, direction }] : [];
     });
     const quickFilter = control?.quickFilter() ?? '';
-    const key = JSON.stringify({ filters, advancedFilter, sort, quickFilter });
+    const key = JSON.stringify({ filters, advancedFilter, serverSelection, sort, quickFilter });
     if (key === this.queryKey) return false;
     this.queryKey = key;
-    this.query = { filters, advancedFilter, sort, quickFilter };
+    this.query = { filters, advancedFilter, serverSelection, sort, quickFilter };
     this.reset();
     return true;
   }
@@ -193,7 +196,10 @@ export class AgridServerSideRowModel<T extends object = any> extends AgridDataSo
         startRow,
         endRow,
         filters: this.query.filters,
-        advancedFilter: this.query.advancedFilter,
+        ...(this.query.advancedFilter ? { advancedFilter: this.query.advancedFilter } : {}),
+        ...(this.query.serverSelection.selectAll || this.query.serverSelection.selectedIds.length || this.query.serverSelection.deselectedIds.length
+          ? { serverSelection: this.query.serverSelection }
+          : {}),
         sort: this.query.sort,
         quickFilter: this.query.quickFilter,
       });

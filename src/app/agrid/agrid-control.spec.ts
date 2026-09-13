@@ -369,6 +369,20 @@ describe('AgridControl', () => {
       expect(restored.getFilterModel().advancedFilter).toEqual(ctrl.advancedFilter());
     });
 
+    it('tracks server selection by IDs and supports select-all exceptions', () => {
+      ctrl.setServerRowSelected('a', true);
+      expect(ctrl.isServerRowSelected('a')).toBe(true);
+      expect(ctrl.isServerRowSelected('b')).toBe(false);
+      ctrl.selectAllServerRows();
+      expect(ctrl.isServerRowSelected('b')).toBe(true);
+      ctrl.setServerRowSelected('b', false);
+      expect(ctrl.isServerRowSelected('b')).toBe(false);
+      expect(ctrl.serverSelection()).toMatchObject({ selectAll: true, deselectedIds: ['b'] });
+      const restored = AgridControl.fromJSON(JSON.parse(JSON.stringify(ctrl.toJSON())));
+      expect(restored.isServerRowSelected('a')).toBe(true);
+      expect(restored.isServerRowSelected('b')).toBe(false);
+    });
+
     it('setRangeFilter with null operator clears the range condition', () => {
       ctrl.setRangeFilter('score', 'gt', '10');
       ctrl.setRangeFilter('score', null, null, null);

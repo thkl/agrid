@@ -41,6 +41,7 @@ export { AgridBrowserAdapter } from './infrastructure/agrid-browser.adapter'
 
 export type {
   AgridControlState,
+  AgridServerSelectionState,
   AdvancedFilterCondition,
   AdvancedFilterGroup,
   AdvancedFilterNode,
