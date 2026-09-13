@@ -81,6 +81,36 @@ describe('AgridComponent grouped control column selection', () => {
     }
   });
 
+  it('round-trips complete interaction state through saveSettings and loadSettings', () => {
+    component.onControlPointerDown(primaryPointerEvent(), 2);
+    component.selectedCell.set({ rowIndex: 2, colIndex: 1 });
+    component.onSidebarStripClick('filters');
+    fixture.detectChanges();
+
+    const saved = component.getState();
+    expect(saved.viewState).toMatchObject({
+      selectedRowIndices: [2],
+      selectedCell: { rowIndex: 2, colIndex: 1 },
+      expandedGroupField: 'department',
+      sidebarOpen: true,
+      sidebarTab: 'filters',
+    });
+
+    component.collapseGroups();
+    component.selectedCell.set(null);
+    component.onSidebarStripClick('filters');
+    fixture.detectChanges();
+
+    component.setState(saved);
+    fixture.detectChanges();
+
+    expect(component.selectedRowIndices()).toEqual(new Set([2]));
+    expect(component.selectedCell()).toEqual({ rowIndex: 2, colIndex: 1 });
+    expect(component.sidebarOpen()).toBe(true);
+    expect(component.sidebarTab()).toBe('filters');
+    expect(saved.viewState?.expandedGroupLabels).toEqual(['Engineering', 'Sales']);
+  });
+
   it('selects and highlights the exact grouped row clicked in the control column', () => {
     const rows = visibleDataRows(component.filteredItems());
     const clicked = rows[2];

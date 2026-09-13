@@ -48,13 +48,28 @@ export type AgridTheme = 'morning' | 'dusk' | 'space';
 
 /**
  * Versioned, JSON-safe snapshot that can be stored in local storage or a backend.
- * Functions, datasource rows, selection, loading state, and edit history are intentionally absent.
+ * Functions, datasource rows, loading state, and edit history are intentionally absent.
  */
+export interface AgridViewState {
+  selectedCell?: { rowIndex: number; colIndex: number } | null;
+  selectedRowIds?: Array<string | number>;
+  selectedRowIndices?: number[];
+  scrollTop?: number;
+  scrollLeft?: number;
+  expandedGroupField?: string | null;
+  expandedGroupLabels?: string[];
+  expandedTreeIds?: Array<string | number>;
+  expandedDetailIndices?: number[];
+  sidebarOpen?: boolean;
+  sidebarTab?: 'columns' | 'detail' | 'filters' | 'pivot';
+}
+
 export interface AgridSettings {
   version: 1;
   control: AgridControlState;
   pivotConfig: AgridPivotSettings | null;
   sidebarWidth?: number;
+  viewState?: AgridViewState;
 }
 
 /** Configuration used to create an {@link AgridProvider}. */

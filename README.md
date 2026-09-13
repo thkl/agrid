@@ -2111,7 +2111,19 @@ const control = AgridControl.fromJSON(saved ? JSON.parse(saved) : {});
 localStorage.setItem('agrid-state', JSON.stringify(control.toJSON()));
 ```
 
-Persisted state includes widths, filters, sort, grouping, hidden columns, column order, pinned columns, row reorder setting, page size, and current page.
+Persisted state includes widths, filters, sort, grouping, hidden columns, column order, pinned columns, row reorder setting, page size, current page, selected rows, the focused cell, scroll offsets, expanded groups/tree nodes/detail rows, and sidebar state. Use the rendered component API when you want the complete snapshot:
+
+```ts
+const saved = grid.getState();
+await api.put('/users/me/grid-state', saved);
+
+const restored = await api.get('/users/me/grid-state');
+if (restored) grid.setState(restored);
+```
+
+When rows can be reordered or replaced, configure `getRowId` so row selection can be restored by stable identity. Chart configuration remains owned by the chart provider and should be persisted alongside the grid snapshot by the host application.
+
+`saveSettings()` and `loadSettings()` remain available as equivalent compatibility names. The returned `AgridSettings` object is detached and JSON-safe, so it can be sent directly in a request body.
 
 ## Layout In A Card Or Flex Container
 

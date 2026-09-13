@@ -50,7 +50,7 @@ import { AgridPresentationService } from './rendering/agrid-presentation.service
 import { resolveCellSpanAnchor } from './rendering/agrid-cell-span';
 import { AgridMenuBarComponent } from './rendering/agrid-menu-bar.component';
 import { AgridMenuBarController } from './rendering/agrid-menu-bar.controller';
-import { AgridProvider, AgridSettings } from './agrid-provider';
+import { AgridProvider, AgridSettings, AgridViewState } from './agrid-provider';
 import { buildPivotResult } from './agrid-pivot';
 import { AgridProjectionModel } from './rows/agrid-projection.model';
 import { AgridRangeController } from './selection/agrid-range.controller';
@@ -482,6 +482,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   private readonly markedFields = signal<Set<string>>(new Set());
   private firstDataRenderedEmitted = false;
   private serverQueryProvider: AgridProvider<T> | null = null;
+  private pendingViewState: AgridViewState | null = null;
 
   /** Original datasource indices marked for inclusion in copy operations. */
   readonly markedRowIndices: Signal<ReadonlySet<number>> =
@@ -570,12 +571,74 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** Return a detached, JSON-safe snapshot suitable for persistence by the host application. */
   saveSettings(): AgridSettings {
-    return this.provider().saveSettings();
+    const settings = this.provider().saveSettings();
+    return { ...settings, viewState: this.captureViewState() };
+  }
+
+  /** Return the complete JSON-safe grid state for client or server-side persistence. */
+  getState(): AgridSettings {
+    return this.saveSettings();
   }
 
   /** Apply a saved settings snapshot to this live grid. */
   loadSettings(settings: AgridSettings): void {
     this.provider().loadSettings(settings);
+    this.pendingViewState = settings.viewState ?? null;
+    this.applyPendingViewState();
+  }
+
+  /** Restore a state snapshot previously returned by {@link getState}. */
+  setState(settings: AgridSettings): void {
+    this.loadSettings(settings);
+  }
+
+  private captureViewState(): AgridViewState {
+    const rowId = this.provider().getRowId;
+    const rows = this.dataSource().rows() as T[];
+    const selectedIndices = [...this.rowController.selectedIndices()];
+    return {
+      selectedCell: this.selectedCell() ? { ...this.selectedCell()! } : null,
+      selectedRowIds: rowId ? selectedIndices.map(index => rowId(rows[index], index)).filter(id => id !== undefined) : undefined,
+      selectedRowIndices: rowId ? undefined : selectedIndices,
+      scrollTop: this.viewReady ? this.viewport().measureScrollOffset() : 0,
+      scrollLeft: this.colScrollLeft(),
+      expandedGroupField: this.groupController.expandedGroups().field,
+      expandedGroupLabels: [...this.groupController.expandedGroups().labels],
+      expandedTreeIds: [...this.treeController.expandedIds()],
+      expandedDetailIndices: [...this._expandedDetailIds()],
+      sidebarOpen: this.sidebarOpen(),
+      sidebarTab: this.sidebarTab(),
+    };
+  }
+
+  private applyPendingViewState(): void {
+    const state = this.pendingViewState;
+    if (!state) return;
+    const rows = this.dataSource().rows() as T[];
+    const rowId = this.provider().getRowId;
+    const selected = rowId && state.selectedRowIds
+      ? state.selectedRowIds.flatMap(id => rows.flatMap((row, index) => rowId(row, index) === id ? [index] : []))
+      : state.selectedRowIndices ?? [];
+    this.rowController.selectedIndices.set(new Set(selected));
+    if (state.selectedCell !== undefined) this.selectedCell.set(state.selectedCell);
+    if (state.expandedGroupField !== undefined) {
+      this.groupController.expandedGroups.set({
+        field: state.expandedGroupField ?? null,
+        labels: new Set(state.expandedGroupLabels ?? []),
+      });
+    }
+    if (state.expandedTreeIds) this.treeController.expandedIds.set(new Set(state.expandedTreeIds));
+    if (state.expandedDetailIndices) this._expandedDetailIds.set(new Set(state.expandedDetailIndices));
+    if (state.sidebarOpen !== undefined) this.sidebarController.open.set(state.sidebarOpen);
+    if (state.sidebarTab) this.sidebarController.tab.set(state.sidebarTab);
+    if (this.viewReady) {
+      if (state.scrollTop !== undefined) this.viewport().scrollToOffset(Math.max(0, state.scrollTop));
+      if (state.scrollLeft !== undefined) {
+        this.colScrollLeft.set(Math.max(0, state.scrollLeft));
+        this.horizontalScrollerEl().nativeElement.scrollLeft = Math.max(0, state.scrollLeft);
+      }
+    }
+    this.pendingViewState = null;
   }
 
   /** Emit when the active state is JSON-safe; custom function aggregates remain host-owned. */
@@ -590,7 +653,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   private persistSettingsToLocalStorage(): void {
     const gridId = this.gridId();
     if (!gridId) return;
-    const gridConfig = this.provider().saveSettings();
+    const gridConfig = this.saveSettings();
     localStorage.setItem(`agrid_settings_${gridId}`, JSON.stringify(gridConfig));
   }
 
@@ -612,7 +675,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     if (!saved) return;
 
     try {
-      provider.loadSettings(JSON.parse(saved));
+      this.loadSettings(JSON.parse(saved));
     } catch {
       localStorage.removeItem(key);
     }
@@ -1918,6 +1981,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
     afterNextRender(() => {
       this.viewReady = true;
+      this.applyPendingViewState();
       this.syncColumnViewportMetrics();
       const wrapper = this.wrapperEl().nativeElement;
       const renderedRangeSubscription = this.viewport().renderedRangeStream.subscribe(() =>
