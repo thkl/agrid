@@ -113,6 +113,9 @@ export class AgridPresentationService {
           this.opts.exportRowIndices?.() ?? [],
           locale,
         );
+    sheet.headerStyle = options.headerStyle;
+    sheet.bodyStyle = options.bodyStyle;
+    sheet.columnWidths = options.columnWidths;
     this.browser.downloadBytes(filename, buildXlsx([sheet, ...(options.additionalSheets ?? [])]), XLSX_CONTENT_TYPE);
   }
 

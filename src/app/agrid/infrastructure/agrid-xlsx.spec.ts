@@ -130,6 +130,24 @@ describe('agrid-xlsx', () => {
     expect(parts['xl/workbook.xml']).toContain('r:id="rId2"');
   });
 
+  it('writes configurable fonts, colors, alignment, and column widths', () => {
+    const input = {
+      name: 'Styled',
+      header: ['Name'],
+      headerStyle: { fontFamily: 'Arial', fontSize: 14, fontColor: '#ffffff', fillColor: '#1d4ed8' },
+      bodyStyle: { fontSize: 10, italic: true, horizontalAlignment: 'center' as const },
+      columnWidths: [140],
+      rows: [{ cells: [{ kind: 'string' as const, value: 'Alice' }] }],
+    };
+    const workbook = buildXlsx([input]);
+    const parts = unzip(workbook);
+    expect(parts['xl/styles.xml']).toContain('Arial');
+    expect(parts['xl/styles.xml']).toContain('rgb="FFFFFFFF"');
+    expect(parts['xl/styles.xml']).toContain('rgb="FF1D4ED8"');
+    expect(parts['xl/styles.xml']).toContain('horizontal="center"');
+    expect(parts['xl/worksheets/sheet1.xml']).toContain('customWidth="1"');
+  });
+
   it('sanitizes invalid sheet-name characters and length', () => {
     const longName = 'a/b:c'.padEnd(40, 'x');
     const wb = unzip(buildXlsx([{ name: longName, header: ['A'], rows: [] }]))['xl/workbook.xml'];

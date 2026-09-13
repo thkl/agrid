@@ -692,6 +692,9 @@ provider.exportXlsx();                 // downloads "export.xlsx"
 provider.exportXlsx('employees.xlsx');
 provider.exportXlsx('report.xlsx', {
   sheetName: 'Employees',
+  headerStyle: { fontFamily: 'Arial', fontSize: 14, bold: true, fontColor: '#ffffff', fillColor: '#1d4ed8' },
+  bodyStyle: { fontFamily: 'Arial', fontSize: 10, horizontalAlignment: 'right' },
+  columnWidths: [90, 180, 120],
   additionalSheets: [{ name: 'Lookup', header: ['Code', 'Label'], rows: [] }],
 });
 ```

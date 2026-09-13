@@ -19,6 +19,17 @@ export type XlsxCell =
   | { kind: 'formula'; formula: string; value?: string | number }
   | { kind: 'empty' };
 
+/** Basic OOXML-compatible font and cell styling options. @internal */
+export interface XlsxCellStyle {
+  fontFamily?: string;
+  fontSize?: number;
+  bold?: boolean;
+  italic?: boolean;
+  fontColor?: string;
+  fillColor?: string;
+  horizontalAlignment?: 'left' | 'center' | 'right';
+}
+
 /** One data/summary row, with optional outline depth and bold emphasis. @internal */
 export interface XlsxRow {
   cells: XlsxCell[];
@@ -36,6 +47,12 @@ export interface XlsxSheet {
   rows: XlsxRow[];
   /** Declare a collapsible row outline (summary rows sit above their detail rows). */
   outline?: boolean;
+  /** Style applied to the header row. */
+  headerStyle?: XlsxCellStyle;
+  /** Style applied to ordinary data cells. */
+  bodyStyle?: XlsxCellStyle;
+  /** Optional pixel widths for columns. */
+  columnWidths?: number[];
 }
 
 // Style indices baked into styles.xml below: 0 = default, 1 = bold header, 2 = date.
@@ -53,15 +70,16 @@ const encoder = new TextEncoder();
 
 /** Builds a complete `.xlsx` workbook as bytes from one or more sheets. */
 export function buildXlsx(sheets: XlsxSheet[]): Uint8Array {
+  const styles = buildStyles(sheets);
   const files: ZipEntry[] = [
     { name: '[Content_Types].xml', data: encoder.encode(contentTypesXml(sheets.length)) },
     { name: '_rels/.rels', data: encoder.encode(ROOT_RELS) },
     { name: 'xl/workbook.xml', data: encoder.encode(workbookXml(sheets)) },
     { name: 'xl/_rels/workbook.xml.rels', data: encoder.encode(workbookRelsXml(sheets.length)) },
-    { name: 'xl/styles.xml', data: encoder.encode(STYLES_XML) },
+    { name: 'xl/styles.xml', data: encoder.encode(styles.xml) },
     ...sheets.map((sheet, i) => ({
       name: `xl/worksheets/sheet${i + 1}.xml`,
-      data: encoder.encode(sheetXml(sheet)),
+      data: encoder.encode(sheetXml(sheet, styles)),
     })),
   ];
   return zipStored(files);
@@ -102,6 +120,65 @@ const STYLES_XML =
   `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
   `</styleSheet>`;
 
+interface StyleTable {
+  xml: string;
+  index(style: XlsxCellStyle | undefined, emphasized: boolean, date: boolean): number;
+}
+
+function buildStyles(sheets: XlsxSheet[]): StyleTable {
+  const keys = new Map<string, number>();
+  const styles: Array<{ style: XlsxCellStyle; emphasized: boolean; date: boolean }> = [];
+  const index = (style: XlsxCellStyle | undefined, emphasized: boolean, date: boolean): number => {
+    const normalized = { ...(style ?? {}) };
+    if (emphasized) normalized.bold = true;
+    const key = JSON.stringify([normalized, date]);
+    const existing = keys.get(key);
+    if (existing !== undefined) return existing;
+    const value = styles.length;
+    keys.set(key, value);
+    styles.push({ style: normalized, emphasized: false, date });
+    return value;
+  };
+
+  // Keep style 0 as the historical default and style 1 as the historical bold header.
+  index(undefined, false, false);
+  index(undefined, true, false);
+  for (const sheet of sheets) {
+    index(sheet.headerStyle, true, false);
+    index(sheet.bodyStyle, false, false);
+    for (const row of sheet.rows) for (const cell of row.cells) {
+      index(undefined, !!row.emphasized, cell.kind === 'date');
+    }
+  }
+  const fonts = styles.map(({ style }) =>
+    `<font><sz val="${style.fontSize ?? 11}"/><name val="${escapeAttr(style.fontFamily ?? 'Calibri')}"/>` +
+    `${style.bold ? '<b/>' : ''}${style.italic ? '<i/>' : ''}` +
+    `${style.fontColor ? `<color rgb="${color(style.fontColor)}"/>` : ''}</font>`).join('');
+  const fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>'];
+  for (const { style } of styles.slice(2)) {
+    fills.push(style.fillColor
+      ? `<fill><patternFill patternType="solid"><fgColor rgb="${color(style.fillColor)}"/><bgColor indexed="64"/></patternFill></fill>`
+      : '<fill><patternFill patternType="none"/></fill>');
+  }
+  const xfs = styles.map(({ style, date }, i) => {
+    const fillId = i < 2 ? 0 : i;
+    const alignment = style.horizontalAlignment ? ` applyAlignment="1"><alignment horizontal="${style.horizontalAlignment}"/></xf>` : '/>';
+    return `<xf numFmtId="${date ? DATE_NUM_FMT_ID : 0}" fontId="${i}" fillId="${fillId}" borderId="0" xfId="0"${alignment}`;
+  }).join('');
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+    `<numFmts count="1"><numFmt numFmtId="${DATE_NUM_FMT_ID}" formatCode="yyyy-mm-dd"/></numFmts>` +
+    `<fonts count="${fonts.length}">${fonts}</fonts><fills count="${fills.length}">${fills.join('')}</fills>` +
+    `<borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
+    `<cellXfs count="${xfs.length}">${xfs}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  return { xml, index };
+}
+
+function color(value: string): string {
+  const hex = value.replace(/^#/, '').trim();
+  return /^[0-9a-f]{6}$/i.test(hex) ? `FF${hex.toUpperCase()}` : value;
+}
+
 function contentTypesXml(sheetCount: number): string {
   const overrides = Array.from({ length: sheetCount }, (_, i) =>
     `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`,
@@ -136,46 +213,49 @@ function workbookRelsXml(sheetCount: number): string {
     sheetRels + stylesRel + `</Relationships>`;
 }
 
-function sheetXml(sheet: XlsxSheet): string {
+function sheetXml(sheet: XlsxSheet, styles: StyleTable): string {
   const headerCells = sheet.header
-    .map((label, c) => `<c r="${cellRef(c, 1)}" s="${STYLE_HEADER}" t="inlineStr"><is><t${preserve(label)}>${escapeText(label)}</t></is></c>`)
+    .map((label, c) => `<c r="${cellRef(c, 1)}" s="${styles.index(sheet.headerStyle, true, false)}" t="inlineStr"><is><t${preserve(label)}>${escapeText(label)}</t></is></c>`)
     .join('');
   const rows = [`<row r="1">${headerCells}</row>`];
   sheet.rows.forEach((row, ri) => {
     const r = ri + 2;
-    const cells = row.cells.map((cell, c) => cellXml(cellRef(c, r), cell, row.emphasized)).join('');
+    const cells = row.cells.map((cell, c) => cellXml(cellRef(c, r), cell, styles.index(sheet.bodyStyle, !!row.emphasized, cell.kind === 'date'))).join('');
     const level = row.level ? ` outlineLevel="${row.level}"` : '';
     rows.push(`<row r="${r}"${level}>${cells}</row>`);
   });
   // `summaryBelow="0"` puts each group's summary row above its (indented) detail rows.
   const sheetPr = sheet.outline ? `<sheetPr><outlinePr summaryBelow="0"/></sheetPr>` : '';
+  const cols = sheet.columnWidths?.length
+    ? `<cols>${sheet.columnWidths.map((width, i) => `<col min="${i + 1}" max="${i + 1}" width="${Math.max(1, width / 7)}" customWidth="1"/>`).join('')}</cols>`
+    : '';
   const freeze =
     `<sheetViews><sheetView workbookViewId="0">` +
     `<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>` +
     `<selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews>`;
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
     `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
-    sheetPr + freeze + `<sheetData>${rows.join('')}</sheetData></worksheet>`;
+    sheetPr + freeze + cols + `<sheetData>${rows.join('')}</sheetData></worksheet>`;
 }
 
-function cellXml(ref: string, cell: XlsxCell, emphasized = false): string {
-  const bold = emphasized ? ` s="${STYLE_HEADER}"` : '';
+function cellXml(ref: string, cell: XlsxCell, styleIndex: number): string {
+  const style = styleIndex === 0 ? '' : ` s="${styleIndex}"`;
   switch (cell.kind) {
     case 'number':
-      return Number.isFinite(cell.value) ? `<c r="${ref}"${bold}><v>${cell.value}</v></c>` : `<c r="${ref}"${bold}/>`;
+      return Number.isFinite(cell.value) ? `<c r="${ref}"${style}><v>${cell.value}</v></c>` : `<c r="${ref}"${style}/>`;
     case 'boolean':
       return `<c r="${ref}" t="b"><v>${cell.value ? 1 : 0}</v></c>`;
     case 'formula': {
       const result = cell.value === undefined ? '' : `<v>${typeof cell.value === 'number' ? cell.value : escapeText(String(cell.value))}</v>`;
       const type = typeof cell.value === 'string' ? ' t="str"' : '';
-      return `<c r="${ref}"${bold}${type}><f>${escapeText(cell.formula)}</f>${result}</c>`;
+      return `<c r="${ref}"${style}${type}><f>${escapeText(cell.formula)}</f>${result}</c>`;
     }
     case 'date':
-      return `<c r="${ref}" s="${STYLE_DATE}"><v>${excelSerial(cell.value)}</v></c>`;
+      return `<c r="${ref}"${style}><v>${excelSerial(cell.value)}</v></c>`;
     case 'string':
-      return `<c r="${ref}"${bold} t="inlineStr"><is><t${preserve(cell.value)}>${escapeText(cell.value)}</t></is></c>`;
+      return `<c r="${ref}"${style} t="inlineStr"><is><t${preserve(cell.value)}>${escapeText(cell.value)}</t></is></c>`;
     case 'empty':
-      return `<c r="${ref}"${bold}/>`;
+      return `<c r="${ref}"${style}/>`;
   }
 }
 

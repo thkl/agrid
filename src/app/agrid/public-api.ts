@@ -29,7 +29,7 @@ export { AgridChartProvider } from './agrid-chart-provider';
 export type { AgridChartProviderConfig, AgridChartState } from './agrid-chart-provider';
 export { AGRID_CHART_PALETTE, buildChart } from './infrastructure/agrid-chart';
 export { XLSX_CONTENT_TYPE, buildXlsx } from './infrastructure/agrid-xlsx';
-export type { XlsxCell, XlsxSheet } from './infrastructure/agrid-xlsx';
+export type { XlsxCell, XlsxCellStyle, XlsxSheet } from './infrastructure/agrid-xlsx';
 export type {
   AgridChartData,
   AgridChartLayout,

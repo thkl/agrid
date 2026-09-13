@@ -8,7 +8,7 @@ import {
 import { AgridDataSource, AgridRowIdGetter } from './agrid-datasource';
 import { AgridServerSideRowModel } from './agrid-server-side-row-model';
 import { AgridLocaleTextOverrides } from './agrid-localization';
-import type { XlsxSheet } from './infrastructure/agrid-xlsx';
+import type { XlsxCellStyle, XlsxSheet } from './infrastructure/agrid-xlsx';
 import {
   AGridOptions,
   AgridEditMode,
@@ -71,6 +71,12 @@ export interface AgridXlsxExportOptions {
   sheetName?: string;
   /** Additional worksheets, for example summaries or lookup tables. */
   additionalSheets?: XlsxSheet[];
+  /** Style applied to the generated header row. */
+  headerStyle?: XlsxCellStyle;
+  /** Style applied to generated body cells. */
+  bodyStyle?: XlsxCellStyle;
+  /** Optional pixel widths for generated grid columns. */
+  columnWidths?: number[];
 }
 
 export interface AgridSettings {
