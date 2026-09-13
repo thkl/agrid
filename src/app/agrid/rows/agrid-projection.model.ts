@@ -375,7 +375,8 @@ export class AgridProjectionModel {
     return !!quickFilter || Object.values(filters).some(filter =>
       !!filter.text
       || filter.selectedValues !== null
-      || (!!filter.operator && filter.operand != null && filter.operand !== '')
+      || (filter.conditions?.some(condition => condition.operand !== '')
+        ?? (!!filter.operator && filter.operand != null && filter.operand !== ''))
     );
   }
 

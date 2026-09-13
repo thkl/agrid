@@ -1621,10 +1621,19 @@ interface ColumnFilter {
   text: string;
   selectedValues: string[] | null;
   sort: 'asc' | 'desc' | null;
+  conditions?: FilterCondition[];
+}
+
+interface FilterCondition {
+  operator: FilterOperator;
+  operand: string;
+  operand2?: string | null;
 }
 ```
 
-`text`, `selectedValues`, and `sort` are combined when rows are displayed. `selectedValues: null` means all values are allowed.
+`text`, `selectedValues`, `conditions`, and `sort` are combined when rows are displayed. Conditions in
+one column use AND semantics. Use `control.addFilterCondition()`, `setFilterCondition()`, and
+`removeFilterCondition()` to manage the stack programmatically.
 
 ### Control Signals
 

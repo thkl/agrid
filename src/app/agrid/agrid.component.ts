@@ -33,7 +33,7 @@ import { AgridColumnMenuController } from './columns/agrid-column-menu.controlle
 import { AgridColumnReorderController } from './columns/agrid-column-reorder.controller';
 import { AgridColumnSizingController } from './columns/agrid-column-sizing.controller';
 import { AgridColumnStateService } from './columns/agrid-column-state.service';
-import { AgridControl, AgridRowDensity, ColumnFilter, FilterOperator } from './agrid-control';
+import { AgridControl, AgridRowDensity, ColumnFilter, FilterCondition, FilterOperator } from './agrid-control';
 import { AgridDataSource } from './agrid-datasource';
 import { AgridDragHandler } from './rows/agrid-drag.handler';
 import { AgridDetailController } from './editing/agrid-detail.controller';
@@ -3366,13 +3366,44 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   }
 
   /** @internal */
-  onSidebarFilterOperandChange(field: string, value: string): void {
-    this.columnMenuController.setFilterOperand(field, value);
+  onSidebarFilterOperandChange(field: string, index: number, value: string): void {
+    const current = this.getColumnFilter(field);
+    const condition = current.conditions?.[index] ?? { operator: current.operator ?? 'includes', operand: current.operand ?? '', operand2: current.operand2 };
+    this.control()?.setFilterCondition(field, index, { ...condition, operand: value });
+    if (this.serverSideFiltering()) this.emitSidebarConditionFilter(field);
   }
 
-  /** @internal */
-  onSidebarFilterOperand2Change(field: string, value: string): void {
-    this.columnMenuController.setFilterOperand2(field, value);
+  onSidebarFilterOperand2Change(field: string, index: number, value: string): void {
+    const current = this.getColumnFilter(field);
+    const condition = current.conditions?.[index] ?? { operator: current.operator ?? 'between', operand: current.operand ?? '', operand2: current.operand2 };
+    this.control()?.setFilterCondition(field, index, { ...condition, operand2: value });
+    if (this.serverSideFiltering()) this.emitSidebarConditionFilter(field);
+  }
+
+  onSidebarFilterConditionChange(field: string, index: number, condition: FilterCondition): void {
+    this.control()?.setFilterCondition(field, index, condition);
+    if (this.serverSideFiltering()) this.emitSidebarConditionFilter(field);
+  }
+
+  onSidebarAddFilterCondition(field: string): void {
+    this.control()?.addFilterCondition(field);
+  }
+
+  onSidebarRemoveFilterCondition(field: string, index: number): void {
+    this.control()?.removeFilterCondition(field, index);
+  }
+
+  private emitSidebarConditionFilter(field: string): void {
+    const filter = this.getColumnFilter(field);
+    this.filterChange.emit({
+      field,
+      value: filter.text,
+      selectedValues: filter.selectedValues,
+      operator: filter.operator ?? null,
+      operand: filter.operand ?? null,
+      operand2: filter.operand2 ?? null,
+      conditions: filter.conditions?.map(condition => ({ ...condition })),
+    });
   }
 
   /** @internal */

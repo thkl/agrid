@@ -44,6 +44,7 @@ export type {
   AgridRowDensity,
   AgridRowIndication,
   ColumnFilter,
+  FilterCondition,
   FilterOperator,
   HistoryEntry,
   HistoryItem,

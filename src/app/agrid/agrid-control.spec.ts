@@ -336,6 +336,23 @@ describe('AgridControl', () => {
       });
     });
 
+    it('supports adding, updating, removing, and serializing multiple conditions', () => {
+      ctrl.setRangeFilter('score', 'gte', '10');
+      ctrl.addFilterCondition('score', { operator: 'lt', operand: '20' });
+      expect(ctrl.getFilterConditions('score')).toEqual([
+        { operator: 'gte', operand: '10', operand2: null },
+        { operator: 'lt', operand: '20' },
+      ]);
+      ctrl.setFilterCondition('score', 1, { operator: 'lte', operand: '18' });
+      const restored = AgridControl.fromJSON(JSON.parse(JSON.stringify(ctrl.toJSON())));
+      expect(restored.getFilterConditions('score')).toEqual([
+        { operator: 'gte', operand: '10', operand2: null },
+        { operator: 'lte', operand: '18' },
+      ]);
+      restored.removeFilterCondition('score', 0);
+      expect(restored.getFilterConditions('score')).toEqual([{ operator: 'lte', operand: '18' }]);
+    });
+
     it('setRangeFilter with null operator clears the range condition', () => {
       ctrl.setRangeFilter('score', 'gt', '10');
       ctrl.setRangeFilter('score', null, null, null);

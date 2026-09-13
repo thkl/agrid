@@ -503,6 +503,15 @@
   gap: 7px;
 }
 
+.ag-filter-panel-condition-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.ag-filter-panel-condition-stack > .ag-column-bulk-btn {
+  justify-self: start;
+}
+
 .ag-filter-panel-values {
   display: grid;
   gap: 5px;

@@ -1,6 +1,6 @@
 import type { AgridDataSource } from './agrid-datasource';
 import type { AgridProvider } from './agrid-provider';
-import type { ColumnFilter, FilterOperator } from './agrid-control';
+import type { ColumnFilter, FilterCondition, FilterOperator } from './agrid-control';
 import type { Signal, Type } from '@angular/core';
 
 /** String-valued property names available on a row type. */
@@ -1263,6 +1263,8 @@ export interface FilterChangeEvent {
   operand?: string | null;
   /** Upper-bound operand, present only when {@link operator} is `'between'`. */
   operand2?: string | null;
+  /** Complete AND condition stack for the field, when multiple conditions are active. */
+  conditions?: readonly FilterCondition[];
 }
 
 /** Emitted when a sort changes in server-side filtering mode. */

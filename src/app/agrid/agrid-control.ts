@@ -47,6 +47,13 @@ export type FilterOperator =
   | 'includes'
   | 'notIncludes';
 
+/** One condition in a column's multi-filter stack. */
+export interface FilterCondition {
+  operator: FilterOperator;
+  operand: string;
+  operand2?: string | null;
+}
+
 export interface ColumnFilter {
   /** Free-text substring filter (case-insensitive). Empty string = no text filter. */
   text: string;
@@ -67,6 +74,8 @@ export interface ColumnFilter {
   operand?: string | null;
   /** Upper-bound operand used only when {@link operator} is `'between'`. */
   operand2?: string | null;
+  /** Optional AND stack of conditions. The legacy operator fields represent the first item. */
+  conditions?: FilterCondition[];
 }
 
 /** Named row-height presets supported by the grid density controls. */
@@ -743,8 +752,47 @@ export class AgridControl {
   ): void {
     this._filters.update(f => ({
       ...f,
-      [field]: { ...this.getFilter(field), operator, operand, operand2 },
+      [field]: {
+        ...this.getFilter(field), operator, operand, operand2,
+        conditions: operator && operand ? [{ operator, operand, operand2 }] : undefined,
+      },
     }));
+  }
+
+  /** Add an additional AND condition to a column. */
+  addFilterCondition(field: string, condition: FilterCondition = { operator: 'includes', operand: '' }): void {
+    this._filters.update(filters => {
+      const current = this.getFilter(field);
+      const conditions = this.filterConditions(current);
+      return { ...filters, [field]: { ...current, conditions: [...conditions, { ...condition }] } };
+    });
+  }
+
+  /** Replace one condition in a column's AND stack. */
+  setFilterCondition(field: string, index: number, condition: FilterCondition): void {
+    this._filters.update(filters => {
+      const current = this.getFilter(field);
+      const conditions = this.filterConditions(current);
+      if (index < 0 || index >= conditions.length) return filters;
+      const next = conditions.map((item, itemIndex) => itemIndex === index ? { ...condition } : { ...item });
+      const first = next[0];
+      return { ...filters, [field]: { ...current, conditions: next, operator: first?.operator ?? null, operand: first?.operand ?? null, operand2: first?.operand2 ?? null } };
+    });
+  }
+
+  /** Remove one condition from a column's AND stack. */
+  removeFilterCondition(field: string, index: number): void {
+    this._filters.update(filters => {
+      const current = this.getFilter(field);
+      const conditions = this.filterConditions(current).filter((_, itemIndex) => itemIndex !== index);
+      const first = conditions[0];
+      return { ...filters, [field]: { ...current, conditions: conditions.length ? conditions : undefined, operator: first?.operator ?? null, operand: first?.operand ?? null, operand2: first?.operand2 ?? null } };
+    });
+  }
+
+  /** Return the normalized condition stack, including legacy single-condition state. */
+  getFilterConditions(field: string): FilterCondition[] {
+    return this.filterConditions(this.getFilter(field)).map(condition => ({ ...condition }));
   }
 
   /** Ordered list of sorted field names, from highest to lowest priority. */
@@ -813,7 +861,7 @@ export class AgridControl {
    */
   hasActiveFilter(field: string): boolean {
     const f = this.getFilter(field);
-    const hasRange = !!f.operator && f.operand != null && f.operand !== '';
+    const hasRange = this.filterConditions(f).some(condition => condition.operand !== '');
     return !!(f.text || f.selectedValues !== null || f.sort || hasRange);
   }
 
@@ -821,7 +869,7 @@ export class AgridControl {
   hasAnyActiveFilter(): boolean {
     return !!this._quickFilter() || Object.values(this._filters()).some(
       f => f.text || f.selectedValues !== null || f.sort
-        || (!!f.operator && f.operand != null && f.operand !== '')
+        || this.filterConditions(f).some(condition => condition.operand !== '')
     );
   }
 
@@ -883,9 +931,17 @@ export class AgridControl {
         {
           ...filter,
           selectedValues: filter.selectedValues ? [...filter.selectedValues] : filter.selectedValues,
+          conditions: filter.conditions?.map(condition => ({ ...condition })),
         },
       ]),
     );
+  }
+
+  private filterConditions(filter: ColumnFilter): FilterCondition[] {
+    if (filter.conditions?.length) return filter.conditions;
+    return filter.operator && filter.operand != null && filter.operand !== ''
+      ? [{ operator: filter.operator, operand: filter.operand, operand2: filter.operand2 }]
+      : [];
   }
 }
 

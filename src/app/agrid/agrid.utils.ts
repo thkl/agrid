@@ -1,4 +1,4 @@
-import { ColumnFilter } from './agrid-control';
+import { ColumnFilter, FilterCondition } from './agrid-control';
 import {
   AgridExportGroup,
   AgridPathTreeConfig,
@@ -311,8 +311,15 @@ export function applyTextAndValueFilters(
       const allowed = new Set(filter.selectedValues);
       result = result.filter(i => allowed.has(String(getCellValue(col, rows[i], i) ?? '')));
     }
-    if (filter.operator && filter.operand != null && filter.operand !== '') {
-      result = result.filter(i => passesConditionFilter(col, getCellValue(col, rows[i], i), filter, locale, rows[i]));
+    const conditions = filter.conditions?.length
+      ? filter.conditions
+      : filter.operator && filter.operand != null && filter.operand !== ''
+        ? [{ operator: filter.operator, operand: filter.operand, operand2: filter.operand2 }]
+        : [];
+    if (conditions.length) {
+      result = result.filter(i => conditions.every(condition =>
+        passesConditionFilter(col, getCellValue(col, rows[i], i), condition, locale, rows[i]),
+      ));
     }
   }
   return result;
@@ -324,7 +331,7 @@ export function applyTextAndValueFilters(
 export function passesConditionFilter(
   col: ColDef | undefined,
   raw: unknown,
-  filter: ColumnFilter,
+  filter: ColumnFilter | FilterCondition,
   locale?: string,
   row?: Record<string, unknown>,
 ): boolean {

@@ -146,31 +146,37 @@
             </label>
 
             @if (col.type !== 'boolean') {
-              <div class="ag-filter-panel-condition">
-                <label class="ag-filter-panel-field">
-                  <span>{{ localeText().filterCondition }}</span>
-                  <select class="ag-detail-input" [value]="filter.operator ?? ''"
-                    (change)="filterOperatorChange.emit({ field: col.field, operator: $any($event.target).value || null })">
-                    <option value="">{{ localeText().filterNoCondition }}</option>
-                    @for (operator of filterOperators(col); track operator.value) {
-                      <option [value]="operator.value">{{ operator.label }}</option>
-                    }
-                  </select>
-                </label>
-                @if (filter.operator) {
-                  <label class="ag-filter-panel-field">
-                    <span>{{ localeText().filterValue }}</span>
-                    <input class="ag-detail-input" [type]="filterInputType(col)" [value]="filter.operand ?? ''"
-                      (input)="filterOperandChange.emit({ field: col.field, value: $any($event.target).value })" />
-                  </label>
-                  @if (filter.operator === 'between') {
+              <div class="ag-filter-panel-condition-stack">
+                @for (condition of filterConditions(col.field); track $index) {
+                  <div class="ag-filter-panel-condition">
                     <label class="ag-filter-panel-field">
-                      <span>{{ localeText().filterOpLessEqual }}</span>
-                      <input class="ag-detail-input" [type]="filterInputType(col)" [value]="filter.operand2 ?? ''"
-                        (input)="filterOperand2Change.emit({ field: col.field, value: $any($event.target).value })" />
+                      <span>{{ localeText().filterCondition }} {{ $index + 1 }}</span>
+                      <select class="ag-detail-input" [value]="condition.operator"
+                        (change)="filterConditionChange.emit({ field: col.field, index: $index, condition: { operator: $any($event.target).value, operand: condition.operand, operand2: condition.operand2 } })">
+                        @for (operator of filterOperators(col); track operator.value) {
+                          <option [value]="operator.value" [selected]="operator.value === condition.operator">{{ operator.label }}</option>
+                        }
+                      </select>
                     </label>
-                  }
+                    <button type="button" class="ag-filter-clear-btn" [disabled]="filterConditions(col.field).length < 2"
+                      (click)="removeFilterCondition.emit({ field: col.field, index: $index })">{{ localeText().clearFilter }}</button>
+                    <label class="ag-filter-panel-field">
+                      <span>{{ localeText().filterValue }}</span>
+                      <input class="ag-detail-input" [type]="filterInputType(col)" [value]="condition.operand"
+                        (input)="filterOperandChange.emit({ field: col.field, index: $index, value: $any($event.target).value })" />
+                    </label>
+                    @if (condition.operator === 'between') {
+                      <label class="ag-filter-panel-field">
+                        <span>{{ localeText().filterOpLessEqual }}</span>
+                        <input class="ag-detail-input" [type]="filterInputType(col)" [value]="condition.operand2 ?? ''"
+                          (input)="filterOperand2Change.emit({ field: col.field, index: $index, value: $any($event.target).value })" />
+                      </label>
+                    }
+                  </div>
                 }
+                <button type="button" class="ag-column-bulk-btn" (click)="addFilterCondition.emit(col.field)">
+                  + {{ localeText().filterCondition }}
+                </button>
               </div>
             }
 

@@ -107,10 +107,15 @@ export class AgridColumnMenuController {
           const allowed = new Set(filter.selectedValues);
           indices = indices.filter(index => allowed.has(String(getCellValue(filterCol, rows[index], index) ?? '')));
         }
-        if (filter.operator && filter.operand != null && filter.operand !== '') {
+        const conditions = filter.conditions?.length
+          ? filter.conditions
+          : filter.operator && filter.operand != null && filter.operand !== ''
+            ? [{ operator: filter.operator, operand: filter.operand, operand2: filter.operand2 }]
+            : [];
+        if (conditions.length) {
           const filterCol = this.getColDef(field);
           indices = indices.filter(index =>
-            passesConditionFilter(filterCol, getCellValue(filterCol, rows[index], index), filter),
+            conditions.every(condition => passesConditionFilter(filterCol, getCellValue(filterCol, rows[index], index), condition)),
           );
         }
       }
@@ -214,6 +219,7 @@ export class AgridColumnMenuController {
         operator: f?.operator ?? null,
         operand: f?.operand ?? null,
         operand2: f?.operand2 ?? null,
+        conditions: f?.conditions?.map(condition => ({ ...condition })),
       });
     };
     this.cancelFilterDebounce(field);
@@ -323,6 +329,7 @@ export class AgridColumnMenuController {
       operator: filter.operator ?? null,
       operand: filter.operand ?? null,
       operand2: filter.operand2 ?? null,
+      conditions: filter.conditions?.map(condition => ({ ...condition })),
     });
     if (filter.sort) this.opts.onSortChange({ field, direction: filter.sort });
   }

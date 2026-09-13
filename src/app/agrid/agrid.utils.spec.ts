@@ -281,6 +281,20 @@ describe('applyTextAndValueFilters', () => {
     expect(result).toEqual([]);
   });
 
+  it('applies all conditions in one column as AND logic', () => {
+    const numericRows = [{ score: 5 }, { score: 12 }, { score: 18 }, { score: 25 }];
+    const numericCols = new Map<string, ColDef>([['score', { field: 'score', header: 'Score', type: 'number' }]]);
+    expect(applyTextAndValueFilters(numericRows, [0, 1, 2, 3], {
+      score: {
+        text: '', selectedValues: null, sort: null,
+        conditions: [
+          { operator: 'gte', operand: '10' },
+          { operator: 'lt', operand: '20' },
+        ],
+      },
+    }, numericCols)).toEqual([1, 2]);
+  });
+
   it('null selectedValues passes all values through', () => {
     const filters: Record<string, ColumnFilter> = { role: { text: '', selectedValues: null, sort: null } };
     expect(applyTextAndValueFilters(rows, indices, filters, colMap)).toEqual([0, 1, 2]);

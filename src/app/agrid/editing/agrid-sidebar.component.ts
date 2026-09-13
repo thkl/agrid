@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, output, signal } f
 import { AgridLocaleText, AGRID_LOCALE_TEXT } from '../agrid-localization';
 import { getCellValue, getDateInputValue, getDisplayForField, looksLikeDate, matchesInputMask } from '../agrid.utils';
 import { AgridPivotConfig, ColDef, HeaderGroup } from '../agrid.types';
-import { ColumnFilter, FilterOperator } from '../agrid-control';
+import { ColumnFilter, FilterCondition, FilterOperator } from '../agrid-control';
 
 /** Tabs available from the grid's vertical sidebar strip. @internal */
 export type AgridSidebarTab = 'columns' | 'detail' | 'filters' | 'pivot';
@@ -107,8 +107,11 @@ export class AgridSidebarComponent {
   quickFilterChange = output<string>();
   filterTextChange = output<{ field: string; value: string }>();
   filterOperatorChange = output<{ field: string; operator: FilterOperator | null }>();
-  filterOperandChange = output<{ field: string; value: string }>();
-  filterOperand2Change = output<{ field: string; value: string }>();
+  filterOperandChange = output<{ field: string; index: number; value: string }>();
+  filterOperand2Change = output<{ field: string; index: number; value: string }>();
+  filterConditionChange = output<{ field: string; index: number; condition: FilterCondition }>();
+  addFilterCondition = output<string>();
+  removeFilterCondition = output<{ field: string; index: number }>();
   filterValuesChange = output<AgridSidebarFilterValuesChange>();
   clearFilter = output<string>();
   clearAllFilters = output<void>();
@@ -159,7 +162,8 @@ export class AgridSidebarComponent {
     return !!filter.text
       || filter.selectedValues !== null
       || !!filter.sort
-      || (!!filter.operator && filter.operand != null && filter.operand !== '');
+      || (filter.conditions?.some(condition => condition.operand !== '')
+        ?? (!!filter.operator && filter.operand != null && filter.operand !== ''));
   }
 
   filterInputType(col: ColDef): 'text' | 'number' | 'date' {
@@ -196,6 +200,18 @@ export class AgridSidebarComponent {
       { value: 'neq', label: locale.filterOpNotEquals },
       { value: 'like', label: locale.filterOpLike },
     ];
+  }
+
+  filterConditions(field: string): FilterCondition[] {
+    const filter = this.getFilter(field);
+    if (filter.conditions?.length) return filter.conditions;
+    return filter.operator && filter.operand != null && filter.operand !== ''
+      ? [{ operator: filter.operator, operand: filter.operand, operand2: filter.operand2 }]
+      : [];
+  }
+
+  filterCondition(field: string, index: number): FilterCondition {
+    return this.filterConditions(field)[index] ?? { operator: 'includes', operand: '' };
   }
 
   optionRawValue(option: unknown): string {

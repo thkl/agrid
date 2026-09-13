@@ -136,7 +136,15 @@ export class FilterPanelDemoComponent {
     pageSize: 0,
     filters: {
       priority: { text: '', selectedValues: ['High', 'Medium'], sort: null },
-      value: { text: '', selectedValues: null, sort: null, operator: 'gte', operand: '30000' },
+      value: {
+        text: '',
+        selectedValues: null,
+        sort: null,
+        conditions: [
+          { operator: 'gte', operand: '30000' },
+          { operator: 'lt', operand: '80000' },
+        ],
+      },
     },
     quickFilter: 'o',
   });

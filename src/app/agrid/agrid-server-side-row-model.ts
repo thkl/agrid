@@ -277,5 +277,6 @@ function cloneFilters(filters: Record<string, ColumnFilter>): Record<string, Col
   return Object.fromEntries(Object.entries(filters).map(([field, filter]) => [field, {
     ...filter,
     selectedValues: filter.selectedValues ? [...filter.selectedValues] : null,
+    conditions: filter.conditions?.map(condition => ({ ...condition })),
   }]));
 }
