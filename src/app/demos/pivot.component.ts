@@ -140,6 +140,7 @@ export class PivotDemoComponent {
     pivotConfig: PIVOTCONFIG,
     zebraStripes: true,
     showSidebar: true,
+    resizableSidebar: true,
     menuBarItems: [
       { id: 'saveControl', class:'material-symbols-outlined', icon:'save', label: 'Save Table config'},
       {

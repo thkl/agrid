@@ -22,6 +22,16 @@ test.describe('pivot demo', () => {
     await page.locator('agrid-sidebar').getByRole('button', { name: 'Pivot', exact: true }).click();
     const pivotSidebar = page.getByRole('region', { name: 'Pivot', exact: true });
     await expect(pivotSidebar).toBeVisible();
+    const resizeHandle = pivotSidebar.getByRole('separator', { name: 'Resize sidebar' });
+    await expect(resizeHandle).toBeVisible();
+    const beforeWidth = (await pivotSidebar.boundingBox())?.width ?? 0;
+    const handleBox = await resizeHandle.boundingBox();
+    if (!handleBox) throw new Error('Pivot sidebar resize handle is not measurable');
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + 80);
+    await page.mouse.down();
+    await page.mouse.move(handleBox.x - 40, handleBox.y + 80);
+    await page.mouse.up();
+    await expect.poll(async () => (await pivotSidebar.boundingBox())?.width ?? 0).toBeGreaterThan(beforeWidth);
     await pivotSidebar.getByLabel('Q2').uncheck();
     await expect(page.locator('agrid-cell[data-col-field="__agrid_pivot_1"]')).toHaveCount(0);
     await pivotSidebar.getByLabel('Aggregate').selectOption('avg');
