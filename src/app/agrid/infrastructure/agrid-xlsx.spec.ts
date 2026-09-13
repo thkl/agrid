@@ -85,6 +85,15 @@ describe('agrid-xlsx', () => {
     expect(xml).toContain('state="frozen"');
   });
 
+  it('encodes formula cells with cached results', () => {
+    const xml = unzip(buildXlsx([{
+      name: 'Formula', header: ['Total'], rows: [{
+        cells: [{ kind: 'formula', formula: 'SUM(A1:B1)', value: 42 }],
+      }],
+    }]))['xl/worksheets/sheet1.xml'];
+    expect(xml).toContain('<f>SUM(A1:B1)</f><v>42</v>');
+  });
+
   it('emits a collapsible outline with emphasized summary rows when outline is set', () => {
     const sheet: XlsxSheet = {
       name: 'Grouped',

@@ -690,6 +690,10 @@ provider.exportCsv('employees.csv');
 
 provider.exportXlsx();                 // downloads "export.xlsx"
 provider.exportXlsx('employees.xlsx');
+provider.exportXlsx('report.xlsx', {
+  sheetName: 'Employees',
+  additionalSheets: [{ name: 'Lookup', header: ['Code', 'Label'], rows: [] }],
+});
 ```
 
 Both use display values (value-list labels, formatters) and respect column visibility; group-header rows are excluded. `exportXlsx` writes a real `.xlsx` workbook with **zero third-party dependencies** — numbers and dates are emitted as native, sortable/summable cells under a bold frozen header row. Both methods operate on the grid's current filtered, visible projection and are a no-op until an `<agrid>` bound to the provider has rendered.
@@ -1428,6 +1432,17 @@ readonly chartProvider = new AgridChartProvider({
 
 The chart sizes itself to its container width (observed) and the provider's `height`. Every option
 is a signal: `type` is writable, so `chartProvider.type.set('pie')` re-renders.
+
+Use a template reference to export the rendered chart as SVG:
+
+```html
+<agrid-chart #chart [provider]="chartProvider" />
+<button type="button" (click)="chart.exportSvg('sales.svg')">Export SVG</button>
+```
+
+`grid.getSelectedRangeChartData()` converts the active rectangular grid selection into
+`AgridChartData`, which can be supplied to a static chart provider. Persist chart display settings
+with `chartProvider.getState()` and restore them with `chartProvider.setState()`.
 
 ### `AgridChartProvider` configuration
 

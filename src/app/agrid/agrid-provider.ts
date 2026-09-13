@@ -8,6 +8,7 @@ import {
 import { AgridDataSource, AgridRowIdGetter } from './agrid-datasource';
 import { AgridServerSideRowModel } from './agrid-server-side-row-model';
 import { AgridLocaleTextOverrides } from './agrid-localization';
+import type { XlsxSheet } from './infrastructure/agrid-xlsx';
 import {
   AGridOptions,
   AgridEditMode,
@@ -62,6 +63,14 @@ export interface AgridViewState {
   expandedDetailIndices?: number[];
   sidebarOpen?: boolean;
   sidebarTab?: 'columns' | 'detail' | 'filters' | 'pivot';
+}
+
+/** Options for extending the grid's XLSX export into a richer workbook. */
+export interface AgridXlsxExportOptions {
+  /** Worksheet name for the grid projection. */
+  sheetName?: string;
+  /** Additional worksheets, for example summaries or lookup tables. */
+  additionalSheets?: XlsxSheet[];
 }
 
 export interface AgridSettings {
@@ -326,7 +335,7 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
  */
 export interface AgridExportBridge {
   csv: (filename: string) => void;
-  xlsx: (filename: string) => void;
+  xlsx: (filename: string, options?: AgridXlsxExportOptions) => void;
 }
 
 export class AgridProvider<T extends object = any> {
@@ -698,8 +707,8 @@ export class AgridProvider<T extends object = any> {
    *
    * @param filename  Output filename, defaults to `'export.xlsx'`.
    */
-  exportXlsx(filename = 'export.xlsx'): void {
-    this.exportBridge?.xlsx(filename);
+  exportXlsx(filename = 'export.xlsx', options?: AgridXlsxExportOptions): void {
+    this.exportBridge?.xlsx(filename, options);
   }
 
   /**

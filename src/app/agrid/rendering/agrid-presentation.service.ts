@@ -3,6 +3,7 @@ import { AgridBrowserAdapter } from '../infrastructure/agrid-browser.adapter';
 import { XLSX_CONTENT_TYPE, XlsxCell, XlsxRow, XlsxSheet, buildXlsx } from '../infrastructure/agrid-xlsx';
 import { AgridControl } from '../agrid-control';
 import { AgridExportGroup, ColDef } from '../agrid.types';
+import type { AgridXlsxExportOptions } from '../agrid-provider';
 import { getCellValue, getDisplayForField } from '../agrid.utils';
 
 /** Reactive display state required by {@link AgridPresentationService}. @internal */
@@ -98,7 +99,8 @@ export class AgridPresentationService {
    * Downloads the current filtered, sorted rows and visible columns as an `.xlsx` workbook.
    * When the grid is grouped, emits a collapsible Excel row outline with per-group subtotal rows.
    */
-  exportXlsx(filename: string, sheetName = 'Sheet1'): void {
+  exportXlsx(filename: string, options: AgridXlsxExportOptions = {}): void {
+    const sheetName = options.sheetName ?? 'Sheet1';
     const cols = this.opts.visibleColDefs();
     const locale = this.opts.locale();
     const groups = this.opts.exportGroups?.() ?? null;
@@ -111,7 +113,7 @@ export class AgridPresentationService {
           this.opts.exportRowIndices?.() ?? [],
           locale,
         );
-    this.browser.downloadBytes(filename, buildXlsx([sheet]), XLSX_CONTENT_TYPE);
+    this.browser.downloadBytes(filename, buildXlsx([sheet, ...(options.additionalSheets ?? [])]), XLSX_CONTENT_TYPE);
   }
 
   private buildFlatSheet(

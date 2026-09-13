@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { buildChart } from '../infrastructure/agrid-chart';
 import { AgridChartProvider } from '../agrid-chart-provider';
+import { AgridBrowserAdapter } from '../infrastructure/agrid-browser.adapter';
 
 /**
  * Zero-dependency chart component. Configured exactly like the grid — hand it an
@@ -51,6 +52,14 @@ export class AgridChartComponent {
       showAxis: provider.showAxis(),
     });
   });
+
+  /** Download the currently rendered chart as a standalone SVG document. */
+  exportSvg(filename = 'chart.svg'): void {
+    const svg = this.host.nativeElement.querySelector('svg');
+    if (!svg) return;
+    const source = new XMLSerializer().serializeToString(svg);
+    new AgridBrowserAdapter().downloadText(filename, source, 'image/svg+xml;charset=utf-8');
+  }
 
   constructor() {
     const destroyRef = inject(DestroyRef);

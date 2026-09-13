@@ -26,7 +26,7 @@ export { AGRID_FILTER_CONTEXT } from './columns/agrid-filter-component';
 export type { AgridFilterContext } from './columns/agrid-filter-component';
 export { AgridChartComponent } from './rendering/agrid-chart.component';
 export { AgridChartProvider } from './agrid-chart-provider';
-export type { AgridChartProviderConfig } from './agrid-chart-provider';
+export type { AgridChartProviderConfig, AgridChartState } from './agrid-chart-provider';
 export { AGRID_CHART_PALETTE, buildChart } from './infrastructure/agrid-chart';
 export { XLSX_CONTENT_TYPE, buildXlsx } from './infrastructure/agrid-xlsx';
 export type { XlsxCell, XlsxSheet } from './infrastructure/agrid-xlsx';
@@ -64,6 +64,7 @@ export type {
   AgridRowDensityHeights,
   AgridSettings,
   AgridViewState,
+  AgridXlsxExportOptions,
   AgridTheme,
 } from './agrid-provider';
 export { AGRID_DEFAULT_ROW_DENSITY_HEIGHTS } from './agrid-provider';

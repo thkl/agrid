@@ -22,7 +22,7 @@ export class App {
   private readonly router = inject(Router);
 
   readonly theme = inject(ThemeService);
-  readonly demos = DEMO_GUIDES;
+  readonly demos = DEMO_GUIDES.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
   readonly currentPath = signal(this.pathFromUrl(this.router.url));
   readonly currentDemo = computed<DemoGuide | null>(
     () => DEMO_GUIDE_BY_PATH.get(this.currentPath()) ?? null,

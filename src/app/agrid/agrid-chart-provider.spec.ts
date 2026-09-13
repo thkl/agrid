@@ -80,4 +80,31 @@ describe('AgridChartProvider', () => {
     expect(provider.showAxis()).toBe(false);
     expect(provider.palette()).toEqual(['#000']);
   });
+
+  it('round-trips static chart state without sharing mutable data', () => {
+    const provider = new AgridChartProvider({
+      type: 'column',
+      data: { categories: ['A'], series: [{ name: 'Revenue', values: [10] }] },
+    });
+    provider.height.set(320);
+    const state = provider.getState();
+    state.data!.series[0].values[0] = 99;
+
+    provider.setState({ ...state, type: 'line', height: 280 });
+
+    expect(provider.type()).toBe('line');
+    expect(provider.height()).toBe(280);
+    expect(provider.data().series[0].values).toEqual([99]);
+  });
+
+  it('persists linked chart display state without serializing source data', () => {
+    const provider = new AgridChartProvider({
+      type: 'bar',
+      source: signal([{ value: 4 }]),
+      transform: rows => ({ series: [{ values: rows.map(row => row.value) }] }),
+    });
+    expect(provider.getState().data).toBeUndefined();
+    provider.setState({ ...provider.getState(), type: 'area' });
+    expect(provider.type()).toBe('area');
+  });
 });

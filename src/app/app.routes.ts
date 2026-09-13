@@ -14,6 +14,10 @@ export const routes: Routes = [
     loadComponent: () => import('./documentation/documentation.component').then(m => m.DocumentationComponent),
   },
   {
+    path: 'export-state',
+    loadComponent: () => import('./demos/export-state.component').then(m => m.ExportStateDemoComponent),
+  },
+  {
     path: 'custom-cells',
     loadComponent: () => import('./demos/custom-cells.component').then(m => m.CustomCellsDemoComponent),
   },

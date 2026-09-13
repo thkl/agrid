@@ -251,6 +251,31 @@ this.chartProvider.type.set('pie');
 // <agrid-chart [provider]="chartProvider" />`,
   },
   {
+    path: '/export-state',
+    label: 'Export & state',
+    title: 'Rich workbook export and persistent grid state',
+    summary:
+      'Export the current grid as a multi-sheet XLSX workbook, save the complete grid state, and build chart data from a selected range.',
+    points: [
+      'Use provider.exportXlsx with additionalSheets for workbook composition.',
+      'Use grid.getState() and grid.setState() for server-side or local persistence.',
+      'Call grid.getSelectedRangeChartData() to create chart data from a rectangular selection.',
+      'Export a rendered chart with chart.exportSvg().',
+    ],
+    code: `provider.exportXlsx('report.xlsx', {
+  sheetName: 'Sales',
+  additionalSheets: [
+    { name: 'Lookup', header: ['Code', 'Label'], rows: [] },
+  ],
+});
+
+const state = grid.getState();
+await api.put('/user/grid-state', state);
+
+const chartData = grid.getSelectedRangeChartData();
+if (chartData) chartProvider.setData(chartData);`,
+  },
+  {
     path: '/sparklines',
     label: 'Sparklines',
     title: 'Zero-dependency inline charts',

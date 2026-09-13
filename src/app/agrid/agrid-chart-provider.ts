@@ -33,6 +33,17 @@ export interface AgridChartProviderConfig<T = any> {
   palette?: string[];
 }
 
+/** JSON-safe chart configuration for server/local persistence. */
+export interface AgridChartState {
+  version: 1;
+  type: AgridChartType;
+  height: number;
+  showLegend: boolean;
+  showAxis: boolean;
+  palette?: string[];
+  data?: AgridChartData;
+}
+
 const EMPTY_DATA: AgridChartData = { series: [] };
 
 /**
@@ -99,4 +110,35 @@ export class AgridChartProvider<T = any> {
     }
     this._data.set(data);
   }
+
+  /** Return JSON-safe chart configuration. Linked source functions are intentionally omitted. */
+  getState(): AgridChartState {
+    return {
+      version: 1,
+      type: this.type(),
+      height: this.height(),
+      showLegend: this.showLegend(),
+      showAxis: this.showAxis(),
+      palette: this.palette() ? [...this.palette()!] : undefined,
+      data: this._data ? cloneChartData(this.data()) : undefined,
+    };
+  }
+
+  /** Restore chart display configuration and static data from a saved snapshot. */
+  setState(state: AgridChartState): void {
+    if (state.version !== 1) throw new Error(`Unsupported aGrid chart state version: ${state.version}`);
+    this.type.set(state.type);
+    this.height.set(Math.max(1, Math.round(state.height)));
+    this.showLegend.set(state.showLegend);
+    this.showAxis.set(state.showAxis);
+    this.palette.set(state.palette ? [...state.palette] : undefined);
+    if (state.data && this._data) this._data.set(cloneChartData(state.data));
+  }
+}
+
+function cloneChartData(data: AgridChartData): AgridChartData {
+  return {
+    categories: data.categories ? [...data.categories] : undefined,
+    series: data.series.map(series => ({ ...series, values: [...series.values] })),
+  };
 }

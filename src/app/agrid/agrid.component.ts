@@ -51,6 +51,7 @@ import { resolveCellSpanAnchor } from './rendering/agrid-cell-span';
 import { AgridMenuBarComponent } from './rendering/agrid-menu-bar.component';
 import { AgridMenuBarController } from './rendering/agrid-menu-bar.controller';
 import { AgridProvider, AgridSettings, AgridViewState } from './agrid-provider';
+import { AgridChartData } from './infrastructure/agrid-chart';
 import { buildPivotResult } from './agrid-pivot';
 import { AgridProjectionModel } from './rows/agrid-projection.model';
 import { AgridRangeController } from './selection/agrid-range.controller';
@@ -493,6 +494,31 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** Rectangular cell range selected by Shift+arrow or Shift+click. */
   readonly selectedRange = signal<CellRange | null>(null);
+
+  /** Build chart data from the current rectangular cell selection. */
+  getSelectedRangeChartData(): AgridChartData | null {
+    const bounds = this.rangeController.getActiveSelectionBounds();
+    if (!bounds) return null;
+    const items = this.filteredItems();
+    const columns = this.visibleColDefs();
+    const rows = items.slice(bounds.rowStart, bounds.rowEnd + 1)
+      .filter(item => isDataRowItemFn(item));
+    const selectedColumns = columns.slice(bounds.colStart, bounds.colEnd + 1);
+    if (rows.length === 0 || selectedColumns.length < 2) return null;
+    const categoryColumn = selectedColumns[0];
+    const categories = rows.map(item => String(getCellValue(
+      categoryColumn,
+      item.row,
+      item.originalIndex,
+    ) ?? ''));
+    const series = selectedColumns.slice(1)
+      .map(column => ({
+        name: column.header,
+        values: rows.map(item => Number(getCellValue(column, item.row, item.originalIndex))),
+      }))
+      .filter(item => item.values.some(value => Number.isFinite(value)));
+    return series.length ? { categories, series } : null;
+  }
   readonly rowEditingIndex = signal<number | null>(null);
   readonly rowEditDraft = signal<Record<string, unknown>>({});
   readonly rowEditValidationErrors = signal<ReadonlyMap<string, string>>(new Map());
@@ -1858,7 +1884,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       const provider = this.provider();
       provider.ɵattachExport({
         csv: filename => this.presentation.exportCsv(filename),
-        xlsx: filename => this.presentation.exportXlsx(filename),
+        xlsx: (filename, options) => this.presentation.exportXlsx(filename, options),
       });
       onCleanup(() => provider.ɵattachExport(null));
     });

@@ -16,6 +16,7 @@ export type XlsxCell =
   | { kind: 'number'; value: number }
   | { kind: 'date'; value: Date }
   | { kind: 'boolean'; value: boolean }
+  | { kind: 'formula'; formula: string; value?: string | number }
   | { kind: 'empty' };
 
 /** One data/summary row, with optional outline depth and bold emphasis. @internal */
@@ -164,6 +165,11 @@ function cellXml(ref: string, cell: XlsxCell, emphasized = false): string {
       return Number.isFinite(cell.value) ? `<c r="${ref}"${bold}><v>${cell.value}</v></c>` : `<c r="${ref}"${bold}/>`;
     case 'boolean':
       return `<c r="${ref}" t="b"><v>${cell.value ? 1 : 0}</v></c>`;
+    case 'formula': {
+      const result = cell.value === undefined ? '' : `<v>${typeof cell.value === 'number' ? cell.value : escapeText(String(cell.value))}</v>`;
+      const type = typeof cell.value === 'string' ? ' t="str"' : '';
+      return `<c r="${ref}"${bold}${type}><f>${escapeText(cell.formula)}</f>${result}</c>`;
+    }
     case 'date':
       return `<c r="${ref}" s="${STYLE_DATE}"><v>${excelSerial(cell.value)}</v></c>`;
     case 'string':

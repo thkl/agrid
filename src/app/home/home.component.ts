@@ -78,7 +78,39 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
   { color: '#0d9488', bg: '#f0fdfa', label: '∿', title: 'Sparklines', desc: 'Tiny inline line and bar charts drawn per row from a number[] field, using a custom cell renderer.', isNew: true },
   { color: '#1d4ed8', bg: '#eff6ff', label: '↻', title: 'Transaction API', desc: 'Batch add, update, and remove rows with complete-record results for REST PATCH workflows.', isNew: true },
   { color: '#be123c', bg: '#fff1f2', label: '✎', title: 'Full-row editing', desc: 'Stage several field edits in one row and save them as one complete record.', isNew: true },
+  { color: '#b45309', bg: '#fef3c7', label: '▤', title: 'Rich Excel workbooks', desc: 'Export native cells, formulas, frozen headers, and additional worksheets from a zero-dependency XLSX writer.', isNew: true },
+  { color: '#0369a1', bg: '#eff6ff', label: '◫', title: 'Selected-range charts', desc: 'Turn a selected grid range into chart data, persist chart configuration, and export SVG images.', isNew: true },
 ];
+
+const DEMOS = [
+  ['Aggregates', '/aggregates', 'Sum, average, and count footers per column.'],
+  ['Charts / graphs', '/charts', 'SVG diagrams linked to grid data and filtering.'],
+  ['Column performance', '/column-performance', 'Measure rendering cost across changing column layouts.'],
+  ['Column pinning', '/pinning', 'Freeze columns to the left or right edge while scrolling.'],
+  ['Column virtualization', '/column-virtualization', 'Render wide datasets efficiently with virtual columns.'],
+  ['Conditional formatting', '/conditional-formatting', 'Data-driven colors, borders, typography, and alignment.'],
+  ['Computed columns', '/computed-columns', 'Derive values with value getters and formulas.'],
+  ['Custom cell editors', '/custom-editors', 'Build custom editors for application-specific input.'],
+  ['Custom cells', '/custom-cells', 'Render Angular components directly inside grid cells.'],
+  ['Export & state', '/export-state', 'Rich workbook export, full state persistence, and selected-range charts.'],
+  ['Filter panel', '/filter-panel', 'Build and apply nested filter conditions from a sidebar.'],
+  ['Filters', '/filters', 'Text, value, condition, number, date, boolean, and server-query filters.'],
+  ['Master-detail', '/master-detail', 'Expandable detail panels and pinned rows.'],
+  ['Overview', '/demo', 'Full-featured grid with editing, grouping, filtering, and exports.'],
+  ['Pagination', '/pagination', 'Client-side pagination with configurable page size.'],
+  ['Performance test', '/performance', 'Stress-test virtual scrolling with up to 250,000 records.'],
+  ['Pivot table', '/pivot', 'Configure pivot dimensions and result columns from the sidebar.'],
+  ['Readonly mode', '/readonly', 'Toggle a production dataset between viewing and editing.'],
+  ['Row editing', '/row-editing', 'Edit several fields and emit one complete saved record.'],
+  ['Selection summary', '/selection-summary', 'Calculate live statistics for selected numeric ranges.'],
+  ['Server pagination', '/server-pagination', 'Remote data source with simulated API latency.'],
+  ['Server row model', '/server-side-row-model', 'Lazy block loading from a remote dataset.'],
+  ['Sparklines', '/sparklines', 'Inline line and bar charts rendered per row.'],
+  ['Themes', '/themes', 'Switch built-in light, dark, and contrast presets.'],
+  ['Transactions', '/transactions', 'Batch add, update, and remove rows with complete records.'],
+  ['Tree data', '/tree', 'Hierarchical rows with expansion and aggregate rollups.'],
+  ['Value parser/setter', '/value-parser-setter', 'Normalize edits and write values back into row data.'],
+] as const;
 
 @Component({
   selector: 'app-home',
@@ -197,11 +229,14 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
             <a class="text-link" routerLink="/documentation">Browse documentation <span>→</span></a>
           </div>
           <div class="demo-cards">
-            <a class="demo-card" routerLink="/demo">
-              <div class="demo-card-title">Overview</div>
-              <div class="demo-card-desc">Full-featured grid with editing, grouping, filtering, and CSV export.</div>
+            @for (demo of demos; track demo[1]) {
+            <a class="demo-card" [routerLink]="demo[1]">
+              <div class="demo-card-title">{{ demo[0] }}</div>
+              <div class="demo-card-desc">{{ demo[2] }}</div>
               <span class="demo-card-link">Open →</span>
             </a>
+            }
+            <!--
             <a class="demo-card" routerLink="/filters">
               <div class="demo-card-title">Filters</div>
               <div class="demo-card-desc">Text, value, condition, number, date, boolean, quick, and server-query filters in one grid.</div>
@@ -304,6 +339,7 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
               <div class="demo-card-desc">Expandable detail panels and rows pinned above or below the dataset.</div>
               <span class="demo-card-link">Open →</span>
             </a>
+            -->
           </div>
         </div>
       </section>
@@ -1237,6 +1273,7 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
 export class HomeComponent {
   readonly theme = inject(ThemeService);
   readonly features = FEATURES;
+  readonly demos = DEMOS;
 
   readonly ds = new AgridDataSource(PREVIEW_ROWS);
   readonly control = new AgridControl({ pageSize: 10 });
