@@ -1,14 +1,16 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { AgridComponent, AgridControl, AgridDataSource, ColDef } from '../agrid';
 import { AgridProvider } from '../agrid/agrid-provider';
+import { randomUserAvatarUrl } from './avatar.utils';
 
 interface OrderRow {
   id: number;
   customer: string;
   region: string;
   total: number;
-  status: 'paid' | 'pending' | 'refunded';
+  status: 'paid' | 'pending' | 'refunded' | null;
   notes: string;
+  avatarUrl: string|null;
   isSummary?: boolean;
 }
 
@@ -22,6 +24,7 @@ const ORDERS: OrderRow[] = Array.from({ length: 40 }, (_, i) => ({
   total: 100 + ((i * 173) % 9000),
   status: STATUSES[i % STATUSES.length],
   notes: `Order #${i + 1} placed on day ${(i % 28) + 1}. Handled by the ${REGIONS[i % REGIONS.length]} team.`,
+  avatarUrl: randomUserAvatarUrl(`Customer ${i + 1}`),
 }));
 
 // A summary row lives in the data source and is pinned to the bottom (kept fully interactive).
@@ -30,14 +33,17 @@ const SUMMARY: OrderRow = {
   customer: 'TOTAL',
   region: '',
   total: ORDERS.reduce((sum, o) => sum + o.total, 0),
-  status: 'paid',
+  status: null,
   notes: '',
+  avatarUrl: null,
   isSummary: true,
 };
 
 const COLUMNS: ColDef<OrderRow>[] = [
   { field: 'id', header: 'ID', width: 70, editable: false },
-  { field: 'customer', header: 'Customer', width: 160, filterable: true },
+  { field: 'customer', header: 'Customer', width: 190, filterable: true,
+    imageUrl: ({ row }: { row: OrderRow; value: unknown }) => row.avatarUrl,
+    imageAlt: ({ value }: { value: unknown; row: OrderRow }) => `${String(value)} avatar` },
   { field: 'region', header: 'Region', width: 120, filterable: true, groupable: true },
   { field: 'total', header: 'Total', width: 120, type: 'number', filterable: true,
     formatter: (v: unknown) => `$${Number(v).toLocaleString()}` },
@@ -76,6 +82,8 @@ const COLUMNS: ColDef<OrderRow>[] = [
     .demo-grid ::ng-deep .row-summary agrid-cell:not(.editing) { font-weight: 700; background: #eef2ff; }
     .demo-grid ::ng-deep .cell-refunded { color: #d1242f; }
     .demo-grid ::ng-deep .od-detail { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #3c4043; }
+    .demo-grid ::ng-deep .od-detail__identity { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .demo-grid ::ng-deep .od-detail__avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
   `],
 })
 export class MasterDetailDemoComponent {
@@ -98,6 +106,7 @@ export class MasterDetailDemoComponent {
     ],
     detailRenderer: ({ row }: { row: OrderRow }) => `
       <div class="od-detail">
+        <div class="od-detail__identity"><img class="od-detail__avatar" src="${row.avatarUrl}" alt="" /><strong>${row.customer}</strong></div>
         <div><strong>Customer:</strong> ${row.customer}</div>
         <div><strong>Region:</strong> ${row.region}</div>
         <div><strong>Total:</strong> $${Number(row.total).toLocaleString()}</div>

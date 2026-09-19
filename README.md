@@ -445,6 +445,8 @@ readonly treeProvider = new AgridTreeProvider<Node>({
     defaultExpanded: true,
   },
   getDescription: node => node.type,
+  getImageUrl: node => node.avatarUrl,
+  getImageAlt: node => `${node.name} avatar`,
   getNodeClass: node => node.type === 'archived' ? 'tree-node-archived' : '',
   contextMenuItems: node => [
     { id: 'open', label: `Open ${node.label}` },
@@ -846,6 +848,8 @@ interface ColDef {
 | `pinned` | No | `'left'` or `'right'` to pin the column initially. Left-pinned columns render in a fixed pane before the scrollable area; right-pinned columns render in a fixed pane after it. |
 | `aggregate` | No | Shows an aggregate footer value: `'sum'`, `'avg'`, `'min'`, `'max'`, or `'count'`. |
 | `cellRendererComponent` | No | A standalone Angular component rendered for the cell's display state. The component injects `AGRID_RENDERER_CONTEXT`. See [Custom Cell Renderers](#custom-cell-renderers). |
+| `imageUrl` | No | Resolves an image or data URL rendered before the cell value. The image is hidden during editing. |
+| `imageAlt` | No | Resolves alternative text for the `imageUrl` image. Defaults to decorative empty alt text. |
 | `cellRenderer` | No | **Deprecated** — use `cellRendererComponent`. Custom HTML renderer: return an HTML string; Angular sanitizes it automatically. |
 | `cellEditor` | No | A standalone Angular component to use as the cell editor instead of the built-in input. The component injects `AGRID_EDITOR_CONTEXT`. See [Custom Cell Editors](#custom-cell-editors). |
 | `cellClass` | No | Returns a CSS class name for each cell. Applied alongside built-in state classes. |
@@ -1316,8 +1320,17 @@ export class ScoreBar {
 const columns: ColDef[] = [
   { field: 'status', header: 'Status', editable: false, cellRendererComponent: StatusBadge },
   { field: 'score', header: 'Performance', editable: false, cellRendererComponent: ScoreBar },
+  {
+    field: 'name',
+    header: 'Name',
+    imageUrl: ({ row }) => row.avatarUrl as string,
+    imageAlt: ({ value }) => `${String(value)} avatar`,
+  },
 ];
 ```
+
+`imageUrl` also accepts data URLs. The image is display-only and remains compatible with a custom
+renderer on the same column.
 
 ### `AgridRendererContext`
 
@@ -2049,7 +2062,8 @@ regional revenue columns and mirrors the raw signal above the grid.
 
 Set `masterDetail: true` and provide a `detailRenderer` to make every data row expandable. A chevron
 appears in the control column; clicking it reveals a detail panel rendered beneath the row. The
-renderer returns an HTML string (sanitized automatically, like `cellRenderer`).
+renderer returns an HTML string (sanitized automatically, like `cellRenderer`). Images can be
+included in that detail HTML, for example `<img src="${row.avatarUrl}" alt="">`.
 
 ```ts
 readonly provider = new AgridProvider<Order>({

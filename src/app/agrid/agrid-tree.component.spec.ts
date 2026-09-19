@@ -95,6 +95,20 @@ describe('AgridTreeComponent', () => {
     expect(nodes[1].classList.contains('node-archived')).toBe(true);
   });
 
+  it('renders provider images with accessible alternative text', async () => {
+    await create(new AgridTreeProvider({
+      datasource: new AgridDataSource<NodeRow>([{ id: 1, parentId: null, name: 'Root' }]),
+      treeConfig: { getId: row => row.id, getParentId: row => row.parentId, treeField: 'name' },
+      getImageUrl: row => `data:image/svg+xml,${row.id}`,
+      getImageAlt: row => `${row.name} avatar`,
+    }));
+    fixture.detectChanges();
+
+    const image = fixture.nativeElement.querySelector('.ag-tree-image') as HTMLImageElement;
+    expect(image.getAttribute('src')).toBe('data:image/svg+xml,1');
+    expect(image.alt).toBe('Root avatar');
+  });
+
   it('emits node menu actions for context-menu items', async () => {
     await create(new AgridTreeProvider({
       datasource: new AgridDataSource<NodeRow>([{ id: 1, parentId: null, name: 'Root' }]),

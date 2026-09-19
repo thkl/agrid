@@ -3,6 +3,7 @@ import { AgridComponent, AgridControl, AgridDataSource, ColDef } from '../agrid'
 import { AgridProvider } from '../agrid/agrid-provider';
 import { AGRID_RENDERER_CONTEXT } from '../agrid/rendering/agrid-cell-renderer';
 import { rendererClassSuffix } from './demo-renderer.utils';
+import { randomUserAvatarUrl } from './avatar.utils';
 
 /* ------------------------------------------------------------------ *
  * Component cell renderer — status badge. Reads the value from the
@@ -61,7 +62,9 @@ const STATUSES = ['Active', 'Inactive', 'On Leave', 'Pending'] as const;
 
 const COLUMNS: ColDef[] = [
   { field: 'id',      header: 'ID',          width: 60,  editable: false, locked: true },
-  { field: 'name',    header: 'Name',         width: 160, filterable: true },
+  { field: 'name',    header: 'Name',         width: 190, filterable: true,
+    imageUrl: ({ value }) => randomUserAvatarUrl(String(value ?? '')),
+    imageAlt: ({ value }) => `${String(value ?? '')} avatar` },
   { field: 'dept',    header: 'Department',   width: 130, filterable: true, groupable: true,
     values: ['Engineering','Sales','Marketing','HR','Finance','Design'] },
   { field: 'status',  header: 'Status',       width: 120, editable: false,
@@ -103,7 +106,7 @@ function makeRows(n: number) {
     <div class="demo-wrap">
       <div class="demo-header">
         <h2>Custom cells</h2>
-        <span class="demo-meta">cellRendererComponent · cellClass · date auto-format · locked columns</span>
+        <span class="demo-meta">cellRendererComponent · imageUrl · cellClass · date auto-format · locked columns</span>
       </div>
       <agrid
         class="demo-grid"

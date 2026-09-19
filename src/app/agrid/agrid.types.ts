@@ -583,6 +583,10 @@ export interface ColDefBase<T extends object, K extends AgridField<T>> {
    * ```
    */
   cellClass?: (params: { value: T[K]; row: T }) => string;
+  /** Optional image rendered before the cell content. Return a URL or data URL for the current row. */
+  imageUrl?: (params: { value: T[K]; row: T }) => string | null | undefined;
+  /** Alternative text for an image returned by {@link imageUrl}. Defaults to decorative alt text. */
+  imageAlt?: (params: { value: T[K]; row: T }) => string;
   /**
    * Set to `true` to prevent the column from being resized, reordered, or autosized.
    * The column can still be hidden, filtered, and sorted.

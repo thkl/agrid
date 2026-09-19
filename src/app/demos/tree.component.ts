@@ -5,6 +5,7 @@ import {
   AgridTreeNodeEvent,
   AgridTreeProvider,
 } from '../agrid';
+import { randomUserAvatarUrl } from './avatar.utils';
 
 interface OrgRow {
   id: number;
@@ -122,6 +123,8 @@ export class TreeDemoComponent {
     datasource: new AgridDataSource(ROWS),
     treeConfig: { ...TREE_CONFIG, defaultExpanded: true },
     getDescription: row => `${row.role} · ${row.team}`,
+    getImageUrl: row => randomUserAvatarUrl(row.name),
+    getImageAlt: row => `${row.name} avatar`,
     selection: 'single',
     ariaLabel: 'Organization',
   });
@@ -136,6 +139,8 @@ export class TreeDemoComponent {
       childLoadingText: 'Loading child nodes',
     },
     getDescription: row => `${row.role} · ${row.team}`,
+    getImageUrl: row => randomUserAvatarUrl(row.name),
+    getImageAlt: row => `${row.name} avatar`,
     selection: 'single',
     ariaLabel: 'Server organization',
   });

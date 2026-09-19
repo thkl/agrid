@@ -164,6 +164,17 @@ export class AgridTreeComponent<T extends object = any> {
   }
 
   /** @internal */
+  imageUrl(item: StandaloneTreeItem<T>): string | undefined {
+    return isPathNode(item) ? undefined : this.provider().getImageUrl?.(item.row);
+  }
+
+  /** @internal */
+  imageAlt(item: StandaloneTreeItem<T>): string {
+    if (isPathNode(item)) return '';
+    return this.provider().getImageAlt?.(item.row) ?? this.label(item);
+  }
+
+  /** @internal */
   nodeClass(item: StandaloneTreeItem<T>): string {
     return isPathNode(item) ? '' : this.provider().getNodeClass?.(item.row) ?? '';
   }

@@ -34,6 +34,9 @@
           [attr.aria-label]="(item.expanded ? localeText().collapse : localeText().expand) + ' ' + label(item)"
           (click)="toggleNode(item); $event.stopPropagation()">&#9656;</button>
       }
+      @if (imageUrl(item); as image) {
+        <img class="ag-tree-image" [src]="image" [alt]="imageAlt(item)" loading="lazy" />
+      }
       <span class="ag-tree-content">
         <span class="ag-tree-label">{{ label(item) }}</span>
         @if (description(item); as detail) {

@@ -165,6 +165,9 @@ const EMPTY_CELL_FORMAT: CellFormat = {};
           }
         </span>
       }
+      @if (cellImageUrl(); as imageUrl) {
+        <img class="ag-cell-image" [src]="imageUrl" [alt]="cellImageAlt()" loading="lazy" />
+      }
       @if (col().cellRendererComponent; as renderer) {
         <ng-container [ngComponentOutlet]="renderer" [ngComponentOutletInjector]="rendererInjector" />
       } @else if (col().cellRenderer) {
@@ -218,6 +221,17 @@ export class AgridCellComponent {
 
   /** Color band assigned by the grid while an adjacent formula is being edited. */
   formulaReferenceColor = input<number | null>(null);
+
+  /** Optional row image configured by the column definition. */
+  readonly cellImageUrl = computed(() => {
+    const imageUrl = this.col().imageUrl;
+    return imageUrl ? imageUrl({ value: this.value(), row: this.row() }) : null;
+  });
+
+  readonly cellImageAlt = computed(() => {
+    const imageAlt = this.col().imageAlt;
+    return imageAlt ? imageAlt({ value: this.value(), row: this.row() }) : '';
+  });
 
   /** Horizontal span and coverage state for this row. */
   readonly cellSpanLayout = computed(() => {

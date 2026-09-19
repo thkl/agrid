@@ -67,6 +67,10 @@ export interface AgridTreeProviderConfig<T extends object> {
   getLabel?: (row: T) => string;
   /** Optional secondary text shown beneath a row label. */
   getDescription?: (row: T) => string | undefined;
+  /** Optional image URL or data URL shown before a data-row label. */
+  getImageUrl?: (row: T) => string | undefined;
+  /** Optional alternative text for a data-row image. */
+  getImageAlt?: (row: T) => string;
   /** Optional CSS class names applied to data-row tree nodes. */
   getNodeClass?: (row: T) => string;
   /** Optional context menu items for data-row and generated-branch tree nodes. */
@@ -93,6 +97,10 @@ export class AgridTreeProvider<T extends object = any> {
   readonly getLabel?: (row: T) => string;
   /** Optional host resolver for secondary node text. */
   readonly getDescription?: (row: T) => string | undefined;
+  /** Optional host resolver for data-row images. */
+  readonly getImageUrl?: (row: T) => string | undefined;
+  /** Optional host resolver for data-row image alternative text. */
+  readonly getImageAlt?: (row: T) => string;
   /** Optional host resolver for data-row node CSS class names. */
   readonly getNodeClass?: (row: T) => string;
   /** Optional host resolver for per-node context menu items. */
@@ -124,6 +132,8 @@ export class AgridTreeProvider<T extends object = any> {
     this.treeConfig = config.treeConfig;
     this.getLabel = config.getLabel;
     this.getDescription = config.getDescription;
+    this.getImageUrl = config.getImageUrl;
+    this.getImageAlt = config.getImageAlt;
     this.getNodeClass = config.getNodeClass;
     this.contextMenuItems = config.contextMenuItems;
     this.selection = config.selection ?? 'single';

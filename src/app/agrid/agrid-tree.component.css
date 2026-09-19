@@ -88,6 +88,16 @@
   justify-content: center;
 }
 
+.ag-tree-image {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  margin-right: 8px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--agrid-color-bg-muted);
+}
+
 .ag-tree-label {
   overflow: hidden;
   text-overflow: ellipsis;
