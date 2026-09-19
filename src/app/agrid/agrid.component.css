@@ -329,6 +329,17 @@
   --agrid-row-indication-duration: 1000ms;
 }
 
+.ag-wrapper.ag-auto-row-height .ag-row:not(.ag-detail-row) agrid-cell {
+  overflow: visible;
+  white-space: normal;
+}
+
+.ag-wrapper.ag-auto-row-height .ag-row:not(.ag-detail-row) .ag-cell-value {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
 .ag-row--pending-delete > :not(.ag-delete-confirmation) {
   opacity: 0.2;
   pointer-events: none;

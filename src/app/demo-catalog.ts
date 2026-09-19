@@ -9,6 +9,25 @@ export interface DemoGuide {
 
 export const DEMO_GUIDES: DemoGuide[] = [
   {
+    path: '/auto-row-height',
+    label: 'Auto row height',
+    title: 'Measured rows for wrapped content',
+    summary: 'Opt into per-row measurement so long cell content grows naturally while virtual scrolling stays aligned.',
+    points: [
+      'Set autoRowHeight: true on the provider.',
+      'The active row-density height remains the minimum.',
+      'Rendered rows are measured across pinned and scrollable panes.',
+    ],
+    code: `const provider = new AgridProvider({
+  columns: [
+    { field: 'title', header: 'Title', width: 180 },
+    { field: 'description', header: 'Description', width: 320 },
+  ],
+  datasource,
+  autoRowHeight: true,
+});`,
+  },
+  {
     path: '/demo',
     label: 'Overview',
     title: 'Full-featured editable grid',

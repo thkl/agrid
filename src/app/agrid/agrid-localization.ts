@@ -126,6 +126,7 @@ export interface AgridLocaleText {
   rowHeightCompact: string;
   rowHeightNormal: string;
   rowHeightRelaxed: string;
+  rowHeightAuto: string;
   templates:string;
 }
 
@@ -258,6 +259,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     rowHeightCompact: 'Compact',
     rowHeightNormal: 'Normal',
     rowHeightRelaxed: 'Relaxed',
+    rowHeightAuto: 'Auto',
     templates:' templates',
   },
   de: {
@@ -384,6 +386,7 @@ export const AGRID_LOCALE_TEXT: Record<AgridLocaleKey, AgridLocaleText> = {
     rowHeightCompact: 'Kompakt',
     rowHeightNormal: 'Normal',
     rowHeightRelaxed: 'Entspannt',
+    rowHeightAuto: 'Automatisch',
     templates:' Vorlagen'
   },
 };

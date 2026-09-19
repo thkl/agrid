@@ -90,6 +90,10 @@ export const routes: Routes = [
     loadComponent: () => import('./demos/aggregates.component').then(m => m.AggregatesDemoComponent),
   },
   {
+    path: 'auto-row-height',
+    loadComponent: () => import('./demos/auto-row-height.component').then(m => m.AutoRowHeightDemoComponent),
+  },
+  {
     path: 'pivot',
     loadComponent: () => import('./demos/pivot.component').then(m => m.PivotDemoComponent),
   },

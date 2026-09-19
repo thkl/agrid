@@ -101,7 +101,7 @@ export interface ColumnFilter {
 }
 
 /** Named row-height presets supported by the grid density controls. */
-export type AgridRowDensity = 'compact' | 'normal' | 'relaxed' | 'custom';
+export type AgridRowDensity = 'compact' | 'normal' | 'relaxed' | 'custom' | 'auto';
 
 /** Transient row indication state produced by {@link AgridControl.indicate}. */
 export interface AgridRowIndication {

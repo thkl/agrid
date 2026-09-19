@@ -85,6 +85,7 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
 
 const DEMOS = [
   ['Aggregates', '/aggregates', 'Sum, average, and count footers per column.'],
+  ['Auto row height', '/auto-row-height', 'Measure wrapped content and grow individual rows.'],
   ['Charts / graphs', '/charts', 'SVG diagrams linked to grid data and filtering.'],
   ['Column performance', '/column-performance', 'Measure rendering cost across changing column layouts.'],
   ['Column pinning', '/pinning', 'Freeze columns to the left or right edge while scrolling.'],

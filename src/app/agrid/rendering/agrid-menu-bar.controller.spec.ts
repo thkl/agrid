@@ -83,7 +83,7 @@ describe('AgridMenuBarController', () => {
     expect(hidden).not.toContain(AGRID_ROW_HEIGHT_ACTION);
     expect(shown.map(i => i.id)).toContain(AGRID_ROW_HEIGHT_ACTION);
     expect(shown.find(i => i.id === AGRID_ROW_HEIGHT_ACTION)?.items?.map(i => i.label))
-      .toEqual(['Compact', 'Normal', 'Relaxed']);
+      .toEqual(['Compact', 'Normal', 'Relaxed', 'Auto']);
   });
 
   it('opens/closes and closes competing menus only when opening', () => {

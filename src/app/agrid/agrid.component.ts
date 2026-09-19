@@ -171,8 +171,10 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly rowHeight = computed(() => {
     const provider = this.provider();
     const density = this.rowDensity();
+    if (density === 'auto') return provider.rowHeight;
     return provider.rowDensityHeights[density] ?? provider.rowHeight;
   });
+  readonly autoRowHeight = computed(() => this.rowDensity() === 'auto');
   readonly minHeight = computed(() => this.provider().minHeight);
   readonly maxHeight = computed(() => this.provider().maxHeight);
   readonly allowAddRows = computed(() => this.provider().allowAddRows && !this.provider().pivotConfig);
@@ -1286,7 +1288,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly itemSizes = computed<number[]>(() => {
     const h = this.rowHeight();
     const dh = this.detailRowHeight();
-    return this.displayItems().map(item => (isDetailRowItemFn(item) ? dh : h));
+    return this.displayItems().map(item => this.rowPx(item, h, dh));
   });
 
   // ── Menu signals ─────────────────────────────────────────────────────────────
@@ -1305,6 +1307,8 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   private readonly _hostEl = inject(ElementRef<HTMLElement>);
   private readonly browser = new AgridBrowserAdapter();
   private viewReady = false;
+  private readonly measuredRowHeights = signal<ReadonlyMap<number, number>>(new Map());
+  private autoRowResizeObserver: ResizeObserver | null = null;
 
   private readonly rangeController = new AgridRangeController({
     control: this.control,
@@ -1574,6 +1578,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     rowHeightCompactLabel: computed(() => this.localeText().rowHeightCompact),
     rowHeightNormalLabel: computed(() => this.localeText().rowHeightNormal),
     rowHeightRelaxedLabel: computed(() => this.localeText().rowHeightRelaxed),
+    rowHeightAutoLabel: computed(() => this.localeText().rowHeightAuto),
     emitAction: id => this.menuBarAction.emit(id),
     closeOtherMenus: () => {
       this.rowController.closeContextMenu();
@@ -2131,6 +2136,14 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       this.formulaBarDraft.set(row && col ? String(this.cellValue(col, row, cell.rowIndex) ?? '') : '');
     });
 
+    afterRenderEffect(() => {
+      this.autoRowHeight();
+      this.displayItems();
+      this.pinnedTopItems();
+      this.pinnedBottomItems();
+      if (this.viewReady) queueMicrotask(() => this.observeAutoHeightRows());
+    });
+
     afterNextRender(() => {
       this.viewReady = true;
       this.applyPendingViewState();
@@ -2147,11 +2160,19 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       const resizeObserver = ResizeObserverCtor
         ? new ResizeObserverCtor(() => this.syncColumnViewportMetrics())
         : null;
+      this.autoRowResizeObserver = this.autoRowHeight()
+        ? (ResizeObserverCtor
+          ? new ResizeObserverCtor(entries => this.measureAutoHeightRows(entries))
+          : null)
+        : null;
       resizeObserver?.observe(this.horizontalScrollerEl().nativeElement);
+      this.observeAutoHeightRows();
       this.destroyRef.onDestroy(() => {
         renderedRangeSubscription.unsubscribe();
         wrapper.removeEventListener('keydown', onKeyDown, { capture: true });
         resizeObserver?.disconnect();
+        this.autoRowResizeObserver?.disconnect();
+        this.autoRowResizeObserver = null;
       });
       this.ensureServerRowsVisible();
     });
@@ -2302,8 +2323,49 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   }
 
   /** @internal Rendered pixel height of a virtual-scroll item (detail panels are taller). */
-  rowPx(item: GridItem): number {
-    return isDetailRowItemFn(item) ? this.detailRowHeight() : this.rowHeight();
+  rowPx(item: GridItem, baseHeight = this.rowHeight(), detailHeight = this.detailRowHeight()): number {
+    if (isDetailRowItemFn(item)) return detailHeight;
+    if (!this.autoRowHeight() || !isDataRowItemFn(item)) return baseHeight;
+    return this.measuredRowHeights().get(item.originalIndex) ?? baseHeight;
+  }
+
+  private observeAutoHeightRows(): void {
+    if (!this.autoRowResizeObserver || !this.autoRowHeight()) return;
+    const wrapper = this.wrapperEl().nativeElement;
+    wrapper.querySelectorAll<HTMLElement>('.ag-row:not(.ag-detail-row)[data-original-index]').forEach(row => {
+      this.autoRowResizeObserver?.observe(row);
+      row.querySelectorAll<HTMLElement>('agrid-cell').forEach(cell =>
+        this.autoRowResizeObserver?.observe(cell),
+      );
+    });
+  }
+
+  private measureAutoHeightRows(entries: ResizeObserverEntry[]): void {
+    if (!this.autoRowHeight()) return;
+    const baseHeight = this.rowHeight();
+    const next = new Map(this.measuredRowHeights());
+    let changed = false;
+    for (const entry of entries) {
+      const target = entry.target as HTMLElement;
+      const row = target.matches('.ag-row')
+        ? target
+        : target.closest<HTMLElement>('.ag-row');
+      if (!row) continue;
+      if (row.classList.contains('ag-detail-row')) continue;
+      const originalIndex = Number(row.dataset['originalIndex']);
+      if (!Number.isInteger(originalIndex) || originalIndex < 0) continue;
+      const cells = [...row.querySelectorAll<HTMLElement>('agrid-cell')];
+      const contentHeight = Math.max(
+        entry.contentRect.height,
+        row.scrollHeight,
+        ...cells.map(cell => cell.scrollHeight),
+      );
+      const measured = Math.max(baseHeight, Math.ceil(contentHeight));
+      if (next.get(originalIndex) === measured) continue;
+      next.set(originalIndex, measured);
+      changed = true;
+    }
+    if (changed) this.measuredRowHeights.set(next);
   }
 
   /** @internal Resolved HTML for an expanded detail panel (auto-sanitized by `[innerHTML]`). */

@@ -353,7 +353,8 @@ readonly gridProvider = new AgridProvider({
 | `locale` | `string` | `'auto'` | BCP-47 locale tag for grid text and date formatting. `'auto'` reads `navigator.language` and falls back to `'en-US'`. |
 | `localization` | `AgridLocaleTextOverrides` | `undefined` | Overrides individual labels. See [Localization](#localization). |
 | `rowHeight` | `number` | `48` | Fixed row height used by the `custom` row-density preset. |
-| `rowDensity` | `'compact' \| 'normal' \| 'relaxed' \| 'custom'` | `'normal'` | Initial row-height preset stored on `control`. |
+| `autoRowHeight` | `boolean` | `false` | Compatibility alias that initializes `rowDensity` to `auto`; prefer selecting `auto` through the row-height menu or `control.setRowDensity('auto')`. |
+| `rowDensity` | `'compact' \| 'normal' \| 'relaxed' \| 'custom' \| 'auto'` | `'normal'` | Initial row-height preset stored on `control`; `auto` measures wrapped cell content. |
 | `rowDensityHeights` | `Partial<Record<AgridRowDensity, number>>` | `{ compact: 40, normal: 48, relaxed: 52 }` | Optional pixel overrides for named row-density presets. |
 | `theme` | `'morning' \| 'dusk' \| 'space'` | `'morning'` | Built-in visual theme preset. Call `provider.setTheme(theme)` to switch at runtime. |
 | `showRowHeightMenu` | `boolean` | `false` | Shows a built-in toolbar dropdown for Compact, Normal, and Relaxed row height. |
@@ -607,9 +608,10 @@ onMenuBarAction(id: string): void {
 
 ### Row height density
 
-Use `control.setRowDensity()` to switch the fixed virtual-scroll row height at runtime. The built-in
-presets default to Compact `40px`, Normal `48px`, and Relaxed `52px`; set `rowDensityHeights` to
-override them. `rowHeight` remains available as the `custom` preset height.
+Use `control.setRowDensity()` to switch the virtual-scroll row height at runtime. The built-in
+presets default to Compact `40px`, Normal `48px`, and Relaxed `52px`; `auto` measures wrapped
+content while using `rowHeight` as the minimum. Set `rowDensityHeights` to override the fixed
+presets. `rowHeight` remains available as the `custom` preset height.
 When `showRowHeightMenu` and `gridId` are set, menu selections are saved immediately to
 `localStorage` with the grid's normal settings key.
 
@@ -625,6 +627,25 @@ const provider = new AgridProvider({
 });
 
 control.setRowDensity('compact');
+control.setRowDensity('auto');
+```
+
+### Auto row height
+
+Set `autoRowHeight: true` when rows contain descriptions, notes, or custom content that should wrap
+onto multiple lines. The grid observes rendered rows in each pane, feeds the measured heights into
+virtual scrolling, and keeps the active density height as the minimum. It is opt-in because wrapping
+all cell content changes the compact fixed-row layout.
+
+```ts
+const provider = new AgridProvider({
+  columns: [
+    { field: 'title', header: 'Title', width: 180 },
+    { field: 'description', header: 'Description', width: 320 },
+  ],
+  datasource,
+  autoRowHeight: true,
+});
 ```
 
 ### Dynamic Provider Options

@@ -19,6 +19,7 @@ export const AGRID_ROW_HEIGHT_ACTION = '_internal_row_height';
 export const AGRID_ROW_HEIGHT_COMPACT_ACTION = '_internal_row_height_compact';
 export const AGRID_ROW_HEIGHT_NORMAL_ACTION = '_internal_row_height_normal';
 export const AGRID_ROW_HEIGHT_RELAXED_ACTION = '_internal_row_height_relaxed';
+export const AGRID_ROW_HEIGHT_AUTO_ACTION = '_internal_row_height_auto';
 
 
 /** Dependencies and callbacks required by {@link AgridMenuBarController}. @internal */
@@ -46,6 +47,7 @@ export interface AgridMenuBarControllerOptions<T extends object = any> {
   rowHeightCompactLabel: Signal<string>;
   rowHeightNormalLabel: Signal<string>;
   rowHeightRelaxedLabel: Signal<string>;
+  rowHeightAutoLabel?: Signal<string>;
 
   /** Emits a user-defined menu-bar action id. */
   emitAction: (id: string) => void;
@@ -124,6 +126,11 @@ export class AgridMenuBarController<T extends object = any> {
             label: this.opts.rowHeightRelaxedLabel(),
             active: () => this.opts.rowDensity() === 'relaxed',
           },
+          {
+            id: AGRID_ROW_HEIGHT_AUTO_ACTION,
+            label: this.opts.rowHeightAutoLabel?.() ?? 'Auto',
+            active: () => this.opts.rowDensity() === 'auto',
+          },
         ],
       });
     }
@@ -178,6 +185,11 @@ export class AgridMenuBarController<T extends object = any> {
 
     if (id === AGRID_ROW_HEIGHT_RELAXED_ACTION && this.opts.showRowHeightMenu()) {
       this.opts.setRowDensity('relaxed');
+      return;
+    }
+
+    if (id === AGRID_ROW_HEIGHT_AUTO_ACTION && this.opts.showRowHeightMenu()) {
+      this.opts.setRowDensity('auto');
       return;
     }
 

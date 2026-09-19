@@ -1,4 +1,4 @@
-<div #wrapper class="ag-wrapper" tabindex="0" role="grid" [attr.aria-label]="localeText().grid"
+<div #wrapper class="ag-wrapper" [class.ag-auto-row-height]="autoRowHeight()" tabindex="0" role="grid" [attr.aria-label]="localeText().grid"
   [attr.aria-rowcount]="ariaRowCount()" [attr.aria-colcount]="ariaColCount()"
   [attr.aria-multiselectable]="rowSelection() === 'multi' ? 'true' : null"
   [attr.aria-readonly]="readonlyGrid() ? 'true' : null" [attr.aria-busy]="loading() ? 'true' : null"

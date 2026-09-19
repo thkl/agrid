@@ -35,9 +35,9 @@ export interface AgridPivotSettings {
 }
 
 /** Pixel heights used by the built-in row-density presets. */
-export type AgridRowDensityHeights = Partial<Record<AgridRowDensity, number>>;
+export type AgridRowDensityHeights = Partial<Record<Exclude<AgridRowDensity, 'auto'>, number>>;
 
-export const AGRID_DEFAULT_ROW_DENSITY_HEIGHTS: Record<AgridRowDensity, number> = {
+export const AGRID_DEFAULT_ROW_DENSITY_HEIGHTS: Record<Exclude<AgridRowDensity, 'auto'>, number> = {
   compact: 40,
   normal: 48,
   relaxed: 52,
@@ -130,6 +130,8 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
    * @default 48
    */
   rowHeight?: number;
+  /** Measure rendered cell content and grow individual rows when content wraps. @default false */
+  autoRowHeight?: boolean;
   /**
    * Initial row-density preset stored on the control. Defaults to `'normal'` unless restored from
    * settings. Use `control.setRowDensity()` to change it at runtime.
@@ -434,8 +436,10 @@ export class AgridProvider<T extends object = any> {
 
   /** Fixed virtual-scroll row height in pixels. */
   rowHeight: number;
+  /** Whether rendered rows measure and grow to fit wrapped cell content. */
+  readonly autoRowHeight: boolean;
   /** Pixel heights used for named row-density presets. */
-  rowDensityHeights: Record<AgridRowDensity, number>;
+  rowDensityHeights: Record<Exclude<AgridRowDensity, 'auto'>, number>;
   /** Active built-in visual theme preset. */
   readonly theme: WritableSignal<AgridTheme>;
   /**
@@ -569,7 +573,9 @@ export class AgridProvider<T extends object = any> {
     this.treeConfig   = config.treeConfig ?? null;
 
     if (config.rowDensity !== undefined) this.control.setRowDensity(config.rowDensity);
+    else if (config.autoRowHeight) this.control.setRowDensity('auto');
     this.rowHeight        = config.rowHeight ?? AGRID_DEFAULT_ROW_DENSITY_HEIGHTS.custom;
+    this.autoRowHeight    = config.autoRowHeight ?? false;
     this.rowDensityHeights = {
       ...AGRID_DEFAULT_ROW_DENSITY_HEIGHTS,
       custom: this.rowHeight,
