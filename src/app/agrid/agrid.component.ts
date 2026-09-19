@@ -545,6 +545,121 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** Draft value while editing — committed on Tab/Enter, discarded on Escape. */
   get currentDraft() { return this.editController.currentDraft; }
 
+  /** Return the raw formula only while its cell or the formula bar is actively being edited. */
+  private getActiveFormulaClipboardValue(rowIndex: number, colIndex: number): string | undefined {
+    const cell = this.selectedCell();
+    if (!cell || cell.rowIndex !== rowIndex || cell.colIndex !== colIndex) return undefined;
+    const col = this.visibleColDefs()[colIndex];
+    if (!col?.formula) return undefined;
+
+    const editing = this.editingCell();
+    const draft = editing?.rowIndex === rowIndex && editing.colIndex === colIndex
+      ? String(this.currentDraft() ?? '')
+      : this.formulaBarFocused()
+        ? this.formulaBarDraft()
+        : '';
+    return draft.trim().startsWith('=') ? draft : undefined;
+  }
+
+  /** Return the reference color for a cell used by the formula currently being edited. */
+  formulaReferenceColor(rowIndex: number, colIndex: number): number | null {
+    const editing = this.editingCell();
+    const formula = String(this.currentDraft() ?? '').trim();
+    if (!editing || !formula.startsWith('=')) return null;
+
+    const columns = this.visibleColDefs();
+    if (columns.length === 0) return null;
+    const columnLetters = columns.map((_, index) => this.columnIndexToLetters(index));
+    const targetColumn = columnLetters[colIndex];
+    if (!targetColumn) return null;
+
+    const expression = formula.slice(1);
+    const colors = new Map<string, number>();
+    let nextColor = 1;
+    const colorFor = (key: string): number => {
+      const existing = colors.get(key);
+      if (existing) return existing;
+      const color = nextColor <= 4 ? nextColor : ((nextColor - 1) % 4) + 1;
+      nextColor++;
+      colors.set(key, color);
+      return color;
+    };
+
+    // Explicit cell references and whole-column ranges are recognized first so
+    // their letters are not mistaken for same-row shorthand references.
+    let match: RegExpExecArray | null;
+    const explicitRangeReferences = /\$?([A-Z]+)\$?(\d+):\$?([A-Z]+)\$?(\d+)/gi;
+    const explicitRangeSpans: Array<{ start: number; end: number }> = [];
+    while ((match = explicitRangeReferences.exec(expression))) {
+      explicitRangeSpans.push({ start: match.index, end: match.index + match[0].length });
+      const startColumn = this.columnLettersToIndex(match[1]);
+      const endColumn = this.columnLettersToIndex(match[3]);
+      const startRow = Number(match[2]) - 1;
+      const endRow = Number(match[4]) - 1;
+      const color = colorFor(`range:${startColumn}:${startRow}:${endColumn}:${endRow}`);
+      if (rowIndex >= Math.min(startRow, endRow) && rowIndex <= Math.max(startRow, endRow)
+        && colIndex >= Math.min(startColumn, endColumn) && colIndex <= Math.max(startColumn, endColumn)) {
+        return color;
+      }
+    }
+
+    const explicitReferences = /\$?([A-Z]+)\$?(\d+)/gi;
+    while ((match = explicitReferences.exec(expression))) {
+      if (explicitRangeSpans.some(span => match!.index >= span.start && match!.index < span.end)) continue;
+      const referencedColumn = this.columnLettersToIndex(match[1]);
+      const referencedRow = Number(match[2]) - 1;
+      const color = colorFor(`cell:${match[1].toUpperCase()}${match[2]}`);
+      if (referencedColumn === colIndex && referencedRow === rowIndex) {
+        return color;
+      }
+    }
+
+    const wholeColumnRanges = /\$?([A-Z]+)\$?:\$?([A-Z]+)\$?/gi;
+    while ((match = wholeColumnRanges.exec(expression))) {
+      const start = this.columnLettersToIndex(match[1]);
+      const end = this.columnLettersToIndex(match[2]);
+      const color = colorFor(`column:${Math.min(start, end)}:${Math.max(start, end)}`);
+      if (start >= 0 && end >= 0 && colIndex >= Math.min(start, end) && colIndex <= Math.max(start, end)) {
+        return color;
+      }
+    }
+
+    const functions = new Set(['SUM', 'AVERAGE', 'MIN', 'MAX']);
+    const bareReferences = /\b([A-Z]+)\b/gi;
+    while ((match = bareReferences.exec(expression))) {
+      const token = match[1].toUpperCase();
+      const before = expression[match.index - 1];
+      const after = expression[match.index + match[0].length];
+      if (functions.has(token) || before === '$' || /\d/.test(after ?? '')) continue;
+      const referencedColumn = this.columnLettersToIndex(token);
+      const color = colorFor(`row:${token}`);
+      if (referencedColumn === colIndex && rowIndex === editing.rowIndex) {
+        return color;
+      }
+    }
+
+    return null;
+  }
+
+  private columnIndexToLetters(index: number): string {
+    let result = '';
+    let value = index + 1;
+    while (value > 0) {
+      const remainder = (value - 1) % 26;
+      result = String.fromCharCode(65 + remainder) + result;
+      value = Math.floor((value - 1) / 26);
+    }
+    return result;
+  }
+
+  private columnLettersToIndex(letters: string): number {
+    let result = 0;
+    for (const character of letters.toUpperCase()) {
+      result = result * 26 + character.charCodeAt(0) - 64;
+    }
+    return result - 1;
+  }
+
   /** Seed character typed to enter edit mode (e.g. pressing 'A'). */
   get editSeedChar() { return this.editController.editSeedChar; }
 
@@ -1534,6 +1649,8 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     filteredItems: this.filteredItems,
     visibleColDefs: this.visibleColDefs,
     locale: this.locale,
+    formulaContext: this.formulaContext,
+    copyValue: (rowIndex: number, colIndex: number) => this.getActiveFormulaClipboardValue(rowIndex, colIndex),
     selectedCell: this.selectedCell,
     selectedRange: this.selectedRange,
     markedRowIndices: this.markedRowIndices,

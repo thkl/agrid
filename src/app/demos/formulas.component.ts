@@ -4,10 +4,10 @@ import { AgridComponent, AgridControl, AgridDataSource, AgridProvider, ColDef } 
 interface FormulaRow { item: string; amount: number; tax: number; total: string; average: string; }
 
 const ROWS: FormulaRow[] = [
-  { item: 'Design work', amount: 1200, tax: 192, total: '=B1+C1', average: '=AVERAGE(B1:C1)' },
-  { item: 'Implementation', amount: 2800, tax: 448, total: '=B2+C2', average: '=AVERAGE(B2:C2)' },
-  { item: 'Support', amount: 900, tax: 144, total: '=B3+C3', average: '=AVERAGE(B3:C3)' },
-  { item: 'Training', amount: 650, tax: 104, total: '=B4+C4', average: '=AVERAGE(B4:C4)' },
+  { item: 'Design work', amount: 1200, tax: 192, total: '=B+C', average: '=AVERAGE(B1:C1)' },
+  { item: 'Implementation', amount: 2800, tax: 448, total: '=B+C', average: '=AVERAGE(B2:C2)' },
+  { item: 'Support', amount: 900, tax: 144, total: '=B+C', average: '=AVERAGE(B3:C3)' },
+  { item: 'Training', amount: 650, tax: 104, total: '=B+C', average: '=AVERAGE(B4:C4)' },
 ];
 
 const COLUMNS: ColDef<FormulaRow>[] = [

@@ -84,6 +84,63 @@ describe('AgridClipboardHandler', () => {
     );
   });
 
+  it('copies evaluated formula values and raw formulas when an edit callback is active', () => {
+    const formulaColumns: ColDef[] = [
+      { field: 'amount', header: 'Amount', type: 'number' },
+      { field: 'tax', header: 'Tax', type: 'number' },
+      { field: 'total', header: 'Total', type: 'number', formula: true },
+    ];
+    const dataSource = new AgridDataSource([
+      { amount: 10, tax: 2, total: '=A+B' },
+    ]);
+    const selectedCell = signal<CellPosition | null>({ rowIndex: 0, colIndex: 2 });
+    const selectedRange = signal<{ anchor: CellPosition; focus: CellPosition } | null>(null);
+    const filteredItems = signal<GridItem[]>([{ row: dataSource.rows()[0], originalIndex: 0 }]);
+    const handler = new AgridClipboardHandler({
+      control: signal(new AgridControl()),
+      dataSource: signal(dataSource),
+      filteredItems,
+      visibleColDefs: signal(formulaColumns),
+      locale: signal('en-US'),
+      formulaContext: signal({
+        rows: dataSource.rows(),
+        columns: formulaColumns,
+        rowIndex: 0,
+        colIndex: 2,
+      }),
+      copyValue: () => '=A+B',
+      selectedCell,
+      selectedRange,
+      markedRowIndices: signal(new Set<number>()),
+      isCellEditable: () => true,
+      onCellEdit: () => undefined,
+      scrollToCell: () => undefined,
+    });
+
+    expect(handler.getSelectedTsv()).toBe('=A+B');
+    const rawFormulaHandler = new AgridClipboardHandler({
+      control: signal(new AgridControl()),
+      dataSource: signal(dataSource),
+      filteredItems,
+      visibleColDefs: signal(formulaColumns),
+      locale: signal('en-US'),
+      formulaContext: signal({
+        rows: dataSource.rows(),
+        columns: formulaColumns,
+        rowIndex: 0,
+        colIndex: 2,
+      }),
+      selectedCell,
+      selectedRange,
+      markedRowIndices: signal(new Set<number>()),
+      isCellEditable: () => true,
+      onCellEdit: () => undefined,
+      scrollToCell: () => undefined,
+    });
+
+    expect(rawFormulaHandler.getSelectedTsv()).toBe('12');
+  });
+
   it('appends marked rows using the copied selection columns without duplicates', () => {
     const markedRowIndices = signal<ReadonlySet<number>>(new Set([0, 1]));
     const { handler, selectedCell, selectedRange } = createHandler(markedRowIndices);

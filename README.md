@@ -1045,6 +1045,7 @@ opens. `largeText` renders a multiline textarea. `formula` gives the cell a form
 set `formula: true` to evaluate raw strings that start with `=` for display, filtering, sorting,
 copy, and export. In addition to same-row field references, rendered cells support Excel-style
 data-cell references (`=A1+B1`) and ranges in `SUM`, `AVERAGE`, `MIN`, and `MAX` (`=SUM(A1:A5)`).
+Bare column references such as `=A+B` refer to those columns on the formula's own row.
 Formula references are one-based over datasource rows and configured columns. Circular references
 are reported as formula errors. Evaluation uses a small parser in `agrid.utils.ts`; it does not
 call JavaScript `eval`.

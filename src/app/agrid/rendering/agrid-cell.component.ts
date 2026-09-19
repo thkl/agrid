@@ -44,6 +44,10 @@ const EMPTY_CELL_FORMAT: CellFormat = {};
     role: 'gridcell',
     '[class.selected]': 'selected()',
     '[class.editing]': 'editing()',
+    '[class.ag-cell--formula-ref-1]': 'formulaReferenceColor() === 1',
+    '[class.ag-cell--formula-ref-2]': 'formulaReferenceColor() === 2',
+    '[class.ag-cell--formula-ref-3]': 'formulaReferenceColor() === 3',
+    '[class.ag-cell--formula-ref-4]': 'formulaReferenceColor() === 4',
     '[class.ag-cell--tree]': 'treeCell()',
     '[class.ag-cell--with-info]': 'showInfoIcon() && !editing()',
     '[attr.aria-readonly]': '!editable() ? "true" : null',
@@ -211,6 +215,9 @@ export class AgridCellComponent {
 
   /** Optional grid context for Excel-style cross-cell formulas. */
   formulaContext = input<AgridFormulaContext | undefined>(undefined);
+
+  /** Color band assigned by the grid while an adjacent formula is being edited. */
+  formulaReferenceColor = input<number | null>(null);
 
   /** Horizontal span and coverage state for this row. */
   readonly cellSpanLayout = computed(() => {
@@ -430,7 +437,15 @@ export class AgridCellComponent {
    */
   readonly displayValue = computed((): string => {
     return this.displayValueOverride()
-      ?? getDisplayForField(this.col(), this.value(), this.locale(), this.row(), this.formulaContext());
+      ?? getDisplayForField(
+        this.col(),
+        this.value(),
+        this.locale(),
+        this.row(),
+        this.formulaContext()
+          ? { ...this.formulaContext()!, rowIndex: this.rowIndex(), colIndex: this.colIndex() }
+          : undefined,
+      );
   });
 
   /**

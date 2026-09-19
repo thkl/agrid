@@ -3,7 +3,12 @@ import { AgridControl, HistoryEntry } from '../agrid-control';
 import { AgridDataSource } from '../agrid-datasource';
 import { CellPosition, ColDef, GridEditEvent, GridItem } from '../agrid.types';
 import { applyPreparedCellValue, cellEditEvent, prepareCellValue } from '../editing/agrid-value-write';
-import { getCellValue, getDisplayForField, isDataRowItem } from '../agrid.utils';
+import {
+  AgridFormulaContext,
+  getCellValue,
+  getDisplayForField,
+  isDataRowItem,
+} from '../agrid.utils';
 
 /** Rectangular selection represented by source row and visible column positions. @internal */
 export type CellRange = { anchor: CellPosition; focus: CellPosition };
@@ -22,6 +27,8 @@ export interface AgridClipboardHandlerOptions {
   filteredItems: Signal<GridItem[]>;
   visibleColDefs: Signal<ColDef[]>;
   locale: Signal<string>;
+  formulaContext?: Signal<AgridFormulaContext>;
+  copyValue?: (rowIndex: number, colIndex: number) => string | undefined;
   selectedCell: WritableSignal<CellPosition | null>;
   selectedRange: WritableSignal<CellRange | null>;
   markedRowIndices: Signal<ReadonlySet<number>>;
@@ -100,8 +107,21 @@ export class AgridClipboardHandler {
     for (let colIndex = colStart; colIndex <= colEnd; colIndex++) {
       const col = cols[colIndex];
       if (!col) continue;
+      const copiedValue = this.opts.copyValue?.(originalIndex, colIndex);
+      if (copiedValue !== undefined) {
+        cells.push(this.escapeTsvValue(copiedValue));
+        continue;
+      }
       cells.push(this.escapeTsvValue(
-        getDisplayForField(col, getCellValue(col, row, originalIndex), this.opts.locale(), row)
+        getDisplayForField(
+          col,
+          getCellValue(col, row, originalIndex),
+          this.opts.locale(),
+          row,
+          this.opts.formulaContext
+            ? { ...this.opts.formulaContext(), rowIndex: originalIndex, colIndex }
+            : undefined,
+        )
       ));
     }
     return cells.join('\t');

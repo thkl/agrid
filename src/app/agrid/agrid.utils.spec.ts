@@ -205,6 +205,8 @@ describe('getDisplayForField', () => {
 
     expect(evaluateFormula('=A1+B1', rows[0], context)).toEqual({ ok: true, value: 12 });
     expect(evaluateFormula('=SUM(A1:A2)', rows[1], { ...context, rowIndex: 1 })).toEqual({ ok: true, value: 17 });
+    expect(evaluateFormula('=A+B', rows[1], { ...context, rowIndex: 1 })).toEqual({ ok: true, value: 10 });
+    expect(evaluateFormula('=AVERAGE(B:C)', rows[1], { ...context, rowIndex: 1 })).toEqual({ ok: true, value: 8.5 });
   });
 
   it('applies formatters to evaluated formula results', () => {

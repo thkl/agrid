@@ -242,13 +242,17 @@ class FormulaParser {
   private functionArgument(): number[] {
     this.skipWhitespace();
     const start = this.index;
-    const reference = /^[A-Za-z]+[0-9]+/.exec(this.source.slice(start))?.[0];
+    const reference = /^[A-Za-z]+[0-9]*/.exec(this.source.slice(start))?.[0];
     if (reference) {
       this.index += reference.length;
       if (this.match(':')) {
-        const end = /^[A-Za-z]+[0-9]+/.exec(this.source.slice(this.index))?.[0];
+        const end = /^[A-Za-z]+[0-9]*/.exec(this.source.slice(this.index))?.[0];
         if (!end) throw new Error('expected range end');
         this.index += end.length;
+        if (/^[A-Za-z]+$/.test(reference) && /^[A-Za-z]+$/.test(end)) {
+          return this.columnRangeValues(reference, end);
+        }
+        if (!/[0-9]/.test(reference) || !/[0-9]/.test(end)) throw new Error('mixed cell range');
         return this.rangeValues(reference, end);
       }
       return [this.referenceValue(reference)];
@@ -280,6 +284,12 @@ class FormulaParser {
     if (/^[A-Za-z]+[0-9]+$/.test(field) && this.context) {
       return this.cellReferenceValue(field);
     }
+    // A bare column reference such as `=A+B` means columns A and B on the formula's current row.
+    // Existing row-field references keep priority so formulas like `=quantity*unitPrice` remain
+    // compatible with the original field-name syntax.
+    if (!(field in this.row) && /^[A-Za-z]+$/.test(field) && this.context) {
+      return this.cellReferenceValue(`${field}${this.context.rowIndex + 1}`);
+    }
     const value = Number(this.row[field]);
     if (Number.isNaN(value)) throw new Error(`invalid reference ${field}`);
     return value;
@@ -292,6 +302,19 @@ class FormulaParser {
     const values: number[] = [];
     for (let row = Math.min(first.row, last.row); row <= Math.max(first.row, last.row); row++) {
       for (let col = Math.min(first.col, last.col); col <= Math.max(first.col, last.col); col++) {
+        values.push(this.cellReferenceValue(this.coordinatesToReference(row, col)));
+      }
+    }
+    return values;
+  }
+
+  private columnRangeValues(start: string, end: string): number[] {
+    if (!this.context) throw new Error('cell ranges require grid context');
+    const first = this.columnIndex(start);
+    const last = this.columnIndex(end);
+    const values: number[] = [];
+    for (let row = 0; row < this.context.rows.length; row++) {
+      for (let col = Math.min(first, last); col <= Math.max(first, last); col++) {
         values.push(this.cellReferenceValue(this.coordinatesToReference(row, col)));
       }
     }
@@ -322,9 +345,13 @@ class FormulaParser {
   private cellCoordinates(reference: string): { row: number; col: number } {
     const match = /^([A-Za-z]+)([0-9]+)$/.exec(reference);
     if (!match) throw new Error(`#REF! ${reference}`);
+    return { row: Number(match[2]) - 1, col: this.columnIndex(match[1]) };
+  }
+
+  private columnIndex(letters: string): number {
     let col = 0;
-    for (const char of match[1].toUpperCase()) col = col * 26 + char.charCodeAt(0) - 64;
-    return { row: Number(match[2]) - 1, col: col - 1 };
+    for (const char of letters.toUpperCase()) col = col * 26 + char.charCodeAt(0) - 64;
+    return col - 1;
   }
 
   private coordinatesToReference(row: number, col: number): string {
