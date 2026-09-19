@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, viewChild } from '@angular/core';
 import { AgridComponent, AgridControl, AgridDataSource, ColDef } from '../agrid';
 import { AgridProvider } from '../agrid/agrid-provider';
 import { AGRID_RENDERER_CONTEXT } from '../agrid/rendering/agrid-cell-renderer';
@@ -130,7 +130,7 @@ function makeRows(): ProductRow[] {
       <div class="demo-header">
         <h2>Sparklines</h2>
         <span class="demo-meta">
-          Zero-dependency inline charts — a cellRendererComponent draws SVG from a number[] field
+          Live zero-dependency inline charts — values update every 1.2 seconds
         </span>
       </div>
       <agrid class="demo-grid" [provider]="provider" />
@@ -148,13 +148,37 @@ function makeRows(): ProductRow[] {
   `],
 })
 export class SparklinesDemoComponent {
+  private readonly datasource = new AgridDataSource(makeRows());
+
   readonly provider = new AgridProvider<ProductRow>({
     columns: COLUMNS,
-    datasource: new AgridDataSource(makeRows()),
+    datasource: this.datasource,
     control: new AgridControl(),
     zebraStripes: true,
     rowSelection: 'single',
   });
 
   readonly _grid = viewChild(AgridComponent);
+
+  constructor() {
+    const destroyRef = inject(DestroyRef);
+    const timer = setInterval(() => this.updateValues(), 1_200);
+    destroyRef.onDestroy(() => clearInterval(timer));
+  }
+
+  private updateValues(): void {
+    this.datasource.setData(this.datasource.rows().map(row => {
+      const previousTrend = row.trend.at(-1) ?? 40;
+      const nextTrend = this.nextTrendValue(previousTrend);
+      const trend = [...row.trend.slice(1), nextTrend];
+      const flow = [...row.flow.slice(1), Math.round((Math.random() - 0.5) * 100)];
+      const change = Math.round(((trend.at(-1)! - trend[0]) / Math.max(1, trend[0])) * 100);
+      const price = Math.max(0.5, row.price + (nextTrend - previousTrend) * 0.08 + (Math.random() - 0.5) * 0.12);
+      return { ...row, price: Number(price.toFixed(2)), trend, flow, change };
+    }));
+  }
+
+  private nextTrendValue(previous: number): number {
+    return Math.max(5, Math.round(previous + (Math.random() - 0.48) * 18));
+  }
 }

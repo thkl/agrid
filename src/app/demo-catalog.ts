@@ -276,6 +276,30 @@ const chartData = grid.getSelectedRangeChartData();
 if (chartData) chartProvider.setData(chartData);`,
   },
   {
+    path: '/formulas',
+    label: 'Formulas',
+    title: 'Excel-style formula cells',
+    summary: 'Edit source values and watch formula cells recalculate with A1 references and aggregate ranges.',
+    points: [
+      'Set formula: true and editor: formula on formula columns.',
+      'Use references such as =B1+C1 across configured columns and datasource rows.',
+      'Use SUM, AVERAGE, MIN, and MAX with ranges such as =SUM(B1:B4).',
+      'Enable showFormulaBar for a wider formula editing surface.',
+    ],
+    code: `const columns: ColDef<Invoice>[] = [
+  { field: 'amount', header: 'Amount', type: 'number' },
+  { field: 'tax', header: 'Tax', type: 'number' },
+  { field: 'total', header: 'Total', formula: true, editor: 'formula' },
+];
+
+// Row 1: { amount: 1200, tax: 192, total: '=A1+B1' }
+const provider = new AgridProvider({
+  columns,
+  datasource: new AgridDataSource(rows),
+  showFormulaBar: true,
+});`,
+  },
+  {
     path: '/sparklines',
     label: 'Sparklines',
     title: 'Zero-dependency inline charts',

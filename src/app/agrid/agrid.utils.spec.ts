@@ -191,6 +191,22 @@ describe('getDisplayForField', () => {
     })).toBe('50');
   });
 
+  it('evaluates Excel-style A1 references and ranges', () => {
+    const rows = [
+      { amount: 10, tax: 2, total: '=A1+B1' },
+      { amount: 7, tax: 3, total: '=SUM(A1:A2)' },
+    ];
+    const columns: ColDef[] = [
+      { field: 'amount', header: 'Amount' },
+      { field: 'tax', header: 'Tax' },
+      { field: 'total', header: 'Total', formula: true },
+    ];
+    const context = { rows, columns, rowIndex: 0, colIndex: 2 };
+
+    expect(evaluateFormula('=A1+B1', rows[0], context)).toEqual({ ok: true, value: 12 });
+    expect(evaluateFormula('=SUM(A1:A2)', rows[1], { ...context, rowIndex: 1 })).toEqual({ ok: true, value: 17 });
+  });
+
   it('applies formatters to evaluated formula results', () => {
     const col: ColDef = {
       field: 'total',

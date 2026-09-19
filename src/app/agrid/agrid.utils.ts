@@ -89,10 +89,11 @@ export function getDisplayForField(
   raw: unknown,
   locale?: string,
   row?: Record<string, unknown>,
+  formulaContext?: AgridFormulaContext,
 ): string {
   if (!col) return String(raw ?? '');
   if (col.formula && typeof raw === 'string' && raw.trim().startsWith('=')) {
-    const result = evaluateFormula(raw, row ?? {});
+    const result = evaluateFormula(raw, row ?? {}, formulaContext);
     if (!result.ok) return '#ERR';
     return col.formatter ? col.formatter(result.value) : formatFormulaResult(result.value);
   }
@@ -132,11 +133,24 @@ export type AgridFormulaResult =
   | { ok: true; value: number }
   | { ok: false; error: string };
 
+/** Grid context used when a formula needs to resolve Excel-style cell references. */
+export interface AgridFormulaContext {
+  rows: readonly Record<string, unknown>[];
+  columns: readonly ColDef[];
+  rowIndex: number;
+  colIndex: number;
+  resolving?: ReadonlySet<string>;
+}
+
 /** Evaluate a safe row-local arithmetic formula without using `eval`. */
-export function evaluateFormula(formula: string, row: Record<string, unknown>): AgridFormulaResult {
+export function evaluateFormula(
+  formula: string,
+  row: Record<string, unknown>,
+  context?: AgridFormulaContext,
+): AgridFormulaResult {
   const source = formula.trim().startsWith('=') ? formula.trim().slice(1) : formula.trim();
   if (!source) return { ok: false, error: 'empty formula' };
-  const parser = new FormulaParser(source, row);
+  const parser = new FormulaParser(source, row, context);
   try {
     const value = parser.parse();
     return Number.isFinite(value) ? { ok: true, value } : { ok: false, error: 'non-finite result' };
@@ -155,6 +169,7 @@ class FormulaParser {
   constructor(
     private readonly source: string,
     private readonly row: Record<string, unknown>,
+    private readonly context?: AgridFormulaContext,
   ) {}
 
   parse(): number {
@@ -194,7 +209,7 @@ class FormulaParser {
       return value;
     }
     if (this.peek() === '[') return this.bracketReference();
-    if (/[A-Za-z_]/.test(this.peek())) return this.identifier();
+    if (/[A-Za-z_]/.test(this.peek())) return this.identifierOrFunction();
     return this.number();
   }
 
@@ -207,10 +222,49 @@ class FormulaParser {
     return value;
   }
 
-  private identifier(): number {
+  private identifierOrFunction(): number {
     const start = this.index;
     while (/[A-Za-z0-9_]/.test(this.peek())) this.index++;
-    return this.referenceValue(this.source.slice(start, this.index));
+    const name = this.source.slice(start, this.index);
+    this.skipWhitespace();
+    if (this.match('(')) {
+      const values: number[] = [];
+      if (!this.match(')')) {
+        do values.push(...this.functionArgument());
+        while (this.match(','));
+        this.expect(')');
+      }
+      return this.functionValue(name, values);
+    }
+    return this.referenceValue(name);
+  }
+
+  private functionArgument(): number[] {
+    this.skipWhitespace();
+    const start = this.index;
+    const reference = /^[A-Za-z]+[0-9]+/.exec(this.source.slice(start))?.[0];
+    if (reference) {
+      this.index += reference.length;
+      if (this.match(':')) {
+        const end = /^[A-Za-z]+[0-9]+/.exec(this.source.slice(this.index))?.[0];
+        if (!end) throw new Error('expected range end');
+        this.index += end.length;
+        return this.rangeValues(reference, end);
+      }
+      return [this.referenceValue(reference)];
+    }
+    return [this.expression()];
+  }
+
+  private functionValue(name: string, values: number[]): number {
+    if (values.length === 0) throw new Error(`${name} requires a value`);
+    switch (name.toUpperCase()) {
+      case 'SUM': return values.reduce((sum, value) => sum + value, 0);
+      case 'AVERAGE': return values.reduce((sum, value) => sum + value, 0) / values.length;
+      case 'MIN': return Math.min(...values);
+      case 'MAX': return Math.max(...values);
+      default: throw new Error(`unknown function ${name}`);
+    }
   }
 
   private bracketReference(): number {
@@ -223,9 +277,65 @@ class FormulaParser {
   }
 
   private referenceValue(field: string): number {
+    if (/^[A-Za-z]+[0-9]+$/.test(field) && this.context) {
+      return this.cellReferenceValue(field);
+    }
     const value = Number(this.row[field]);
     if (Number.isNaN(value)) throw new Error(`invalid reference ${field}`);
     return value;
+  }
+
+  private rangeValues(start: string, end: string): number[] {
+    if (!this.context) throw new Error('cell ranges require grid context');
+    const first = this.cellCoordinates(start);
+    const last = this.cellCoordinates(end);
+    const values: number[] = [];
+    for (let row = Math.min(first.row, last.row); row <= Math.max(first.row, last.row); row++) {
+      for (let col = Math.min(first.col, last.col); col <= Math.max(first.col, last.col); col++) {
+        values.push(this.cellReferenceValue(this.coordinatesToReference(row, col)));
+      }
+    }
+    return values;
+  }
+
+  private cellReferenceValue(reference: string): number {
+    if (!this.context) throw new Error('cell reference requires grid context');
+    const { row, col } = this.cellCoordinates(reference);
+    const target = this.context.rows[row];
+    const column = this.context.columns[col];
+    if (!target || !column) throw new Error(`#REF! ${reference}`);
+    const key = `${row}:${col}`;
+    if (this.context.resolving?.has(key)) throw new Error('#CYCLE!');
+    const raw = getCellValue(column, target, row);
+    if (column.formula && typeof raw === 'string' && raw.trim().startsWith('=')) {
+      const resolving = new Set(this.context.resolving ?? []);
+      resolving.add(key);
+      const result = evaluateFormula(raw, target, { ...this.context, rowIndex: row, colIndex: col, resolving });
+      if (!result.ok) throw new Error(result.error);
+      return result.value;
+    }
+    const value = Number(raw);
+    if (!Number.isFinite(value)) throw new Error(`#VALUE! ${reference}`);
+    return value;
+  }
+
+  private cellCoordinates(reference: string): { row: number; col: number } {
+    const match = /^([A-Za-z]+)([0-9]+)$/.exec(reference);
+    if (!match) throw new Error(`#REF! ${reference}`);
+    let col = 0;
+    for (const char of match[1].toUpperCase()) col = col * 26 + char.charCodeAt(0) - 64;
+    return { row: Number(match[2]) - 1, col: col - 1 };
+  }
+
+  private coordinatesToReference(row: number, col: number): string {
+    let value = col + 1;
+    let letters = '';
+    while (value > 0) {
+      const remainder = (value - 1) % 26;
+      letters = String.fromCharCode(65 + remainder) + letters;
+      value = Math.floor((value - 1) / 26);
+    }
+    return `${letters}${row + 1}`;
   }
 
   private match(char: string): boolean {

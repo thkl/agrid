@@ -75,6 +75,7 @@ import {
   isPathTreeConfig,
   isTreeRowItem as isTreeRowItemFn,
   pathTreeNodeId,
+  AgridFormulaContext,
 } from './agrid.utils';
 import { cellEditEvent, prepareCellValue } from './editing/agrid-value-write';
 import { AgridVariableRowSizeDirective } from './infrastructure/agrid-variable-row-size.strategy';
@@ -494,6 +495,14 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** Rectangular cell range selected by Shift+arrow or Shift+click. */
   readonly selectedRange = signal<CellRange | null>(null);
+
+  /** Shared data/column context used by rendered cells for Excel-style references. */
+  readonly formulaContext = computed<AgridFormulaContext>(() => ({
+    rows: this.dataSource().rows() as Record<string, unknown>[],
+    columns: this.colDefs(),
+    rowIndex: 0,
+    colIndex: 0,
+  }));
 
   /** Build chart data from the current rectangular cell selection. */
   getSelectedRangeChartData(): AgridChartData | null {

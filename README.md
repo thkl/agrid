@@ -1043,8 +1043,11 @@ const provider = new AgridProvider({
 `richSelect` searches through `values` and can load options from `asyncValues` when the editor
 opens. `largeText` renders a multiline textarea. `formula` gives the cell a formula-friendly input;
 set `formula: true` to evaluate raw strings that start with `=` for display, filtering, sorting,
-copy, and export. Formula evaluation uses a small parser in `agrid.utils.ts`; it does not call
-JavaScript `eval`.
+copy, and export. In addition to same-row field references, rendered cells support Excel-style
+data-cell references (`=A1+B1`) and ranges in `SUM`, `AVERAGE`, `MIN`, and `MAX` (`=SUM(A1:A5)`).
+Formula references are one-based over datasource rows and configured columns. Circular references
+are reported as formula errors. Evaluation uses a small parser in `agrid.utils.ts`; it does not
+call JavaScript `eval`.
 
 `showFormulaBar` adds an Excel-style input line above the grid. It edits the selected cell's raw
 value, which makes long text and formulas easier to work with than editing inside a narrow cell.

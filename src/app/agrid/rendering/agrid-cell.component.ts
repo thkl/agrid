@@ -21,6 +21,7 @@ import {
   getDisplayForField,
   getDateInputValue,
   matchesInputMask,
+  AgridFormulaContext,
 } from '../agrid.utils';
 import { resolveCellSpanLayout } from './agrid-cell-span';
 
@@ -207,6 +208,9 @@ export class AgridCellComponent {
 
   /** Full row data — passed to `cellRenderer` when set. */
   row = input<Record<string, unknown>>({});
+
+  /** Optional grid context for Excel-style cross-cell formulas. */
+  formulaContext = input<AgridFormulaContext | undefined>(undefined);
 
   /** Horizontal span and coverage state for this row. */
   readonly cellSpanLayout = computed(() => {
@@ -426,7 +430,7 @@ export class AgridCellComponent {
    */
   readonly displayValue = computed((): string => {
     return this.displayValueOverride()
-      ?? getDisplayForField(this.col(), this.value(), this.locale(), this.row());
+      ?? getDisplayForField(this.col(), this.value(), this.locale(), this.row(), this.formulaContext());
   });
 
   /**

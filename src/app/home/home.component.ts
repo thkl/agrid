@@ -80,6 +80,7 @@ const FEATURES: { color: string; bg: string; label: string; title: string; desc:
   { color: '#be123c', bg: '#fff1f2', label: '✎', title: 'Full-row editing', desc: 'Stage several field edits in one row and save them as one complete record.', isNew: true },
   { color: '#b45309', bg: '#fef3c7', label: '▤', title: 'Rich Excel workbooks', desc: 'Export native cells, formulas, frozen headers, and additional worksheets from a zero-dependency XLSX writer.', isNew: true },
   { color: '#0369a1', bg: '#eff6ff', label: '◫', title: 'Selected-range charts', desc: 'Turn a selected grid range into chart data, persist chart configuration, and export SVG images.', isNew: true },
+  { color: '#7c3aed', bg: '#f5f3ff', label: 'fx', title: 'Formula cells', desc: 'Evaluate row formulas, Excel-style A1 references, ranges, and aggregate functions with recalculation.', isNew: true },
 ];
 
 const DEMOS = [
@@ -95,6 +96,7 @@ const DEMOS = [
   ['Export & state', '/export-state', 'Rich workbook export, full state persistence, and selected-range charts.'],
   ['Filter panel', '/filter-panel', 'Build and apply nested filter conditions from a sidebar.'],
   ['Filters', '/filters', 'Text, value, condition, number, date, boolean, and server-query filters.'],
+  ['Formulas', '/formulas', 'Excel-style A1 references, ranges, and formula recalculation.'],
   ['Master-detail', '/master-detail', 'Expandable detail panels and pinned rows.'],
   ['Overview', '/demo', 'Full-featured grid with editing, grouping, filtering, and exports.'],
   ['Pagination', '/pagination', 'Client-side pagination with configurable page size.'],

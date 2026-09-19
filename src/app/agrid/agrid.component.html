@@ -133,7 +133,7 @@
             } @else {
             <agrid-cell [col]="col" [paneColumns]="pinnedColDefs()" [paneHasSpans]="pinnedPaneHasSpans()"
               [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="cellValue(col, item.row, item.originalIndex)" [localeText]="localeText()"
-              [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
+              [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()" [formulaContext]="formulaContext()"
               [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
               [attr.aria-colindex]="bc.ariaColIndex"
               [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
@@ -305,7 +305,7 @@
               } @else {
               <agrid-cell [col]="col" [paneColumns]="scrollableColDefs()" [paneHasSpans]="scrollablePaneHasSpans()"
                 [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="cellValue(col, item.row, item.originalIndex)"
-                [localeText]="localeText()" [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row"
+                [localeText]="localeText()" [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [formulaContext]="formulaContext()"
                 [locale]="locale()" [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci"
                 [attr.data-col-field]="col.field" [attr.aria-colindex]="bc.ariaColIndex"
                 [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
@@ -562,7 +562,7 @@
             } @else {
             <agrid-cell [col]="col" [paneColumns]="rightPinnedColDefs()" [paneHasSpans]="rightPaneHasSpans()"
               [rowIndex]="item.originalIndex" [colIndex]="ci" [value]="cellValue(col, item.row, item.originalIndex)" [localeText]="localeText()"
-              [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()"
+                [displayValueOverride]="treeCellDisplayOverride(item, col)" [row]="item.row" [locale]="locale()" [formulaContext]="formulaContext()"
               [attr.data-cell-row]="item.originalIndex" [attr.data-cell-col]="ci" [attr.data-col-field]="col.field"
               [attr.aria-colindex]="bc.ariaColIndex"
               [attr.aria-selected]="isSelected(item.originalIndex, ci) || isRangeSelected(item.originalIndex, ci)"
