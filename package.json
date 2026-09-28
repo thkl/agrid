@@ -59,8 +59,8 @@
     "@playwright/test": "^1.60.0",
     "@vitest/coverage-v8": "^4.1.9",
     "jsdom": "^27.1.0",
-    "ng-packagr": "^21.0.0",
+    "ng-packagr": "21.2.7",
     "typescript": "~5.9.2",
-    "vitest": "^4.0.8"
+    "vitest": "4.1.11"
   }
 }
