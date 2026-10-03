@@ -346,6 +346,7 @@ export class AgridProjectionModel {
           this.opts.locale(),
           this.opts.visibleColDefs(),
           control.aggregates(),
+          this.opts.masterDetail?.() ? this.opts.expandedDetailIds?.() : undefined,
         );
         this.appendAddRow(items);
         return items;

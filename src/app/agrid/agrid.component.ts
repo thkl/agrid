@@ -293,10 +293,10 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       return predicate?.(row, index);
     };
   });
-  /** Whether master/detail is enabled and applicable (flat rows or tree leaves; not grouped). */
+  /** Whether master/detail is enabled and applicable (flat rows, grouped rows, or tree leaves). */
   readonly masterDetail = computed(
     () => this.provider().masterDetail && !!this.provider().detailRenderer
-      && !this.control()?.groupByField() && !this.provider().pivotConfig,
+      && !this.provider().pivotConfig,
   );
   /** Fixed detail-panel height in pixels. */
   readonly detailRowHeight = computed(() => this.provider().detailRowHeight);

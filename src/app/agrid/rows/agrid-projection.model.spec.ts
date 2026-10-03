@@ -125,6 +125,33 @@ describe('AgridProjectionModel', () => {
     expect(model.showPagination()).toBe(false);
   });
 
+  it('interleaves grouped master/detail rows beneath expanded data rows', () => {
+    const control = new AgridControl({ groupByField: 'department' });
+    const { model } = createModel({
+      control,
+      expandedLabels: ['Engineering'],
+      masterDetail: true,
+      expandedDetailIds: [1],
+    });
+
+    expect(model.filteredItems().filter(isDetailRowItem).map(item => item.detailFor))
+      .toEqual([1]);
+  });
+
+  it('orders group headers by the grouped column sort direction', () => {
+    const control = new AgridControl({ groupByField: 'department' });
+    control.setSort('department', 'asc');
+    const { model } = createModel({ control });
+
+    expect(model.filteredItems().filter(isGroupHeaderItem).map(item => item.groupLabel))
+      .toEqual(['Engineering', 'Sales']);
+
+    control.setSort('department', 'desc');
+
+    expect(model.filteredItems().filter(isGroupHeaderItem).map(item => item.groupLabel))
+      .toEqual(['Sales', 'Engineering']);
+  });
+
   it('applies column comparators through the row projection', () => {
     const control = new AgridControl();
     control.addSort('status', 'asc');

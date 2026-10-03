@@ -659,8 +659,9 @@ export function applySortToIndices(
 // Grouping
 
 /**
- * Bucket rows by the display value of `groupField`, sort group keys alphabetically,
- * optionally sort within groups by a secondary sort, and interleave group-header items.
+ * Bucket rows by the display value of `groupField`, sort group keys by the grouped column when
+ * that column is active in the sort stack (alphabetically otherwise), optionally sort within
+ * groups by secondary sorts, and interleave group-header items.
  * Does NOT append the add-row null sentinel — the caller does that.
  */
 /** Built-in aggregate function names shared by footers, groups, and tree-node rollups. */
@@ -784,6 +785,7 @@ export function buildGroupedItems(
   locale?: string,
   aggregateCols: ColDef[] = [],
   controlAggregates: Record<string, BuiltinAggregate> = {},
+  expandedDetailIds?: Set<number>,
 ): GridItem[] {
   const hasAggregates = aggregateCols.some(
     col => controlAggregates[col.field] ?? col.aggregate,
@@ -797,9 +799,25 @@ export function buildGroupedItems(
     groups.get(key)!.push(i);
   }
 
-  const sortedKeys = [...groups.keys()].sort((a, b) =>
-    a.localeCompare(b, locale, { sensitivity: 'base' })
-  );
+  const groupSortEntries = sortEntries.filter(([field]) => field === groupField);
+  let sortedKeys: string[];
+  if (groupSortEntries.length > 0) {
+    const representativeIndices = [...groups.values()].map(groupRows => groupRows[0]);
+    const sortedRepresentatives = applySortToIndices(
+      rows,
+      representativeIndices,
+      groupSortEntries,
+      colMap,
+      locale,
+    );
+    const keyByIndex = new Map<number, string>();
+    for (const [key, groupRows] of groups) keyByIndex.set(groupRows[0], key);
+    sortedKeys = sortedRepresentatives.map(index => keyByIndex.get(index)!).filter(Boolean);
+  } else {
+    sortedKeys = [...groups.keys()].sort((a, b) =>
+      a.localeCompare(b, locale, { sensitivity: 'base' })
+    );
+  }
 
   const nonGroupSorts = sortEntries.filter(([f]) => f !== groupField);
   if (nonGroupSorts.length > 0) {
@@ -818,7 +836,10 @@ export function buildGroupedItems(
       : undefined;
     items.push({ groupLabel: key, count: groupRows.length, collapsed: !isExpanded, aggregates });
     if (isExpanded) {
-      for (const i of groupRows) items.push({ row: rows[i], originalIndex: i });
+      for (const i of groupRows) {
+        items.push({ row: rows[i], originalIndex: i });
+        if (expandedDetailIds?.has(i)) items.push({ detailFor: i, row: rows[i] });
+      }
     }
   }
   return items;

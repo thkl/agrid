@@ -396,7 +396,7 @@ readonly gridProvider = new AgridProvider({
 | `pinRow` | `(row, index) => 'top' \| 'bottom' \| undefined` | `undefined` | Pins matching rows to the top/bottom of the body (see [Master/Detail and Pinned Rows](#masterdetail-and-pinned-rows)). |
 | `treeConfig` | `AgridTreeConfig<T> \| null` | `null` | Builds a tree from id/parent-id accessors or `getPath` segments. Supports descendant rollups through `aggregateTreeNodes`. Path labels and branch UUIDs can be customized with `formatPathSegment` and `nodeUuid`. |
 | `pivotConfig` | `AgridPivotConfig<T> \| null` | `null` | Derives a read-only client-side pivot from one row field, one column field, and one aggregated value field. |
-| `masterDetail` | `boolean` | `false` | Enables expandable detail panels. In tree mode, only leaf rows can expand details. Not available while grouped. |
+| `masterDetail` | `boolean` | `false` | Enables expandable detail panels. In tree mode, only leaf rows can expand details; grouped grids expose detail toggles on data rows. |
 | `detailRenderer` | `(p: { row }) => string` | `undefined` | Returns sanitized HTML for an expanded detail panel. |
 | `detailColumnField` | column field | `undefined` | Shows one linked column as a multiline editable field in the detail panel. |
 | `detailActions` | `{ id; label; text? }[]` | `[]` | Adds template buttons above the linked detail textarea. `text` may be a string or `(p: { row; rowIndex }) => string`. |
@@ -2109,7 +2109,8 @@ the current selection, or append when the editor is opened by the button. `edita
 
 Detail panels are sized by a built-in variable-height virtual-scroll strategy, so large lists stay
 performant whether or not panels are open. In tree mode, only leaf rows expose detail panels;
-parent rows continue to control tree expansion. Master/detail remains disabled while grouping.
+parent rows continue to control tree expansion. In grouped mode, group headers keep their group
+toggle and data rows expose their detail toggle.
 Toggle a panel imperatively with the public
 `toggleDetail(originalIndex)` / `isDetailExpanded(originalIndex)` methods on the component.
 
