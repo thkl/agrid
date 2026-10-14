@@ -358,6 +358,7 @@ readonly gridProvider = new AgridProvider({
 | `rowDensityHeights` | `Partial<Record<AgridRowDensity, number>>` | `{ compact: 40, normal: 48, relaxed: 52 }` | Optional pixel overrides for named row-density presets. |
 | `theme` | `'morning' \| 'dusk' \| 'space'` | `'morning'` | Built-in visual theme preset. Call `provider.setTheme(theme)` to switch at runtime. |
 | `showRowHeightMenu` | `boolean` | `false` | Shows a built-in toolbar dropdown for Compact, Normal, and Relaxed row height. |
+| `showToolbar` | `boolean` | `true` | Controls whether the toolbar row is rendered. Set to `false` to hide it even when toolbar controls are configured. |
 | `minHeight` | `string` | `undefined` | CSS min-height for the virtual body. Example: `'200px'`. |
 | `maxHeight` | `string` | `undefined` | CSS max-height for the virtual body. Example: `'500px'`. |
 | `allowAddRows` | `boolean` | `false` | Shows a `+ Add row` placeholder at the bottom when `autoAddRows` is `false`. |
@@ -371,6 +372,9 @@ readonly gridProvider = new AgridProvider({
 | `resizableSidebar` | `boolean` | `false` | Lets users drag the sidebar's left edge to change its width. |
 | `sidebarWidth` | `number` | `200` | Initial sidebar width in pixels. Persisted `gridId` settings override it. |
 | `autoOpenDetail` | `boolean` | `false` | Opens the detail row automatically when a row is selected. |
+| `clearCellSelectionOnBackgroundClick` | `boolean` | `false` | Clears the active cell when the grid background outside a row is clicked. |
+| `removeEmptyNewRowOnEscape` | `boolean` | `false` | Removes a newly added row on Escape when it still contains only empty default values. |
+| `autoExpandGroupsOnFilter` | `boolean` | `false` | In grouped client-side grids, automatically opens groups that still contain rows matching the active filter. Clearing the filter restores manual group expansion. |
 | `serverSideFiltering` | `boolean` | `false` | Emits filter/sort events instead of applying them locally and hides the value checklist. |
 | `filterDebounceMs` | `number` | `300` | Debounce delay for server-side `filterChange` events. Set to `0` to disable. |
 | `externalFilter` | `(params) => boolean` | `undefined` | Application-owned client-side predicate applied after built-in filters and quick filter. |
@@ -2018,6 +2022,11 @@ collapsed descendants; navigating to one expands its ancestor path before scroll
 - Grouping is enabled per column with `groupable: true`.
 - Group state is controlled through `AgridControl.setGroupBy(field | null)`.
 - `expandGroups()` and `collapseGroups()` can be called on the component.
+- `control.expandAllGroups()` and `control.collapseAllGroups()` apply to the currently visible
+  groups, which is useful after replacing or filtering the datasource signal.
+- `control.toggleDetail(originalIndex)` and `control.isDetailExpanded(originalIndex)` control
+  master/detail state by original datasource index. Use `setExpandedDetailIndices()` when restoring
+  a saved view state.
 
 ```ts
 const severityRank: Record<string, number> = {

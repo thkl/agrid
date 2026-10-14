@@ -655,6 +655,19 @@ the same aggregate functions applied to just the group's rows, displayed inline 
 label and count. No extra configuration is needed; subtotals appear whenever grouping and at least
 one aggregated column are both active.
 
+Use `control.expandAllGroups()` or `control.collapseAllGroups()` to control the visible groups
+imperatively. This is useful when a host replaces or filters the datasource signal.
+
+Master/detail expansion is also available through the control:
+
+```ts
+control.toggleDetail(originalIndex);
+control.isDetailExpanded(originalIndex);
+```
+
+The index is the original datasource index. `AgridComponent.toggleDetail()` and
+`AgridComponent.isDetailExpanded()` remain available as compatibility delegates.
+
 ## Tree data
 
 Pass `treeConfig` to render rows as a hierarchical tree. Use stable `id` / `parentId` accessors
@@ -723,7 +736,13 @@ Blur or Ctrl/Cmd+Enter commits, while Escape cancels. Editability, validation, h
 events follow the linked column's normal cell behavior.
 Set `detailActions` to add text-template buttons above the textarea. Each action has an `id`,
 `label`, and optional `text` string or row-aware resolver; clicking inserts at the current
-selection, or appends if the button opens the textarea.
+selection, or appends if the button opens the textarea. Actions without `text` emit the
+grid's `detailAction` event and remain available even when `detailColumnField` is read-only;
+text-insertion actions are disabled unless that column is editable.
+
+For grouped grids, set `autoExpandGroupsOnFilter: true` to automatically open every group that
+still contains matching rows when a client-side filter is active. Groups with no matches remain
+hidden, and clearing the filter restores the manually configured group expansion state.
 
 ## Standalone tree control
 

@@ -786,6 +786,7 @@ export function buildGroupedItems(
   aggregateCols: ColDef[] = [],
   controlAggregates: Record<string, BuiltinAggregate> = {},
   expandedDetailIds?: Set<number>,
+  autoExpandGroups = false,
 ): GridItem[] {
   const hasAggregates = aggregateCols.some(
     col => controlAggregates[col.field] ?? col.aggregate,
@@ -830,7 +831,7 @@ export function buildGroupedItems(
   const items: GridItem[] = [];
   for (const key of sortedKeys) {
     const groupRows = groups.get(key)!;
-    const isExpanded = expandedLabels.has(key);
+    const isExpanded = autoExpandGroups || expandedLabels.has(key);
     const aggregates = hasAggregates
       ? computeAggregates(rows, groupRows, aggregateCols, controlAggregates)
       : undefined;

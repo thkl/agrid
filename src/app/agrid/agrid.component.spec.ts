@@ -81,6 +81,59 @@ describe('AgridComponent grouped control column selection', () => {
     }
   });
 
+  it('responds to group expansion commands issued through the control', () => {
+    provider.control.collapseAllGroups();
+    fixture.detectChanges();
+    expect(visibleDataRows(component.filteredItems())).toHaveLength(0);
+
+    provider.control.expandAllGroups();
+    fixture.detectChanges();
+    expect(visibleDataRows(component.filteredItems())).toHaveLength(4);
+  });
+
+  it('clears the active cell when configured background is clicked', () => {
+    provider.clearCellSelectionOnBackgroundClick = true;
+    component.selectedCell.set({ rowIndex: 0, colIndex: 0 });
+    const wrapper = fixture.nativeElement.querySelector('.ag-wrapper') as HTMLElement;
+
+    wrapper.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(component.selectedCell()).toBeNull();
+  });
+
+  it('removes an empty grid-created row on Escape when configured', () => {
+    const addProvider = new AgridProvider({
+      columns: [
+        { field: 'name', header: 'Name' },
+        { field: 'department', header: 'Department' },
+      ],
+      datasource: new AgridDataSource([
+        { name: 'Alice', department: 'Engineering' },
+        { name: 'Bob', department: 'Sales' },
+        { name: 'Carol', department: 'Engineering' },
+        { name: 'David', department: 'Engineering' },
+      ]),
+      allowAddRows: true,
+      removeEmptyNewRowOnEscape: true,
+    });
+    const addFixture = TestBed.createComponent(AgridComponent);
+    addFixture.componentRef.setInput('provider', addProvider);
+    addFixture.detectChanges();
+    const addComponent = addFixture.componentInstance;
+
+    addComponent.onActivateAddRow();
+    addFixture.detectChanges();
+    expect(addProvider.datasource.length).toBe(5);
+
+    addComponent.onKeyDown(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+    addFixture.detectChanges();
+
+    expect(addProvider.datasource.length).toBe(4);
+    expect(addComponent.selectedCell()).toBeNull();
+    addFixture.destroy();
+  });
+
   it('round-trips complete interaction state through saveSettings and loadSettings', () => {
     component.onControlPointerDown(primaryPointerEvent(), 2);
     component.selectedCell.set({ rowIndex: 2, colIndex: 1 });

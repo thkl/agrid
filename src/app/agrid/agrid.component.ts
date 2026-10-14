@@ -162,6 +162,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     datasource: AgridDataSource;
     treeConfig: AgridTreeConfig<T>;
   } | null = null;
+  private lastGroupExpansionCommand: { control: AgridControl; revision: number } | null = null;
   private rowStateSnapshot: RowStateSnapshot<T> | null = null;
 
   // All display / behaviour options are read from the provider.
@@ -206,12 +207,17 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   readonly resizableSidebar = computed(() => this.provider().resizableSidebar);
   readonly sidebarWidth = computed(() => this.provider().sidebarWidth());
   readonly autoOpenDetail = computed(() => this.provider().autoOpenDetail);
+  readonly clearCellSelectionOnBackgroundClick = computed(() =>
+    this.provider().clearCellSelectionOnBackgroundClick,
+  );
+  readonly removeEmptyNewRowOnEscape = computed(() => this.provider().removeEmptyNewRowOnEscape);
   readonly serverSideFiltering = computed(() => this.provider().serverSideFiltering);
   readonly filterDebounceMs = computed(() => this.provider().filterDebounceMs);
   readonly enableQuickFilter = computed(() => this.provider().enableQuickFilter);
   readonly showFormulaBar = computed(() => this.provider().showFormulaBar);
   readonly menuBarItems = computed(() => this.provider().menuBarItems);
   readonly showRowHeightMenu = computed(() => this.provider().showRowHeightMenu);
+  readonly showToolbar = computed(() => this.provider().showToolbar);
   readonly quickFilterValue = computed(() => this.control()?.quickFilter() ?? '');
   readonly sidebarFilters = computed(() => this.control()?.filters() ?? {});
   readonly sidebarAdvancedFilter = computed(() => this.control()?.advancedFilter() ?? null);
@@ -468,9 +474,6 @@ export class AgridComponent<T extends object = any> implements OnChanges {
   /** Currently focused cell, or `null`. */
   readonly selectedCell = signal<CellPosition | null>(null);
   private lastEmittedCell: CellPosition | null | undefined = undefined;
-
-  /** Original indices of rows whose master/detail panel is currently expanded. */
-  private readonly _expandedDetailIds = signal<Set<number>>(new Set());
 
   /**
    * Runtime per-row pin overrides set through the UI (keyed by original index). A `null` value
@@ -757,7 +760,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       expandedGroupField: this.groupController.expandedGroups().field,
       expandedGroupLabels: [...this.groupController.expandedGroups().labels],
       expandedTreeIds: [...this.treeController.expandedIds()],
-      expandedDetailIndices: [...this._expandedDetailIds()],
+      expandedDetailIndices: [...(this.control()?.expandedDetailIds() ?? new Set())],
       sidebarOpen: this.sidebarOpen(),
       sidebarTab: this.sidebarTab(),
     };
@@ -780,7 +783,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       });
     }
     if (state.expandedTreeIds) this.treeController.expandedIds.set(new Set(state.expandedTreeIds));
-    if (state.expandedDetailIndices) this._expandedDetailIds.set(new Set(state.expandedDetailIndices));
+    if (state.expandedDetailIndices) this.control()?.setExpandedDetailIndices(state.expandedDetailIndices);
     if (state.sidebarOpen !== undefined) this.sidebarController.open.set(state.sidebarOpen);
     if (state.sidebarTab) this.sidebarController.tab.set(state.sidebarTab);
     if (this.viewReady) {
@@ -1093,7 +1096,8 @@ export class AgridComponent<T extends object = any> implements OnChanges {
     pinRow: this.effectivePinRow,
     externalFilter: this.externalFilterFn,
     masterDetail: this.masterDetail,
-    expandedDetailIds: this._expandedDetailIds,
+    expandedDetailIds: computed(() => this.control()?.expandedDetailIds() ?? new Set<number>()),
+    autoExpandGroupsOnFilter: computed(() => this.provider().autoExpandGroupsOnFilter),
   });
 
   private readonly editController = new AgridEditController({
@@ -1882,7 +1886,10 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       mapIndex,
     ));
     this.markedIndices.set(this.reconcileIndexSet(this.markedIndices(), mapIndex));
-    this._expandedDetailIds.set(this.reconcileIndexSet(this._expandedDetailIds(), mapIndex));
+    this.control()?.setExpandedDetailIndices(this.reconcileIndexSet(
+      this.control()?.expandedDetailIds() ?? new Set(),
+      mapIndex,
+    ));
     this._pinnedRows.set(this.reconcileIndexMap(this._pinnedRows(), mapIndex));
 
     const dirty = this.reconcileIndexSet(this.dirtyInlineRows, mapIndex);
@@ -2050,6 +2057,20 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       if (rows.length === 0) return;
       this.treeController.expandAll(defaultExpandedTreeIds(rows, treeConfig));
       this.initializedTreeExpansionFor = { provider, datasource, treeConfig };
+    });
+
+    // Consume imperative group commands from the control against the current filtered projection.
+    effect(() => {
+      const control = this.control();
+      const command = control?.groupExpansionCommand();
+      if (!control || !command || command.revision === 0) return;
+      const previous = this.lastGroupExpansionCommand;
+      if (previous?.control === control && previous.revision === command.revision) return;
+      this.lastGroupExpansionCommand = { control, revision: command.revision };
+      untracked(() => {
+        if (command.action === 'expand') this.groupController.expandAll(this.filteredItems());
+        else this.groupController.collapseAll();
+      });
     });
 
     // Publish one complete query object for signal-backed server data stores.
@@ -2424,7 +2445,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** Whether the master/detail panel for `originalIndex` is currently expanded. */
   isDetailExpanded(originalIndex: number): boolean {
-    return this._expandedDetailIds().has(originalIndex);
+    return this.control()?.isDetailExpanded(originalIndex) ?? false;
   }
 
   /** @internal Whether a data row may show a master/detail panel. */
@@ -2448,12 +2469,7 @@ export class AgridComponent<T extends object = any> implements OnChanges {
         && this.treeParentIds().has(config.getId(row as T))
       )
     ) return;
-    this._expandedDetailIds.update(ids => {
-      const next = new Set(ids);
-      if (next.has(originalIndex)) next.delete(originalIndex);
-      else next.add(originalIndex);
-      return next;
-    });
+    this.control()?.toggleDetail(originalIndex);
   }
 
   /** @internal Template handler for the detail expander chevron. */
@@ -3239,8 +3255,48 @@ export class AgridComponent<T extends object = any> implements OnChanges {
       this.cancelRowEdit(event);
       return;
     }
+    if (
+      event.key === 'Escape'
+      && !this.editingCell()
+      && this.removeEmptyNewRowOnEscape()
+      && this.removeEmptySelectedRow()
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (this.focusDetailEditorFromKeyboard(event)) return;
     this.navigationController.handleKeyDown(event);
+  }
+
+  /** Handles wrapper clicks and optionally clears cell selection outside rendered rows. */
+  onGridClick(event: MouseEvent): void {
+    this.closeContextMenu();
+    this.closeCellContextMenu();
+    this.closeFilterMenu();
+    this.closeGroupActionsMenu();
+    this.closeMenuBarMenu();
+
+    if (!this.clearCellSelectionOnBackgroundClick()) return;
+    const target = event.target as Element | null;
+    if (target?.closest('.ag-row, .ag-toolbar, .ag-sidebar, .ag-context-menu, .ag-column-menu')) return;
+    this.selectedCell.set(null);
+    this.selectedRange.set(null);
+  }
+
+  /** Removes the selected newly added row when it still contains only empty defaults. */
+  private removeEmptySelectedRow(): boolean {
+    const selected = this.selectedCell();
+    const datasource = this.dataSource();
+    if (!selected || selected.rowIndex < 0 || selected.rowIndex >= datasource.length) return false;
+    if (!datasource.ɵunfilteredAddedRows().has(selected.rowIndex)) return false;
+    const row = datasource.getRow(selected.rowIndex);
+    if (!row || !this.colDefs().every(col => {
+      const value = row[col.field];
+      return value === null || value === undefined || value === '' || value === 0 || value === false;
+    })) return false;
+    this.rowController.deleteRow(selected.rowIndex);
+    return true;
   }
 
   private isToolbarInputEvent(event: Event): boolean {

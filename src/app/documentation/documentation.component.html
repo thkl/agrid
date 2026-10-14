@@ -414,6 +414,8 @@
             <tr><td><code>rowHeight</code></td><td><code>32</code></td><td>Virtual-scroll row height in pixels.</td></tr>
             <tr><td><code>allowAddRows</code></td><td><code>false</code></td><td>Shows an add-row placeholder.</td></tr>
             <tr><td><code>autoAddRows</code></td><td><code>false</code></td><td>Adds a row when navigation leaves the last row.</td></tr>
+            <tr><td><code>clearCellSelectionOnBackgroundClick</code></td><td><code>false</code></td><td>Clears the active cell when the grid background outside a row is clicked. Clicks inside rows keep the cell selection.</td></tr>
+            <tr><td><code>removeEmptyNewRowOnEscape</code></td><td><code>false</code></td><td>Removes a newly added row on Escape when it still contains only empty default values.</td></tr>
             <tr><td><code>showControlColumn</code></td><td><code>false</code></td><td>Shows row actions and reorder handles.</td></tr>
             <tr><td><code>showRowNumbers</code></td><td><code>false</code></td><td>Shows filtered and sorted row numbers in the control column instead of the reorder handle glyph.</td></tr>
             <tr><td><code>enableRowMarking</code></td><td><code>false</code></td><td>Shows row checkboxes in a 48 px control column and includes marked rows in every copy operation.</td></tr>
@@ -813,7 +815,8 @@
             <tr><td>Enter while editing</td><td>Commit and follow <code>enterEditAction</code>.</td></tr>
             <tr><td>Ctrl/Cmd + Enter</td><td>Toggle an expandable tree node.</td></tr>
             <tr><td>F2 / printable key</td><td>Start editing.</td></tr>
-            <tr><td>Escape</td><td>Close any open menu, cancel editing, or close find.</td></tr>
+            <tr><td>Escape</td><td>Close any open menu or cancel editing. With <code>removeEmptyNewRowOnEscape</code>, a second Escape removes the selected newly added row when it is still empty.</td></tr>
+            <tr><td>Grid background click</td><td>With <code>clearCellSelectionOnBackgroundClick</code>, clicking outside a rendered row clears the active cell selection.</td></tr>
             <tr><td>Ctrl/Cmd + Z</td><td>Undo.</td></tr>
             <tr><td>Ctrl/Cmd + Y or Shift + Z</td><td>Redo.</td></tr>
             <tr><td>Ctrl/Cmd + F</td><td>Open the find panel and clear the active cell. Tree searches include collapsed descendants.</td></tr>

@@ -47,6 +47,8 @@ export interface AgridProjectionOptions {
   masterDetail?: Signal<boolean>;
   /** Original indices of rows whose detail panel is currently expanded. */
   expandedDetailIds?: Signal<Set<number>>;
+  /** Whether groups containing filtered rows should be expanded automatically. */
+  autoExpandGroupsOnFilter?: Signal<boolean>;
 }
 
 /**
@@ -332,6 +334,8 @@ export class AgridProjectionModel {
         const expandedLabels = expansion.field === groupField
           ? expansion.labels
           : new Set<string>();
+        const autoExpandGroups = this.opts.autoExpandGroupsOnFilter?.() === true
+          && this.filterActive();
         const filters = control.filters();
         const sortEntries = this.opts.serverSideFiltering()
           ? []
@@ -347,6 +351,7 @@ export class AgridProjectionModel {
           this.opts.visibleColDefs(),
           control.aggregates(),
           this.opts.masterDetail?.() ? this.opts.expandedDetailIds?.() : undefined,
+          autoExpandGroups,
         );
         this.appendAddRow(items);
         return items;
@@ -388,9 +393,18 @@ export class AgridProjectionModel {
       !!filter.text
       || filter.selectedValues !== null
       || (filter.conditions?.some(condition => condition.operand !== '')
-        ?? (!!filter.operator && filter.operand != null && filter.operand !== ''))
+      ?? (!!filter.operator && filter.operand != null && filter.operand !== ''))
     );
   }
+
+  /** Whether the current client-side projection is constrained by a row filter. */
+  private readonly filterActive = computed(() => {
+    const control = this.opts.control();
+    if (!control || this.opts.serverSideFiltering()) return false;
+    return this.hasActiveRowFilter(control.filters(), control.quickFilter())
+      || !!control.advancedFilter()
+      || !!this.opts.externalFilter?.();
+  });
 
   private includeUnfilteredAddedRows(indices: number[], rowCount: number): number[] {
     const addedRows = this.opts.dataSource().ɵunfilteredAddedRows();

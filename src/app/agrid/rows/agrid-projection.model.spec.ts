@@ -36,6 +36,7 @@ describe('AgridProjectionModel', () => {
     externalFilter?: (params: { row: Record<string, unknown>; index: number }) => boolean;
     masterDetail?: boolean;
     expandedDetailIds?: number[];
+    autoExpandGroupsOnFilter?: boolean;
     columns?: ColDef[];
   } = {}) {
     const control = options.control ?? new AgridControl();
@@ -61,6 +62,7 @@ describe('AgridProjectionModel', () => {
       externalFilter: signal(options.externalFilter),
       masterDetail: signal(options.masterDetail ?? false),
       expandedDetailIds: signal(new Set(options.expandedDetailIds ?? [])),
+      autoExpandGroupsOnFilter: signal(options.autoExpandGroupsOnFilter ?? false),
     });
     return { control, dataSource, model };
   }
@@ -123,6 +125,17 @@ describe('AgridProjectionModel', () => {
       .toEqual(['Engineering', 'Sales']);
     expect(dataRows(items).map(item => item.row['name'])).toEqual(['Carol', 'Bob']);
     expect(model.showPagination()).toBe(false);
+  });
+
+  it('opens only groups that contain matches when auto expansion is enabled for filtering', () => {
+    const control = new AgridControl({ groupByField: 'department' });
+    control.setTextFilter('name', 'car');
+    const { model } = createModel({ control, autoExpandGroupsOnFilter: true });
+
+    const items = model.filteredItems();
+    expect(items.filter(isGroupHeaderItem).map(item => item.groupLabel)).toEqual(['Engineering']);
+    expect(items.filter(isGroupHeaderItem).every(item => !item.collapsed)).toBe(true);
+    expect(dataRows(items).map(item => item.row['name'])).toEqual(['Carol']);
   });
 
   it('interleaves grouped master/detail rows beneath expanded data rows', () => {

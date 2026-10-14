@@ -1,6 +1,6 @@
 {
   "name": "@thkl/agrid",
-  "version": "0.1.21",
+  "version": "0.1.23",
   "description": "A signal-based, standalone data grid for Angular.",
   "keywords": [
     "angular",

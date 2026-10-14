@@ -69,6 +69,12 @@ export type AdvancedFilterNode = AdvancedFilterCondition | AdvancedFilterGroup;
 
 export type AgridRowId = string | number;
 
+/** Imperative group expansion command consumed by a rendered grid. */
+export interface AgridGroupExpansionCommand {
+  action: 'expand' | 'collapse';
+  revision: number;
+}
+
 /** Selection state that remains valid when server-side blocks are unloaded. */
 export interface AgridServerSelectionState {
   selectAll: boolean;
@@ -190,6 +196,11 @@ export class AgridControl {
   private readonly _quickFilter = signal<string>('');
   private readonly _allowRowReorder = signal<boolean>(false);
   private readonly _groupByField = signal<string | null>(null);
+  private readonly _groupExpansionCommand = signal<AgridGroupExpansionCommand>({
+    action: 'collapse',
+    revision: 0,
+  });
+  private readonly _expandedDetailIds = signal<Set<number>>(new Set());
   private readonly _hiddenColumns  = signal<Set<string>>(new Set());
   private readonly _columnOrder    = signal<string[]>([]);
   private readonly _pinnedColumns      = signal<Set<string>>(new Set());
@@ -402,11 +413,54 @@ export class AgridControl {
    */
   readonly groupByField: Signal<string | null> = this._groupByField.asReadonly();
 
+  /** Latest imperative group expansion command for attached grid components. */
+  readonly groupExpansionCommand: Signal<AgridGroupExpansionCommand> =
+    this._groupExpansionCommand.asReadonly();
+
+  /** Original datasource indices whose master/detail panels are expanded. */
+  readonly expandedDetailIds: Signal<Set<number>> = this._expandedDetailIds.asReadonly();
+
   /**
    * Enable grouping by `field`, or pass `null` to turn grouping off.
    */
   setGroupBy(field: string | null): void {
     this._groupByField.set(field);
+  }
+
+  /** Expand all currently visible groups in an attached grid. */
+  expandAllGroups(): void {
+    this._groupExpansionCommand.update(command => ({
+      action: 'expand',
+      revision: command.revision + 1,
+    }));
+  }
+
+  /** Collapse all groups in an attached grid. */
+  collapseAllGroups(): void {
+    this._groupExpansionCommand.update(command => ({
+      action: 'collapse',
+      revision: command.revision + 1,
+    }));
+  }
+
+  /** Whether the master/detail panel for an original datasource index is expanded. */
+  isDetailExpanded(originalIndex: number): boolean {
+    return this._expandedDetailIds().has(originalIndex);
+  }
+
+  /** Toggle the master/detail panel for an original datasource index. */
+  toggleDetail(originalIndex: number): void {
+    this._expandedDetailIds.update(ids => {
+      const next = new Set(ids);
+      if (next.has(originalIndex)) next.delete(originalIndex);
+      else next.add(originalIndex);
+      return next;
+    });
+  }
+
+  /** Replace the expanded master/detail indices, for example when restoring grid state. */
+  setExpandedDetailIndices(indices: Iterable<number>): void {
+    this._expandedDetailIds.set(new Set(indices));
   }
 
   /**

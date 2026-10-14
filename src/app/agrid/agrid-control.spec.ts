@@ -610,5 +610,29 @@ describe('AgridControl', () => {
       ctrl.setGroupBy(null);
       expect(ctrl.groupByField()).toBeNull();
     });
+
+    it('emits imperative group expansion commands', () => {
+      const ctrl = new AgridControl();
+
+      ctrl.expandAllGroups();
+      expect(ctrl.groupExpansionCommand()).toMatchObject({ action: 'expand', revision: 1 });
+
+      ctrl.collapseAllGroups();
+      expect(ctrl.groupExpansionCommand()).toMatchObject({ action: 'collapse', revision: 2 });
+    });
+
+    it('owns master/detail expansion state', () => {
+      const ctrl = new AgridControl();
+
+      expect(ctrl.isDetailExpanded(3)).toBe(false);
+      ctrl.toggleDetail(3);
+      expect(ctrl.isDetailExpanded(3)).toBe(true);
+      expect(ctrl.expandedDetailIds()).toEqual(new Set([3]));
+
+      ctrl.setExpandedDetailIndices([1, 4]);
+      expect(ctrl.expandedDetailIds()).toEqual(new Set([1, 4]));
+      ctrl.toggleDetail(1);
+      expect(ctrl.expandedDetailIds()).toEqual(new Set([4]));
+    });
   });
 });

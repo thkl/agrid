@@ -147,6 +147,8 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   theme?: AgridTheme;
   /** Show a built-in toolbar dropdown for choosing row height density. @default false */
   showRowHeightMenu?: boolean;
+  /** Whether the toolbar row is rendered when it contains configured controls. @default true */
+  showToolbar?: boolean;
   /** Minimum height of the grid host element (e.g. `'200px'`). */
   minHeight?: string;
   /** Maximum height of the grid host element (e.g. `'500px'`). */
@@ -173,6 +175,12 @@ export interface AgridProviderConfig<T extends object = any> extends Partial<AGr
   sidebarWidth?: number;
   /** Automatically open the detail panel when a row is selected. */
   autoOpenDetail?: boolean;
+  /** Clear the active cell selection when clicking grid background outside a row. @default false */
+  clearCellSelectionOnBackgroundClick?: boolean;
+  /** Remove an empty newly added row when Escape is pressed. @default false */
+  removeEmptyNewRowOnEscape?: boolean;
+  /** Automatically expand groups that contain rows matching an active filter. @default false */
+  autoExpandGroupsOnFilter?: boolean;
   /**
    * Emit filter and sort changes for server processing instead of applying them locally.
    * The distinct-value picker is hidden unless the column supplies an explicit `values` list.
@@ -449,6 +457,8 @@ export class AgridProvider<T extends object = any> {
   readonly themeConfigured: WritableSignal<boolean>;
   /** Whether the built-in toolbar row-height selector is rendered. */
   showRowHeightMenu: boolean;
+  /** Whether the toolbar row is rendered. */
+  showToolbar: boolean;
   /** Minimum CSS height of the grid host. */
   minHeight?: string;
   /** Maximum CSS height of the grid host. */
@@ -473,6 +483,12 @@ export class AgridProvider<T extends object = any> {
   readonly sidebarWidth: WritableSignal<number>;
   /** Whether selecting a row automatically opens its detail panel. */
   autoOpenDetail: boolean;
+  /** Whether background clicks clear the active cell selection. */
+  clearCellSelectionOnBackgroundClick: boolean;
+  /** Whether Escape removes an empty newly added row. */
+  removeEmptyNewRowOnEscape: boolean;
+  /** Whether groups with rows matching an active filter are automatically expanded. */
+  autoExpandGroupsOnFilter: boolean;
   /** Whether filter and sort operations are delegated to the host. */
   serverSideFiltering: boolean;
   /** Delay before server-side filter events are emitted. */
@@ -584,6 +600,7 @@ export class AgridProvider<T extends object = any> {
     this.theme = signal(config.theme ?? 'morning');
     this.themeConfigured = signal(config.theme !== undefined);
     this.showRowHeightMenu = config.showRowHeightMenu ?? false;
+    this.showToolbar       = config.showToolbar ?? true;
     this.minHeight        = config.minHeight;
     this.maxHeight        = config.maxHeight;
     this.allowAddRows     = config.allowAddRows ?? false;
@@ -598,6 +615,9 @@ export class AgridProvider<T extends object = any> {
     this.resizableSidebar = config.resizableSidebar ?? false;
     this.sidebarWidth = signal(clampSidebarWidth(config.sidebarWidth));
     this.autoOpenDetail   = config.autoOpenDetail ?? false;
+    this.clearCellSelectionOnBackgroundClick = config.clearCellSelectionOnBackgroundClick ?? false;
+    this.removeEmptyNewRowOnEscape = config.removeEmptyNewRowOnEscape ?? false;
+    this.autoExpandGroupsOnFilter = config.autoExpandGroupsOnFilter ?? false;
     this.serverSideFiltering = this.serverSideRowModel ? true : config.serverSideFiltering ?? false;
     this.filterDebounceMs = Math.max(0, config.filterDebounceMs ?? 300);
     this.enableQuickFilter = config.enableQuickFilter ?? false;
