@@ -24,12 +24,16 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+          cache: pnpm
+
+      - name: Enable pnpm
+        run: corepack enable
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: pnpm install --frozen-lockfile
 
       - name: Build Angular App
-        run: npx ng build --configuration production --base-href /agrid/
+        run: pnpm exec ng build --configuration production --base-href /agrid/
 
       - uses: actions/upload-pages-artifact@v4
         with:
