@@ -361,7 +361,7 @@
           </thead>
           <tbody>
             <tr><td><code>provider.exportCsv(filename?)</code></td><td>Downloads visible filtered data as CSV.</td></tr>
-            <tr><td><code>provider.exportXlsx(filename?)</code></td><td>Downloads visible filtered data as a zero-dependency <code>.xlsx</code> workbook.</td></tr>
+            <tr><td><code>provider.exportXlsx(filename?, options?)</code></td><td>Downloads visible filtered data as a zero-dependency <code>.xlsx</code> workbook.</td></tr>
             <tr><td><code>autosizeAllColumns()</code></td><td>Fits every visible column to its current content.</td></tr>
             <tr><td><code>expandGroups()</code></td><td>Expands all groups.</td></tr>
             <tr><td><code>collapseGroups()</code></td><td>Collapses all groups.</td></tr>
@@ -375,6 +375,16 @@
             <tr><td><code>saveSettings()</code></td><td>Returns a versioned, JSON-safe snapshot of pivot and control settings.</td></tr>
             <tr><td><code>loadSettings(settings)</code></td><td>Applies a saved snapshot to the live grid.</td></tr>
             <tr><td><code>refreshServerSideRows(options?)</code></td><td>Refreshes an attached server-side row model. Use <code>purge: true</code> and <code>resetScroll: true</code> to clear cache and jump to row zero.</td></tr>
+            <tr><td><code>closeFind()</code> / <code>goToFindMatch(direction)</code></td><td>Closes the find panel or moves to the next (<code>1</code>) / previous (<code>-1</code>) match.</td></tr>
+            <tr><td><code>getState()</code> / <code>setState(settings)</code></td><td>Aliases for saving and restoring the complete JSON-safe grid state.</td></tr>
+            <tr><td><code>getCurrentRow()</code> / <code>getCurrentCell()</code></td><td>Returns the current row or cell with its datasource index and column metadata.</td></tr>
+            <tr><td><code>getSelectedRangeChartData()</code></td><td>Builds chart data from the active rectangular selection, or returns <code>null</code>.</td></tr>
+            <tr><td><code>insertRowAt(index)</code></td><td>Inserts a blank row at a datasource index.</td></tr>
+            <tr><td><code>selectAllServerRows()</code> / <code>clearServerSelection()</code> / <code>getServerSelection()</code></td><td>Controls or reads server-side row selection.</td></tr>
+            <tr><td><code>isRowMarked(index)</code>, <code>setRowMarked(index, marked)</code>, <code>toggleRowMarked(index)</code>, <code>clearMarkedRows()</code></td><td>Reads or changes rows marked for clipboard inclusion.</td></tr>
+            <tr><td><code>setColumnMarked(field, marked)</code>, <code>toggleColumnMarked(field)</code>, <code>clearMarkedColumns()</code></td><td>Marks or clears complete columns.</td></tr>
+            <tr><td><code>toggleDetail(index)</code> / <code>isDetailExpanded(index)</code></td><td>Controls master/detail expansion by original datasource index.</td></tr>
+            <tr><td><code>rowPinState(index)</code> / <code>pinRowTo(index, position)</code></td><td>Reads or overrides a row's top/bottom pin state; pass <code>null</code> to unpin.</td></tr>
           </tbody>
         </table>
       </div>
@@ -382,10 +392,13 @@
       <h3>Public state</h3>
       <p>
         The component exposes readonly signals including <code>selectedCell</code>,
-        <code>editingCell</code>, <code>selectedRowIndices</code>, <code>markedRowIndices</code>,
-        <code>sidebarOpen</code>,
-        <code>canUndo</code>, <code>canRedo</code>, <code>filteredRowCount</code>, and
-        <code>totalPages</code>.
+        <code>selectedRange</code>, <code>editingCell</code>, <code>currentDraft</code>,
+        <code>selectedRowIndices</code>, <code>selectedRowIndex</code>, <code>markedRowIndices</code>,
+        <code>markedColumnFields</code>, <code>selectionSummary</code>, <code>sidebarOpen</code>,
+        <code>canUndo</code>, <code>canRedo</code>, <code>filteredRowCount</code>,
+        <code>totalPages</code>, and <code>showPagination</code>. Row-editing state is available
+        through <code>rowEditingIndex</code>, <code>rowEditDraft</code>, and
+        <code>rowEditValidationErrors</code>.
       </p>
     </section>
 
@@ -411,7 +424,16 @@
             <tr><td><code>getRowId</code></td><td>Object reference</td><td>Stable row identity used to preserve selection and row-attached state when rows are inserted, removed, reordered, or replaced.</td></tr>
             <tr><td><code>control</code></td><td>New control</td><td>Filters, sorting, grouping, pagination, and history.</td></tr>
             <tr><td><code>locale</code></td><td><code>'auto'</code></td><td>BCP-47 locale for labels and date formatting.</td></tr>
-            <tr><td><code>rowHeight</code></td><td><code>32</code></td><td>Virtual-scroll row height in pixels.</td></tr>
+            <tr><td><code>localization</code></td><td><code>undefined</code></td><td>Overrides selected built-in labels; use <code>addLocalization(locale, overrides)</code> for locale-specific bundles.</td></tr>
+            <tr><td><code>serverSideRowModel</code></td><td><code>undefined</code></td><td>Lazy block-based datasource with caching and automatic filter/sort query forwarding.</td></tr>
+            <tr><td><code>rowHeight</code></td><td><code>48</code></td><td>Fixed row height used by the custom row-density preset.</td></tr>
+            <tr><td><code>autoRowHeight</code></td><td><code>false</code></td><td>Measures rendered content and grows rows when cell text wraps.</td></tr>
+            <tr><td><code>rowDensity</code></td><td><code>'normal'</code></td><td>Initial preset: compact, normal, relaxed, custom, or auto.</td></tr>
+            <tr><td><code>rowDensityHeights</code></td><td>Built-in presets</td><td>Overrides pixel heights for compact, normal, relaxed, and custom rows.</td></tr>
+            <tr><td><code>theme</code></td><td><code>'morning'</code></td><td>Built-in theme: morning, dusk, or space. Change it with <code>setTheme()</code>.</td></tr>
+            <tr><td><code>showRowHeightMenu</code></td><td><code>false</code></td><td>Shows the toolbar row-density selector.</td></tr>
+            <tr><td><code>showToolbar</code></td><td><code>true</code></td><td>Shows or hides the toolbar row.</td></tr>
+            <tr><td><code>minHeight</code> / <code>maxHeight</code></td><td><code>undefined</code></td><td>CSS minimum and maximum heights for the grid host.</td></tr>
             <tr><td><code>allowAddRows</code></td><td><code>false</code></td><td>Shows an add-row placeholder.</td></tr>
             <tr><td><code>autoAddRows</code></td><td><code>false</code></td><td>Adds a row when navigation leaves the last row.</td></tr>
             <tr><td><code>clearCellSelectionOnBackgroundClick</code></td><td><code>false</code></td><td>Clears the active cell when the grid background outside a row is clicked. Clicks inside rows keep the cell selection.</td></tr>
@@ -420,22 +442,45 @@
             <tr><td><code>showRowNumbers</code></td><td><code>false</code></td><td>Shows filtered and sorted row numbers in the control column instead of the reorder handle glyph.</td></tr>
             <tr><td><code>enableRowMarking</code></td><td><code>false</code></td><td>Shows row checkboxes in a 48 px control column and includes marked rows in every copy operation.</td></tr>
             <tr><td><code>showSidebar</code></td><td><code>false</code></td><td>Shows the column visibility sidebar.</td></tr>
+            <tr><td><code>showFilterPanel</code></td><td><code>false</code></td><td>Adds the Filters tab to the sidebar.</td></tr>
+            <tr><td><code>resizableSidebar</code></td><td><code>false</code></td><td>Allows the user to resize the sidebar.</td></tr>
+            <tr><td><code>sidebarWidth</code></td><td><code>200</code></td><td>Initial sidebar width in pixels.</td></tr>
+            <tr><td><code>autoOpenDetail</code></td><td><code>false</code></td><td>Opens a detail row when its master row is selected.</td></tr>
+            <tr><td><code>autoExpandGroupsOnFilter</code></td><td><code>false</code></td><td>Expands groups that contain rows matching an active filter.</td></tr>
             <tr><td><code>serverSideFiltering</code></td><td><code>false</code></td><td>Emits filter, sort, and quick-filter requests instead of applying them locally. See <a href="#filtering">Filtering</a>.</td></tr>
+            <tr><td><code>filterDebounceMs</code></td><td><code>300</code></td><td>Delay before server-side filter events; set to <code>0</code> to disable.</td></tr>
             <tr><td><code>externalFilter</code></td><td><code>undefined</code></td><td>Application-owned client-side row predicate applied after built-in filters and quick filter.</td></tr>
             <tr><td><code>enableQuickFilter</code></td><td><code>false</code></td><td>Shows a search box above the grid that matches across all visible columns.</td></tr>
             <tr><td><code>showFormulaBar</code></td><td><code>false</code></td><td>Shows an Excel-style input line for the currently selected cell's raw value.</td></tr>
             <tr><td><code>menuBarItems</code></td><td><code>[]</code></td><td>Optional command buttons above the headers, with dropdown items and runtime visible, active, and disabled states.</td></tr>
             <tr><td><code>sortOption</code></td><td><code>'multi'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
             <tr><td><code>rowSelection</code></td><td><code>'none'</code></td><td>Use <code>'single'</code>, <code>'multi'</code>, or <code>'none'</code>.</td></tr>
+            <tr><td><code>serverSideSelection</code></td><td><code>false</code></td><td>Tracks selection by <code>getRowId</code> across unloaded server-side blocks.</td></tr>
             <tr><td><code>enterEditAction</code></td><td><code>'nextRow'</code></td><td>What Enter does after an inline edit commit: <code>'nothing'</code>, <code>'nextColumn'</code>, or <code>'nextRow'</code>.</td></tr>
+            <tr><td><code>editMode</code></td><td><code>'cell'</code></td><td>Edits one cell at a time or stages edits across a complete row.</td></tr>
+            <tr><td><code>groupDescription</code></td><td><code>null</code></td><td>Returns optional description text for group headings.</td></tr>
+            <tr><td><code>groupActions</code></td><td><code>[]</code></td><td>Actions shown in group heading menus.</td></tr>
+            <tr><td><code>cellMenuItems</code></td><td><code>[]</code></td><td>Additional cell context-menu entries; <code>null</code> adds a separator.</td></tr>
+            <tr><td><code>getCellMenuItems</code></td><td><code>undefined</code></td><td>Resolves context-menu entries for each targeted cell.</td></tr>
             <tr><td><code>zebraStripes</code></td><td><code>false</code></td><td>Alternates data-row backgrounds.</td></tr>
             <tr><td><code>columnVirtualizationThreshold</code></td><td><code>30</code></td><td>Scrollable-column count above which only columns near the viewport render. Set <code>Infinity</code> to disable.</td></tr>
             <tr><td><code>showChangedCellIndicator</code></td><td><code>false</code></td><td>Marks changed cells until persistence clears them.</td></tr>
             <tr><td><code>confirmRowDelete</code></td><td><code>false</code></td><td>Fades the target row and shows a localized in-row Yes/No confirmation.</td></tr>
             <tr><td><code>readonly</code></td><td><code>false</code></td><td>Disables all cell editing.</td></tr>
             <tr><td><code>loading</code></td><td><code>false</code></td><td>Shows the loading overlay.</td></tr>
-            <tr><td><code>gridId</code></td><td><code>Empty</code></td><td>A id string for the grid. If the grid has an id, there will be an menu button to save the column/filter/pivot config for this grid to the browsers localstorage. If the grid is able to load this config on init, it will be automatically restored.</td></tr>
-            <tr><td><code>hideGridStatusBar</code></td><td><code>false</code></td><td>This will hide the grids status bar if set to true.</td></tr>
+            <tr><td><code>emptyText</code></td><td><code>undefined</code></td><td>Overrides the message shown when no rows are available.</td></tr>
+            <tr><td><code>useSidebarEditor</code></td><td><code>false</code></td><td>Restricts editing to the sidebar editor rather than inline cells.</td></tr>
+            <tr><td><code>getRowClass</code></td><td><code>undefined</code></td><td>Returns CSS class names applied to a whole data row.</td></tr>
+            <tr><td><code>pinRow</code></td><td><code>undefined</code></td><td>Designates data rows to pin to the top or bottom of the body.</td></tr>
+            <tr><td><code>masterDetail</code></td><td><code>false</code></td><td>Enables expandable detail panels.</td></tr>
+            <tr><td><code>detailRenderer</code></td><td><code>undefined</code></td><td>Returns sanitized HTML for an expanded detail panel.</td></tr>
+            <tr><td><code>detailColumnField</code></td><td><code>undefined</code></td><td>Links a column to the detail panel's editable text field.</td></tr>
+            <tr><td><code>detailActions</code></td><td><code>[]</code></td><td>Template buttons shown above the detail text field.</td></tr>
+            <tr><td><code>detailRowHeight</code></td><td><code>200</code></td><td>Height in pixels of an expanded detail row.</td></tr>
+            <tr><td><code>enableColumnMarking</code></td><td><code>false</code></td><td>Allows users to mark complete columns.</td></tr>
+            <tr><td><code>gridId</code></td><td><code>undefined</code></td><td>Stable ID used to persist grid settings in browser storage.</td></tr>
+            <tr><td><code>hideGridStatusBar</code></td><td><code>false</code></td><td>Hides the grid's summary status bar.</td></tr>
+            <tr><td><code>enableExportButtons</code></td><td><code>undefined</code></td><td>Enables CSV and XLSX export buttons in the grid menu.</td></tr>
 
             
           </tbody>
@@ -448,6 +493,14 @@
       <p>
         Set <code>enableRowMarking: true</code> to add control-column checkboxes. Keyboard copy,
         Copy cell, and Copy row append marked rows using the same copied columns and omit duplicates.
+      </p>
+      <p>
+        Provider runtime members include <code>datasource</code>, <code>serverSideRowModel</code>,
+        <code>control</code>, reactive <code>columns</code>, <code>theme</code>,
+        <code>themeConfigured</code>, <code>sidebarWidth</code>, <code>visibleRows</code>, and
+        <code>serverQuery</code>. Public provider methods include <code>getGridData()</code>,
+        <code>addLocalization()</code>, <code>setTheme()</code>, <code>saveSettings()</code>,
+        <code>loadSettings()</code>, <code>exportCsv()</code>, and <code>exportXlsx()</code>.
       </p>
       <h3>Marking rows for copy</h3>
       <p>
@@ -465,9 +518,16 @@
 
       <h3>Dynamic options</h3>
       <p>
-        <code>control.loading</code>, <code>control.readonly</code>, and
-        <code>control.autoAddRows</code> are readonly signals. Update them through
-        <code>setLoading()</code>, <code>setReadonly()</code>, and <code>setAutoAddRows()</code>.
+        <code>control.loading</code>, <code>control.readonly</code>, <code>control.autoAddRows</code>,
+        <code>control.rowDensity</code>, <code>control.quickFilter</code>,
+        <code>control.advancedFilter</code>, <code>control.serverSelection</code>,
+        <code>control.totalRows</code>, <code>control.pinnedRightColumns</code>,
+        <code>control.sortOrder</code>, <code>control.aggregates</code>,
+        <code>control.expandedDetailIds</code>, <code>control.rowIndications</code>,
+        <code>control.changedCells</code>, and <code>control.customFooterMessage</code> are signals.
+        Change them through their corresponding control methods such as
+        <code>setLoading()</code>, <code>setReadonly()</code>, <code>setAutoAddRows()</code>,
+        <code>setRowDensity()</code>, and <code>setQuickFilter()</code>.
       </p>
 
       <h3>Localization</h3>
@@ -689,6 +749,31 @@
         <li>Tree mode takes precedence over grouping and disables pagination.</li>
         <li>Call <code>expandAllNodes()</code> / <code>collapseAllNodes()</code> on the component to expand or collapse the whole tree.</li>
       </ul>
+      <h3>Standalone tree component</h3>
+      <p>
+        <code>AgridTreeProvider</code> accepts a datasource and tree config plus selection, row height,
+        accessibility labels, row label/image/class resolvers, context-menu items, and optional
+        server loaders. Its server-tree methods are <code>loadRoot()</code>,
+        <code>loadChildren(request)</code>, <code>hasServerChildren(row)</code>, and
+        <code>isNodeLoading(id)</code>. It exposes <code>rootLoading</code>, <code>loadError</code>,
+        <code>loadingNodeIds</code>, and <code>loadedNodeIds</code> as runtime signals.
+      </p>
+      <p>
+        <code>AgridTreeComponent</code> takes <code>provider</code> and optional
+        <code>localeText</code> inputs, and exposes <code>expandAllNodes()</code>,
+        <code>collapseAllNodes()</code>, and <code>getTreeController()</code>.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Output</th><th>Payload</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>nodeClick</code></td><td><code>AgridTreeNodeEvent&lt;T&gt;</code></td><td>A node is clicked.</td></tr>
+            <tr><td><code>nodeDoubleClicked</code></td><td><code>AgridTreeNodeEvent&lt;T&gt;</code></td><td>A node is double-clicked.</td></tr>
+            <tr><td><code>nodeMenuAction</code></td><td><code>AgridTreeNodeMenuAction&lt;T&gt;</code></td><td>A context-menu action is selected.</td></tr>
+            <tr><td><code>selectionChange</code></td><td><code>AgridTreeSelectionEvent&lt;T&gt;</code></td><td>Node selection changes.</td></tr>
+          </tbody>
+        </table>
+      </div>
       <div class="callout">
         Tree mode keeps the data source flat, so the same indices drive cell editing and row
         selection. Use the <code>parentId</code> shape rather than nesting child arrays.
@@ -745,6 +830,23 @@
           </tbody>
         </table>
       </div>
+      <h3>Complete member index</h3>
+      <p>Signals expose current control state as readonly values. Use the methods alongside them to change that state.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Group</th><th>Signals and methods</th></tr></thead>
+          <tbody>
+            <tr><td>Runtime and row state</td><td><code>loading</code>, <code>readonly</code>, <code>autoAddRows</code>, <code>rowIndications</code>, <code>changedCells</code>, <code>customFooterMessage</code>, <code>setLoading</code>, <code>indicate</code>, <code>markChangedCell</code>, <code>clearChangedCells</code>, <code>isCellChanged</code>, <code>reconcileChangedCellsAfterRemoval</code>, <code>setReadonly</code>, <code>setAutoAddRows</code>, <code>setCustomFooterMessage</code></td></tr>
+            <tr><td>Density and grouping</td><td><code>rowDensity</code>, <code>groupByField</code>, <code>groupExpansionCommand</code>, <code>setRowDensity</code>, <code>setGroupBy</code>, <code>expandAllGroups</code>, <code>collapseAllGroups</code></td></tr>
+            <tr><td>Details</td><td><code>expandedDetailIds</code>, <code>toggleDetail</code>, <code>isDetailExpanded</code>, <code>setExpandedDetailIndices</code></td></tr>
+            <tr><td>Columns</td><td><code>allowRowReorder</code>, <code>hiddenColumns</code>, <code>columnOrder</code>, <code>pinnedColumns</code>, <code>pinnedRightColumns</code>, <code>columnWidths</code>, <code>setAllowRowReorder</code>, <code>isColumnHidden</code>, <code>setColumnVisibility</code>, <code>toggleColumnVisibility</code>, <code>setColumnOrder</code>, <code>moveColumn</code>, <code>moveColumns</code>, <code>isPinned</code>, <code>setPinned</code>, <code>togglePinned</code>, <code>isPinnedRight</code>, <code>setPinnedRight</code>, <code>togglePinnedRight</code>, <code>getColumnWidth</code>, <code>setColumnWidth</code></td></tr>
+            <tr><td>Filters and sorting</td><td><code>filters</code>, <code>quickFilter</code>, <code>advancedFilter</code>, <code>sortOrder</code>, <code>filterReapplyNeeded</code>, <code>getFilter</code>, <code>setFilter</code>, <code>getFilterModel</code>, <code>setFilterModel</code>, <code>setTextFilter</code>, <code>setSelectedValues</code>, <code>setRangeFilter</code>, <code>setQuickFilter</code>, <code>setAdvancedFilter</code>, <code>addAdvancedFilterCondition</code>, <code>addFilterCondition</code>, <code>setFilterCondition</code>, <code>removeFilterCondition</code>, <code>getFilterConditions</code>, <code>setSort</code>, <code>addSort</code>, <code>getSortPriority</code>, <code>reapplyFilters</code>, <code>clearFilter</code>, <code>clearAllFilters</code>, <code>hasActiveFilter</code>, <code>hasAnyActiveFilter</code></td></tr>
+            <tr><td>Pagination and aggregates</td><td><code>pageSize</code>, <code>currentPage</code>, <code>totalRows</code>, <code>aggregates</code>, <code>setPageSize</code>, <code>setPage</code>, <code>setTotalRows</code>, <code>setAggregate</code></td></tr>
+            <tr><td>Server selection</td><td><code>serverSelection</code>, <code>setServerRowSelected</code>, <code>selectAllServerRows</code>, <code>clearServerSelection</code>, <code>isServerRowSelected</code></td></tr>
+            <tr><td>History and persistence</td><td><code>canUndo</code>, <code>canRedo</code>, <code>pushEdit</code>, <code>pushEditBatch</code>, <code>undo</code>, <code>redo</code>, <code>clearHistory</code>, <code>loadState</code>, <code>toJSON</code>, <code>AgridControl.fromJSON</code></td></tr>
+          </tbody>
+        </table>
+      </div>
       <pre><code>{{ persistenceCode }}</code></pre>
     </section>
 
@@ -771,8 +873,19 @@
             <tr><td><code>filterChange</code></td><td><code>FilterChangeEvent</code></td><td>Server-side header text or menu condition request. Conditions carry <code>operator</code> and operands.</td></tr>
             <tr><td><code>sortChange</code></td><td><code>SortChangeEvent</code></td><td>Server-side sort request.</td></tr>
             <tr><td><code>quickFilterChange</code></td><td><code>string</code></td><td>Debounced quick-filter text in server-side mode.</td></tr>
-            <tr><td><code>validationFailed</code></td><td><code>ValidationFailedEvent&lt;T&gt;</code></td><td>A <code>validate</code> hook rejected a committed value (inline or sidebar).</td></tr>
+            <tr><td><code>validationFailed</code></td><td><code>ValidationFailedEvent</code></td><td>A <code>validate</code> hook rejected a committed value (inline or sidebar).</td></tr>
             <tr><td><code>settingsChange</code></td><td><code>AgridSettings</code></td><td>Complete persistable snapshot after Pivot-sidebar or sidebar visibility changes.</td></tr>
+            <tr><td><code>serverSelectionChange</code></td><td><code>AgridServerSelectionState</code></td><td>Server-side row ID selection changes.</td></tr>
+            <tr><td><code>rowMark</code></td><td><code>RowMarkEvent&lt;T&gt;</code></td><td>A row is marked or unmarked for copy operations.</td></tr>
+            <tr><td><code>columnMark</code></td><td><code>ColumnMarkEvent&lt;T&gt;</code></td><td>A complete column is marked or unmarked.</td></tr>
+            <tr><td><code>columnHeaderAction</code></td><td><code>ColumnHeaderActionEvent&lt;T&gt;</code></td><td>A custom column-header menu command is selected.</td></tr>
+            <tr><td><code>firstDataRendered</code></td><td><code>FirstDataRenderedEvent&lt;T&gt;</code></td><td>The first render containing datasource rows completes.</td></tr>
+            <tr><td><code>rowClick</code></td><td><code>RowClickEvent&lt;T&gt;</code></td><td>A data row is clicked.</td></tr>
+            <tr><td><code>rowDoubleClicked</code></td><td><code>RowClickEvent&lt;T&gt;</code></td><td>A data row is double-clicked.</td></tr>
+            <tr><td><code>pageChange</code></td><td><code>PageChangeEvent</code></td><td>The requested server-side page changes.</td></tr>
+            <tr><td><code>serverQueryChange</code></td><td><code>AgridServerQuery</code></td><td>The server-side filter, sort, and page query changes.</td></tr>
+            <tr><td><code>detailAction</code></td><td><code>RowDetailActionEvent&lt;T&gt;</code></td><td>A detail action without a text template is selected.</td></tr>
+            <tr><td><code>customFooterMessageClick</code></td><td><code>void</code></td><td>The custom footer message is clicked.</td></tr>
           </tbody>
         </table>
       </div>

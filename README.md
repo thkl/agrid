@@ -385,6 +385,7 @@ readonly gridProvider = new AgridProvider({
 | `rowSelection` | `'single' \| 'multi' \| 'none'` | `'none'` | Row selection behavior. |
 | `serverSideSelection` | `boolean` | `false` | Track selected rows by `getRowId` across unloaded server-side blocks. |
 | `enterEditAction` | `'nothing' \| 'nextColumn' \| 'nextRow'` | `'nextRow'` | Behavior after pressing Enter while editing a cell. |
+| `editMode` | `'cell' \| 'row'` | `'cell'` | Edit one cell at a time or stage edits across a row and save them together. |
 | `groupDescription` | `((label: string) => string) \| null` | `null` | Optional description text shown next to each group label. |
 | `groupActions` | `GroupAction[]` | `[]` | Actions shown in each group header menu. |
 | `cellMenuItems` | `(CellContextMenuItem \| null)[]` | `[]` | Additional items in the cell right-click context menu. `null` inserts a divider. |
@@ -396,6 +397,7 @@ readonly gridProvider = new AgridProvider({
 | `emptyText` | `string` | `undefined` | Text shown when the grid has no rows. Falls back to the locale default. |
 | `readonly` | `boolean` | `false` | Initial value for the readonly signal. Makes all cells non-editable. |
 | `loading` | `boolean` | `false` | Initial value for `control.loading`. Shows a loading overlay over the grid body. |
+| `useSidebarEditor` | `boolean` | `false` | Restricts editing to the sidebar editor instead of inline cells. |
 | `getRowClass` | `(p: { row; index }) => string` | `undefined` | Returns CSS class names applied to a whole data row. Complements `ColDef.cellClass`. |
 | `pinRow` | `(row, index) => 'top' \| 'bottom' \| undefined` | `undefined` | Pins matching rows to the top/bottom of the body (see [Master/Detail and Pinned Rows](#masterdetail-and-pinned-rows)). |
 | `treeConfig` | `AgridTreeConfig<T> \| null` | `null` | Builds a tree from id/parent-id accessors or `getPath` segments. Supports descendant rollups through `aggregateTreeNodes`. Path labels and branch UUIDs can be customized with `formatPathSegment` and `nodeUuid`. |
@@ -405,6 +407,35 @@ readonly gridProvider = new AgridProvider({
 | `detailColumnField` | column field | `undefined` | Shows one linked column as a multiline editable field in the detail panel. |
 | `detailActions` | `{ id; label; text? }[]` | `[]` | Adds template buttons above the linked detail textarea. `text` may be a string or `(p: { row; rowIndex }) => string`. |
 | `detailRowHeight` | `number` | `200` | Fixed height in pixels of an expanded detail panel. |
+| `gridId` | `string` | `undefined` | Stable ID used to persist grid settings in browser storage. |
+| `hideGridStatusBar` | `boolean` | `false` | Hides the grid's summary status bar. |
+| `enableExportButtons` | `boolean` | `undefined` | Enables CSV and XLSX export buttons in the grid menu. |
+
+### Provider Instance API
+
+`AgridProvider` also exposes these runtime values and methods in addition to its configuration
+options. `columns`, `theme`, `themeConfigured`, `sidebarWidth`, `visibleRows`, and `serverQuery`
+are reactive signals; `pivotConfig` can be read or assigned directly.
+
+| Member | Type / signature | Description |
+| --- | --- | --- |
+| `datasource` | `AgridDataSource<T>` | Current row datasource. |
+| `serverSideRowModel` | `AgridServerSideRowModel<T> \| null` | Configured lazy server-side model, if any. |
+| `control` | `AgridControl` | Grid state and behavior controller. |
+| `columns` | `WritableSignal<ColDef<T>[]>` | Reactive column definitions. |
+| `getRowId` | `AgridRowIdGetter<T> \| undefined` | Stable row ID resolver used to preserve selection and row-attached state. |
+| `pivotConfig` | `AgridPivotConfig<T> \| null` | Read or replace the client-side pivot configuration. |
+| `headerGroups`, `treeConfig`, `options` | `HeaderGroup[]`, `AgridTreeConfig<T> \| null`, `AGridOptions` | Header labels, tree setup, and shared options such as locale. |
+| `rowHeight`, `autoRowHeight`, `rowDensityHeights` | `number`, `boolean`, `Record<...>` | Fixed/custom row height, auto-height mode, and preset heights. |
+| `theme`, `themeConfigured`, `sidebarWidth` | `WritableSignal<AgridTheme>`, `WritableSignal<boolean>`, `WritableSignal<number>` | Current theme, whether it was explicitly configured, and current sidebar width. |
+| `visibleRows` | `Signal<readonly T[]>` | Current filtered/sorted rows, falling back to datasource rows without a rendered grid. |
+| `serverQuery` | `Signal<AgridServerQuery \| null>` | Current server-side query snapshot, or `null` outside server-side mode. |
+| `localizations` | `ReadonlyMap<string, AgridLocaleTextOverrides>` | Registered locale overrides. |
+| `getGridData()` | `T[]` | Returns the current datasource rows. |
+| `addLocalization(locale, overrides)` | `this` | Registers locale-specific label overrides; chainable. |
+| `setTheme(theme)` | `void` | Switches the built-in theme at runtime. |
+| `saveSettings()` / `loadSettings(settings)` | `AgridSettings` / `void` | Saves or applies persisted control and pivot settings. |
+| `exportCsv(filename?)` / `exportXlsx(filename?, options?)` | `void` | Downloads the current visible grid projection as CSV or XLSX. |
 
 ### Tree grids and descendant rollups
 
@@ -495,6 +526,26 @@ readonly treeProvider = new AgridTreeProvider<Node>({
   },
 });
 ```
+
+`AgridTreeProvider` accepts `datasource`, `treeConfig`, `selection` (`'none' | 'single' | 'multi'`),
+`rowHeight`, `ariaLabel`, `emptyText`, `getLabel`, `getDescription`, `getImageUrl`, `getImageAlt`,
+`getNodeClass`, `contextMenuItems`, and optional `serverTree`. Its runtime members are `datasource`,
+`treeConfig`, those resolver/configuration values, `serverBacked`, `rootLoading`, `loadError`,
+`loadingNodeIds`, and `loadedNodeIds`.
+
+The standalone tree outputs are:
+
+| Event | Payload | When it fires |
+| --- | --- | --- |
+| `nodeClick` | `AgridTreeNodeEvent<T>` | A tree node is clicked. |
+| `nodeDoubleClicked` | `AgridTreeNodeEvent<T>` | A tree node is double-clicked. |
+| `nodeMenuAction` | `AgridTreeNodeMenuAction<T>` | A context-menu action is selected. |
+| `selectionChange` | `AgridTreeSelectionEvent<T>` | Node selection changes. |
+
+The provider methods `loadRoot()`, `loadChildren(request)`, `hasServerChildren(row)`, and
+`isNodeLoading(id)` support server-backed trees. `AgridTreeComponent` exposes
+`expandAllNodes()`, `collapseAllNodes()`, and `getTreeController()` for host code. Its inputs are
+`provider` and `localeText`.
 
 ### Client-side pivot
 
@@ -654,13 +705,26 @@ const provider = new AgridProvider({
 
 ### Dynamic Provider Options
 
-Three options are `WritableSignal` properties on the provider instance — update them at runtime without recreating the provider:
+Runtime state is held by `provider.control` as Angular signals, so update it without recreating the provider:
 
 | Signal | Type | Description |
 | --- | --- | --- |
 | `control.loading` | `Signal<boolean>` | Whether the loading overlay is visible. Change with `setLoading()`. |
 | `control.readonly` | `Signal<boolean>` | Whether readonly mode is active. Change with `setReadonly()`. |
 | `control.autoAddRows` | `Signal<boolean>` | Whether automatic row insertion is active. Change with `setAutoAddRows()`. |
+| `control.rowDensity` | `Signal<AgridRowDensity>` | Active row-height preset. Change with `setRowDensity()`. |
+| `control.groupExpansionCommand` | `Signal<AgridGroupExpansionCommand>` | Latest expand/collapse-all command and its revision. |
+| `control.quickFilter` | `Signal<string>` | Current global quick-filter text. Change with `setQuickFilter()`. |
+| `control.advancedFilter` | `Signal<AdvancedFilterGroup \| null>` | Current nested AND/OR filter expression. Change with `setAdvancedFilter()`. |
+| `control.serverSelection` | `Signal<AgridServerSelectionState>` | Select-all and explicit selected/deselected row IDs for server-side selection. |
+| `control.totalRows` | `Signal<number>` | Total server-side row count, used with pagination. |
+| `control.pinnedRightColumns` | `Signal<Set<string>>` | Fields pinned to the right side of the grid. |
+| `control.sortOrder` | `Signal<string[]>` | Active sort fields in priority order. |
+| `control.aggregates` | `Signal<Record<string, 'sum' \| 'avg' \| 'min' \| 'max' \| 'count'>>` | Aggregate function configured for each field. |
+| `control.expandedDetailIds` | `Signal<Set<number>>` | Original datasource row indices with expanded detail panels. |
+| `control.rowIndications` | `Signal<ReadonlyMap<number, AgridRowIndication>>` | Active transient row flash indicators. |
+| `control.changedCells` | `Signal<ReadonlySet<string>>` | Cells marked changed for persistence feedback. |
+| `control.customFooterMessage` | `Signal<string \| null>` | Optional custom status-bar message. |
 | `control.clearChangedCells(rowIndex?, fields?)` | method | Clears every changed-cell marker, one row, or selected fields in one row. |
 | `control.indicate(rowIndex, color, durationMs?)` | method | Flashes one original datasource row with a CSS color, then fades back over `durationMs` (default `1000`). |
 
@@ -732,6 +796,7 @@ Both use display values (value-list labels, formatters) and respect column visib
 
 | Property | Type | Description |
 | --- | --- | --- |
+| `provider` | `InputSignal<AgridProvider<T>>` | Provider bound to this grid. Set it with `[provider]`. |
 | `selectedCell` | `Signal<CellPosition \| null>` | Currently focused cell. |
 | `editingCell` | `Signal<CellPosition \| null>` | Cell currently in edit mode. |
 | `selectedRowIndices` | `Signal<ReadonlySet<number>>` | Selected original row indices. |
@@ -747,6 +812,24 @@ Both use display values (value-list labels, formatters) and respect column visib
 | `filteredRowCount` | `Signal<number>` | Total filtered data row count, unaffected by current page. |
 | `totalPages` | `Signal<number>` | Total page count given the current filter and page size. `1` when pagination is off. |
 | `showPagination` | `Signal<boolean>` | Whether the pagination bar is visible (`pageSize > 0`). |
+
+### Additional Public Component Methods
+
+The component also exposes these methods for host code. Call them through `viewChild(AgridComponent)`.
+
+| Method | Description |
+| --- | --- |
+| `saveSettings()` / `getState()` | Returns a detached JSON-safe settings and view-state snapshot. |
+| `loadSettings(settings)` / `setState(settings)` | Applies a saved settings and view-state snapshot. |
+| `getSelectedRangeChartData()` | Builds chart data from the active rectangular cell selection, or returns `null`. |
+| `insertRowAt(index)` | Inserts a blank row at the given datasource index. |
+| `selectAllServerRows()` / `clearServerSelection()` | Selects all server-side rows or clears server-side selection. |
+| `getServerSelection()` | Returns the current server-side selection state. |
+| `refreshServerSideRows(options?)` | Refreshes the server-side row model; supports `purge` and `resetScroll`. |
+| `expandAllNodes()` / `collapseAllNodes()` | Expands or collapses all nodes in tree mode. |
+| `toggleDetail(originalIndex)` / `isDetailExpanded(originalIndex)` | Toggles or checks a master/detail row using its original datasource index. |
+| `rowPinState(originalIndex)` / `pinRowTo(originalIndex, position)` | Reads or overrides a row's top/bottom pin state; pass `null` to unpin. |
+| `isRowMarked(originalIndex)` | Returns whether a row is marked for copy operations. |
 
 ## Column Definitions
 
@@ -1695,13 +1778,21 @@ const control = new AgridControl({
 interface AgridControlState {
   columnWidths: Record<string, number>;
   filters: Record<string, ColumnFilter>;
+  quickFilter?: string;
   allowRowReorder?: boolean;
   groupByField?: string | null;
   hiddenColumns?: string[];
   columnOrder?: string[];
   pinnedColumns?: string[];
+  pinnedRightColumns?: string[];
+  sortOrder?: string[];
   pageSize?: number;
   currentPage?: number;
+  totalRows?: number;
+  aggregates?: Record<string, 'sum' | 'avg' | 'min' | 'max' | 'count'>;
+  rowDensity?: AgridRowDensity;
+  advancedFilter?: AdvancedFilterGroup | null;
+  serverSelection?: AgridServerSelectionState;
 }
 ```
 
@@ -1789,7 +1880,71 @@ one column use AND semantics. Use `control.addFilterCondition()`, `setFilterCond
 | `toJSON()` | Serializes control state including pagination. |
 | `AgridControl.fromJSON(state)` | Restores control state. |
 
+The remaining public control methods and signals are listed here for quick lookup; see the feature
+sections above for usage examples.
+
+| Member | Description |
+| --- | --- |
+| `rowIndications`, `indicate(rowIndex, color, durationMs?)` | Read active row flashes or flash one row temporarily. |
+| `changedCells`, `markChangedCell(rowIndex, field)`, `isCellChanged(rowIndex, field)` | Read, mark, or check changed-cell indicators. |
+| `reconcileChangedCellsAfterRemoval(index)` | Shifts or removes changed-cell markers after a datasource row is removed. |
+| `customFooterMessage`, `setCustomFooterMessage(message)` | Read or set an optional custom status-bar message. |
+| `rowDensity`, `setRowDensity(density)` | Read or set the active row-height preset. |
+| `expandAllGroups()` / `collapseAllGroups()` | Expand or collapse all groups. |
+| `expandedDetailIds`, `toggleDetail(index)`, `isDetailExpanded(index)`, `setExpandedDetailIndices(indices)` | Read, toggle, or restore expanded detail rows. |
+| `quickFilter`, `setQuickFilter(text)` | Read or set global quick-filter text. |
+| `moveColumns(currentVisibleOrder, fromFields, toField, insertBefore)` | Move a contiguous set of columns as one block. |
+| `pinnedRightColumns`, `isPinnedRight(field)`, `setPinnedRight(field, pinned)`, `togglePinnedRight(field)` | Read and change right-pinned columns. |
+| `setTotalRows(count)`, `totalRows` | Set or read the total row count used by server-side pagination. |
+| `aggregates`, `setAggregate(field, fn)` | Read or set a column's aggregate function. |
+| `setFilter(field, filter)` | Replace one column's complete filter state. |
+| `advancedFilter`, `setAdvancedFilter(filter)`, `addAdvancedFilterCondition(condition)` | Read or set nested advanced-filter expressions. |
+| `serverSelection`, `setServerRowSelected(id, selected)`, `selectAllServerRows()`, `clearServerSelection()`, `isServerRowSelected(id)` | Read and change server-side selection by stable row ID. |
+| `setRangeFilter(field, minimum, maximum)` | Sets a numeric or date range condition for one field. |
+| `addFilterCondition(field, condition?)`, `setFilterCondition(field, index, condition)`, `removeFilterCondition(field, index)`, `getFilterConditions(field)` | Manage a column's condition-filter stack. |
+| `sortOrder`, `getSortPriority(field)`, `addSort(field, direction)` | Read sort priority or add a sort while preserving other sort fields. |
+| `loadState(state)` | Replaces serializable control state; missing values reset to defaults. |
+
 ## Events And Types
+
+### Component Events
+
+`AgridComponent` exposes the following Angular outputs. Event payload types link to the API types
+exported by `@thkl/agrid`; the detailed payload shapes are documented below where noted.
+
+| Event | Payload | When it fires |
+| --- | --- | --- |
+| `cellEdit` | `GridEditEvent<T>` | A cell edit is committed. |
+| `recordEdit` | `RecordEditEvent<T>` | A cell mutation changes a record. |
+| `rowChanged` | `RowUpdateEvent<T>` | A changed row is left or sidebar editing is saved. |
+| `rowRemoved` | `RecordEditEvent<T>` | A row is removed. |
+| `prepareAddRecord` | `NewRecord<T>` | The grid inserts a blank row for host defaults. |
+| `rowReorder` | `RowReorderEvent<T>` | A row drag finishes; the host applies the move to the datasource. |
+| `rowSelect` | `RowSelectEvent<T> \| null` | Row selection changes or is cleared. |
+| `serverSelectionChange` | `AgridServerSelectionState` | Server-side ID selection changes. |
+| `rowMark` | `RowMarkEvent<T>` | A row is marked or unmarked for copy operations. |
+| `columnMark` | `ColumnMarkEvent<T>` | A complete column is marked or unmarked. |
+| `columnHeaderAction` | `ColumnHeaderActionEvent<T>` | A custom column-header action is chosen. |
+| `firstDataRendered` | `FirstDataRenderedEvent<T>` | The first non-empty datasource render completes. |
+| `rowClick` | `RowClickEvent<T>` | A data row is clicked. |
+| `rowDoubleClicked` | `RowClickEvent<T>` | A data row is double-clicked. |
+| `treeNodeClick` | `TreeNodeClickEvent` | A generated path-tree branch is clicked. |
+| `treeNodeDoubleClicked` | `TreeNodeClickEvent` | A generated path-tree branch is double-clicked. |
+| `settingsChange` | `AgridSettings` | Sidebar changes produce a new persistable settings snapshot. |
+| `pageChange` | `PageChangeEvent` | The requested server-side page changes. |
+| `filterChange` | `FilterChangeEvent` | A header filter changes in server-side filtering mode. |
+| `sortChange` | `SortChangeEvent` | A column sort changes in server-side filtering mode. |
+| `serverQueryChange` | `AgridServerQuery` | The complete server-side filter/sort/page query changes. |
+| `quickFilterChange` | `string` | Debounced quick-filter text changes in server-side mode. |
+| `validationFailed` | `ValidationFailedEvent` | A column validation hook rejects a value. |
+| `cellInfo` | `CellInfoEvent<T>` | A cell's information button is clicked. |
+| `cellSelect` | `CellSelectEvent<T> \| null` | Active cell selection changes or is cleared. |
+| `menuBarAction` | `string` | A configured menu-bar command is chosen; payload is its ID. |
+| `detailAction` | `RowDetailActionEvent<T>` | A detail-panel action without a text template is chosen. |
+| `customFooterMessageClick` | `void` | The custom footer message is clicked. |
+
+The payload interfaces above are exported from the package entry point. This inventory is the
+complete component output list; the following sections describe commonly used payload shapes.
 
 ### FirstDataRenderedEvent
 

@@ -285,6 +285,65 @@ describe('AgridComponent grouped control column selection', () => {
     expect(edits.at(-1)).toMatchObject({ field: 'score', oldValue: 1, newValue: 42 });
   });
 
+  it('commits a select editor before pointer navigation activates another cell', () => {
+    provider = new AgridProvider({
+      columns: [
+        { field: 'kind', header: 'Kind', values: ['table', 'view'] },
+        { field: 'name', header: 'Name' },
+      ],
+      datasource: new AgridDataSource([{ kind: 'table', name: 'users' }]),
+      control: new AgridControl(),
+    });
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+
+    const edits: GridEditEvent[] = [];
+    component.cellEdit.subscribe(event => edits.push(event));
+    component.onStartEdit(0, 0);
+    component.onDraftChange('view');
+
+    component.onCellPointerDown(new PointerEvent('pointerdown', { button: 0 }), 0, 1);
+    component.onActivate(0, 1, new MouseEvent('click'));
+    fixture.detectChanges();
+
+    expect(provider.datasource.getRow(0)['kind']).toBe('view');
+    expect(edits).toHaveLength(1);
+    expect(edits[0]).toMatchObject({ field: 'kind', oldValue: 'table', newValue: 'view' });
+  });
+
+  it('commits a rendered select when the next cell is clicked', () => {
+    provider = new AgridProvider({
+      columns: [
+        { field: 'kind', header: 'Kind', values: ['table', 'view'] },
+        { field: 'name', header: 'Name' },
+      ],
+      datasource: new AgridDataSource([{ kind: 'table', name: 'users' }]),
+      control: new AgridControl(),
+    });
+    fixture.componentRef.setInput('provider', provider);
+    fixture.detectChanges();
+
+    const edits: GridEditEvent[] = [];
+    component.cellEdit.subscribe(event => edits.push(event));
+    const kindCell = fixture.nativeElement.querySelector('[data-cell-row="0"][data-cell-col="0"]') as HTMLElement;
+    kindCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    const select = kindCell.querySelector('select') as HTMLSelectElement;
+    select.value = '1';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    fixture.detectChanges();
+
+    const nameCell = fixture.nativeElement.querySelector('[data-cell-row="0"][data-cell-col="1"]') as HTMLElement;
+    nameCell.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    nameCell.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(provider.datasource.getRow(0)['kind']).toBe('view');
+    expect(edits).toHaveLength(1);
+    expect(edits[0]).toMatchObject({ field: 'kind', oldValue: 'table', newValue: 'view' });
+  });
+
   it('keeps formula bar typing out of grid keyboard navigation', () => {
     provider = new AgridProvider({
       columns: [{ field: 'name', header: 'Name' }],

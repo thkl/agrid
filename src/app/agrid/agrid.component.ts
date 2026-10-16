@@ -3232,6 +3232,12 @@ export class AgridComponent<T extends object = any> implements OnChanges {
 
   /** @internal Starts a fill-handle drag from the bottom-right corner of the selection. */
   onCellPointerDown(event: PointerEvent, originalIndex: number, colIndex: number): void {
+    const editing = this.editingCell();
+    if (
+      editing
+      && (editing.rowIndex !== originalIndex || editing.colIndex !== colIndex)
+      && !this.editController.commit()
+    ) return;
     if (this.rangeController.startFill(event, originalIndex, colIndex)) return;
     if (this.rowSelection() === 'single') return;
     this.rangeController.startSelection(event, originalIndex, colIndex);
